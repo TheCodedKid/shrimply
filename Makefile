@@ -13,6 +13,7 @@ DNF ?= sudo dnf
 INSTALL ?= install
 PKG_CONFIG ?= /usr/bin/pkg-config
 PKG_CONFIG_PATH ?= /usr/lib64/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig
+QT_QMAKE ?= qmake6
 BUILD_ENV := CUDA_HOME=$(CUDA_HOME) CUDA_TOOLKIT_PATH=$(CUDA_TOOLKIT_PATH) PATH=$(CUDA_HOME)/bin:$(PATH) PKG_CONFIG=$(PKG_CONFIG) PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) SLANG_SOURCE_DIR=$(SLANG_SOURCE_DIR) SLANG_BUILD_DIR=$(SLANG_BUILD_DIR) OPTIX_ROOT=$(OPTIX_ROOT)
 RUST_LIBDIR := $(shell $(RUSTUP) run $(RUST_TOOLCHAIN) rustc --print target-libdir)
 DEV_RUSTFLAGS ?= -C prefer-dynamic -C link-arg=-fuse-ld=lld -C link-arg=-Wl,-rpath,$(RUST_LIBDIR)
@@ -47,13 +48,16 @@ BIN_NAME := shrimply
 EDITOR_BIN_NAME := shrimply-editor
 EDITOR_PACKAGE := shrimply-editor-ui
 LAUNCHER_PACKAGE := shrimply-launcher-ui
+QT_LAUNCHER_PACKAGE := shrimply-launcher-qt-ui
+QT_BIN_NAME := shrimply-qt
 MCP_PACKAGE := shrimply-mcp
 MCP_BIN_NAME := shrimply-mcp
 MCP_SERVER_NAME ?= shrimply
 CODEX ?= codex
 AGY ?= agy
-RUST_LOG ?= info,shrimply=debug,shrimply_editor=debug,shrimply_launcher=debug,shrimply_timeline_ui=debug
+RUST_LOG ?= info,shrimply=debug,shrimply_editor=debug,shrimply_launcher=debug,shrimply_launcher_qt_ui=debug,shrimply_timeline_ui=debug
 DEV_LOG ?= target/$(BIN_NAME)-dev.log
+QT_DEV_LOG ?= target/$(QT_BIN_NAME)-dev.log
 CRASH_CORE ?= target/$(EDITOR_BIN_NAME).core
 CRASH_STACK ?= target/$(EDITOR_BIN_NAME).stack
 CRASH_PROFILE ?= debug
@@ -93,12 +97,17 @@ FEDORA_PACKAGES := \
 	poppler-glib-devel \
 	freetype-devel
 
-.PHONY: native-deps cuda-target-check cuda-artifacts dev dev-server docs docs-check run build release check server-python-check manim manim-python-check manim-parameter-check cargo-check fmt fmt-check lint test frame-rate-test video-lifecycle-test transparent-fill-frame-range-test transparent-fill-cache-test transparent-fill-decoder-test transparent-fill-kernel-test transparent-fill-compositor-test transparent-fill-playback-test transparent-fill-e2e-fixture transparent-fill-e2e-test decode-ahead-benchmark paint-interpolation-test crash-report oxide-doctor oxide-setup clean-dev clean deps-fedora install install-codex-mcp-dev install-agy-mcp-dev uninstall
+.PHONY: native-deps qt-native-deps cuda-target-check cuda-artifacts dev qt-build dev-qt dev-server docs docs-check run build release check server-python-check manim manim-python-check manim-parameter-check cargo-check fmt fmt-check lint test frame-rate-test video-lifecycle-test transparent-fill-frame-range-test transparent-fill-cache-test transparent-fill-decoder-test transparent-fill-kernel-test transparent-fill-compositor-test transparent-fill-playback-test transparent-fill-e2e-fixture transparent-fill-e2e-test decode-ahead-benchmark paint-interpolation-test crash-report oxide-doctor oxide-setup clean-dev clean deps-fedora install install-codex-mcp-dev install-agy-mcp-dev uninstall
 
 native-deps:
 	@$(PKG_CONFIG) --exists rubberband || { echo "Missing Rubber Band development files (pkg-config: rubberband)" >&2; exit 1; }
 	@$(PKG_CONFIG) --exists libpipewire-0.3 || { echo "Missing PipeWire development files (pkg-config: libpipewire-0.3)" >&2; exit 1; }
 	@$(PKG_CONFIG) --exists poppler-glib || { echo "Missing Poppler GLib development files (pkg-config: poppler-glib)" >&2; exit 1; }
+
+qt-native-deps:
+	@command -v $(QT_QMAKE) >/dev/null 2>&1 || { echo "Missing Qt 6 qmake ($(QT_QMAKE))" >&2; exit 1; }
+	@version="$$($(QT_QMAKE) -query QT_VERSION)"; case "$$version" in 6.*) echo "Using Qt $$version via $(QT_QMAKE)" ;; *) echo "$(QT_QMAKE) selected unsupported Qt $$version; Qt 6 is required" >&2; exit 1 ;; esac
+	@$(PKG_CONFIG) --exists Qt6Core Qt6Gui Qt6Qml Qt6Quick Qt6QuickControls2 || { echo "Missing Qt 6 Quick development files" >&2; exit 1; }
 
 cuda-target-check:
 	@test "$(CUDA_OXIDE_TARGET)" = sm_86 || { echo "CUDA_OXIDE_TARGET=$(CUDA_OXIDE_TARGET) is unsupported: host binaries embed sm_86 CUDA artifacts" >&2; exit 1; }
@@ -185,6 +194,21 @@ dev: native-deps cuda-artifacts
 	if [[ $$status -ne 0 ]]; then \
 		$(MAKE) crash-report CRASH_SINCE="$$started" CRASH_PROFILE=debug || true; \
 		echo "Debug trace: $(DEV_LOG)"; \
+	fi; \
+	exit $$status
+
+qt-build: native-deps qt-native-deps cuda-artifacts
+	$(DEV_BUILD_ENV) QMAKE=$(QT_QMAKE) CARGO_TERM_COLOR=always $(CARGO) build -p $(EDITOR_PACKAGE) -p $(QT_LAUNCHER_PACKAGE) -p $(MCP_PACKAGE) --bins
+
+dev-qt: SHELL := /bin/bash
+dev-qt: qt-build
+	@started="$$(date --iso-8601=seconds)"; \
+	$(BUILD_ENV) RUST_LOG=$(RUST_LOG) target/debug/$(QT_BIN_NAME) 2>&1 \
+		| tee >(sed -E 's/\x1B\[[0-9;]*[[:alpha:]]//g' > "$(QT_DEV_LOG)"); \
+	status=$${PIPESTATUS[0]}; \
+	if [[ $$status -ne 0 ]]; then \
+		$(MAKE) crash-report CRASH_SINCE="$$started" CRASH_PROFILE=debug || true; \
+		echo "Debug trace: $(QT_DEV_LOG)"; \
 	fi; \
 	exit $$status
 

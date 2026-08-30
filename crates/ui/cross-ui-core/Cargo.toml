@@ -1,0 +1,13 @@
+[package]
+name = "shrimply-cross-ui-core"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+gio.workspace = true
+glib.workspace = true
+shrimply-math-core = { path = "../../math/core" }
+shrimply-project = { path = "../../project/project" }
+shrimply-project-core = { path = "../../project/project-core" }
+shrimply-support = { path = "../../support" }
+tracing.workspace = true

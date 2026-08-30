@@ -3,6 +3,7 @@ resolver = "3"
 members = [
     "crates/apps/editor-ui",
     "crates/apps/launcher-ui",
+    "crates/apps/launcher-qt-ui",
     "crates/asset",
     "crates/audio/audio",
     "crates/audio/audio-modifiers",
@@ -64,6 +65,7 @@ members = [
     "crates/timeline/keyframe-graph-ui",
     "crates/timeline/discrete-keyframe-graph-ui",
     "crates/ui/inspector-ui",
+    "crates/ui/cross-ui-core",
     "crates/ui/i18n",
     "crates/ui/skia-adw-ui",
     "crates/ui/ui-foundation",
@@ -101,6 +103,10 @@ cached = { version = "3", default-features = false, features = ["ahash"] }
 cairo = { package = "cairo-rs", version = "0.22" }
 cint = "0.3"
 cpal = "0.18"
+cxx = "1"
+cxx-qt = "0.9.1"
+cxx-qt-build = "0.9.1"
+cxx-qt-lib = "0.9.1"
 cuda-core = { path = "external/cuda-oxide/crates/cuda-core" }
 cuda-device = { path = "external/cuda-oxide/crates/cuda-device" }
 cuda-host = { path = "external/cuda-oxide/crates/cuda-host" }
@@ -114,6 +120,7 @@ good_lp = { version = "1", default-features = false, features = ["highs"] }
 glam = "0.33"
 gltf = { version = "1", features = ["KHR_texture_transform"] }
 glib = "0.22"
+gio = "0.22"
 gdk = { package = "gdk4", version = "0.11", features = ["v4_22"] }
 gdk-pixbuf = "0.22"
 glow = "0.18"

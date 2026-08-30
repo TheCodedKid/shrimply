@@ -1,14 +1,11 @@
 use adw::prelude::*;
 use gtk::{gio, glib};
-use shrimply_project::project;
-use shrimply_support::recent_projects;
 use shrimply_ui_foundation::project_settings::ProjectSettingsSelector;
 use shrimply_ui_foundation::tr;
-use std::path::{Path, PathBuf};
-use std::process::{Child, Command};
+use std::path::Path;
 use std::sync::mpsc;
 use std::thread;
-use std::time::{Duration, UNIX_EPOCH};
+use std::time::Duration;
 
 const DEFAULT_WIDTH: i32 = 760;
 const DEFAULT_HEIGHT: i32 = 560;
@@ -27,11 +24,13 @@ fn main() -> glib::ExitCode {
             );
             return glib::ExitCode::FAILURE;
         }
-        return match launch_editor(Path::new(&path)).and_then(|mut editor| {
-            editor
-                .wait()
-                .map_err(|error| format!("could not wait for editor: {error}"))
-        }) {
+        return match shrimply_cross_ui_core::launcher::launch_editor(Path::new(&path)).and_then(
+            |mut editor| {
+                editor
+                    .wait()
+                    .map_err(|error| format!("could not wait for editor: {error}"))
+            },
+        ) {
             Ok(status) if status.success() => glib::ExitCode::SUCCESS,
             Ok(status) => {
                 eprintln!("editor exited with {status}");
@@ -160,7 +159,7 @@ fn build_ui(app: &adw::Application) {
         let window = window.clone();
         let app = app.clone();
         move |_| {
-            if let Err(error) = recent_projects::clear() {
+            if let Err(error) = shrimply_cross_ui_core::launcher::clear_recent_projects() {
                 show_error(&window, "Could not clear recent projects", &error);
             }
             refresh_recents(&recent_area, &search, &window, &app);
@@ -189,32 +188,18 @@ fn refresh_recents(
         area.remove(&child);
     }
 
-    let projects = match recent_projects::load() {
+    let projects = match shrimply_cross_ui_core::launcher::load_recent_projects(&search.text()) {
         Ok(projects) => projects,
         Err(error) => {
             tracing::warn!("Could not load recent projects: {error}");
             Vec::new()
         }
     };
-    let is_empty = projects.is_empty();
-    let query = search.text().trim().to_lowercase();
-    let projects = projects
-        .into_iter()
-        .filter(|project| {
-            query.is_empty()
-                || project.name.to_lowercase().contains(&query)
-                || project
-                    .path
-                    .to_string_lossy()
-                    .to_lowercase()
-                    .contains(&query)
-        })
-        .collect::<Vec<_>>();
     if projects.is_empty() {
         let empty = adw::StatusPage::builder()
             .icon_name("document-open-recent-symbolic")
             .title(
-                tr!(if is_empty {
+                tr!(if search.text().trim().is_empty() {
                     "No Recent Projects"
                 } else {
                     "No Matching Projects"
@@ -228,7 +213,7 @@ fn refresh_recents(
     }
 
     for recent in projects {
-        let last_edited = last_edited(&recent.path);
+        let last_edited = shrimply_cross_ui_core::launcher::last_edited(&recent.path);
         let last_edited_subtitle = last_edited
             .as_ref()
             .map(|date| {
@@ -303,7 +288,7 @@ fn refresh_recents(
             let popover = popover.clone();
             move |_| {
                 popover.popdown();
-                if let Err(error) = recent_projects::remove(&path) {
+                if let Err(error) = shrimply_cross_ui_core::launcher::remove_recent_project(&path) {
                     show_error(&window, "Could not remove recent project", &error);
                 }
                 refresh_recents(&area, &search, &window, &app);
@@ -313,17 +298,6 @@ fn refresh_recents(
         card.add(&row);
         area.append(&card);
     }
-}
-
-fn last_edited(path: &Path) -> Option<String> {
-    path.metadata()
-        .and_then(|metadata| metadata.modified())
-        .ok()
-        .and_then(|modified| modified.duration_since(UNIX_EPOCH).ok())
-        .and_then(|modified| i64::try_from(modified.as_secs()).ok())
-        .and_then(|seconds| glib::DateTime::from_unix_local(seconds).ok())
-        .and_then(|date| date.format("%x %X").ok())
-        .map(|date| date.to_string())
 }
 
 fn show_project_info(
@@ -446,27 +420,15 @@ fn show_create_project(window: &adw::ApplicationWindow, app: &adw::Application) 
                 show_error(&window, "Could not create project", "Invalid frame rate.");
                 return;
             };
-            let project = project::Project {
-                format_version: project::PROJECT_FORMAT_VERSION,
-                name: project_name.clone(),
-                fps,
-                canvas_size,
-                caption_tracks: vec![project::CaptionTrack::default()],
-                video_tracks: vec![project::VisualTrack::default()],
-                audio_tracks: vec![project::AudioTrack::default()],
-                folded_sequences: Vec::new(),
-                expanded_sequence_paths: Vec::new(),
-                cursor_position: None,
-                timeline_zoom: None,
-                preview_guides: Default::default(),
-            };
             let filter = shrimply_ui_foundation::project_open::project_file_filter();
             let filters = gio::ListStore::new::<gtk::FileFilter>();
             filters.append(&filter);
             let label = "Create Project";
             let save = gtk::FileDialog::builder()
                 .title(tr!(label).as_ref())
-                .initial_name(default_project_filename(&project_name))
+                .initial_name(shrimply_cross_ui_core::launcher::default_project_filename(
+                    &project_name,
+                ))
                 .filters(&filters)
                 .default_filter(&filter)
                 .build();
@@ -481,7 +443,7 @@ fn show_create_project(window: &adw::ApplicationWindow, app: &adw::Application) 
                     let Ok(file) = result else {
                         return;
                     };
-                    let Some(mut path) = file.path() else {
+                    let Some(path) = file.path() else {
                         show_error(
                             &window_for_save,
                             "Could not create project",
@@ -489,13 +451,18 @@ fn show_create_project(window: &adw::ApplicationWindow, app: &adw::Application) 
                         );
                         return;
                     };
-                    if !has_shrimp_extension(&path) {
-                        path.set_extension("shrimp");
-                    }
-                    if let Err(error) = project::create_project_file(&path, &project) {
-                        show_error(&window_for_save, "Could not create project", &error);
-                        return;
-                    }
+                    let path = match shrimply_cross_ui_core::launcher::create_project(
+                        path,
+                        &project_name,
+                        canvas_size,
+                        fps,
+                    ) {
+                        Ok(path) => path,
+                        Err(error) => {
+                            show_error(&window_for_save, "Could not create project", &error);
+                            return;
+                        }
+                    };
                     open_in_editor(&window_for_save, &app_for_save, &path);
                 },
             );
@@ -505,7 +472,7 @@ fn show_create_project(window: &adw::ApplicationWindow, app: &adw::Application) 
 }
 
 fn open_in_editor(window: &adw::ApplicationWindow, app: &adw::Application, path: &Path) {
-    match launch_editor(path) {
+    match shrimply_cross_ui_core::launcher::launch_editor(path) {
         Ok(mut editor) => {
             let mut hold = Some(app.hold());
             window.set_visible(false);
@@ -539,39 +506,6 @@ fn open_in_editor(window: &adw::ApplicationWindow, app: &adw::Application, path:
         }
         Err(error) => show_error(window, "Could not start editor", &error),
     }
-}
-
-fn launch_editor(path: &Path) -> Result<Child, String> {
-    let sibling = std::env::current_exe()
-        .map(|path| path.with_file_name("shrimply-editor"))
-        .ok()
-        .filter(|path| path.is_file());
-    let editor = sibling.unwrap_or_else(|| PathBuf::from("shrimply-editor"));
-    Command::new(&editor)
-        .arg(path)
-        .spawn()
-        .map_err(|error| format!("could not launch {}: {error}", editor.display()))
-}
-
-fn has_shrimp_extension(path: &Path) -> bool {
-    path.extension()
-        .and_then(|extension| extension.to_str())
-        .is_some_and(|extension| extension.eq_ignore_ascii_case("shrimp"))
-}
-
-fn default_project_filename(name: &str) -> String {
-    let safe_name = name
-        .chars()
-        .map(|character| match character {
-            '/' | '\\' | '\0' => '_',
-            character => character,
-        })
-        .collect::<String>();
-    let timestamp = glib::DateTime::now_local()
-        .and_then(|time| time.format("%Y-%m-%d_%H-%M-%S"))
-        .map(|value| value.to_string())
-        .unwrap_or_else(|_| "unknown-time".to_string());
-    format!("{safe_name}_{timestamp}.shrimp")
 }
 
 fn show_error(window: &adw::ApplicationWindow, heading: &str, body: &str) {

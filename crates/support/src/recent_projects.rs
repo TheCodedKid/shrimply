@@ -43,6 +43,12 @@ pub fn load() -> Result<Vec<RecentProject>, String> {
     Ok(projects)
 }
 
+pub fn settings_db_path() -> PathBuf {
+    std::env::current_dir()
+        .map(|directory| directory.join(SETTINGS_DB))
+        .unwrap_or_else(|_| PathBuf::from(SETTINGS_DB))
+}
+
 pub fn touch(path: &Path, name: &str) -> Result<(), String> {
     let conn = open()?;
     let mut projects = load_from(&conn)?;
@@ -79,10 +85,12 @@ pub fn clear() -> Result<(), String> {
 }
 
 fn open() -> Result<Connection, String> {
-    fs::create_dir_all(CONFIG_DIR)
-        .map_err(|error| format!("could not create {CONFIG_DIR}: {error}"))?;
-    let conn = Connection::open(SETTINGS_DB)
-        .map_err(|error| format!("could not open {SETTINGS_DB}: {error}"))?;
+    let path = settings_db_path();
+    let directory = path.parent().unwrap_or_else(|| Path::new(CONFIG_DIR));
+    fs::create_dir_all(directory)
+        .map_err(|error| format!("could not create {}: {error}", directory.display()))?;
+    let conn = Connection::open(&path)
+        .map_err(|error| format!("could not open {}: {error}", path.display()))?;
     conn.execute(
         "CREATE TABLE IF NOT EXISTS key_values (
             key TEXT PRIMARY KEY,

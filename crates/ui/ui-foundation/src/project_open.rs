@@ -8,10 +8,9 @@ use crate::ui::I18nFileFilterExt;
 pub fn project_file_filter() -> gtk::FileFilter {
     let filter = gtk::FileFilter::new();
     filter.set_name_i18n("Shrimply projects");
-    filter.add_pattern("*.shrimp");
-    filter.add_pattern("*.json");
-    filter.add_pattern("*.otio");
-    filter.add_pattern("*.kdenlive");
+    for pattern in shrimply_cross_ui_core::launcher::PROJECT_FILE_PATTERNS {
+        filter.add_pattern(pattern);
+    }
     filter
 }
 

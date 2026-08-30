@@ -27,6 +27,12 @@ Use the Makefile for repository operations:
    $ make test
    $ make release
 
+To build and run the optional Qt 6 launcher instead of the GTK launcher, use
+``make dev-qt``. This produces the separate ``shrimply-qt`` development binary;
+it does not replace the normal launcher or installation.
+``make qt-build`` performs that debug build without launching it and writes the
+binary to ``target/debug/shrimply-qt``.
+
 ``make check`` verifies native dependencies and CUDA artifacts, formatting,
 source size, the selected Rust binaries, Clippy, the server and Manim Python
 code, and this documentation site. The development launcher writes its log to
