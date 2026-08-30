@@ -8,6 +8,7 @@ pub struct ToolkitPreview {
     audio_player: Rc<AudioPlayer>,
     renderer: Option<preview_surface::ToolkitPreviewRenderer>,
     frame: Option<crate::video::gpu::CompositedVideoFrame>,
+    frame_rate_label: String,
 }
 
 impl ToolkitPreview {
@@ -32,6 +33,7 @@ impl ToolkitPreview {
             audio_player,
             renderer: None,
             frame: None,
+            frame_rate_label: String::from("--"),
         })
     }
 
@@ -45,6 +47,9 @@ impl ToolkitPreview {
         let snapshot = player_state::snapshot(&self.player_state);
         let update = self.media.poll();
         assert!(update.running, "video compositor stopped unexpectedly");
+        if let Some(label) = update.render_elapsed.and_then(rendered_frame_rate_label) {
+            self.frame_rate_label = label;
+        }
         match update.visual {
             Some(VideoEvent::Frame { frame, .. }) => self.frame = Some(frame),
             Some(VideoEvent::Clear { .. }) => self.frame = None,
@@ -84,6 +89,10 @@ impl ToolkitPreview {
         } else {
             StepDirection::Forward
         });
+    }
+
+    pub fn frame_rate_label(&self) -> &str {
+        &self.frame_rate_label
     }
 }
 

@@ -17,6 +17,8 @@ shrimply-resource-pipeline = { path = "../../resource-pipeline" }
 shrimply-math-color = { path = "../../math/color", features = ["gdk", "skia"] }
 shrimply-math-core = { path = "../../math/core" }
 shrimply-math-geometry = { path = "../../math/geometry", features = ["skia"] }
+shrimply-skia-adw-ui = { path = "../skia-adw-ui" }
+shrimply-wayland-pointer-lock = { path = "../wayland-pointer-lock" }
 shrimply-i18n = { path = "../i18n" }
 skia-safe = { workspace = true, features = ["gl", "vulkan", "textlayout"] }
 sourceview5.workspace = true
@@ -25,5 +27,3 @@ tracing.workspace = true
 typos.workspace = true
 typos-dict.workspace = true
 unicase.workspace = true
-wayland-client = { workspace = true, features = ["system"] }
-wayland-protocols = { workspace = true, features = ["client", "unstable"] }

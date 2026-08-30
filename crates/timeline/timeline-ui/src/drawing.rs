@@ -289,7 +289,7 @@ pub(super) fn draw_timeline(input: TimelineInput<'_, '_>) {
     if let Some(software_cursor) = software_cursor {
         software_cursor
             .cursor
-            .draw(painter, software_cursor.position);
+            .draw(painter.canvas(), software_cursor.position);
     }
 }
 

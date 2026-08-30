@@ -2,7 +2,7 @@ use super::*;
 
 use crate::renderer::Rect;
 use crate::runtime::TimelineSoftwareCursor;
-use shrimply_ui_foundation::{cursor::SoftwareCursor, ui::PointerLock};
+use shrimply_ui_foundation::{cursor::software_cursor_from_name, ui::PointerLock};
 
 struct CursorGrab {
     pointer_lock: PointerLock,
@@ -148,7 +148,7 @@ pub(crate) fn add_input_controllers(
             {
                 motion_runtime.borrow_mut().software_cursor = Some(TimelineSoftwareCursor {
                     position: pos,
-                    cursor: SoftwareCursor::from_name("grabbing", &motion_area.display()),
+                    cursor: software_cursor_from_name("grabbing", &motion_area.display()),
                 });
                 motion_area.set_cursor_from_name(Some("none"));
                 *motion_cursor_grab.borrow_mut() = Some(CursorGrab {

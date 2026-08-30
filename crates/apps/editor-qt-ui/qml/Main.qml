@@ -195,6 +195,29 @@ ApplicationWindow {
                             ColumnLayout {
                                 anchors.top: parent.top
                                 anchors.horizontalCenter: parent.horizontalCenter
+                                ToolButton { icon.name: "task-complete"; text: qsTr("Ready"); display: AbstractButton.IconOnly; enabled: false }
+                                Label {
+                                    Layout.preferredWidth: 44
+                                    Layout.preferredHeight: 34
+                                    horizontalAlignment: Text.AlignHCenter
+                                    verticalAlignment: Text.AlignVCenter
+                                    text: backend.frameRateLabel
+                                    font.family: backend.fixedFontFamily
+                                    ToolTip.visible: fpsHover.hovered
+                                    ToolTip.text: qsTr("Frame rate")
+                                    HoverHandler { id: fpsHover }
+                                }
+                                Label {
+                                    Layout.preferredWidth: 44
+                                    Layout.preferredHeight: 34
+                                    horizontalAlignment: Text.AlignHCenter
+                                    verticalAlignment: Text.AlignVCenter
+                                    text: backend.playbackSpeedLabel
+                                    font.family: backend.fixedFontFamily
+                                    ToolTip.visible: speedHover.hovered
+                                    ToolTip.text: qsTr("Playback speed")
+                                    HoverHandler { id: speedHover }
+                                }
                                 ToolButton { icon.name: "show-guides"; text: qsTr("Guides"); display: AbstractButton.IconOnly }
                                 ToolSeparator {}
                                 ToolButton { icon.name: "draw-freehand"; text: qsTr("Pen"); display: AbstractButton.IconOnly }

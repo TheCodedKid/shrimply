@@ -2,7 +2,7 @@ use super::*;
 
 pub(super) struct TimelineSoftwareCursor {
     pub(super) position: Vec2,
-    pub(super) cursor: cursor::SoftwareCursor,
+    pub(super) cursor: shrimply_skia_adw_ui::cursor::SoftwareCursor,
 }
 
 pub(super) struct TimelineRuntime {

@@ -15,7 +15,10 @@ pub use shrimply_core::timeline_value;
 pub use shrimply_evaluation as transform_eval;
 pub use shrimply_math_color::Color;
 pub use shrimply_math_core::Fraction;
-use shrimply_math_core::{fraction_round_nonnegative_u64, frame_rate_from_duration};
+use shrimply_math_core::{
+    fraction_denominator, fraction_numerator, fraction_round_nonnegative_u64,
+    frame_rate_from_duration,
+};
 pub use shrimply_project::{caption, project, time_format};
 pub use shrimply_render_core::math;
 pub use shrimply_state::player_state;
@@ -31,6 +34,26 @@ pub fn playback_time_label(position: project::Time, duration: project::Time) -> 
         time_format::playback_time(position),
         time_format::playback_time(duration)
     )
+}
+
+pub fn playback_speed_label(speed: Fraction) -> String {
+    if fraction_denominator(speed) == 1 {
+        format!("x{}", fraction_numerator(speed))
+    } else {
+        format!(
+            "x{}/{}",
+            fraction_numerator(speed),
+            fraction_denominator(speed)
+        )
+    }
+}
+
+pub fn rendered_frame_rate_label(render_elapsed: Duration) -> Option<String> {
+    frame_rate_from_duration(render_elapsed).map(|frame_rate| {
+        fraction_round_nonnegative_u64(frame_rate)
+            .min(MAX_DISPLAYED_FRAME_RATE)
+            .to_string()
+    })
 }
 
 pub mod preferences {
@@ -49,7 +72,7 @@ use crate::player_state::SharedPlayerState;
 use crate::preferences::store as preferences_store;
 use crate::preview_focus::SharedPreviewFocus;
 use crate::preview_surface::PreviewController;
-use crate::project::{Project, Time, fraction_denominator, fraction_numerator, scaled_time_delta};
+use crate::project::{Project, Time, scaled_time_delta};
 use crate::selection_state::SharedSelectionState;
 use crate::timeline::renderer::{Vec2, vec2};
 use crate::video::compositor::{
@@ -1091,14 +1114,8 @@ fn attach_frame_pump(
         }
 
         let snapshot = player_state::snapshot(&player_state);
-        if let Some(render_elapsed) = update.render_elapsed
-            && let Some(frame_rate) = frame_rate_from_duration(render_elapsed)
-        {
-            frame_rate_label.set_label(
-                &fraction_round_nonnegative_u64(frame_rate)
-                    .min(MAX_DISPLAYED_FRAME_RATE)
-                    .to_string(),
-            );
+        if let Some(label) = update.render_elapsed.and_then(rendered_frame_rate_label) {
+            frame_rate_label.set_label(&label);
         }
 
         if let Some(event) = update.visual {
@@ -1315,15 +1332,7 @@ fn update_controls(
     }
 
     time_label.set_label(&playback_time_label(snapshot.position, snapshot.duration));
-    let playback_speed_text = if fraction_denominator(snapshot.playback_speed) == 1 {
-        format!("x{}", fraction_numerator(snapshot.playback_speed))
-    } else {
-        format!(
-            "x{}/{}",
-            fraction_numerator(snapshot.playback_speed),
-            fraction_denominator(snapshot.playback_speed)
-        )
-    };
+    let playback_speed_text = crate::playback_speed_label(snapshot.playback_speed);
     playback_speed_label.set_label(&playback_speed_text);
     playback_speed_label.set_tooltip_text(Some(&shrimply_ui_foundation::i18n::text_args(
         "Playback speed %{speed}",

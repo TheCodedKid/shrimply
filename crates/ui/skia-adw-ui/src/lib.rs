@@ -7,6 +7,7 @@ use skia_safe::{
 };
 
 pub mod button;
+pub mod cursor;
 pub mod font_grid;
 pub mod icon;
 pub mod math;

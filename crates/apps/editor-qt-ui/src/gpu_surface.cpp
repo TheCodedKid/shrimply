@@ -14,6 +14,7 @@
 #include <QQuickWindow>
 #include <QSGRendererInterface>
 #include <QWheelEvent>
+#include <QtGui/qguiapplication_platform.h>
 #include <QtQml/qqml.h>
 
 #include <cstdint>
@@ -33,6 +34,9 @@ extern "C" void shrimply_qt_timeline_pointer_press(std::uint8_t button, float x,
 extern "C" void shrimply_qt_timeline_pointer_release(std::uint8_t button, float x, float y,
                                                        bool control, bool shift);
 extern "C" void shrimply_qt_timeline_scroll(float dx, float dy, bool control, bool shift);
+extern "C" bool shrimply_qt_timeline_begin_pointer_lock(void *display, void *surface,
+                                                          void *seat);
+extern "C" void shrimply_qt_timeline_end_pointer_lock(bool control, bool shift);
 
 namespace {
 
@@ -175,6 +179,10 @@ QQuickFramebufferObject::Renderer *TimelineSurface::createRenderer() const {
 }
 
 void TimelineSurface::hoverMoveEvent(QHoverEvent *event) {
+    if (middle_mouse_grabbed_) {
+        event->accept();
+        return;
+    }
     bool control;
     bool shift;
     modifiers(event, control, shift);
@@ -194,26 +202,30 @@ void TimelineSurface::mousePressEvent(QMouseEvent *event) {
     modifiers(event, control, shift);
     shrimply_qt_timeline_pointer_press(pointer_button(event->button()), event->position().x(),
                                        event->position().y(), control, shift);
-    last_pointer_position_ = event->position();
     if (event->button() == Qt::MiddleButton) {
-        middle_mouse_grabbed_ = true;
-        setKeepMouseGrab(true);
-        grabMouse();
-        if (window()) {
-            window()->setMouseGrabEnabled(true);
+        auto *wayland = qGuiApp->nativeInterface<QNativeInterface::QWaylandApplication>();
+        void *surface = window() ? reinterpret_cast<void *>(window()->winId()) : nullptr;
+        if (wayland && shrimply_qt_timeline_begin_pointer_lock(
+                           wayland->display(), surface, wayland->seat())) {
+            middle_mouse_grabbed_ = true;
+            setKeepMouseGrab(true);
+            setCursor(QCursor(Qt::BlankCursor));
         }
-        setCursor(QCursor(Qt::ClosedHandCursor));
     }
     event->accept();
     update();
 }
 
 void TimelineSurface::mouseMoveEvent(QMouseEvent *event) {
+    if (middle_mouse_grabbed_) {
+        event->accept();
+        update();
+        return;
+    }
     bool control;
     bool shift;
     modifiers(event, control, shift);
     shrimply_qt_timeline_pointer_move(event->position().x(), event->position().y(), control, shift);
-    last_pointer_position_ = event->position();
     event->accept();
     update();
 }
@@ -222,17 +234,15 @@ void TimelineSurface::mouseReleaseEvent(QMouseEvent *event) {
     bool control;
     bool shift;
     modifiers(event, control, shift);
-    shrimply_qt_timeline_pointer_release(pointer_button(event->button()), event->position().x(),
-                                         event->position().y(), control, shift);
-    last_pointer_position_ = event->position();
     if (event->button() == Qt::MiddleButton && middle_mouse_grabbed_) {
+        shrimply_qt_timeline_end_pointer_lock(control, shift);
         middle_mouse_grabbed_ = false;
         setKeepMouseGrab(false);
-        if (window()) {
-            window()->setMouseGrabEnabled(false);
-        }
-        ungrabMouse();
         unsetCursor();
+    } else {
+        shrimply_qt_timeline_pointer_release(pointer_button(event->button()),
+                                             event->position().x(), event->position().y(),
+                                             control, shift);
     }
     event->accept();
     update();
@@ -242,14 +252,10 @@ void TimelineSurface::mouseUngrabEvent() {
     if (!middle_mouse_grabbed_) {
         return;
     }
+    shrimply_qt_timeline_end_pointer_lock(false, false);
     middle_mouse_grabbed_ = false;
     setKeepMouseGrab(false);
-    if (window()) {
-        window()->setMouseGrabEnabled(false);
-    }
     unsetCursor();
-    shrimply_qt_timeline_pointer_release(1, last_pointer_position_.x(),
-                                         last_pointer_position_.y(), false, false);
     update();
 }
 

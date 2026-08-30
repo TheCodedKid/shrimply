@@ -70,6 +70,7 @@ members = [
     "crates/ui/i18n",
     "crates/ui/skia-adw-ui",
     "crates/ui/ui-foundation",
+    "crates/ui/wayland-pointer-lock",
     "crates/video/rendering",
     "crates/video/video-modifiers",
     "crates/video/video-recording",

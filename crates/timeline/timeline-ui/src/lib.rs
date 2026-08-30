@@ -1,5 +1,6 @@
 use hashbrown::HashMap;
 use std::cell::{Cell, RefCell};
+use std::ffi::c_void;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::time::{Duration, Instant};
@@ -159,6 +160,9 @@ pub struct ToolkitTimeline {
     runtime: Rc<RefCell<TimelineRuntime>>,
     waveform: Option<setup::WaveformSubscription>,
     beats: Option<setup::BeatSubscription>,
+    pointer_lock: Option<shrimply_wayland_pointer_lock::WaylandPointerLock>,
+    pointer_lock_bounds: Option<Rect>,
+    pointer_lock_origin: Option<Vec2>,
 }
 
 impl ToolkitTimeline {
@@ -207,6 +211,9 @@ impl ToolkitTimeline {
             runtime,
             waveform: Some(waveform),
             beats: Some(beats),
+            pointer_lock: None,
+            pointer_lock_bounds: None,
+            pointer_lock_origin: None,
         }
     }
 
@@ -219,6 +226,14 @@ impl ToolkitTimeline {
     ) -> Result<(), String> {
         let logical_width = f64::from(width) / f64::from(pixels_per_point);
         let logical_height = f64::from(height) / f64::from(pixels_per_point);
+        self.pointer_lock_bounds = Some(Rect::from_min_max(
+            vec2(timeline_x() as f32, 0.0),
+            vec2(
+                (timeline_x() + timeline_width(logical_width)) as f32,
+                logical_height.max(0.0) as f32,
+            ),
+        ));
+        self.poll_pointer_lock();
         let mut runtime = self.runtime.borrow_mut();
         setup::poll_toolkit_audio_loaders(&mut runtime, &mut self.waveform, &mut self.beats);
         runtime.track_controls_animating = false;
@@ -254,6 +269,32 @@ impl ToolkitTimeline {
             self.toggle_sequence(path);
         }
         Ok(())
+    }
+
+    fn poll_pointer_lock(&mut self) {
+        let Some(bounds) = self.pointer_lock_bounds else {
+            return;
+        };
+        if let Some((delta_x, delta_y)) = self
+            .pointer_lock
+            .as_mut()
+            .and_then(shrimply_wayland_pointer_lock::WaylandPointerLock::poll)
+        {
+            let delta = vec2(delta_x as f32, delta_y as f32);
+            let mut runtime = self.runtime.borrow_mut();
+            let display_position = runtime
+                .software_cursor
+                .as_ref()
+                .map(|cursor| cursor.position)
+                .or(runtime.pointer_pos)
+                .unwrap_or(bounds.min);
+            runtime.pointer_pos = Some(runtime.pointer_pos.unwrap_or(display_position) + delta);
+            runtime
+                .software_cursor
+                .as_mut()
+                .expect("toolkit pointer lock must own a software cursor")
+                .position = bounds.wrap_point(display_position + delta);
+        }
     }
 
     pub fn pointer_move(&self, x: f32, y: f32, ctrl: bool, shift: bool) {
@@ -317,6 +358,66 @@ impl ToolkitTimeline {
                 runtime.middle_down = false;
             }
         }
+    }
+
+    /// Starts relative pointer input for toolkit-backed timelines.
+    ///
+    /// # Safety
+    ///
+    /// The pointers must belong to the live Wayland connection hosting this timeline
+    /// and remain valid until `end_pointer_lock` is called.
+    pub unsafe fn begin_pointer_lock(
+        &mut self,
+        display: *mut c_void,
+        surface: *mut c_void,
+        seat: *mut c_void,
+        software_cursor: shrimply_skia_adw_ui::cursor::SoftwareCursor,
+    ) -> bool {
+        if self.pointer_lock.is_some() {
+            return true;
+        }
+        let Some(lock) = (unsafe {
+            shrimply_wayland_pointer_lock::WaylandPointerLock::new(display, surface, seat)
+        }) else {
+            return false;
+        };
+        let position = self.runtime.borrow().pointer_pos.unwrap_or(Vec2::ZERO);
+        self.runtime.borrow_mut().software_cursor = Some(TimelineSoftwareCursor {
+            position,
+            cursor: software_cursor,
+        });
+        self.pointer_lock = Some(lock);
+        self.pointer_lock_origin = Some(position);
+        true
+    }
+
+    pub fn end_pointer_lock(&mut self, ctrl: bool, shift: bool) {
+        self.poll_pointer_lock();
+        let Some(mut lock) = self.pointer_lock.take() else {
+            return;
+        };
+        let origin = self
+            .pointer_lock_origin
+            .take()
+            .expect("toolkit pointer lock must have a local origin");
+        let cursor = self
+            .runtime
+            .borrow()
+            .software_cursor
+            .as_ref()
+            .expect("toolkit pointer lock must own a software cursor")
+            .position;
+        lock.restore_cursor_with_offset(
+            f64::from(cursor.x - origin.x),
+            f64::from(cursor.y - origin.y),
+        );
+        drop(lock);
+        let mut runtime = self.runtime.borrow_mut();
+        runtime.software_cursor = None;
+        runtime.modifiers = TimelineModifiers { ctrl, shift };
+        runtime.pointer_release_pos = runtime.pointer_pos;
+        runtime.middle_released = true;
+        runtime.middle_down = false;
     }
 
     pub fn scroll(&self, dx: f32, dy: f32, ctrl: bool, shift: bool) {

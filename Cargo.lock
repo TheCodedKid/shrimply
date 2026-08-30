@@ -6375,6 +6375,7 @@ dependencies = [
  "shrimply-video",
  "shrimply-video-modifiers",
  "shrimply-video-recording",
+ "shrimply-wayland-pointer-lock",
  "skia-safe",
  "tracing",
  "uuid",
@@ -6467,6 +6468,8 @@ dependencies = [
  "shrimply-math-geometry",
  "shrimply-project-core",
  "shrimply-resource-pipeline",
+ "shrimply-skia-adw-ui",
+ "shrimply-wayland-pointer-lock",
  "skia-safe",
  "sourceview5",
  "strum",
@@ -6474,8 +6477,6 @@ dependencies = [
  "typos",
  "typos-dict",
  "unicase",
- "wayland-client",
- "wayland-protocols",
 ]
 
 [[package]]
@@ -6636,6 +6637,15 @@ dependencies = [
  "cuda-core",
  "ffmpeg-next",
  "shrimply-gpu-memory",
+]
+
+[[package]]
+name = "shrimply-wayland-pointer-lock"
+version = "0.1.0"
+dependencies = [
+ "tracing",
+ "wayland-client",
+ "wayland-protocols",
 ]
 
 [[package]]

@@ -28,7 +28,6 @@ protected:
 
 private:
     bool middle_mouse_grabbed_ = false;
-    QPointF last_pointer_position_;
 };
 
 class PreviewSurface : public QQuickFramebufferObject {

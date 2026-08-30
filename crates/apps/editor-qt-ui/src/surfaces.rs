@@ -3,6 +3,7 @@ use shrimply_math_color::Color;
 use shrimply_preview_ui::ToolkitPreview;
 use shrimply_timeline_ui::{ToolkitAudioMeter, ToolkitPointerButton, ToolkitTimeline};
 use std::cell::RefCell;
+use std::ffi::c_void;
 
 struct Surfaces {
     timeline: ToolkitTimeline,
@@ -141,6 +142,15 @@ pub fn mark_preview_step(delta: i32) {
     });
 }
 
+pub fn preview_frame_rate_label() -> String {
+    SURFACES.with_borrow(|surfaces| {
+        surfaces.as_ref().map_or_else(
+            || String::from("--"),
+            |surfaces| surfaces.preview.frame_rate_label().into(),
+        )
+    })
+}
+
 #[unsafe(no_mangle)]
 pub extern "C" fn shrimply_qt_timeline_pointer_move(x: f32, y: f32, control: bool, shift: bool) {
     SURFACES.with_borrow(|surfaces| {
@@ -197,6 +207,36 @@ pub extern "C" fn shrimply_qt_timeline_pointer_release(
             surfaces
                 .timeline
                 .pointer_release(pointer_button(button), x, y, control, shift);
+        }
+    });
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn shrimply_qt_timeline_begin_pointer_lock(
+    display: *mut c_void,
+    surface: *mut c_void,
+    seat: *mut c_void,
+) -> bool {
+    SURFACES.with_borrow_mut(|surfaces| {
+        let Some(surfaces) = surfaces.as_mut() else {
+            return false;
+        };
+        unsafe {
+            surfaces.timeline.begin_pointer_lock(
+                display,
+                surface,
+                seat,
+                crate::system_cursor::grabbing(),
+            )
+        }
+    })
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn shrimply_qt_timeline_end_pointer_lock(control: bool, shift: bool) {
+    SURFACES.with_borrow_mut(|surfaces| {
+        if let Some(surfaces) = surfaces.as_mut() {
+            surfaces.timeline.end_pointer_lock(control, shift);
         }
     });
 }

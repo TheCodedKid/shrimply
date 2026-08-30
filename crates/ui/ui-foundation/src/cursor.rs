@@ -2,58 +2,47 @@ use crate::canvas::TimelinePainter;
 use crate::canvas::{Color, Rect, Stroke, vec2};
 use gtk::gdk;
 use gtk::gdk::prelude::*;
-use skia_safe::{CubicResampler, Data, Image, Paint, Rect as SkiaRect};
+use shrimply_skia_adw_ui::cursor::SoftwareCursor;
 
-const DEFAULT_CURSOR_THEME_SIZE: i32 = 24;
+pub const DEFAULT_CURSOR_THEME_SIZE: i32 = 24;
 
-pub struct SoftwareCursor {
-    image: Image,
-    hot_spot: crate::canvas::Vec2,
-    size: crate::canvas::Vec2,
-}
-
-impl SoftwareCursor {
-    pub fn from_name(name: &str, display: &gdk::Display) -> Self {
-        let (name, hot_spot) = match name {
-            "crosshair" => ("crosshair", vec2(15.0, 15.0)),
-            "e-resize" => ("e-resize", vec2(25.0, 17.0)),
-            "w-resize" => ("w-resize", vec2(8.0, 17.0)),
-            "ew-resize" => ("ew-resize", vec2(16.0, 15.0)),
-            "grabbing" => ("grabbing", vec2(15.0, 14.0)),
-            _ => ("default", vec2(5.0, 5.0)),
-        };
-        let texture = gdk::Texture::from_resource(&format!("/org/gtk/libgdk/cursor/{name}"));
-        let encoded = texture.save_to_png_bytes();
-        let image = Image::from_encoded(Data::new_copy(encoded.as_ref()))
-            .expect("GTK cursor resource must contain a decodable image");
-        let theme_size = gtk::Settings::for_display(display).gtk_cursor_theme_size();
-        let theme_size = if theme_size > 0 {
-            theme_size
-        } else {
-            DEFAULT_CURSOR_THEME_SIZE
-        };
-        let scale = theme_size as f32 / image.width() as f32;
-        Self {
-            size: vec2(
-                (image.width() as f32 * scale).round(),
-                (image.height() as f32 * scale).round(),
-            ),
-            image,
-            hot_spot: (hot_spot * scale).round(),
-        }
+pub fn software_cursor_from_name(name: &str, display: &gdk::Display) -> SoftwareCursor {
+    let (name, hot_spot) = match name {
+        "crosshair" => ("crosshair", vec2(15.0, 15.0)),
+        "e-resize" => ("e-resize", vec2(25.0, 17.0)),
+        "w-resize" => ("w-resize", vec2(8.0, 17.0)),
+        "ew-resize" => ("ew-resize", vec2(16.0, 15.0)),
+        "grabbing" => ("grabbing", vec2(15.0, 14.0)),
+        _ => ("default", vec2(5.0, 5.0)),
+    };
+    let texture = gdk::Texture::from_resource(&format!("/org/gtk/libgdk/cursor/{name}"));
+    let width = texture.width();
+    let height = texture.height();
+    let stride = usize::try_from(width).expect("positive cursor width") * 4;
+    let mut bgra = vec![0; stride * usize::try_from(height).expect("positive cursor height")];
+    texture.download(&mut bgra, stride);
+    let mut rgba = Vec::with_capacity(bgra.len());
+    for pixel in bgra.chunks_exact(4) {
+        rgba.extend_from_slice(&[pixel[2], pixel[1], pixel[0], pixel[3]]);
     }
-
-    pub fn draw(&self, painter: &TimelinePainter, position: crate::canvas::Vec2) {
-        let canvas = painter.canvas();
-        let top_left = position.round() - self.hot_spot;
-        canvas.draw_image_rect_with_sampling_options(
-            &self.image,
-            None,
-            SkiaRect::from_xywh(top_left.x, top_left.y, self.size.x, self.size.y),
-            CubicResampler::mitchell(),
-            &Paint::default(),
-        );
-    }
+    let theme_size = gtk::Settings::for_display(display).gtk_cursor_theme_size();
+    let theme_size = if theme_size > 0 {
+        theme_size
+    } else {
+        DEFAULT_CURSOR_THEME_SIZE
+    };
+    let scale = theme_size as f32 / width as f32;
+    SoftwareCursor::from_rgba_premultiplied(
+        &rgba,
+        width as u32,
+        height as u32,
+        (hot_spot * scale).round(),
+        vec2(
+            (width as f32 * scale).round(),
+            (height as f32 * scale).round(),
+        ),
+    )
+    .expect("GTK system cursor must have valid pixels")
 }
 
 pub struct PlayheadStyle {

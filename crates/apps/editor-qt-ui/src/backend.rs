@@ -36,6 +36,8 @@ pub mod qobject {
         #[qproperty(i64, position_frame, cxx_name = "positionFrame")]
         #[qproperty(i64, duration_frame, cxx_name = "durationFrame")]
         #[qproperty(QString, time_label, cxx_name = "timeLabel")]
+        #[qproperty(QString, frame_rate_label, cxx_name = "frameRateLabel")]
+        #[qproperty(QString, playback_speed_label, cxx_name = "playbackSpeedLabel")]
         #[qproperty(QString, fixed_font_family, cxx_name = "fixedFontFamily")]
         type EditorBackend = super::EditorBackendRust;
 
@@ -127,6 +129,8 @@ pub struct EditorBackendRust {
     position_frame: i64,
     duration_frame: i64,
     time_label: QString,
+    frame_rate_label: QString,
+    playback_speed_label: QString,
     fixed_font_family: QString,
     loader: Option<ProjectLoader>,
     session: Option<Pin<Box<EditorSession>>>,
@@ -147,6 +151,8 @@ impl Default for EditorBackendRust {
             position_frame: 0,
             duration_frame: 0,
             time_label: QString::default(),
+            frame_rate_label: QString::from("--"),
+            playback_speed_label: QString::from("x1"),
             fixed_font_family: qobject::fixed_font_family(),
             loader: None,
             session: None,
@@ -385,10 +391,16 @@ impl qobject::EditorBackend {
             snapshot.position,
             snapshot.duration,
         ));
+        let frame_rate_label = QString::from(crate::surfaces::preview_frame_rate_label());
+        let playback_speed_label = QString::from(shrimply_preview_ui::playback_speed_label(
+            snapshot.playback_speed,
+        ));
         self.as_mut().set_playing(playing);
         self.as_mut().set_position_frame(position_frame);
         self.as_mut().set_duration_frame(duration_frame);
         self.as_mut().set_time_label(time_label);
+        self.as_mut().set_frame_rate_label(frame_rate_label);
+        self.as_mut().set_playback_speed_label(playback_speed_label);
     }
 
     fn emit_error(mut self: Pin<&mut Self>, heading: &str, body: &str) {
