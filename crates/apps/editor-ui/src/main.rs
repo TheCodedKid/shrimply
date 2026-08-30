@@ -6,28 +6,24 @@ use shrimply_ui_foundation::ui::I18nFileFilterExt;
 mod header_menu;
 mod mcp;
 use shrimply_inspector_ui as inspector;
-use shrimply_state::{player_state, preview_focus};
+use shrimply_state::player_state;
 mod preferences;
 use shrimply_preview_ui as video_player;
-use shrimply_timeline::selection_state;
 use shrimply_timeline_ui as timeline;
 use shrimply_ui_foundation::project_settings::ProjectSettingsSelector;
 
 pub use shrimply_audio as audio;
 pub use shrimply_project::project;
 
-use crate::preferences::store as preferences_store;
 use adw::prelude::*;
 use ffmpeg_next as ffmpeg;
 use gdk_pixbuf::prelude::PixbufAnimationExtManual;
 use gtk::gdk::prelude::GdkCairoContextExt;
 use gtk::{gio, glib};
-use shrimply_math_core::Fraction;
+use shrimply_cross_ui_core::editor::{EditorSession, LoadEvent, ProjectLoader, SessionEvent};
 use std::cell::{Cell, RefCell};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
-use std::sync::Arc;
-use std::thread;
 use std::time::SystemTime;
 
 const DEFAULT_WINDOW_WIDTH: i32 = 1800;
@@ -72,7 +68,14 @@ fn main() -> glib::ExitCode {
         gio::ApplicationFlags::NON_UNIQUE,
     );
 
-    app.connect_activate(move |app| begin_project_load(app, project_path.clone()));
+    app.connect_activate(move |app| {
+        let style = adw::StyleManager::default();
+        shrimply_skia_adw_ui::theme::set_dark(style.is_dark());
+        style.connect_dark_notify(|style| {
+            shrimply_skia_adw_ui::theme::set_dark(style.is_dark());
+        });
+        begin_project_load(app, project_path.clone());
+    });
     let status = app.run_with_args(&[env!("CARGO_BIN_NAME")]);
     let save_result = project::shutdown_history();
     project::clear_project_file_locks();
@@ -86,96 +89,28 @@ fn main() -> glib::ExitCode {
 fn build_ui(window: &adw::ApplicationWindow, project: project::Project) {
     // Finish GDK's lazy Vulkan initialization before the video worker can initialize Vulkan too.
     drop(gtk::prelude::WidgetExt::display(window).dmabuf_formats());
-    let playback_performance = shrimply_playback_performance::open(Arc::new(project.clone()));
-    let project = Rc::new(RefCell::new(project));
-    project
-        .borrow()
-        .watch_assets()
-        .unwrap_or_else(|error| panic!("could not watch project assets: {error}"));
-    let (duration, frame_rate) = {
-        let project = project.borrow();
-        (project.duration(), project.fps)
-    };
-    let player_state = player_state::new(duration, frame_rate);
-    let asset_changes = shrimply_asset::subscribe();
-    let asset_player_state = player_state.clone();
-    let asset_project = project.clone();
-    glib::spawn_future_local(async move {
-        while let Ok(change) = asset_changes.recv().await {
-            let (audio, video) = {
-                let project = asset_project.borrow();
-                (
-                    project.uses_audio_asset(&change.path),
-                    project.uses_video_asset(&change.path),
-                )
-            };
-            if !audio && !video {
-                continue;
-            }
-            tracing::info!(
-                path = %change.path.display(),
-                revision = change.revision,
-                audio,
-                video,
-                "project asset changed"
-            );
-            player_state::refresh_project(
-                &asset_player_state,
-                player_state::ProjectChange {
-                    audio,
-                    audio_beats: audio,
-                    audio_waveforms: audio,
-                    video,
-                    ..Default::default()
-                },
-            );
+    let session = Rc::new(
+        EditorSession::new(project)
+            .unwrap_or_else(|error| panic!("could not initialize editor session: {error}")),
+    );
+    let project = session.project.clone();
+    let player_state = session.player_state.clone();
+    let playback_performance = session.playback_performance.clone();
+    let selection_state = session.selection_state.clone();
+    let preview_focus = session.preview_focus.clone();
+    let property_clipboard = session.property_clipboard.clone();
+    let preferences = session.preferences.clone();
+    let audio_levels = session.audio_levels.clone();
+    let audio_player = session.audio_player.clone();
+    let polling_session = session.clone();
+    let polling_window = window.clone();
+    window.add_tick_callback(move |_, _| {
+        if let Some(SessionEvent::AudioPlaybackStopped(error)) = polling_session.poll() {
+            let dialog = adw::AlertDialog::new(Some("Audio playback stopped"), Some(&error));
+            dialog.present(Some(&polling_window));
         }
+        glib::ControlFlow::Continue
     });
-    let watched_project = project.clone();
-    player_state::connect_named(&player_state, "watch project assets", move |event| {
-        if matches!(event, player_state::PlayerEvent::Project(_))
-            && let Err(error) = watched_project.borrow().watch_assets()
-        {
-            tracing::error!(%error, "could not watch project assets");
-        }
-    });
-    if let Some(position) = project.borrow().cursor_position {
-        player_state::seek_time(&player_state, position.max(project::Time::ZERO));
-    }
-    let cursor_project = project.clone();
-    let cursor_player_state = player_state.clone();
-    let pending_cursor = Rc::new(Cell::new(None));
-    let cursor_update_scheduled = Rc::new(Cell::new(false));
-    player_state::connect_named(&player_state, "persist project cursor", move |event| {
-        if !matches!(event, player_state::PlayerEvent::State(_)) {
-            return;
-        }
-        let snapshot = player_state::snapshot(&cursor_player_state);
-        let position = snapshot.position.max(project::Time::ZERO);
-        pending_cursor.set(Some(position));
-        if cursor_update_scheduled.replace(true) {
-            return;
-        }
-        let cursor_project = cursor_project.clone();
-        let pending_cursor = pending_cursor.clone();
-        let cursor_update_scheduled = cursor_update_scheduled.clone();
-        glib::idle_add_local_once(move || {
-            cursor_update_scheduled.set(false);
-            let Some(position) = pending_cursor.take() else {
-                return;
-            };
-            let mut project = cursor_project.borrow_mut();
-            if project.cursor_position == Some(position) {
-                return;
-            }
-            project.cursor_position = Some(position);
-            project::save_view_state(&project);
-        });
-    });
-    let selection_state = selection_state::new();
-    let preview_focus = preview_focus::new();
-    let property_clipboard = shrimply_property_transfer::new_clipboard();
-    let preferences = preferences_store::open_with_defaults();
     let mcp_server = RefCell::new(Some(
         mcp::start(
             project.clone(),
@@ -188,10 +123,6 @@ fn build_ui(window: &adw::ApplicationWindow, project: project::Project) {
     window.connect_destroy(move |_| {
         mcp_server.borrow_mut().take();
     });
-    shrimply_blender::set_binary(preferences_store::snapshot(&preferences).blender_binary);
-    audio::pneuma::set_server_url(&preferences_store::snapshot(&preferences).compute_server_url);
-    let audio_levels = Arc::new(audio::AudioLevels::default());
-
     let video_player = video_player::new(
         project.clone(),
         player_state.clone(),
@@ -199,7 +130,7 @@ fn build_ui(window: &adw::ApplicationWindow, project: project::Project) {
         selection_state.clone(),
         preview_focus.clone(),
         preferences.clone(),
-        audio_levels.clone(),
+        audio_player,
     );
     let inspector = inspector::new(
         project.clone(),
@@ -446,29 +377,58 @@ fn begin_project_load(app: &adw::Application, path: PathBuf) {
         .default_height(LOADING_WINDOW_HEIGHT)
         .build();
     window.set_content(Some(&project_loading_view(&path)));
-    if has_otio_extension(&path) {
-        window.present();
-        choose_otio_settings(app, &window, path);
-        return;
-    }
-    if has_kdenlive_extension(&path) {
-        window.present();
-        confirm_kdenlive_conversion(app, &window, path);
-        return;
-    }
-    let app = app.clone();
-    let window_for_load = window.clone();
-    window.add_tick_callback(move |_, _| {
-        start_project_load(&app, &window_for_load, path.clone());
-        glib::ControlFlow::Break
-    });
     window.present();
+
+    let loader = Rc::new(RefCell::new(ProjectLoader::new(path)));
+    let event = loader.borrow_mut().begin();
+    handle_load_event(app, &window, loader, event);
+}
+
+fn handle_load_event(
+    app: &adw::Application,
+    window: &adw::ApplicationWindow,
+    loader: Rc<RefCell<ProjectLoader>>,
+    event: LoadEvent,
+) {
+    match event {
+        LoadEvent::ConfirmKdenlive => confirm_kdenlive_conversion(app, window, loader),
+        LoadEvent::ChooseOtioSettings => choose_otio_settings(app, window, loader),
+        LoadEvent::Progress(subtitle) => {
+            window.set_content(Some(&project_loading_view_with_subtitle(subtitle)));
+            let poll_app = app.clone();
+            let poll_window = window.clone();
+            window.add_tick_callback(move |_, _| {
+                let Some(event) = loader.borrow_mut().poll() else {
+                    return glib::ControlFlow::Continue;
+                };
+                handle_load_event(&poll_app, &poll_window, loader.clone(), event);
+                glib::ControlFlow::Break
+            });
+        }
+        LoadEvent::ConfirmFrameGridRepair => confirm_frame_grid_repair(app, window, loader),
+        LoadEvent::ChooseDestination {
+            title,
+            suggested_name,
+        } => choose_project_destination(app, window, loader, title, suggested_name),
+        LoadEvent::ImportWarnings(warnings) => show_import_warnings(app, window, loader, warnings),
+        LoadEvent::LockedByOtherInstance(pid) => show_project_lock_dialog(app, window, loader, pid),
+        LoadEvent::Ready { path, project } => {
+            if let Err(error) = shrimply_support::recent_projects::touch(&path, &project.name) {
+                tracing::warn!(%error, "could not update recent projects");
+            }
+            ffmpeg::init().expect("FFmpeg should initialize");
+            ffmpeg::util::log::set_level(ffmpeg::util::log::Level::Error);
+            build_ui(window, *project);
+        }
+        LoadEvent::Error { heading, body } => show_project_load_error(app, window, heading, &body),
+        LoadEvent::Canceled => app.quit(),
+    }
 }
 
 fn confirm_kdenlive_conversion(
     app: &adw::Application,
     window: &adw::ApplicationWindow,
-    source: PathBuf,
+    loader: Rc<RefCell<ProjectLoader>>,
 ) {
     let message = gtk::Label::new(Some(
         tr!("Shrimply supports only some Kdenlive features. Unsupported content may be changed or omitted.")
@@ -491,115 +451,23 @@ fn confirm_kdenlive_conversion(
     dialog.add_responses_i18n(&[("abort", "Abort"), ("convert", "Convert")]);
     dialog.set_default_response(Some("convert"));
     dialog.set_close_response("abort");
-    let app = app.clone();
-    let window = window.clone();
-    let parent = window.clone();
+    let callback_app = app.clone();
+    let callback_window = window.clone();
     dialog.choose(
-        Some(parent.upcast_ref::<gtk::Widget>()),
+        Some(window.upcast_ref::<gtk::Widget>()),
         None::<&gio::Cancellable>,
         move |answer| {
-            if answer != "convert" {
-                app.quit();
-                return;
-            }
-            start_kdenlive_import(&app, &window, source);
+            let event = loader.borrow_mut().confirm_kdenlive(answer == "convert");
+            handle_load_event(&callback_app, &callback_window, loader, event);
         },
     );
 }
 
-enum KdenliveImportMessage {
-    Progress(&'static str),
-    Finished(Result<(project::ProjectValidationOutcome, Vec<String>), String>),
-}
-
-fn start_kdenlive_import(app: &adw::Application, window: &adw::ApplicationWindow, source: PathBuf) {
-    let (sender, receiver) = async_channel::bounded(1);
-    window.set_content(Some(&project_loading_view_with_subtitle(
-        "Reading and converting Kdenlive timeline…",
-    )));
-    let worker_source = source.clone();
-    thread::spawn(move || {
-        let _ = sender.send_blocking(KdenliveImportMessage::Progress(
-            "Reading and converting Kdenlive timeline…",
-        ));
-        let result: Result<_, String> = (|| {
-            let import =
-                shrimply_kdenlive::from_file(&worker_source).map_err(|error| error.to_string())?;
-            let _ = sender.send_blocking(KdenliveImportMessage::Progress(
-                "Validating imported project…",
-            ));
-            let native = project::from_json_value_with_frame_grid_repair(import.project)
-                .map_err(|error| error.to_string())?;
-            Ok((native, import.warnings))
-        })();
-        let _ = sender.send_blocking(KdenliveImportMessage::Finished(result));
-    });
-    let app = app.clone();
-    let window = window.clone();
-    glib::spawn_future_local(async move {
-        while let Ok(message) = receiver.recv().await {
-            match message {
-                KdenliveImportMessage::Progress(subtitle) => {
-                    window.set_content(Some(&project_loading_view_with_subtitle(subtitle)));
-                }
-                KdenliveImportMessage::Finished(result) => {
-                    match result {
-                        Ok((project, warnings)) => {
-                            for warning in &warnings {
-                                tracing::warn!(limitation = %warning, "Kdenlive import limitation");
-                            }
-                            finish_kdenlive_import(&app, &window, source, project)
-                        }
-                        Err(error) => show_project_load_error(
-                            &app,
-                            &window,
-                            "Could not import Kdenlive project",
-                            &error,
-                        ),
-                    }
-                    return;
-                }
-            }
-        }
-        show_project_load_error(
-            &app,
-            &window,
-            "Could not import Kdenlive project",
-            "The Kdenlive importer stopped unexpectedly.",
-        );
-    });
-}
-
-fn finish_kdenlive_import(
+fn choose_otio_settings(
     app: &adw::Application,
     window: &adw::ApplicationWindow,
-    source: PathBuf,
-    outcome: project::ProjectValidationOutcome,
+    loader: Rc<RefCell<ProjectLoader>>,
 ) {
-    match outcome {
-        project::ProjectValidationOutcome::Valid(project) => choose_project_destination(
-            app,
-            window,
-            imported_project_filename(&source),
-            "Import Kdenlive as Shrimply Project",
-            "Could not import Kdenlive project",
-            project,
-            |app, window, path| load_project(app, window, path),
-        ),
-        project::ProjectValidationOutcome::FrameGridRepair(project) => {
-            show_frame_grid_repair_dialog(
-                app,
-                window,
-                source,
-                project,
-                "Could not import Kdenlive project",
-                |app, window, path| load_project(app, window, path),
-            )
-        }
-    }
-}
-
-fn choose_otio_settings(app: &adw::Application, window: &adw::ApplicationWindow, source: PathBuf) {
     let selector = ProjectSettingsSelector::new();
     let content = adw::PreferencesGroup::builder()
         .title(tr!("Project Settings").as_ref())
@@ -616,111 +484,36 @@ fn choose_otio_settings(app: &adw::Application, window: &adw::ApplicationWindow,
     dialog.add_responses_i18n(&[("cancel", "Cancel"), ("import", "Import")]);
     dialog.set_default_response(Some("import"));
     dialog.set_close_response("cancel");
-    let app = app.clone();
-    let window = window.clone();
-    let parent = window.clone();
+    let callback_app = app.clone();
+    let callback_window = window.clone();
     dialog.choose(
-        Some(parent.upcast_ref::<gtk::Widget>()),
+        Some(window.upcast_ref::<gtk::Widget>()),
         None::<&gio::Cancellable>,
         move |answer| {
             if answer != "import" {
-                app.quit();
+                let event = loader.borrow_mut().choose_otio_settings(None);
+                handle_load_event(&callback_app, &callback_window, loader, event);
                 return;
             }
-            let Some((canvas_size, fps)) = selector.settings() else {
+            let Some(settings) = selector.settings() else {
                 show_project_load_error(
-                    &app,
-                    &window,
+                    &callback_app,
+                    &callback_window,
                     "Could not import OTIO",
                     "The selected project settings are invalid.",
                 );
                 return;
             };
-            start_otio_import(&app, &window, source, canvas_size, fps);
+            let event = loader.borrow_mut().choose_otio_settings(Some(settings));
+            handle_load_event(&callback_app, &callback_window, loader, event);
         },
     );
 }
 
-fn start_otio_import(
+fn confirm_frame_grid_repair(
     app: &adw::Application,
     window: &adw::ApplicationWindow,
-    source: PathBuf,
-    canvas_size: project::CanvasSize,
-    fps: Fraction,
-) {
-    let (sender, receiver) = async_channel::bounded(1);
-    let worker_source = source.clone();
-    thread::spawn(move || {
-        let result =
-            shrimply_otio::from_file(&worker_source, canvas_size, fps).and_then(|import| {
-                let native = project::from_json_value_with_frame_grid_repair(import.project)?;
-                Ok((native, import.warnings))
-            });
-        let _ = sender.send_blocking(result);
-    });
-    let app = app.clone();
-    let window = window.clone();
-    glib::spawn_future_local(async move {
-        let Ok(result) = receiver.recv().await else {
-            show_project_load_error(
-                &app,
-                &window,
-                "Could not import OTIO",
-                "The OTIO importer stopped unexpectedly.",
-            );
-            return;
-        };
-        match result {
-            Ok((project, warnings)) => finish_otio_import(&app, &window, source, project, warnings),
-            Err(error) => show_project_load_error(&app, &window, "Could not import OTIO", &error),
-        }
-    });
-}
-
-fn finish_otio_import(
-    app: &adw::Application,
-    window: &adw::ApplicationWindow,
-    source: PathBuf,
-    outcome: project::ProjectValidationOutcome,
-    warnings: Vec<String>,
-) {
-    let saved = move |app: &adw::Application, window: &adw::ApplicationWindow, path: PathBuf| {
-        if warnings.is_empty() {
-            load_project(app, window, path);
-        } else {
-            show_otio_warnings(app, window, path, warnings);
-        }
-    };
-    match outcome {
-        project::ProjectValidationOutcome::Valid(project) => choose_project_destination(
-            app,
-            window,
-            imported_project_filename(&source),
-            "Import OTIO as Shrimply Project",
-            "Could not import OTIO",
-            project,
-            saved,
-        ),
-        project::ProjectValidationOutcome::FrameGridRepair(project) => {
-            show_frame_grid_repair_dialog(
-                app,
-                window,
-                source,
-                project,
-                "Could not import OTIO",
-                saved,
-            )
-        }
-    }
-}
-
-fn show_frame_grid_repair_dialog(
-    app: &adw::Application,
-    window: &adw::ApplicationWindow,
-    source: PathBuf,
-    project: project::Project,
-    error_heading: &'static str,
-    saved: impl FnOnce(&adw::Application, &adw::ApplicationWindow, PathBuf) + 'static,
+    loader: Rc<RefCell<ProjectLoader>>,
 ) {
     let dialog = adw::AlertDialog::builder()
         .heading(tr!("Project Timing Needs Repair").as_ref())
@@ -732,26 +525,16 @@ fn show_frame_grid_repair_dialog(
     dialog.add_responses_i18n(&[("abort", "Abort"), ("fix", "Fix")]);
     dialog.set_default_response(Some("fix"));
     dialog.set_close_response("abort");
-    let app = app.clone();
-    let window = window.clone();
-    let parent = window.clone();
+    let callback_app = app.clone();
+    let callback_window = window.clone();
     dialog.choose(
-        Some(parent.upcast_ref::<gtk::Widget>()),
+        Some(window.upcast_ref::<gtk::Widget>()),
         None::<&gio::Cancellable>,
         move |answer| {
-            if answer != "fix" {
-                app.quit();
-                return;
-            }
-            choose_project_destination(
-                &app,
-                &window,
-                fixed_project_filename(&source),
-                "Save Fixed Project",
-                error_heading,
-                project,
-                saved,
-            );
+            let event = loader
+                .borrow_mut()
+                .confirm_frame_grid_repair(answer == "fix");
+            handle_load_event(&callback_app, &callback_window, loader, event);
         },
     );
 }
@@ -759,11 +542,9 @@ fn show_frame_grid_repair_dialog(
 fn choose_project_destination(
     app: &adw::Application,
     window: &adw::ApplicationWindow,
-    initial_name: String,
-    label: &'static str,
-    error_heading: &'static str,
-    project: project::Project,
-    saved: impl FnOnce(&adw::Application, &adw::ApplicationWindow, PathBuf) + 'static,
+    loader: Rc<RefCell<ProjectLoader>>,
+    title: &'static str,
+    suggested_name: String,
 ) {
     let filter = gtk::FileFilter::new();
     filter.set_name_i18n("Shrimply projects");
@@ -771,93 +552,29 @@ fn choose_project_destination(
     let filters = gio::ListStore::new::<gtk::FileFilter>();
     filters.append(&filter);
     let dialog = gtk::FileDialog::builder()
-        .title(tr!(label).as_ref())
-        .initial_name(initial_name)
+        .title(tr!(title).as_ref())
+        .initial_name(suggested_name)
         .filters(&filters)
         .default_filter(&filter)
         .build();
-    let app = app.clone();
-    let window = window.clone();
-    let parent = window.clone();
+    let callback_app = app.clone();
+    let callback_window = window.clone();
     shrimply_ui_foundation::file_picker::save(
-        label,
+        title,
         &dialog,
-        Some(parent.upcast_ref::<gtk::Window>()),
+        Some(window.upcast_ref::<gtk::Window>()),
         move |result| {
-            let Ok(file) = result else {
-                app.quit();
-                return;
-            };
-            let Some(mut destination) = file.path() else {
-                show_project_load_error(
-                    &app,
-                    &window,
-                    error_heading,
-                    "The selected location does not have a local path.",
-                );
-                return;
-            };
-            if destination
-                .extension()
-                .and_then(|extension| extension.to_str())
-                .is_none_or(|extension| !extension.eq_ignore_ascii_case("shrimp"))
-            {
-                destination.set_extension("shrimp");
-            }
-            window.set_content(Some(&project_loading_view_with_subtitle(
-                "Writing Shrimply project…",
-            )));
-            let (sender, receiver) = async_channel::bounded(1);
-            thread::spawn({
-                let destination = destination.clone();
-                move || {
-                    let result =
-                        project::create_project_file(&destination, &project).map(|()| destination);
-                    let _ = sender.send_blocking(result);
-                }
-            });
-            glib::spawn_future_local(async move {
-                let Ok(result) = receiver.recv().await else {
-                    show_project_load_error(
-                        &app,
-                        &window,
-                        error_heading,
-                        "The project writer stopped unexpectedly.",
-                    );
-                    return;
-                };
-                match result {
-                    Ok(path) => saved(&app, &window, path),
-                    Err(error) => show_project_load_error(&app, &window, error_heading, &error),
-                }
-            });
+            let destination = result.ok().and_then(|file| file.path());
+            let event = loader.borrow_mut().choose_destination(destination);
+            handle_load_event(&callback_app, &callback_window, loader, event);
         },
     );
 }
 
-fn imported_project_filename(source: &Path) -> String {
-    source
-        .file_stem()
-        .map(|name| format!("{}.shrimp", name.to_string_lossy()))
-        .unwrap_or_else(|| "imported.shrimp".to_string())
-}
-
-fn fixed_project_filename(source: &Path) -> String {
-    let stem = source
-        .file_stem()
-        .map(|name| name.to_string_lossy())
-        .unwrap_or_else(|| "project".into());
-    let timestamp = glib::DateTime::now_local()
-        .and_then(|time| time.format("%Y-%m-%d_%H-%M-%S"))
-        .map(|value| value.to_string())
-        .unwrap_or_else(|_| "unknown-time".to_string());
-    format!("{stem}_{timestamp}-fix.shrimp")
-}
-
-fn show_otio_warnings(
+fn show_import_warnings(
     app: &adw::Application,
     window: &adw::ApplicationWindow,
-    path: PathBuf,
+    loader: Rc<RefCell<ProjectLoader>>,
     warnings: Vec<String>,
 ) {
     let dialog = adw::AlertDialog::new(
@@ -867,33 +584,72 @@ fn show_otio_warnings(
     dialog.add_response("open", "Open Project");
     dialog.set_default_response(Some("open"));
     dialog.set_close_response("open");
-    let app = app.clone();
-    let window = window.clone();
-    let parent = window.clone();
+    let callback_app = app.clone();
+    let callback_window = window.clone();
     dialog.choose(
-        Some(parent.upcast_ref::<gtk::Widget>()),
+        Some(window.upcast_ref::<gtk::Widget>()),
         None::<&gio::Cancellable>,
-        move |_| load_project(&app, &window, path),
+        move |_| {
+            let event = loader.borrow_mut().acknowledge_warnings();
+            handle_load_event(&callback_app, &callback_window, loader, event);
+        },
     );
 }
 
-fn has_otio_extension(path: &Path) -> bool {
-    path.extension()
-        .and_then(|extension| extension.to_str())
-        .is_some_and(|extension| extension.eq_ignore_ascii_case("otio"))
+fn show_project_lock_dialog(
+    app: &adw::Application,
+    window: &adw::ApplicationWindow,
+    loader: Rc<RefCell<ProjectLoader>>,
+    pid: u32,
+) {
+    let dialog = adw::AlertDialog::builder()
+        .heading(tr!("Project is in use").as_ref())
+        .body(format!(
+            "The project lock is held by another editor process (PID {pid})."
+        ))
+        .prefer_wide_layout(false)
+        .build();
+    dialog.add_responses_i18n(&[
+        ("close", "Close"),
+        ("stop", "Stop Other Editor"),
+        ("retry", "Retry"),
+    ]);
+    dialog.set_default_response(Some("retry"));
+    dialog.set_close_response("close");
+    dialog.set_response_appearance("stop", adw::ResponseAppearance::Destructive);
+    let callback_app = app.clone();
+    let callback_window = window.clone();
+    dialog.choose(
+        Some(window.upcast_ref::<gtk::Widget>()),
+        None::<&gio::Cancellable>,
+        move |answer| {
+            let event = match answer.as_str() {
+                "retry" => loader.borrow_mut().retry_locked_project(false, pid),
+                "stop" => loader.borrow_mut().retry_locked_project(true, pid),
+                _ => loader.borrow_mut().cancel(),
+            };
+            handle_load_event(&callback_app, &callback_window, loader, event);
+        },
+    );
 }
 
-fn has_kdenlive_extension(path: &Path) -> bool {
-    path.extension()
-        .and_then(|extension| extension.to_str())
-        .is_some_and(|extension| extension.eq_ignore_ascii_case("kdenlive"))
+fn show_project_load_error(
+    app: &adw::Application,
+    window: &adw::ApplicationWindow,
+    heading: &str,
+    message: &str,
+) {
+    let dialog = adw::AlertDialog::new(Some(heading), Some(message));
+    dialog.add_response("close", "Close");
+    dialog.set_close_response("close");
+    dialog.set_default_response(Some("close"));
+    let app = app.clone();
+    dialog.choose(
+        Some(window.upcast_ref::<gtk::Widget>()),
+        None::<&gio::Cancellable>,
+        move |_| app.quit(),
+    );
 }
-
-fn load_project(app: &adw::Application, window: &adw::ApplicationWindow, path: PathBuf) {
-    window.set_content(Some(&project_loading_view(&path)));
-    start_project_load(app, window, path);
-}
-
 fn project_loading_view(path: &Path) -> adw::ToolbarView {
     let filename = path
         .file_name()
@@ -957,127 +713,6 @@ fn project_loading_view_with_subtitle(subtitle: &str) -> adw::ToolbarView {
     );
     toolbar.set_content(Some(&body));
     toolbar
-}
-
-fn start_project_load(app: &adw::Application, window: &adw::ApplicationWindow, path: PathBuf) {
-    let (sender, receiver) = async_channel::bounded(1);
-    let worker_path = path.clone();
-    thread::spawn(move || {
-        let _ = sender.send_blocking(project::prepare_project_with_frame_grid_repair(
-            &worker_path,
-        ));
-    });
-    let app = app.clone();
-    let window = window.clone();
-    glib::spawn_future_local(async move {
-        let Ok(result) = receiver.recv().await else {
-            show_project_load_error(
-                &app,
-                &window,
-                "Could not open project",
-                "The project loader stopped unexpectedly.",
-            );
-            return;
-        };
-        match result {
-            Ok(project::ProjectPreparation::Ready(prepared)) => {
-                let project = project::activate_project(prepared);
-                if let Err(error) = shrimply_support::recent_projects::touch(&path, &project.name) {
-                    tracing::warn!("Could not update recent projects: {error}");
-                }
-                ffmpeg::init().expect("FFmpeg should initialize");
-                ffmpeg::util::log::set_level(ffmpeg::util::log::Level::Error);
-                build_ui(&window, project);
-            }
-            Ok(project::ProjectPreparation::FrameGridRepair(project)) => {
-                show_frame_grid_repair_dialog(
-                    &app,
-                    &window,
-                    path,
-                    project,
-                    "Could not fix project",
-                    |app, window, path| load_project(app, window, path),
-                );
-            }
-            Err(project::ProjectLoadError::LockedByOtherInstance { pid }) => {
-                show_project_lock_dialog(&app, &window, path, pid);
-            }
-            Err(project::ProjectLoadError::Other(error)) => {
-                show_project_load_error(&app, &window, "Could not open project", &error);
-            }
-        }
-    });
-}
-
-fn show_project_lock_dialog(
-    app: &adw::Application,
-    window: &adw::ApplicationWindow,
-    path: PathBuf,
-    pid: u32,
-) {
-    let dialog = adw::AlertDialog::builder()
-        .heading(tr!("Project is in use").as_ref())
-        .body(format!(
-            "The project lock is held by another editor process (PID {pid})."
-        ))
-        .prefer_wide_layout(false)
-        .build();
-    dialog.add_responses_i18n(&[
-        ("close", "Close"),
-        ("stop", "Stop Other Editor"),
-        ("retry", "Retry"),
-    ]);
-    dialog.set_default_response(Some("retry"));
-    dialog.set_close_response("close");
-    dialog.set_response_appearance("stop", adw::ResponseAppearance::Destructive);
-    let app = app.clone();
-    let window = window.clone();
-    let parent = window.clone();
-    dialog.choose(
-        Some(parent.upcast_ref::<gtk::Widget>()),
-        None::<&gio::Cancellable>,
-        move |answer| match answer.as_str() {
-            "retry" => load_project(&app, &window, path),
-            "stop" => {
-                if project::terminate_project_process(pid) {
-                    load_project(&app, &window, path);
-                } else {
-                    let dialog = adw::AlertDialog::new(
-                        Some("Could not stop other editor"),
-                        Some("Shrimply could not signal the other process."),
-                    );
-                    dialog.add_response("close", "Close");
-                    dialog.set_close_response("close");
-                    dialog.set_default_response(Some("close"));
-                    let parent = window.clone();
-                    dialog.choose(
-                        Some(parent.upcast_ref::<gtk::Widget>()),
-                        None::<&gio::Cancellable>,
-                        move |_| show_project_lock_dialog(&app, &window, path, pid),
-                    );
-                }
-            }
-            _ => app.quit(),
-        },
-    );
-}
-
-fn show_project_load_error(
-    app: &adw::Application,
-    window: &adw::ApplicationWindow,
-    heading: &str,
-    message: &str,
-) {
-    let dialog = adw::AlertDialog::new(Some(heading), Some(message));
-    dialog.add_response("close", "Close");
-    dialog.set_close_response("close");
-    dialog.set_default_response(Some("close"));
-    let app = app.clone();
-    dialog.choose(
-        Some(window.upcast_ref::<gtk::Widget>()),
-        None::<&gio::Cancellable>,
-        move |_| app.quit(),
-    );
 }
 
 fn header_bar() -> (adw::HeaderBar, gtk::Label) {

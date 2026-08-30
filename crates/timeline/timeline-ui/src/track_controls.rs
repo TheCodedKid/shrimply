@@ -500,6 +500,17 @@ pub(super) fn toggle_track_enabled(
     player_state: &SharedPlayerState,
     key: TrackKey,
 ) {
+    if !toggle_track_enabled_core(project, player_state, key) {
+        return;
+    }
+    area.queue_render();
+}
+
+pub(super) fn toggle_track_enabled_core(
+    project: &Rc<RefCell<Project>>,
+    player_state: &SharedPlayerState,
+    key: TrackKey,
+) -> bool {
     let mut project_state = project.borrow_mut();
     let changed = match key.kind {
         TrackKind::Caption => project_state
@@ -525,7 +536,7 @@ pub(super) fn toggle_track_enabled(
             }),
     };
     if !changed {
-        return;
+        return false;
     }
     crate::project::commit_edit(&project_state, "toggle-track-enabled");
     let duration = project_state.duration();
@@ -541,5 +552,5 @@ pub(super) fn toggle_track_enabled(
             ..player_state::ProjectChange::default()
         },
     );
-    area.queue_render();
+    true
 }

@@ -179,11 +179,19 @@ pub fn last_edited(path: &Path) -> Option<String> {
 }
 
 pub fn launch_editor(path: &Path) -> Result<Child, String> {
+    launch_sibling_editor(path, "shrimply-editor")
+}
+
+pub fn launch_qt_editor(path: &Path) -> Result<Child, String> {
+    launch_sibling_editor(path, "shrimply-editor-qt")
+}
+
+fn launch_sibling_editor(path: &Path, binary_name: &str) -> Result<Child, String> {
     let sibling = std::env::current_exe()
-        .map(|path| path.with_file_name("shrimply-editor"))
+        .map(|path| path.with_file_name(binary_name))
         .ok()
         .filter(|path| path.is_file());
-    let editor = sibling.unwrap_or_else(|| PathBuf::from("shrimply-editor"));
+    let editor = sibling.unwrap_or_else(|| PathBuf::from(binary_name));
     Command::new(&editor)
         .arg(path)
         .spawn()

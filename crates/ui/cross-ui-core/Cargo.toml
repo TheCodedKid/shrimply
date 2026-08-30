@@ -4,10 +4,20 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+async-channel.workspace = true
 gio.workspace = true
 glib.workspace = true
+shrimply-asset = { path = "../../asset" }
+shrimply-audio = { path = "../../audio/audio" }
+shrimply-blender = { path = "../../blender/blender-bridge" }
 shrimply-math-core = { path = "../../math/core" }
+shrimply-kdenlive = { path = "../../project/kdenlive" }
+shrimply-otio = { path = "../../project/otio" }
+shrimply-playback-performance = { path = "../../preview/playback-performance" }
+shrimply-property-transfer = { path = "../../property-transfer" }
 shrimply-project = { path = "../../project/project" }
 shrimply-project-core = { path = "../../project/project-core" }
+shrimply-state = { path = "../../state" }
 shrimply-support = { path = "../../support" }
+shrimply-timeline = { path = "../../timeline/timeline" }
 tracing.workspace = true

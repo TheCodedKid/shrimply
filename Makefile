@@ -47,6 +47,7 @@ APP_NAME := Shrimply
 BIN_NAME := shrimply
 EDITOR_BIN_NAME := shrimply-editor
 EDITOR_PACKAGE := shrimply-editor-ui
+QT_EDITOR_PACKAGE := shrimply-editor-qt-ui
 LAUNCHER_PACKAGE := shrimply-launcher-ui
 QT_LAUNCHER_PACKAGE := shrimply-launcher-qt-ui
 QT_BIN_NAME := shrimply-qt
@@ -97,7 +98,7 @@ FEDORA_PACKAGES := \
 	poppler-glib-devel \
 	freetype-devel
 
-.PHONY: native-deps qt-native-deps cuda-target-check cuda-artifacts dev qt-build dev-qt dev-server docs docs-check run build release check server-python-check manim manim-python-check manim-parameter-check cargo-check fmt fmt-check lint test frame-rate-test video-lifecycle-test transparent-fill-frame-range-test transparent-fill-cache-test transparent-fill-decoder-test transparent-fill-kernel-test transparent-fill-compositor-test transparent-fill-playback-test transparent-fill-e2e-fixture transparent-fill-e2e-test decode-ahead-benchmark paint-interpolation-test crash-report oxide-doctor oxide-setup clean-dev clean deps-fedora install install-codex-mcp-dev install-agy-mcp-dev uninstall
+.PHONY: native-deps qt-native-deps cuda-target-check cuda-artifacts dev qt-build dev-qt dev-server docs docs-check run run-qt build release check server-python-check manim manim-python-check manim-parameter-check cargo-check fmt fmt-check lint test frame-rate-test video-lifecycle-test transparent-fill-frame-range-test transparent-fill-cache-test transparent-fill-decoder-test transparent-fill-kernel-test transparent-fill-compositor-test transparent-fill-playback-test transparent-fill-e2e-fixture transparent-fill-e2e-test decode-ahead-benchmark paint-interpolation-test crash-report oxide-doctor oxide-setup clean-dev clean deps-fedora install install-codex-mcp-dev install-agy-mcp-dev uninstall
 
 native-deps:
 	@$(PKG_CONFIG) --exists rubberband || { echo "Missing Rubber Band development files (pkg-config: rubberband)" >&2; exit 1; }
@@ -107,7 +108,7 @@ native-deps:
 qt-native-deps:
 	@command -v $(QT_QMAKE) >/dev/null 2>&1 || { echo "Missing Qt 6 qmake ($(QT_QMAKE))" >&2; exit 1; }
 	@version="$$($(QT_QMAKE) -query QT_VERSION)"; case "$$version" in 6.*) echo "Using Qt $$version via $(QT_QMAKE)" ;; *) echo "$(QT_QMAKE) selected unsupported Qt $$version; Qt 6 is required" >&2; exit 1 ;; esac
-	@$(PKG_CONFIG) --exists Qt6Core Qt6Gui Qt6Qml Qt6Quick Qt6QuickControls2 || { echo "Missing Qt 6 Quick development files" >&2; exit 1; }
+	@$(PKG_CONFIG) --exists Qt6Core Qt6Gui Qt6Qml Qt6Quick Qt6QuickControls2 Qt6OpenGL || { echo "Missing Qt 6 Quick/OpenGL development files" >&2; exit 1; }
 
 cuda-target-check:
 	@test "$(CUDA_OXIDE_TARGET)" = sm_86 || { echo "CUDA_OXIDE_TARGET=$(CUDA_OXIDE_TARGET) is unsupported: host binaries embed sm_86 CUDA artifacts" >&2; exit 1; }
@@ -198,7 +199,7 @@ dev: native-deps cuda-artifacts
 	exit $$status
 
 qt-build: native-deps qt-native-deps cuda-artifacts
-	$(DEV_BUILD_ENV) QMAKE=$(QT_QMAKE) CARGO_TERM_COLOR=always $(CARGO) build -p $(EDITOR_PACKAGE) -p $(QT_LAUNCHER_PACKAGE) -p $(MCP_PACKAGE) --bins
+	$(DEV_BUILD_ENV) QMAKE=$(QT_QMAKE) CARGO_TERM_COLOR=always $(CARGO) build -p $(QT_EDITOR_PACKAGE) -p $(QT_LAUNCHER_PACKAGE) -p $(MCP_PACKAGE) --bins
 
 dev-qt: SHELL := /bin/bash
 dev-qt: qt-build
@@ -222,6 +223,9 @@ docs-check:
 	uv run --project docs --locked sphinx-build -W --keep-going docs/source docs/build
 
 run: dev
+
+run-qt: qt-build
+	$(BUILD_ENV) RUST_LOG=$(RUST_LOG) target/debug/$(QT_BIN_NAME)
 
 build: native-deps cuda-artifacts
 	$(DEV_BUILD_ENV) $(CARGO) build -p $(EDITOR_PACKAGE) -p $(LAUNCHER_PACKAGE) -p $(MCP_PACKAGE) --bins

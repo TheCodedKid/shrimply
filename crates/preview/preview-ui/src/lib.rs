@@ -6,7 +6,9 @@ use std::cell::{Cell, RefCell};
 
 mod cuda_gl;
 mod fullscreen;
+mod media;
 mod preview_surface;
+use media::{PreviewMedia, StepDirection};
 
 pub use shrimply_audio as audio;
 pub use shrimply_core::timeline_value;
@@ -23,6 +25,14 @@ pub use shrimply_ui_foundation::{gl_loader, playback_shortcuts};
 pub use shrimply_video as video;
 pub use shrimply_video_modifiers as modifiers;
 
+pub fn playback_time_label(position: project::Time, duration: project::Time) -> String {
+    format!(
+        "{} / {}",
+        time_format::playback_time(position),
+        time_format::playback_time(duration)
+    )
+}
+
 pub mod preferences {
     pub use shrimply_state::preferences as store;
 }
@@ -32,10 +42,9 @@ pub mod timeline {
 }
 use std::rc::Rc;
 use std::sync::Arc;
-use std::sync::mpsc::{Receiver, TryRecvError};
 use std::time::{Duration, Instant};
 
-use crate::audio::{AudioPlayer, SharedAudioLevels};
+use crate::audio::AudioPlayer;
 use crate::player_state::SharedPlayerState;
 use crate::preferences::store as preferences_store;
 use crate::preview_focus::SharedPreviewFocus;
@@ -53,9 +62,6 @@ use shrimply_paint_edit::{PAINT_PREVIEW_STATE, PaintPreviewMode as PaintMode, Pa
 use shrimply_playback_performance as playback_performance;
 
 const STEP_REPEAT_TICK: Duration = Duration::from_millis(200);
-const FINAL_PREVIEW_DELAY: Duration = Duration::from_millis(450);
-const SETTLED_RENDER_RETRY_DELAY: Duration = Duration::from_millis(100);
-const LOCAL_SCRUB_WINDOW_SECONDS: i64 = 3;
 const LOADING_SPINNER_SIZE: i32 = 16;
 const LOADING_SPINNER_DELAY: Duration = Duration::from_nanos(1_000_000_000 / 24);
 const PREVIEW_FULLSCREEN_ICON: &str = "arrows-pointing-outward-symbolic";
@@ -63,6 +69,9 @@ const PREVIEW_TOOLBAR_ICON_SIZE: i32 = 20;
 const MAX_DISPLAYED_FRAME_RATE: u64 = 999;
 const DEFAULT_PAINT_ERASER_SCALE: f32 = 2.0;
 type PaintPaletteStructure = Rc<RefCell<Option<(uuid::Uuid, Vec<uuid::Uuid>)>>>;
+
+mod toolkit;
+pub use toolkit::ToolkitPreview;
 
 trait PaintSurfaceState {
     fn set_paint_mode(&self, mode: PaintMode);
@@ -160,12 +169,6 @@ impl PaintSurfaceState for PreviewController {
         });
     }
 }
-#[derive(Clone, Copy)]
-enum StepDirection {
-    Backward,
-    Forward,
-}
-
 pub fn new(
     project: Rc<RefCell<Project>>,
     player_state: SharedPlayerState,
@@ -173,7 +176,7 @@ pub fn new(
     selection_state: SharedSelectionState,
     preview_focus: SharedPreviewFocus,
     preferences: preferences_store::SharedPreferences,
-    audio_levels: SharedAudioLevels,
+    audio_player: Rc<AudioPlayer>,
 ) -> gtk::Widget {
     match player(
         project,
@@ -182,7 +185,7 @@ pub fn new(
         selection_state.clone(),
         preview_focus,
         preferences,
-        audio_levels,
+        audio_player,
     ) {
         Ok(widget) => widget.upcast(),
         Err(error) => error_page(&error).upcast(),
@@ -196,63 +199,18 @@ fn player(
     selection_state: SharedSelectionState,
     preview_focus: SharedPreviewFocus,
     preferences: preferences_store::SharedPreferences,
-    audio_levels: SharedAudioLevels,
+    audio_player: Rc<AudioPlayer>,
 ) -> Result<gtk::Overlay, String> {
     fullscreen::install_css();
 
     let initial_project = project.borrow().clone();
-    let preference_snapshot = preferences_store::snapshot(&preferences);
-    shrimply_audio::pneuma::set_server_url(&preference_snapshot.compute_server_url);
-    let resource_config = RenderResourceConfig {
-        maximum_temporal_decoders: preference_snapshot.temporal_decoder_pool_size as usize,
-        gpu_host_memory_gib: preference_snapshot.gpu_host_memory_gib,
-    };
-    let performance_observer = playback_performance.clone();
-    let observer = Arc::new(move |event| {
-        let event = match event {
-            compositor::PlaybackRenderEvent::Requested {
-                request_id,
-                position,
-            } => playback_performance::RenderEvent::Requested {
-                request_id,
-                position,
-            },
-            compositor::PlaybackRenderEvent::Completed {
-                request_id,
-                position,
-                elapsed,
-                project_fps,
-            } => playback_performance::RenderEvent::Completed {
-                request_id,
-                position,
-                elapsed,
-                project_fps,
-            },
-        };
-        playback_performance::record_render_event(&performance_observer, event);
-    });
-    let (video_tx, video_rx) = compositor::spawn_worker_with_resources_and_observer(
-        initial_project.clone(),
-        resource_config,
-        Some(observer),
+    let media = PreviewMedia::new(
+        project.clone(),
+        player_state.clone(),
+        playback_performance.clone(),
+        preferences.clone(),
     );
-    let configured_resources = Rc::new(Cell::new(resource_config));
-    let decoder_preferences_tx = video_tx.clone();
-    preferences_store::connect(&preferences, move |snapshot| {
-        shrimply_audio::pneuma::set_server_url(&snapshot.compute_server_url);
-        let config = RenderResourceConfig {
-            maximum_temporal_decoders: snapshot.temporal_decoder_pool_size as usize,
-            gpu_host_memory_gib: snapshot.gpu_host_memory_gib,
-        };
-        if configured_resources.replace(config) != config {
-            send_video_command(
-                &decoder_preferences_tx,
-                VideoCommand::ConfigureResources(config),
-            );
-        }
-    });
-    let audio_player = Rc::new(AudioPlayer::new(&initial_project, audio_levels)?);
-
+    let video_tx = media.sender();
     let video_surface = PreviewController::new(
         project.clone(),
         player_state.clone(),
@@ -816,13 +774,6 @@ fn player(
     preview_area.set_child(Some(&layout));
 
     player_state::set_duration(&player_state, duration);
-    send_video_command(
-        &video_tx,
-        VideoCommand::Render {
-            position: player_state::snapshot(&player_state).position,
-            accuracy: CompositeAccuracy::FULLY_ACCURATE,
-        },
-    );
 
     let updating_progress = Rc::new(Cell::new(false));
     update_controls(
@@ -834,7 +785,6 @@ fn player(
         &player_state,
     );
 
-    let video_project_revision = Rc::new(Cell::new(player_state::snapshot(&player_state).revision));
     attach_frame_pump(
         PreviewFramePumpWidgets {
             preview_area: preview_area.clone(),
@@ -845,189 +795,10 @@ fn player(
         },
         project.clone(),
         player_state.clone(),
-        video_tx.clone(),
-        video_rx,
-        video_project_revision.clone(),
+        media.clone(),
     );
 
-    let step_direction = Rc::new(Cell::new(None::<StepDirection>));
-
-    let media_state = player_state.clone();
-    let media_project = project.clone();
-    let media_video_project_revision = video_project_revision;
-    let media_video_tx = video_tx.clone();
-    let media_audio_player = audio_player.clone();
-    let media_step_direction = step_direction.clone();
-    let media_performance = playback_performance.clone();
-    let last_position = Rc::new(Cell::new(player_state::snapshot(&player_state).position));
-    let last_position_for_media = last_position.clone();
-    let last_playing = Rc::new(Cell::new(player_state::snapshot(&player_state).playing));
-    let last_playing_for_media = last_playing.clone();
-    let last_playback_speed = Rc::new(Cell::new(
-        player_state::snapshot(&player_state).playback_speed,
-    ));
-    let last_playback_speed_for_media = last_playback_speed.clone();
-    let last_revision = Rc::new(Cell::new(player_state::snapshot(&player_state).revision));
-    let last_revision_for_media = last_revision.clone();
-    let preview_generation = Rc::new(Cell::new(0u64));
-    let preview_generation_for_media = preview_generation.clone();
-    player_state::connect_named(&player_state, "video player media sync", move |event| {
-        let _measurement = shrimply_benchmarking::measure("Preview / Media sync listener");
-        let snapshot = player_state::snapshot(&media_state);
-        let position_changed = last_position_for_media.get() != snapshot.position;
-        let playing_changed = last_playing_for_media.get() != snapshot.playing;
-        let playback_speed_changed = last_playback_speed_for_media.get() != snapshot.playback_speed;
-        let revision_changed = last_revision_for_media.get() != snapshot.revision;
-        let step_direction = if position_changed && !snapshot.playing {
-            media_step_direction.replace(None)
-        } else {
-            None
-        };
-
-        let project_change = match event {
-            player_state::PlayerEvent::Project(change) => Some(change),
-            player_state::PlayerEvent::State(_) => None,
-        };
-        let natural_playback = matches!(
-            event,
-            player_state::PlayerEvent::State(player_state::StateChange {
-                position: Some(player_state::PositionChange::Playback),
-                ..
-            })
-        );
-        if playing_changed {
-            if snapshot.playing {
-                playback_performance::begin_playback(&media_performance, snapshot.position);
-            } else {
-                playback_performance::end_playback(&media_performance, snapshot.position);
-            }
-        }
-        if position_changed && snapshot.playing && !playing_changed && !natural_playback {
-            playback_performance::seek_playback(&media_performance, snapshot.position);
-        }
-        if let Some(change) = project_change
-            && (change.audio || change.video)
-        {
-            let project = media_project.borrow();
-            if change.audio {
-                media_audio_player.set_project(&project);
-            }
-            if change.video || change.audio {
-                let next_project = Arc::new({
-                    let _measurement = shrimply_benchmarking::measure("Preview / Project clone");
-                    project.clone()
-                });
-                if change.video {
-                    playback_performance::set_project(&media_performance, next_project.clone());
-                }
-                send_video_command(
-                    &media_video_tx,
-                    VideoCommand::set_project(next_project, snapshot.revision),
-                );
-                media_video_project_revision.set(snapshot.revision);
-            }
-        }
-
-        let project_audio_changed = project_change.is_some_and(|change| change.audio);
-        let audio_changed = (position_changed && !natural_playback)
-            || playing_changed
-            || playback_speed_changed
-            || project_audio_changed;
-        if audio_changed {
-            if (position_changed && !natural_playback)
-                || (playing_changed && snapshot.playing)
-                || project_audio_changed
-            {
-                media_audio_player.seek(snapshot.position);
-            }
-            media_audio_player.set_playback_speed(snapshot.playback_speed);
-            media_audio_player.set_playing(snapshot.playing);
-            if (position_changed || project_audio_changed) && !snapshot.playing {
-                media_audio_player.preview_from(snapshot.position);
-            }
-        }
-
-        let video_changed = position_changed
-            || playing_changed
-            || project_change.is_some_and(|change| change.video || change.audio);
-        if video_changed {
-            let previous_position = last_position_for_media.get();
-            let local_scrub = position_changed
-                && !snapshot.playing
-                && !project_change.is_some_and(|change| change.video)
-                && snapshot
-                    .position
-                    .max(previous_position)
-                    .saturating_sub(snapshot.position.min(previous_position))
-                    <= Time::from_seconds(LOCAL_SCRUB_WINDOW_SECONDS);
-            let accuracy = if snapshot.playing {
-                if position_changed && !natural_playback && !playing_changed {
-                    CompositeAccuracy::TIME_ACCURATE
-                } else {
-                    CompositeAccuracy::CONTINUOUS_TIME_ACCURATE
-                }
-            } else if project_change.is_some_and(|change| change.video && change.live_preview) {
-                CompositeAccuracy::CONTINUOUS_TIME_ACCURATE
-            } else if project_change.is_some_and(|change| change.video) {
-                CompositeAccuracy::BEST_EFFORT
-            } else if position_changed && step_direction.is_none() {
-                if local_scrub {
-                    CompositeAccuracy::LOCAL_TIME_ACCURATE
-                } else {
-                    CompositeAccuracy::BEST_EFFORT
-                }
-            } else if local_scrub {
-                CompositeAccuracy::LOCAL_FULLY_ACCURATE
-            } else {
-                CompositeAccuracy::FULLY_ACCURATE
-            };
-            let generation = preview_generation_for_media.get().wrapping_add(1);
-            preview_generation_for_media.set(generation);
-            send_video_command(
-                &media_video_tx,
-                VideoCommand::Render {
-                    position: snapshot.position,
-                    accuracy,
-                },
-            );
-            if !accuracy.content_accurate() && !snapshot.playing {
-                let settled_video_tx = media_video_tx.clone();
-                let settled_generation = preview_generation_for_media.clone();
-                let position = snapshot.position;
-                glib::timeout_add_local_once(FINAL_PREVIEW_DELAY, move || {
-                    if settled_generation.get() == generation {
-                        send_video_command(
-                            &settled_video_tx,
-                            VideoCommand::Render {
-                                position,
-                                accuracy: if accuracy.local_scrub() {
-                                    CompositeAccuracy::LOCAL_FULLY_ACCURATE
-                                } else {
-                                    CompositeAccuracy::FULLY_ACCURATE
-                                },
-                            },
-                        );
-                    } else {
-                        tracing::trace!(
-                            position = %position.as_label(),
-                            generation,
-                            current_generation = settled_generation.get(),
-                            "video preview settled render superseded",
-                        );
-                    }
-                });
-            }
-        }
-
-        if position_changed || playing_changed || playback_speed_changed {
-            last_position_for_media.set(snapshot.position);
-            last_playing_for_media.set(snapshot.playing);
-            last_playback_speed_for_media.set(snapshot.playback_speed);
-        }
-        if revision_changed {
-            last_revision_for_media.set(snapshot.revision);
-        }
-    });
+    let step_direction = media.step_direction();
 
     let caption_surface = video_surface.clone();
     player_state::connect_named(&player_state, "video player caption render", move |event| {
@@ -1105,12 +876,10 @@ fn player(
         player_state.clone(),
     );
 
-    attach_position_clock(&layout, player_state, audio_player.clone());
-
-    let stop_video_tx = video_tx.clone();
+    let stop_media = media;
     let stop_audio_player = audio_player.clone();
     layout.connect_unrealize(move |_| {
-        send_video_command(&stop_video_tx, VideoCommand::Stop);
+        stop_media.stop();
         stop_audio_player.stop();
     });
 
@@ -1300,9 +1069,7 @@ fn attach_frame_pump(
     widgets: PreviewFramePumpWidgets,
     project: Rc<RefCell<Project>>,
     player_state: SharedPlayerState,
-    video_tx: VideoCommandSender,
-    video_rx: Receiver<VideoEvent>,
-    video_project_revision: Rc<Cell<u64>>,
+    media: PreviewMedia,
 ) {
     let PreviewFramePumpWidgets {
         preview_area,
@@ -1315,206 +1082,16 @@ fn attach_frame_pump(
     let render_loading = Cell::new(false);
     let loading_since = Cell::new(None::<Instant>);
     preview_area.add_tick_callback(move |_, _| {
-        let mut latest_visual = None;
-        let mut loading = None;
-        let mut latest_render_elapsed = None;
-        loop {
-            match video_rx.try_recv() {
-                Ok(VideoEvent::Loading {
-                    position,
-                    show_spinner,
-                    render_elapsed,
-                    render_generation,
-                }) => {
-                    if !video_tx.render_generation_is_current(render_generation) {
-                        continue;
-                    }
-                    loading = Some(position);
-                    render_loading.set(show_spinner);
-                    latest_render_elapsed = Some(render_elapsed);
-                }
-                Ok(
-                    event @ VideoEvent::Frame {
-                        settled,
-                        render_elapsed,
-                        render_generation,
-                        ..
-                    },
-                ) => {
-                    if !video_tx.render_generation_is_current(render_generation) {
-                        continue;
-                    }
-                    latest_visual = Some(event);
-                    loading = None;
-                    render_loading.set(!settled);
-                    latest_render_elapsed = Some(render_elapsed);
-                }
-                Ok(
-                    event @ VideoEvent::Clear {
-                        render_elapsed,
-                        render_generation,
-                        ..
-                    },
-                ) => {
-                    if !video_tx.render_generation_is_current(render_generation) {
-                        continue;
-                    }
-                    latest_visual = Some(event);
-                    loading = None;
-                    render_loading.set(false);
-                    latest_render_elapsed = Some(render_elapsed);
-                }
-                Ok(VideoEvent::ManimDuration {
-                    item_id,
-                    source_revision,
-                    duration,
-                }) => {
-                    let mut project = project.borrow_mut();
-                    let Some(item) = project
-                        .video_tracks
-                        .iter_mut()
-                        .flat_map(|track| &mut track.items)
-                        .find(|item| item.id == item_id)
-                    else {
-                        continue;
-                    };
-                    let crate::project::VideoItemContent::Manim(_) = &item.content else {
-                        continue;
-                    };
-                    if item
-                        .file
-                        .snapshot()
-                        .map_or(true, |snapshot| snapshot.revision() != source_revision)
-                        || item.source_duration == duration
-                    {
-                        continue;
-                    }
-                    let previous_natural_end = crate::project::media_item_natural_end_position(
-                        item.start,
-                        item.animation_time_offset,
-                        item.source_duration,
-                        item.playback_speed,
-                        item.repeat_strategy,
-                    );
-                    let followed_natural_end = previous_natural_end == Some(item.end);
-                    item.source_duration = duration;
-                    if followed_natural_end
-                        && let Some(end) = crate::project::media_item_natural_end_position(
-                            item.start,
-                            item.animation_time_offset,
-                            duration,
-                            item.playback_speed,
-                            item.repeat_strategy,
-                        )
-                    {
-                        item.end = end;
-                    }
-                    crate::project::commit_edit(&project, "manim-source-duration");
-                    let project_duration = project.duration();
-                    drop(project);
-                    player_state::refresh_project(
-                        &player_state,
-                        player_state::ProjectChange {
-                            duration: Some(project_duration),
-                            video: true,
-                            inspector: true,
-                            ..player_state::ProjectChange::default()
-                        },
-                    );
-                }
-                Ok(VideoEvent::ManimParameters {
-                    item_id,
-                    source_revision,
-                    scene,
-                    parameters,
-                    render_is_current,
-                }) => {
-                    // A duration event from this render may already have advanced the project
-                    // revision, so validate the item itself instead of the global revision.
-                    let (changed, reconciled) = {
-                        let mut project = project.borrow_mut();
-                        let Some(item) = project
-                            .video_tracks
-                            .iter_mut()
-                            .flat_map(|track| &mut track.items)
-                            .find(|item| item.id == item_id)
-                        else {
-                            continue;
-                        };
-                        let crate::project::VideoItemContent::Manim(manim) = &mut item.content
-                        else {
-                            continue;
-                        };
-                        let mut reflected_values = manim.parameters.clone();
-                        reflected_values.clear();
-                        reflected_values.extend(
-                            parameters
-                                .iter()
-                                .map(|parameter| (parameter.key.clone(), parameter.value.clone())),
-                        );
-                        if item
-                            .file
-                            .snapshot()
-                            .map_or(true, |snapshot| snapshot.revision() != source_revision)
-                            || manim.scene != scene
-                            || manim
-                                .parameters
-                                .iter()
-                                .any(|(key, value)| reflected_values.get(key) != Some(value))
-                        {
-                            continue;
-                        }
-                        let changed = shrimply_state::manim_status::set_parameters(
-                            item_id,
-                            source_revision,
-                            scene,
-                            parameters,
-                        );
-                        let reconciled = !render_is_current && manim.parameters != reflected_values;
-                        if reconciled {
-                            manim.parameters = reflected_values;
-                            crate::project::commit_edit(&project, "reconcile-manim-parameters");
-                        }
-                        (changed, reconciled)
-                    };
-                    if changed || reconciled {
-                        player_state::refresh_project(
-                            &player_state,
-                            player_state::ProjectChange {
-                                inspector: true,
-                                video: reconciled,
-                                ..player_state::ProjectChange::default()
-                            },
-                        );
-                    }
-                }
-                Ok(VideoEvent::Error(error)) => {
-                    tracing::error!("Video compositor error: {error}");
-                    loading = None;
-                    render_loading.set(false);
-                }
-                Ok(VideoEvent::ManimStatus {
-                    item_id,
-                    source_revision,
-                    error,
-                }) => {
-                    if shrimply_state::manim_status::set_error(item_id, source_revision, error) {
-                        player_state::refresh_project(
-                            &player_state,
-                            player_state::ProjectChange {
-                                inspector: true,
-                                ..player_state::ProjectChange::default()
-                            },
-                        );
-                    }
-                }
-                Err(TryRecvError::Empty) => break,
-                Err(TryRecvError::Disconnected) => return glib::ControlFlow::Break,
-            }
+        let update = media.poll();
+        if !update.running {
+            return glib::ControlFlow::Break;
+        }
+        if let Some(loading) = update.render_loading {
+            render_loading.set(loading);
         }
 
         let snapshot = player_state::snapshot(&player_state);
-        if let Some(render_elapsed) = latest_render_elapsed
+        if let Some(render_elapsed) = update.render_elapsed
             && let Some(frame_rate) = frame_rate_from_duration(render_elapsed)
         {
             frame_rate_label.set_label(
@@ -1524,7 +1101,7 @@ fn attach_frame_pump(
             );
         }
 
-        if let Some(event) = latest_visual {
+        if let Some(event) = update.visual {
             match event {
                 VideoEvent::Frame {
                     frame,
@@ -1536,10 +1113,8 @@ fn attach_frame_pump(
                     render_elapsed: _,
                     render_generation: _,
                 } => {
-                    if revision == video_project_revision.get() {
-                        displayed_position.set(Some(position));
-                        video_surface.set_frame(frame, audio_analysis, revision, excluded_item_id);
-                    }
+                    displayed_position.set(Some(position));
+                    video_surface.set_frame(frame, audio_analysis, revision, excluded_item_id);
                 }
                 VideoEvent::Clear {
                     audio_analysis,
@@ -1549,10 +1124,8 @@ fn attach_frame_pump(
                     render_elapsed: _,
                     render_generation: _,
                 } => {
-                    if revision == video_project_revision.get() {
-                        displayed_position.set(Some(position));
-                        video_surface.clear_frame(audio_analysis, revision, excluded_item_id);
-                    }
+                    displayed_position.set(Some(position));
+                    video_surface.clear_frame(audio_analysis, revision, excluded_item_id);
                 }
                 VideoEvent::Loading { .. }
                 | VideoEvent::ManimDuration { .. }
@@ -1582,52 +1155,8 @@ fn attach_frame_pump(
             .is_some_and(|loading_since| loading_since.elapsed() >= LOADING_SPINNER_DELAY);
         loading_spinner.set_visible(show_loading);
         loading_indicator.set_visible_child_name(if show_loading { "loading" } else { "done" });
-        if let Some(position) = loading {
-            let retry_state = player_state.clone();
-            let retry_video_tx = video_tx.clone();
-            glib::timeout_add_local_once(SETTLED_RENDER_RETRY_DELAY, move || {
-                let snapshot = player_state::snapshot(&retry_state);
-                if !snapshot.playing && snapshot.position == position {
-                    send_video_command(
-                        &retry_video_tx,
-                        VideoCommand::Render {
-                            position,
-                            accuracy: CompositeAccuracy::FULLY_ACCURATE,
-                        },
-                    );
-                }
-            });
-        }
-
         glib::ControlFlow::Continue
     });
-}
-
-#[allow(clippy::too_many_arguments)]
-fn attach_position_clock(
-    layout: &gtk::Box,
-    player_state: SharedPlayerState,
-    audio_player: Rc<AudioPlayer>,
-) {
-    layout.add_tick_callback(move |layout, _| {
-        if let Some(error) = audio_player.take_failure() {
-            player_state::set_playing(&player_state, false);
-            let dialog = adw::AlertDialog::new(Some("Audio playback stopped"), Some(&error));
-            dialog.present(layout.root().and_downcast::<gtk::Window>().as_ref());
-            return glib::ControlFlow::Continue;
-        }
-
-        player_state::tick(&player_state);
-
-        glib::ControlFlow::Continue
-    });
-}
-
-fn send_video_command(command_tx: &VideoCommandSender, command: VideoCommand) {
-    let _measurement = shrimply_benchmarking::measure("Preview / Send video command");
-    if let Err(error) = command_tx.send(command) {
-        tracing::warn!("Could not send video compositor command: {error}");
-    }
 }
 
 fn error_page(error: &str) -> adw::StatusPage {
@@ -1785,11 +1314,7 @@ fn update_controls(
         play_button.set_tooltip_i18n("Play");
     }
 
-    time_label.set_label(&format!(
-        "{} / {}",
-        time_format::playback_time(snapshot.position),
-        time_format::playback_time(snapshot.duration)
-    ));
+    time_label.set_label(&playback_time_label(snapshot.position, snapshot.duration));
     let playback_speed_text = if fraction_denominator(snapshot.playback_speed) == 1 {
         format!("x{}", fraction_numerator(snapshot.playback_speed))
     } else {

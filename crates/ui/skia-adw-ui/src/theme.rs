@@ -2,6 +2,7 @@
 //! from `libadwaita/src/stylesheet/_colors.scss`.
 
 use shrimply_math_color::Color;
+use std::cell::Cell;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Theme {
@@ -68,15 +69,15 @@ pub static LIGHT: Theme = Theme::new(false);
 pub static DARK: Theme = Theme::new(true);
 
 std::thread_local! {
-    static STYLE_MANAGER: adw::StyleManager = adw::StyleManager::default();
+    static DARK_MODE: Cell<bool> = const { Cell::new(false) };
+}
+
+pub fn set_dark(dark: bool) {
+    DARK_MODE.set(dark);
 }
 
 pub fn current() -> &'static Theme {
-    if STYLE_MANAGER.with(adw::StyleManager::is_dark) {
-        &DARK
-    } else {
-        &LIGHT
-    }
+    if DARK_MODE.get() { &DARK } else { &LIGHT }
 }
 
 impl Theme {

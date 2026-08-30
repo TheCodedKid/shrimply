@@ -88,10 +88,12 @@ pub(super) fn caption_split_at_pointer(
         &project,
         &address,
         player.position,
-        preview_rect,
-        state.caption_font_size,
-        state.caption_background_color,
-        state.caption_bottom_inset,
+        CaptionAppearance {
+            preview_rect,
+            font_size: state.caption_font_size,
+            background_color: state.caption_background_color,
+            bottom_inset: state.caption_bottom_inset,
+        },
         point,
     )?;
     Some((address, text_byte))

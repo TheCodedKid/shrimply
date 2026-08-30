@@ -3,6 +3,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, OnceLock};
 
 use shrimply_resource_pipeline::{Event, JobContext, Pipeline, Processor};
+use shrimply_resource_pipeline::{Subscription, TryNext};
 
 use super::*;
 
@@ -10,8 +11,13 @@ static NEXT_AUDIO_RESOURCE_REQUEST: AtomicU64 = AtomicU64::new(1);
 static WAVEFORM_PIPELINE: OnceLock<Pipeline<WaveformRequest, WaveformProcessor>> = OnceLock::new();
 static BEAT_PIPELINE: OnceLock<Pipeline<BeatRequest, BeatProcessor>> = OnceLock::new();
 
+pub(super) type WaveformSubscription =
+    Subscription<WaveformRequest, Vec<(uuid::Uuid, waveform::WaveformUpdate)>, WaveformMap>;
+pub(super) type BeatSubscription =
+    Subscription<BeatRequest, (uuid::Uuid, beat::BeatUpdate), BeatMap>;
+
 #[derive(Clone)]
-struct WaveformRequest {
+pub(super) struct WaveformRequest {
     id: u64,
     project: Arc<Project>,
     chunks_per_second: u32,
@@ -57,7 +63,7 @@ impl Processor<WaveformRequest> for WaveformProcessor {
 }
 
 #[derive(Clone)]
-struct BeatRequest {
+pub(super) struct BeatRequest {
     id: u64,
     project: Arc<Project>,
 }
@@ -180,6 +186,89 @@ pub(super) fn start_beat_loader(
         },
     );
     runtime.borrow_mut().beat_job = Some(handle);
+}
+
+pub(super) fn toolkit_audio_loaders(project: &Project) -> (WaveformSubscription, BeatSubscription) {
+    let project = Arc::new(project.clone());
+    let chunks_per_second =
+        waveform_chunks_per_second_from_frame_step(frame_step_seconds(&project));
+    let waveform = waveform_pipeline()
+        .request(WaveformRequest {
+            id: next_audio_resource_request(),
+            project: project.clone(),
+            chunks_per_second,
+        })
+        .1;
+    beat::begin_loading(&project);
+    let beats = beat_pipeline()
+        .request(BeatRequest {
+            id: next_audio_resource_request(),
+            project,
+        })
+        .1;
+    (waveform, beats)
+}
+
+pub(super) fn poll_toolkit_audio_loaders(
+    runtime: &mut TimelineRuntime,
+    waveform: &mut Option<WaveformSubscription>,
+    beats: &mut Option<BeatSubscription>,
+) {
+    if let Some(subscription) = waveform {
+        loop {
+            match subscription.try_next() {
+                TryNext::Event(Event::Progress(progress)) => {
+                    for (id, update) in progress.iter() {
+                        waveform::apply_update(&mut runtime.waveforms, *id, update.clone());
+                    }
+                }
+                TryNext::Event(Event::Finished(loaded)) => {
+                    for (id, waveform) in loaded.iter() {
+                        runtime.waveforms.insert(*id, waveform.clone());
+                    }
+                    *waveform = None;
+                    break;
+                }
+                TryNext::Event(Event::Failed(error)) => {
+                    tracing::warn!(%error, "Could not load audio waveforms");
+                    *waveform = None;
+                    break;
+                }
+                TryNext::Event(Event::Cancelled) | TryNext::Closed => {
+                    *waveform = None;
+                    break;
+                }
+                TryNext::Empty => break,
+            }
+        }
+    }
+    if let Some(subscription) = beats {
+        loop {
+            match subscription.try_next() {
+                TryNext::Event(Event::Progress(progress)) => {
+                    let (id, update) = &*progress;
+                    beat::apply_update(&mut runtime.beats, *id, update.clone());
+                }
+                TryNext::Event(Event::Finished(loaded)) => {
+                    for (id, state) in loaded.iter() {
+                        runtime.beats.insert(*id, state.clone());
+                    }
+                    *beats = None;
+                    break;
+                }
+                TryNext::Event(Event::Failed(error)) => {
+                    tracing::warn!(%error, "Could not load audio beats");
+                    *beats = None;
+                    break;
+                }
+                TryNext::Event(Event::Cancelled) | TryNext::Closed => {
+                    *beats = None;
+                    break;
+                }
+                TryNext::Empty => break,
+            }
+        }
+    }
 }
 
 fn next_audio_resource_request() -> u64 {

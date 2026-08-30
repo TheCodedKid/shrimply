@@ -9,7 +9,7 @@ use glam::{IVec2, Vec2 as GlamVec2};
 use gtk::prelude::*;
 use gtk::{gdk, glib};
 use shrimply_preview_core::{
-    Cursor, CursorUpdate, Key, KeyState, KeyboardEvent, Modifiers, PointerButton, PointerEvent,
+    CursorUpdate, Key, KeyState, KeyboardEvent, Modifiers, PointerButton, PointerEvent,
     PointerInput, PointerSample, PointerTool, PreviewBuilder, PreviewContext, PreviewEditSink,
     PreviewExtensionKey, PreviewItemGeometry, PreviewProvider, PreviewRefresh, PreviewResponse,
     PreviewTarget, PreviewViewport, SnapScene,
@@ -27,12 +27,15 @@ use crate::video::gpu::CompositedVideoFrame;
 
 #[path = "preview_surface/captions.rs"]
 mod captions;
-use captions::draw_captions;
+use captions::{CaptionAppearance, draw_captions};
 #[path = "preview_surface/dispatch.rs"]
 mod dispatch;
 use dispatch::{
     apply_response, attach_frame_scheduler, caption_split_at_pointer, split_caption_at_pointer,
 };
+#[path = "preview_surface/cursor.rs"]
+mod cursor;
+use cursor::name as cursor_name;
 #[path = "preview_surface/geometry.rs"]
 mod geometry;
 #[path = "preview_surface/guides.rs"]
@@ -41,25 +44,11 @@ use geometry::{surface_viewport, video_content_rect};
 #[path = "preview_surface/renderer.rs"]
 mod renderer;
 use renderer::{Appearance, VideoRenderer};
+#[path = "preview_surface/toolkit.rs"]
+mod toolkit;
+pub(crate) use toolkit::ToolkitPreviewRenderer;
 
 const FULLSCREEN_BACKGROUND_COLOR: Color = Color::BLACK;
-
-const fn cursor_name(cursor: Cursor) -> &'static str {
-    match cursor {
-        Cursor::Default => "default",
-        Cursor::Pointer => "pointer",
-        Cursor::Crosshair => "crosshair",
-        Cursor::Move => "move",
-        Cursor::Grab => "grab",
-        Cursor::Grabbing => "grabbing",
-        Cursor::Text => "text",
-        Cursor::ResizeHorizontal => "ew-resize",
-        Cursor::ResizeVertical => "ns-resize",
-        Cursor::ResizeDiagonalDown => "nwse-resize",
-        Cursor::ResizeDiagonalUp => "nesw-resize",
-        Cursor::Hidden => "none",
-    }
-}
 
 #[derive(Clone)]
 pub struct VideoSurface {
@@ -1068,10 +1057,12 @@ fn attach_render(
                         timeline_painter,
                         &project,
                         position,
-                        surface_rect,
-                        caption_font_size,
-                        caption_background_color,
-                        caption_bottom_inset,
+                        CaptionAppearance {
+                            preview_rect: surface_rect,
+                            font_size: caption_font_size,
+                            background_color: caption_background_color,
+                            bottom_inset: caption_bottom_inset,
+                        },
                         focused_caption
                             .as_ref()
                             .zip(caption_split_hover)

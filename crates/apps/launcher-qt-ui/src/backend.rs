@@ -264,7 +264,11 @@ impl qobject::LauncherBackend {
         let Some(index) = index_of(index) else {
             return;
         };
-        let editor = self.core.launch_recent(index);
+        let editor = self
+            .core
+            .recent_path(index)
+            .ok_or_else(|| "Recent project does not exist.".to_string())
+            .and_then(shrimply_cross_ui_core::launcher::launch_qt_editor);
         self.start_editor(editor);
     }
 
@@ -276,7 +280,7 @@ impl qobject::LauncherBackend {
             );
             return;
         };
-        let editor = shrimply_cross_ui_core::launcher::launch_editor(&path);
+        let editor = shrimply_cross_ui_core::launcher::launch_qt_editor(&path);
         self.start_editor(editor);
     }
 
@@ -337,7 +341,7 @@ impl qobject::LauncherBackend {
                 return;
             }
         };
-        let editor = shrimply_cross_ui_core::launcher::launch_editor(&path);
+        let editor = shrimply_cross_ui_core::launcher::launch_qt_editor(&path);
         self.start_editor(editor);
     }
 

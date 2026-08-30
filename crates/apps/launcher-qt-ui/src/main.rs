@@ -16,7 +16,7 @@ fn main() -> ExitCode {
             );
             return ExitCode::FAILURE;
         }
-        return match shrimply_cross_ui_core::launcher::launch_editor(Path::new(&path)).and_then(
+        return match shrimply_cross_ui_core::launcher::launch_qt_editor(Path::new(&path)).and_then(
             |mut editor| {
                 editor
                     .wait()
@@ -35,6 +35,7 @@ fn main() -> ExitCode {
         };
     }
 
+    QGuiApplication::set_desktop_file_name(&QString::from("dev.shrimply.Shrimply.Qt"));
     let mut app = QGuiApplication::new();
     let Some(mut app) = app.as_mut() else {
         eprintln!("could not create Qt application");
@@ -45,8 +46,6 @@ fn main() -> ExitCode {
         .set_application_name(&QString::from("shrimply-qt"));
     app.as_mut()
         .set_application_display_name(&QString::from("Shrimply"));
-    QGuiApplication::set_desktop_file_name(&QString::from("dev.shrimply.Shrimply.Qt"));
-
     let mut engine = QQmlApplicationEngine::new();
     let Some(mut engine) = engine.as_mut() else {
         eprintln!("could not create QML engine");

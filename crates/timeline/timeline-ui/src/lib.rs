@@ -47,6 +47,7 @@ use shrimply_skia_adw_ui::theme;
 use shrimply_timeline::{TrackGap, TrackKey};
 
 mod audio_meter;
+pub use audio_meter::ToolkitAudioMeter;
 mod beat_grid;
 mod clipboard;
 mod context_menu;
@@ -88,7 +89,8 @@ use runtime::*;
 use setup::*;
 use track_controls::{
     for_each_visible_track_row, show_track_add_menu, timeline_sidebar, toggle_track_enabled,
-    track_button_at, track_enabled, track_label_action_at, track_label_button_y, visible_row_range,
+    toggle_track_enabled_core, track_button_at, track_enabled, track_label_action_at,
+    track_label_button_y, visible_row_range,
 };
 use view::*;
 
@@ -142,6 +144,224 @@ const PERFORMANCE_MARKER_HEIGHT: f64 = 3.0;
 const PERFORMANCE_VISUAL_ALPHA: f32 = 0.42;
 const SIDEBAR_WIDTH: i32 = 44;
 const SIDEBAR_ICON_SIZE: i32 = 28;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ToolkitPointerButton {
+    Primary,
+    Middle,
+}
+
+pub struct ToolkitTimeline {
+    project: Rc<RefCell<Project>>,
+    player_state: SharedPlayerState,
+    playback_performance: playback_performance::SharedCollector,
+    selection_state: SharedSelectionState,
+    runtime: Rc<RefCell<TimelineRuntime>>,
+    waveform: Option<setup::WaveformSubscription>,
+    beats: Option<setup::BeatSubscription>,
+}
+
+impl ToolkitTimeline {
+    pub fn new(
+        project: Rc<RefCell<Project>>,
+        player_state: SharedPlayerState,
+        playback_performance: playback_performance::SharedCollector,
+        selection_state: SharedSelectionState,
+        preferences: preferences_store::SharedPreferences,
+        property_clipboard: shrimply_property_transfer::SharedClipboard,
+    ) -> Self {
+        let playhead_visibility_requested = Rc::new(Cell::new(false));
+        let (timeline_zoom, timeline_center) = {
+            let project = project.borrow();
+            (
+                project.timeline_zoom,
+                project
+                    .timeline_zoom
+                    .filter(|zoom| *zoom > Time::ZERO)
+                    .and(project.cursor_position),
+            )
+        };
+        let runtime = Rc::new(RefCell::new(TimelineRuntime::new(
+            WaveformMap::new(),
+            preferences_store::snapshot(&preferences),
+            playhead_visibility_requested,
+            timeline_zoom,
+            timeline_center,
+            property_clipboard,
+        )));
+        let preference_runtime = runtime.clone();
+        preferences_store::connect(&preferences, move |snapshot| {
+            let mut runtime = preference_runtime.borrow_mut();
+            runtime.default_visual_duration = snapshot.default_visual_duration;
+            runtime.default_text_font_family = snapshot.default_text_font_family;
+            runtime.beat_grid_enabled =
+                timeline_beat_grid_from_preference(&snapshot.timeline_beat_grid);
+            runtime.snap_radius_px = f64::from(snapshot.timeline_snap_radius_px);
+        });
+        let (waveform, beats) = setup::toolkit_audio_loaders(&project.borrow());
+        Self {
+            project,
+            player_state,
+            playback_performance,
+            selection_state,
+            runtime,
+            waveform: Some(waveform),
+            beats: Some(beats),
+        }
+    }
+
+    pub fn render(
+        &mut self,
+        width: u32,
+        height: u32,
+        pixels_per_point: f32,
+        accent_color: Color,
+    ) -> Result<(), String> {
+        let logical_width = f64::from(width) / f64::from(pixels_per_point);
+        let logical_height = f64::from(height) / f64::from(pixels_per_point);
+        let mut runtime = self.runtime.borrow_mut();
+        setup::poll_toolkit_audio_loaders(&mut runtime, &mut self.waveform, &mut self.beats);
+        runtime.track_controls_animating = false;
+        let painter = runtime.renderer.begin_frame(
+            glam::UVec2::new(width.max(1), height.max(1)),
+            pixels_per_point,
+            theme::current().view_bg,
+        )?;
+        timeline_ui(
+            &self.project,
+            &self.player_state,
+            &self.selection_state,
+            &playback_performance::snapshot(&self.playback_performance),
+            &mut runtime,
+            &painter,
+            logical_width,
+            logical_height,
+            accent_color,
+        );
+        runtime.finish_pointer_frame();
+        runtime.renderer.end_frame()?;
+        let pending_track_toggle = runtime.pending_track_toggle.take();
+        let pending_sequence_toggle = runtime.pending_sequence_toggle.take();
+        let pending_pause_playback = std::mem::take(&mut runtime.pending_pause_playback);
+        drop(runtime);
+        if pending_pause_playback {
+            player_state::set_playing(&self.player_state, false);
+        }
+        if let Some(key) = pending_track_toggle {
+            toggle_track_enabled_core(&self.project, &self.player_state, key);
+        }
+        if let Some(path) = pending_sequence_toggle {
+            self.toggle_sequence(path);
+        }
+        Ok(())
+    }
+
+    pub fn pointer_move(&self, x: f32, y: f32, ctrl: bool, shift: bool) {
+        let mut runtime = self.runtime.borrow_mut();
+        runtime.modifiers = TimelineModifiers { ctrl, shift };
+        runtime.pointer_pos = Some(vec2(x, y));
+    }
+
+    pub fn pointer_leave(&self) {
+        let mut runtime = self.runtime.borrow_mut();
+        runtime.pointer_pos = None;
+        runtime.cut_preview = None;
+    }
+
+    pub fn pointer_press(
+        &self,
+        button: ToolkitPointerButton,
+        x: f32,
+        y: f32,
+        ctrl: bool,
+        shift: bool,
+    ) {
+        let mut runtime = self.runtime.borrow_mut();
+        runtime.modifiers = TimelineModifiers { ctrl, shift };
+        let position = vec2(x, y);
+        runtime.pointer_pos = Some(position);
+        runtime.pointer_press_origin = Some(position);
+        runtime.pointer_release_pos = None;
+        match button {
+            ToolkitPointerButton::Primary => {
+                runtime.primary_pressed = true;
+                runtime.primary_down = true;
+            }
+            ToolkitPointerButton::Middle => {
+                runtime.middle_pressed = true;
+                runtime.middle_down = true;
+            }
+        }
+    }
+
+    pub fn pointer_release(
+        &self,
+        button: ToolkitPointerButton,
+        x: f32,
+        y: f32,
+        ctrl: bool,
+        shift: bool,
+    ) {
+        let mut runtime = self.runtime.borrow_mut();
+        runtime.modifiers = TimelineModifiers { ctrl, shift };
+        let position = vec2(x, y);
+        runtime.pointer_pos = Some(position);
+        runtime.pointer_release_pos = Some(position);
+        match button {
+            ToolkitPointerButton::Primary => {
+                runtime.primary_released = true;
+                runtime.primary_down = false;
+            }
+            ToolkitPointerButton::Middle => {
+                runtime.middle_released = true;
+                runtime.middle_down = false;
+            }
+        }
+    }
+
+    pub fn scroll(&self, dx: f32, dy: f32, ctrl: bool, shift: bool) {
+        let mut runtime = self.runtime.borrow_mut();
+        let modifiers = TimelineModifiers { ctrl, shift };
+        runtime.modifiers = modifiers;
+        let pointer = runtime.pointer_pos;
+        runtime.pending_scrolls.push(TimelineScrollEvent {
+            delta: vec2(
+                dx * SCROLL_PIXELS_PER_STEP as f32,
+                dy * SCROLL_PIXELS_PER_STEP as f32,
+            ),
+            ctrl,
+            pointer,
+        });
+    }
+
+    pub fn destroy(&self) {
+        self.runtime.borrow_mut().renderer.destroy();
+    }
+
+    fn toggle_sequence(&self, path: Vec<uuid::Uuid>) {
+        let mut project = self.project.borrow_mut();
+        let collapsed = if let Some(index) = project
+            .expanded_sequence_paths
+            .iter()
+            .position(|expanded| *expanded == path)
+        {
+            project.expanded_sequence_paths.remove(index);
+            true
+        } else {
+            project.expanded_sequence_paths.push(path.clone());
+            false
+        };
+        project::save_view_state(&project);
+        drop(project);
+        if collapsed {
+            let mut selected = selection_state::selected_nested_items(&self.selection_state);
+            selected.retain(|item| !item.sequence_path().starts_with(&path));
+            let focused = selection_state::focused_nested_item(&self.selection_state)
+                .filter(|item| selected.contains(item));
+            selection_state::set_selected_nested_items(&self.selection_state, selected, focused);
+        }
+    }
+}
 
 pub fn new(
     project: Rc<RefCell<Project>>,

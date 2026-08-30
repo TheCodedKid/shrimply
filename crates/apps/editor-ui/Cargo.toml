@@ -21,6 +21,7 @@ serde_json.workspace = true
 shrimply-audio = { path = "../../audio/audio" }
 shrimply-blender = { path = "../../blender/blender-bridge" }
 shrimply-asset = { path = "../../asset" }
+shrimply-cross-ui-core = { path = "../../ui/cross-ui-core" }
 shrimply-export-ui = { path = "../../export/export-ui" }
 shrimply-inspector-ui = { path = "../../ui/inspector-ui" }
 shrimply-math-core = { path = "../../math/core" }
@@ -33,6 +34,7 @@ shrimply-playback-performance = { path = "../../preview/playback-performance" }
 shrimply-property-transfer = { path = "../../property-transfer" }
 shrimply-project = { path = "../../project/project" }
 shrimply-server-client = { path = "../../server-client" }
+shrimply-skia-adw-ui = { path = "../../ui/skia-adw-ui" }
 shrimply-state = { path = "../../state" }
 shrimply-support = { path = "../../support" }
 shrimply-timeline = { path = "../../timeline/timeline" }

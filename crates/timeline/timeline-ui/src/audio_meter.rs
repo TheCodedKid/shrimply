@@ -37,6 +37,51 @@ struct AudioMeterRuntime {
     last_frame: Instant,
 }
 
+pub struct ToolkitAudioMeter {
+    levels: SharedAudioLevels,
+    runtime: AudioMeterRuntime,
+}
+
+impl ToolkitAudioMeter {
+    pub fn new(levels: SharedAudioLevels) -> Self {
+        let now = Instant::now();
+        Self {
+            levels,
+            runtime: AudioMeterRuntime {
+                renderer: TimelineRenderer::new(),
+                channels: [ChannelLevel {
+                    level_db: MIN_DB,
+                    peak_db: MIN_DB,
+                    peak_at: now,
+                }; 2],
+                last_frame: now,
+            },
+        }
+    }
+
+    pub fn render(&mut self, width: u32, height: u32, pixels_per_point: f32) -> Result<(), String> {
+        self.runtime
+            .update(self.levels.take_peaks(), Instant::now());
+        let channels = self.runtime.channels;
+        let painter = self.runtime.renderer.begin_frame(
+            glam::UVec2::new(width.max(1), height.max(1)),
+            pixels_per_point,
+            crate::theme::current().view_bg,
+        )?;
+        draw_meter(
+            &painter,
+            width as f32 / pixels_per_point,
+            height as f32 / pixels_per_point,
+            channels,
+        );
+        self.runtime.renderer.end_frame()
+    }
+
+    pub fn destroy(&mut self) {
+        self.runtime.renderer.destroy();
+    }
+}
+
 pub(super) fn new(levels: SharedAudioLevels) -> gtk::GLArea {
     let area = gtk::GLArea::builder()
         .auto_render(false)
