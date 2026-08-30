@@ -113,7 +113,7 @@ ApplicationWindow {
                     }
 
                     ToolButton {
-                        icon.name: "user-trash"
+                        icon.name: "edit-clear-history"
                         text: backend.text("Clear History")
                         display: AbstractButton.IconOnly
                         ToolTip.visible: hovered
