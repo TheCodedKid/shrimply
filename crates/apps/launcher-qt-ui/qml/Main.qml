@@ -113,8 +113,7 @@ ApplicationWindow {
                     }
 
                     ToolButton {
-                        icon.name: "user-trash-symbolic"
-                        icon.color: palette.buttonText
+                        icon.name: "user-trash"
                         text: backend.text("Clear History")
                         display: AbstractButton.IconOnly
                         ToolTip.visible: hovered
@@ -151,8 +150,7 @@ ApplicationWindow {
                             id: optionsButton
                             anchors.right: parent.right
                             anchors.verticalCenter: parent.verticalCenter
-                            icon.name: "view-more-symbolic"
-                            icon.color: palette.buttonText
+                            icon.name: "overflow-menu"
                             text: backend.text("Project options")
                             display: AbstractButton.IconOnly
                             ToolTip.visible: hovered
