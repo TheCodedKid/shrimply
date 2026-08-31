@@ -439,11 +439,7 @@ impl qobject::EditorBackend {
         title: &QString,
         filter: &QString,
     ) -> QUrl {
-        shrimply_qt_helpers::open_file_dialog(
-            &QUrl::from_local_file(initial_path),
-            title,
-            filter,
-        )
+        shrimply_qt_helpers::open_file_dialog(&QUrl::from_local_file(initial_path), title, filter)
     }
 
     pub fn show_file_save_dialog(
