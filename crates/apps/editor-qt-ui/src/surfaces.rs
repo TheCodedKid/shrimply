@@ -161,6 +161,15 @@ pub extern "C" fn shrimply_qt_timeline_pointer_move(x: f32, y: f32, control: boo
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn shrimply_qt_timeline_pointer_cursor() -> u8 {
+    SURFACES.with_borrow(|surfaces| {
+        surfaces
+            .as_ref()
+            .map_or(0, |surfaces| surfaces.timeline.pointer_cursor() as u8)
+    })
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn shrimply_qt_timeline_pointer_leave() {
     SURFACES.with_borrow(|surfaces| {
         if let Some(surfaces) = surfaces.as_ref() {

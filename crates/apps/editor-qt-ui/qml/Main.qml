@@ -89,20 +89,50 @@ ApplicationWindow {
         }
 
         Menu {
+            id: viewMenu
             title: qsTr("View")
             popupType: Popup.Native
+            onAboutToShow: {
+                inspectorMenuItem.checked = window.inspectorVisible
+                timelineMenuItem.checked = window.timelineVisible
+                console.info("View menu synchronized:",
+                    "inspectorVisible=" + window.inspectorVisible,
+                    "inspectorChecked=" + inspectorMenuItem.checked,
+                    "timelineVisible=" + window.timelineVisible,
+                    "timelineChecked=" + timelineMenuItem.checked)
+            }
 
-            Action {
+            MenuItem {
+                id: inspectorMenuItem
                 text: qsTr("Inspector")
                 checkable: true
-                checked: window.inspectorVisible
-                onTriggered: window.inspectorVisible = !window.inspectorVisible
+                checked: true
+                onClicked: {
+                    window.inspectorVisible = !window.inspectorVisible
+                    checked = window.inspectorVisible
+                    Qt.callLater(function() {
+                        console.info("Inspector view toggle settled:",
+                            "visible=" + window.inspectorVisible,
+                            "checked=" + inspectorMenuItem.checked,
+                            "paneVisible=" + inspectorPane.visible)
+                    })
+                }
             }
-            Action {
+            MenuItem {
+                id: timelineMenuItem
                 text: qsTr("Timeline")
                 checkable: true
-                checked: window.timelineVisible
-                onTriggered: window.timelineVisible = !window.timelineVisible
+                checked: true
+                onClicked: {
+                    window.timelineVisible = !window.timelineVisible
+                    checked = window.timelineVisible
+                    Qt.callLater(function() {
+                        console.info("Timeline view toggle settled:",
+                            "visible=" + window.timelineVisible,
+                            "checked=" + timelineMenuItem.checked,
+                            "paneVisible=" + timelinePane.visible)
+                    })
+                }
             }
             Action { text: qsTr("Fullscreen Preview"); shortcut: "F11" }
         }
@@ -160,6 +190,7 @@ ApplicationWindow {
                 orientation: Qt.Horizontal
 
                 Pane {
+                    id: inspectorPane
                     visible: window.inspectorVisible
                     SplitView.preferredWidth: 320
                     SplitView.minimumWidth: 260
@@ -269,6 +300,7 @@ ApplicationWindow {
             }
 
             RowLayout {
+                id: timelinePane
                 visible: window.timelineVisible
                 SplitView.fillWidth: true
                 SplitView.preferredHeight: 410

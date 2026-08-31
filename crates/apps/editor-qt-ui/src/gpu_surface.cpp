@@ -28,6 +28,7 @@ extern "C" bool shrimply_qt_render_preview(std::uint32_t width, std::uint32_t he
 extern "C" bool shrimply_qt_render_audio_meter(std::uint32_t width, std::uint32_t height,
                                                 float scale, bool dark);
 extern "C" void shrimply_qt_timeline_pointer_move(float x, float y, bool control, bool shift);
+extern "C" std::uint8_t shrimply_qt_timeline_pointer_cursor();
 extern "C" void shrimply_qt_timeline_pointer_leave();
 extern "C" void shrimply_qt_timeline_pointer_press(std::uint8_t button, float x, float y,
                                                      bool control, bool shift);
@@ -143,6 +144,21 @@ std::uint8_t pointer_button(Qt::MouseButton button) {
     return button == Qt::MiddleButton ? 1 : 0;
 }
 
+void update_timeline_cursor(QQuickItem *item) {
+    switch (shrimply_qt_timeline_pointer_cursor()) {
+    case 1:
+    case 2:
+    case 3:
+        item->setCursor(QCursor(Qt::SizeHorCursor));
+        break;
+    case 4:
+        item->setCursor(QCursor(Qt::CrossCursor));
+        break;
+    default:
+        item->unsetCursor();
+    }
+}
+
 } // namespace
 
 namespace shrimply {
@@ -187,12 +203,14 @@ void TimelineSurface::hoverMoveEvent(QHoverEvent *event) {
     bool shift;
     modifiers(event, control, shift);
     shrimply_qt_timeline_pointer_move(event->position().x(), event->position().y(), control, shift);
+    update_timeline_cursor(this);
     update();
 }
 
 void TimelineSurface::hoverLeaveEvent(QHoverEvent *event) {
     Q_UNUSED(event);
     shrimply_qt_timeline_pointer_leave();
+    unsetCursor();
     update();
 }
 
@@ -226,6 +244,7 @@ void TimelineSurface::mouseMoveEvent(QMouseEvent *event) {
     bool shift;
     modifiers(event, control, shift);
     shrimply_qt_timeline_pointer_move(event->position().x(), event->position().y(), control, shift);
+    update_timeline_cursor(this);
     event->accept();
     update();
 }

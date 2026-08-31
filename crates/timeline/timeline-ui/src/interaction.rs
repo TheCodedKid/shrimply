@@ -26,6 +26,7 @@ use crate::transcription::{SAMPLE_RATE, TranscribedSegment, prepare_transcriptio
 
 mod context_actions;
 mod controllers;
+mod cursor;
 mod edit_actions;
 mod keyboard;
 mod media_import;
@@ -36,6 +37,7 @@ use context_actions::{
     add_menu_action, copy_selected_timeline_items, cut_selected_timeline_items,
     show_timeline_item_context_menu,
 };
+pub(super) use cursor::timeline_cursor;
 pub(super) use media_import::{
     ask_remux_then_import_at, import_path_at, open_track_import_dialog, show_error_dialog,
 };
@@ -65,8 +67,8 @@ use super::snapping::SnapRepo;
 use super::timeline_operation::{SequenceTimeline, TimelineOperationContext};
 use super::{
     CLICK_DRAG_TOLERANCE, ClipTransitionDrag, DragMode, ITEM_RESIZE_HANDLE_WIDTH,
-    MAX_SECONDS_PER_PIXEL, RULER_HEIGHT, SCROLL_PIXELS_PER_STEP, TRACK_HEIGHT, TimelineCut,
-    TimelineModifiers, TimelineOverscroll, TimelineOverscrollEdge, TimelineRuntime,
+    MAX_SECONDS_PER_PIXEL, RULER_HEIGHT, SCROLL_PIXELS_PER_STEP, TRACK_HEIGHT, TimelineCursor,
+    TimelineCut, TimelineModifiers, TimelineOverscroll, TimelineOverscrollEdge, TimelineRuntime,
     TimelineScrollEvent, TimelineSelection, TimelineViewState, TrackAddMenuRequest, TrackButtonId,
     TrackKey, TrackLabelAction, TransitionDrag, WAVEFORM_POLL_INTERVAL, frame_step_seconds,
     horizontal_scrollbar, import, min_seconds_per_pixel, selected_timeline_items,

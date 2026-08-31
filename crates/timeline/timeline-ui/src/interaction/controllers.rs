@@ -31,85 +31,9 @@ pub(crate) fn add_input_controllers(
         if !cursor_grabbed {
             runtime.pointer_pos = Some(pos);
         }
-        if !cursor_grabbed && matches!(runtime.view.drag_mode, DragMode::ResizeItem) {
-            let cursor = runtime
-                .resize_drag
-                .as_ref()
-                .map(|resize| item_resize_cursor(resize.edge))
-                .or_else(|| {
-                    runtime
-                        .folded_drag
-                        .as_ref()
-                        .and_then(|drag| match drag.kind {
-                            crate::folded_sequence::FoldedDragKind::ResizeStart => {
-                                Some(item_resize_cursor(ItemEdge::Start))
-                            }
-                            crate::folded_sequence::FoldedDragKind::ResizeEnd => {
-                                Some(item_resize_cursor(ItemEdge::End))
-                            }
-                            crate::folded_sequence::FoldedDragKind::Move => None,
-                        })
-                });
-            motion_area.set_cursor_from_name(cursor);
-        } else if !cursor_grabbed && matches!(runtime.view.drag_mode, DragMode::Transition) {
-            motion_area.set_cursor_from_name(
-                if runtime
-                    .clip_transition_drag
-                    .as_ref()
-                    .is_some_and(|drag| drag.center_resize)
-                {
-                    Some("ew-resize")
-                } else {
-                    (runtime.transition_drag.is_some() || runtime.clip_transition_drag.is_some())
-                        .then_some("crosshair")
-                },
-            );
-        } else if !cursor_grabbed && matches!(runtime.view.drag_mode, DragMode::None) {
-            let resize_cursor = {
-                let project = motion_project.borrow();
-                hit_clip_transition_at(&project, runtime.view, x, y)
-                    .and_then(|hit| match hit.action {
-                        ClipTransitionHitAction::Body => None,
-                        ClipTransitionHitAction::CenterHandle => Some("ew-resize"),
-                        ClipTransitionHitAction::Create
-                        | ClipTransitionHitAction::StartHandle
-                        | ClipTransitionHitAction::EndHandle => Some("crosshair"),
-                    })
-                    .or_else(|| {
-                        hit_transition_at(&project, runtime.view, x, y)
-                            .filter(|hit| !matches!(hit.action, TransitionHitAction::Body))
-                            .map(|_| "crosshair")
-                    })
-                    .or_else(|| {
-                        crate::folded_sequence::hit_projected_item(&project, runtime.view, x, y)
-                            .and_then(|hit| {
-                                let (item_x, item_width) = crate::item_rect(
-                                    hit.start,
-                                    hit.end,
-                                    timeline_x(),
-                                    runtime.view,
-                                );
-                                if x <= item_x + ITEM_RESIZE_HANDLE_WIDTH {
-                                    Some(item_resize_cursor(ItemEdge::Start))
-                                } else if x >= item_x + item_width - ITEM_RESIZE_HANDLE_WIDTH {
-                                    Some(item_resize_cursor(ItemEdge::End))
-                                } else {
-                                    None
-                                }
-                            })
-                            .or_else(|| {
-                                hit_resize_handle_at(
-                                    &project,
-                                    runtime.view,
-                                    x,
-                                    y,
-                                    ITEM_RESIZE_HANDLE_WIDTH,
-                                )
-                                .map(|(_, edge)| item_resize_cursor(edge))
-                            })
-                    })
-            };
-            motion_area.set_cursor_from_name(resize_cursor);
+        if !cursor_grabbed {
+            let cursor = timeline_cursor(&motion_project.borrow(), &runtime, x, y);
+            motion_area.set_cursor_from_name(gtk_cursor_name(cursor));
         }
         let begin_cursor_grab = !cursor_grabbed
             && runtime.middle_down
@@ -447,10 +371,12 @@ pub(crate) fn start_timeline_animation_tick(
     });
 }
 
-#[allow(clippy::too_many_arguments)]
-fn item_resize_cursor(edge: ItemEdge) -> &'static str {
-    match edge {
-        ItemEdge::Start => "w-resize",
-        ItemEdge::End => "e-resize",
+fn gtk_cursor_name(cursor: TimelineCursor) -> Option<&'static str> {
+    match cursor {
+        TimelineCursor::Default => None,
+        TimelineCursor::ResizeStart => Some("w-resize"),
+        TimelineCursor::ResizeEnd => Some("e-resize"),
+        TimelineCursor::ResizeHorizontal => Some("ew-resize"),
+        TimelineCursor::Crosshair => Some("crosshair"),
     }
 }

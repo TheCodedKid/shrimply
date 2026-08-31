@@ -152,6 +152,17 @@ pub enum ToolkitPointerButton {
     Middle,
 }
 
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+#[repr(u8)]
+pub enum TimelineCursor {
+    #[default]
+    Default,
+    ResizeStart,
+    ResizeEnd,
+    ResizeHorizontal,
+    Crosshair,
+}
+
 pub struct ToolkitTimeline {
     project: Rc<RefCell<Project>>,
     player_state: SharedPlayerState,
@@ -301,6 +312,19 @@ impl ToolkitTimeline {
         let mut runtime = self.runtime.borrow_mut();
         runtime.modifiers = TimelineModifiers { ctrl, shift };
         runtime.pointer_pos = Some(vec2(x, y));
+    }
+
+    pub fn pointer_cursor(&self) -> TimelineCursor {
+        let runtime = self.runtime.borrow();
+        let Some(position) = runtime.pointer_pos else {
+            return TimelineCursor::Default;
+        };
+        interaction::timeline_cursor(
+            &self.project.borrow(),
+            &runtime,
+            f64::from(position.x),
+            f64::from(position.y),
+        )
     }
 
     pub fn pointer_leave(&self) {
