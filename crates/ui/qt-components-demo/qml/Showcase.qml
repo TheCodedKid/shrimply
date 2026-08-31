@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtCore
 import dev.shrimply.components
 
 ApplicationWindow {
@@ -10,6 +11,8 @@ ApplicationWindow {
     visible: true
     title: "Shrimply Qt Components"
     property string events: ""
+
+    readonly property url homeUrl: StandardPaths.writableLocation(StandardPaths.HomeLocation)
 
     function log(message) {
         events = message + "\n" + events
@@ -185,18 +188,38 @@ ApplicationWindow {
             ColumnLayout {
                 width: parent.width
                 spacing: 10
-                Label { text: "Information"; font.bold: true }
                 ControlRow {
                     label: "Selected item"
-                    ReadOnlyField { text: "Example clip · 00:00:02:00" }
+                    ReadOnlyField {
+                        text: "Example clip · 00:00:02:00"
+                        horizontalAlignment: Text.AlignRight
+                    }
                 }
                 ControlRow {
                     label: "Component package"
-                    ReadOnlyField { text: "shrimply-qt-components" }
+                    ReadOnlyField {
+                        text: "shrimply-qt-components"
+                        horizontalAlignment: Text.AlignRight
+                    }
                 }
                 ControlRow {
                     label: "Frame graph"
-                    ReadOnlyField { text: "Shared Rust renderer" }
+                    ReadOnlyField {
+                        text: "Shared Rust renderer"
+                        horizontalAlignment: Text.AlignRight
+                    }
+                }
+                ControlRow {
+                    label: "Home folder"
+                    RowLayout {
+                        ReadOnlyField {
+                            Layout.fillWidth: true
+                            text: window.homeUrl.toLocalFile
+                            horizontalAlignment: Text.AlignRight
+                            actionIconSource: "qrc:/qt/qml/dev/shrimply/components/demo/icons/folder-open.svg"
+                            actionText: "Show in Folder"
+                            onActionTriggered: Qt.openUrlExternally(window.homeUrl)
+                        }
                 }
             }
         }

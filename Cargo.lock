@@ -5655,6 +5655,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "shrimply-gtk-components-demo"
+version = "0.1.0"
+dependencies = [
+ "gtk4",
+ "libadwaita",
+ "shrimply-cross-ui-theme",
+ "shrimply-gtk-components",
+ "shrimply-keyframe-graph-ui",
+ "shrimply-math-color",
+]
+
+[[package]]
 name = "shrimply-i18n-core"
 version = "0.1.0"
 dependencies = [
@@ -6357,6 +6369,18 @@ dependencies = [
  "shrimply-support",
  "shrimply-wayland-pointer-lock",
  "uuid",
+]
+
+[[package]]
+name = "shrimply-qt-components-demo"
+version = "0.1.0"
+dependencies = [
+ "cxx-qt",
+ "cxx-qt-build",
+ "cxx-qt-lib",
+ "shrimply-qt-components",
+ "shrimply-qt-helpers",
+ "shrimply-support",
 ]
 
 [[package]]

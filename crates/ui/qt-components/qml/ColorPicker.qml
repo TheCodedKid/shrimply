@@ -78,16 +78,24 @@ Item {
                     icon.source: "qrc:/qt/qml/dev/shrimply/components/icons/screen-color.svg"
                     icon.color: palette.buttonText
                     display: AbstractButton.IconOnly
+                    enabled: !backend.screenPicking
                     ToolTip.visible: hovered
                     ToolTip.text: ComponentTranslations.text("Pick screen color")
-                    onClicked: nativeDialog.open()
+                    onClicked: backend.pickScreenColor()
                 }
-                Rectangle {
-                    implicitWidth: 34
-                    implicitHeight: 28
-                    radius: 4
-                    color: backend.draft
-                    border.color: systemPalette.mid
+                Button {
+                    flat: true
+                    implicitWidth: 42
+                    implicitHeight: 36
+                    padding: 4
+                    ToolTip.visible: hovered
+                    ToolTip.text: ComponentTranslations.text("Open the system color picker")
+                    onClicked: nativeDialog.open()
+                    contentItem: Rectangle {
+                        radius: 4
+                        color: backend.draft
+                        border.color: systemPalette.mid
+                    }
                 }
                 TextField {
                     id: hex
@@ -288,7 +296,7 @@ Item {
 
     ColorDialog {
         id: nativeDialog
-        title: ComponentTranslations.text("Pick screen color")
+        title: ComponentTranslations.text(root.title)
         selectedColor: backend.draft
         options: root.withAlpha ? ColorDialog.ShowAlphaChannel : ColorDialog.NoOption
         onAccepted: backend.chooseColor(selectedColor)

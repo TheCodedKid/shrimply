@@ -35,7 +35,7 @@ TextField {
         model: backend.typoCount
         TypoUnderline {
             required property int index
-            editor: root
+            target: root
             typoBackend: backend
             typoIndex: index
         }

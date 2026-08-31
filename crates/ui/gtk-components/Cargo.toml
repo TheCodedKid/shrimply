@@ -3,10 +3,6 @@ name = "shrimply-gtk-components"
 version = "0.1.0"
 edition = "2024"
 
-[[bin]]
-name = "shrimply-gtk-components-showcase"
-path = "src/bin/components_showcase.rs"
-
 [dependencies]
 async-channel.workspace = true
 hashbrown.workspace = true

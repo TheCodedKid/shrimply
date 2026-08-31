@@ -3,10 +3,6 @@ name = "shrimply-qt-components"
 version = "0.1.0"
 edition = "2024"
 
-[[bin]]
-name = "shrimply-qt-components-showcase"
-path = "src/main.rs"
-
 [dependencies]
 cxx.workspace = true
 cxx-qt.workspace = true

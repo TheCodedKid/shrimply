@@ -45,6 +45,8 @@
 - [ ] Abstract and render the existing shared frame-graph as a live reusable component; do not replace it with a mock or static raster preview.
   - [ ] Deliver a reusable inspector keyframe-editor component with feature-for-feature parity, not a reduced graph-only showcase.
   - [ ] Put graph state, hit testing, selection, key dragging, playhead seeking, viewport pan/zoom, and keyboard commands in the toolkit-neutral Rust graph crate.
+  - [ ] Keep exact `Time`/`Fraction` values at the timeline model boundary, but use `f64` for viewport scroll, zoom, pixel geometry, pointer deltas, graph values, and overscroll so continuous interaction cannot grow rational denominators.
+  - [ ] Convert pointer positions to `Time` once, then snap against the exact project `frame_step` and clamp to the exact item range so every individual frame remains selectable, including fractional frame rates.
   - [ ] Keep GTK and Qt wrappers limited to translating native events and presenting the shared OpenGL renderer.
   - [ ] Keep Qt keyboard focus and an explicit mouse grab for the full graph drag so parent scroll/focus handlers cannot steal it.
   - [ ] Make the showcase graph behave like the inspector graph, including selecting and dragging actual keys rather than only moving a playhead.

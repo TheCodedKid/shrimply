@@ -1,14 +1,12 @@
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use std::str::FromStr;
-use std::sync::atomic::{AtomicU32, Ordering};
 
 use adw::prelude::*;
 use gtk::cairo;
 use gtk::gio;
-use gtk::gio::prelude::{DBusProxyExt, SettingsExt};
+use gtk::gio::prelude::SettingsExt;
 use gtk::glib;
-use gtk::glib::variant::ToVariant;
 use shrimply_component_core::color::{Hsva, PALETTE, RECENT_LIMIT, color_hex};
 use shrimply_math_color::Color;
 
@@ -22,14 +20,8 @@ const TRACK_SIZE: f64 = 16.0;
 const THUMB_RADIUS: f64 = 10.0;
 const CHECKER_SIZE: f64 = 8.0;
 
-const PORTAL_DESTINATION: &str = "org.freedesktop.portal.Desktop";
-const PORTAL_PATH: &str = "/org/freedesktop/portal/desktop";
-const SCREENSHOT_INTERFACE: &str = "org.freedesktop.portal.Screenshot";
-const REQUEST_INTERFACE: &str = "org.freedesktop.portal.Request";
 const COLOR_CHOOSER_SETTINGS: &str = "org.gtk.gtk4.Settings.ColorChooser";
 const CUSTOM_COLORS_KEY: &str = "custom-colors";
-
-static PORTAL_TOKEN: AtomicU32 = AtomicU32::new(1);
 
 thread_local! {
     static RECENT_COLORS: RefCell<Vec<Color<u8>>> = RefCell::new(load_recent_colors());
@@ -545,8 +537,13 @@ fn screen_picker_button(update: Rc<dyn Fn(Color<u8>)>) -> gtk::Button {
         let picker = picker.clone();
         let update = update.clone();
         glib::MainContext::default().spawn_local(async move {
-            match pick_screen_color().await {
-                Ok(color) => update(color),
+            match shrimply_cross_ui_core::screen_color::pick().await {
+                Ok([red, green, blue]) => update(Color::from_srgba([
+                    red as f32,
+                    green as f32,
+                    blue as f32,
+                    1.0,
+                ])),
                 Err(error) => tracing::warn!("screen color picker failed: {error}"),
             }
             picker.set_sensitive(true);
@@ -623,77 +620,6 @@ fn connect_hex_entry(
             entry.remove_css_class("error");
         }
     });
-}
-
-async fn pick_screen_color() -> Result<Color<u8>, String> {
-    let proxy = gio::DBusProxy::for_bus_future(
-        gio::BusType::Session,
-        gio::DBusProxyFlags::NONE,
-        None,
-        PORTAL_DESTINATION,
-        PORTAL_PATH,
-        SCREENSHOT_INTERFACE,
-    )
-    .await
-    .map_err(|error| error.to_string())?;
-    let connection = proxy.connection();
-    let sender = connection
-        .unique_name()
-        .ok_or_else(|| "The D-Bus connection has no unique name".to_string())?
-        .trim_start_matches(':')
-        .replace('.', "_");
-    let token = format!(
-        "shrimply_color_{}",
-        PORTAL_TOKEN.fetch_add(1, Ordering::Relaxed)
-    );
-    let request_path = format!("/org/freedesktop/portal/desktop/request/{sender}/{token}");
-    let (send, receive) = async_channel::bounded(1);
-    let subscription = connection.subscribe_to_signal(
-        Some(PORTAL_DESTINATION),
-        Some(REQUEST_INTERFACE),
-        Some("Response"),
-        Some(&request_path),
-        None,
-        gio::DBusSignalFlags::NO_MATCH_RULE,
-        move |signal| {
-            let _ = send.try_send(signal.parameters.clone());
-        },
-    );
-    let options = glib::VariantDict::new(None);
-    options.insert_value("handle_token", &token.to_variant());
-    proxy
-        .call_future(
-            "PickColor",
-            Some(&glib::Variant::tuple_from_iter([
-                "".to_variant(),
-                options.end(),
-            ])),
-            gio::DBusCallFlags::NONE,
-            -1,
-        )
-        .await
-        .map_err(|error| error.to_string())?;
-    let response = receive.recv().await.map_err(|error| error.to_string())?;
-    drop(subscription);
-    if response.child_value(0).get::<u32>() != Some(0) {
-        return Err("Color selection was cancelled".to_string());
-    }
-    let results = response.child_value(1);
-    let color = results
-        .iter()
-        .find_map(|entry| {
-            (entry.child_value(0).get::<String>().as_deref() == Some("color"))
-                .then(|| entry.child_value(1).get::<glib::Variant>())
-                .flatten()
-        })
-        .and_then(|value| value.get::<(f64, f64, f64)>())
-        .ok_or_else(|| "The portal did not return a color".to_string())?;
-    Ok(Color::from_srgba([
-        color.0 as f32,
-        color.1 as f32,
-        color.2 as f32,
-        1.0,
-    ]))
 }
 
 fn remember_color(color: Color<u8>) {

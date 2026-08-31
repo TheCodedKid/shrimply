@@ -12,6 +12,7 @@ pub mod i18n {
 }
 
 pub fn init() {
+    cxx_qt::init_crate!(shrimply_qt_components);
     backend::qobject::force_component_opengl();
     backend::qobject::register_drag_input();
     cxx_qt::init_qml_module!("dev.shrimply.components");

@@ -2,7 +2,7 @@ use adw::prelude::*;
 use shrimply_gtk_components::playback_shortcuts::attach_space_play_toggle;
 use shrimply_gtk_components::ui::{
     ColorPicker, FrameGraph, MultilineTextInput, Number2Picker, Number3Picker, NumberPicker,
-    ProgressButton, ProgressButtonState, SingleLineTextInput, StringChoice, code_editor,
+    ProgressButton, ProgressButtonState, ReadOnlyField, SingleLineTextInput, StringChoice, code_editor,
     control_row, labeled_string_selector, read_only_field, split_button, switch_row, tabs,
 };
 use shrimply_math_color::Color;
@@ -40,7 +40,6 @@ fn build_ui(app: &adw::Application) {
         }
     };
 
-    heading(&general, "General");
     let number = NumberPicker::builder(12.5)
         .accepted_range(-100.0, 100.0)
         .drag_step(0.25)
@@ -278,27 +277,22 @@ fn build_ui(app: &adw::Application) {
     info.set_margin_bottom(16);
     info.set_margin_start(16);
     info.set_margin_end(16);
-    heading(&info, "Information");
-    info.append(&control_row(
+    info.append(&info_row(
         "Selected item",
-        &read_only_field("Example clip · 00:00:02:00"),
+        &info_value("Example clip · 00:00:02:00"),
     ));
-    info.append(&control_row(
+    info.append(&info_row(
         "Component package",
-        &read_only_field("shrimply-gtk-components"),
+        &info_value("shrimply-gtk-components"),
     ));
-    info.append(&control_row(
+    info.append(&info_row(
         "Frame graph",
-        &read_only_field("Shared Rust renderer"),
+        &info_value("Shared Rust renderer"),
     ));
-    let folder = gtk::Box::new(gtk::Orientation::Horizontal, 6);
     let home = gtk::glib::home_dir();
-    folder.append(&read_only_field(&home.display().to_string()));
-    let show_folder = gtk::Button::builder()
-        .label("Show in Folder")
-        .css_classes(["flat"])
-        .build();
-    show_folder.connect_clicked({
+    let folder = ReadOnlyField::builder(home.display().to_string())
+        .right_aligned()
+        .action("folder-open-symbolic", "Show in Folder", {
         let home = home.clone();
         let log = log.clone();
         move |button| {
@@ -309,9 +303,9 @@ fn build_ui(app: &adw::Application) {
                 log(format!("show in folder failed: {error}"));
             }
         }
-    });
-    folder.append(&show_folder);
-    info.append(&control_row("Home folder", &folder));
+    })
+        .build();
+    info.append(&info_row("Home folder", &folder));
     let info_scroller = gtk::ScrolledWindow::builder()
         .child(&info)
         .hscrollbar_policy(gtk::PolicyType::Never)
@@ -322,7 +316,6 @@ fn build_ui(app: &adw::Application) {
     log_page.set_margin_bottom(16);
     log_page.set_margin_start(16);
     log_page.set_margin_end(16);
-    heading(&log_page, "Interaction log");
     let log_scroller = gtk::ScrolledWindow::builder()
         .child(&events)
         .hscrollbar_policy(gtk::PolicyType::Automatic)
@@ -370,11 +363,26 @@ fn build_ui(app: &adw::Application) {
     window.present();
 }
 
-fn heading(content: &gtk::Box, text: &str) {
-    let label = gtk::Label::builder()
-        .label(text)
-        .halign(gtk::Align::Start)
-        .css_classes(["title-4"])
-        .build();
-    content.append(&label);
+fn info_value(value: &str) -> gtk::Label {
+    let value = read_only_field(value);
+    value.set_xalign(1.0);
+    value
+}
+
+fn info_row(label: &str, child: &impl IsA<gtk::Widget>) -> gtk::Widget {
+    let row = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+    row.set_hexpand(true);
+    row.append(
+        &gtk::Label::builder()
+            .label(label)
+            .halign(gtk::Align::Start)
+            .valign(gtk::Align::Center)
+            .width_chars(18)
+            .xalign(0.0)
+            .css_classes(["dim-label"])
+            .build(),
+    );
+    child.set_hexpand(true);
+    row.append(child);
+    row.upcast()
 }

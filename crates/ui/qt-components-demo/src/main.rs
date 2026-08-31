@@ -12,7 +12,7 @@ fn main() -> ExitCode {
         return ExitCode::FAILURE;
     };
     app.as_mut()
-        .set_application_name(&QString::from("shrimply-qt-components-showcase"));
+        .set_application_name(&QString::from("shrimply-qt-components-demo"));
     app.as_mut()
         .set_application_display_name(&QString::from("Shrimply Qt Components"));
 
@@ -21,12 +21,14 @@ fn main() -> ExitCode {
         eprintln!("could not create QML engine");
         return ExitCode::FAILURE;
     };
+    cxx_qt::init_crate!(shrimply_qt_components_demo);
+    cxx_qt::init_qml_module!("dev.shrimply.components.demo");
     let failed = engine.as_mut().on_object_creation_failed(|_, url| {
         eprintln!("could not load Qt component showcase: {url}");
         std::process::exit(1);
     });
     engine.as_mut().load(&QUrl::from(
-        "qrc:/qt/qml/dev/shrimply/components/qml/Showcase.qml",
+        "qrc:/qt/qml/dev/shrimply/components/demo/qml/Showcase.qml",
     ));
     let status = app.exec();
     drop(failed);

@@ -2,9 +2,7 @@ use std::time::Instant;
 
 use shrimply_interpolation::Interpolation;
 use shrimply_math_color::Color;
-use shrimply_math_core::{
-    FRACTION_ZERO, Fraction, Time, fraction_as_f64, fraction_from_f64, fraction_new,
-};
+use shrimply_math_core::Time;
 pub use shrimply_skia_adw_ui::slider::ScrollInput as FrameGraphScrollInput;
 use shrimply_skia_adw_ui::{
     Axis, Edge, Scrollbar,
@@ -23,9 +21,9 @@ pub const GRAPH_SLIDER_HEIGHT: f64 = 20.0;
 pub const FRAME_GRAPH_HEIGHT: i32 = 132;
 const HIT_RADIUS: f64 = 7.0;
 const SNAP_RADIUS_PX: f64 = 8.0;
-const MINIMUM_VISIBLE_PIXELS: i64 = 10_000;
-const MINIMUM_SECONDS_DENOMINATOR: i64 = 1_000_000;
-const WHEEL_UNITS_PER_STEP: i64 = 120;
+const MINIMUM_VISIBLE_PIXELS: f64 = 10_000.0;
+const MINIMUM_SECONDS_PER_PIXEL: f64 = 0.000_001;
+const WHEEL_UNITS_PER_STEP: f64 = 120.0;
 
 #[derive(Clone, Copy, Default)]
 pub struct FrameGraphModifiers {
@@ -89,17 +87,17 @@ pub struct FrameGraphStatus {
 
 #[derive(Clone, Copy)]
 struct GraphViewState {
-    scroll: Time,
-    seconds_per_pixel: Fraction,
-    minimum_seconds_per_pixel: Option<Fraction>,
+    scroll_seconds: f64,
+    seconds_per_pixel: f64,
+    minimum_seconds_per_pixel: Option<f64>,
     initialized: bool,
 }
 
 impl Default for GraphViewState {
     fn default() -> Self {
         Self {
-            scroll: Time::ZERO,
-            seconds_per_pixel: fraction_new(1, 60),
+            scroll_seconds: 0.0,
+            seconds_per_pixel: 1.0 / 60.0,
             minimum_seconds_per_pixel: None,
             initialized: false,
         }
@@ -111,42 +109,40 @@ impl GraphViewState {
         if self.initialized || width <= 0.0 {
             return;
         }
-        let duration = graph_duration(range);
-        self.scroll = range.0;
-        self.seconds_per_pixel = (duration / fraction_from_f64(graph_plot_width(width)))
-            .max(self.minimum_scale(duration));
+        let duration = graph_duration_seconds(range);
+        self.scroll_seconds = range.0.as_secs_f64();
+        self.seconds_per_pixel =
+            (duration / graph_plot_width(width)).max(self.minimum_scale(duration));
         self.initialized = true;
     }
 
     fn clamp(&mut self, range: GraphDomain, width: f64) {
-        let duration = graph_duration(range);
-        let plot_width = fraction_from_f64(graph_plot_width(width));
+        let duration = graph_duration_seconds(range);
+        let plot_width = graph_plot_width(width);
         let minimum = self.minimum_scale(duration);
         let maximum = (duration / plot_width).max(minimum);
         self.seconds_per_pixel = self.seconds_per_pixel.clamp(minimum, maximum);
-        let visible = (plot_width * self.seconds_per_pixel).clamp(FRACTION_ZERO, duration);
+        let visible = (plot_width * self.seconds_per_pixel).clamp(0.0, duration);
         if visible >= duration || width <= 0.0 {
-            self.scroll = range.0;
+            self.scroll_seconds = range.0.as_secs_f64();
             self.seconds_per_pixel = maximum;
             return;
         }
-        let maximum_scroll = range.1.seconds - visible;
-        self.scroll = Time {
-            seconds: self.scroll.seconds.clamp(range.0.seconds, maximum_scroll),
-        };
+        let minimum_scroll = range.0.as_secs_f64();
+        let maximum_scroll = (range.1.as_secs_f64() - visible).max(minimum_scroll);
+        self.scroll_seconds = self.scroll_seconds.clamp(minimum_scroll, maximum_scroll);
     }
 
     fn domain(&self, range: GraphDomain, width: f64) -> GraphDomain {
-        let visible = fraction_from_f64(graph_plot_width(width)) * self.seconds_per_pixel;
+        let visible = graph_plot_width(width) * self.seconds_per_pixel;
+        let end = (self.scroll_seconds + visible).min(range.1.as_secs_f64());
         (
-            self.scroll,
-            Time {
-                seconds: (self.scroll.seconds + visible).min(range.1.seconds),
-            },
+            Time::from_seconds_f64(self.scroll_seconds),
+            Time::from_seconds_f64(end.max(self.scroll_seconds)),
         )
     }
 
-    fn minimum_scale(&self, duration: Fraction) -> Fraction {
+    fn minimum_scale(&self, duration: f64) -> f64 {
         self.minimum_seconds_per_pixel
             .unwrap_or_else(|| minimum_scale(duration))
     }
@@ -174,7 +170,7 @@ enum DragTarget {
 struct ActiveDrag {
     target: DragTarget,
     start_x: f64,
-    start_scroll: Time,
+    start_scroll_seconds: f64,
 }
 
 #[derive(Clone, Copy)]
@@ -215,8 +211,7 @@ impl FrameGraphState {
         );
         assert!(frame_step > Time::ZERO, "frame graph step must be positive");
         let minimum_seconds_per_pixel = matches!(graph, KeyframeGraph::Step { .. }).then(|| {
-            frame_step.seconds
-                / fraction_from_f64(shrimply_discrete_keyframe_graph_ui::MAX_FRAME_WIDTH)
+            frame_step.as_secs_f64() / shrimply_discrete_keyframe_graph_ui::MAX_FRAME_WIDTH
         });
         Self {
             graph,
@@ -332,8 +327,8 @@ impl FrameGraphState {
 
     pub fn replace_graph(&mut self, graph: KeyframeGraph) {
         self.view.minimum_seconds_per_pixel = matches!(graph, KeyframeGraph::Step { .. }).then(|| {
-            self.frame_step.seconds
-                / fraction_from_f64(shrimply_discrete_keyframe_graph_ui::MAX_FRAME_WIDTH)
+            self.frame_step.as_secs_f64()
+                / shrimply_discrete_keyframe_graph_ui::MAX_FRAME_WIDTH
         });
         self.graph = graph;
         self.retain_valid_selection();
@@ -368,13 +363,13 @@ impl FrameGraphState {
         modifiers: FrameGraphModifiers,
     ) -> Vec<FrameGraphAction> {
         self.pointer_moved(x, y);
-        let start_scroll = self.view.scroll;
+        let start_scroll_seconds = self.view.scroll_seconds;
         if button == FrameGraphPointerButton::Middle {
             self.scrollbar.cancel_scroll();
             self.active_drag = Some(ActiveDrag {
                 target: DragTarget::Pan,
                 start_x: x,
-                start_scroll,
+                start_scroll_seconds,
             });
             return Vec::new();
         }
@@ -395,21 +390,19 @@ impl FrameGraphState {
 
         let domain = self.domain(width);
         if let Some(scrollbar) = self.scrollbar(width, height) {
-            let mut scroll = self.view.scroll;
+            let mut scroll_seconds = self.view.scroll_seconds;
             if self
                 .scrollbar
                 .begin(scrollbar, vec2(x as f32, y as f32), |value| {
-                    scroll = Time {
-                        seconds: self.item_range.0.seconds + fraction_from_f64(value),
-                    };
+                    scroll_seconds = self.item_range.0.as_secs_f64() + value;
                 })
                 == slider::Begin::Drag
             {
-                self.view.scroll = scroll;
+                self.view.scroll_seconds = scroll_seconds;
                 self.active_drag = Some(ActiveDrag {
                     target: DragTarget::Scrollbar,
                     start_x: x,
-                    start_scroll,
+                    start_scroll_seconds,
                 });
                 return Vec::new();
             }
@@ -465,7 +458,7 @@ impl FrameGraphState {
         self.active_drag = Some(ActiveDrag {
             target: target.unwrap_or(DragTarget::SelectBox),
             start_x: x,
-            start_scroll,
+            start_scroll_seconds,
         });
         actions
     }
@@ -486,23 +479,21 @@ impl FrameGraphState {
                 let Some(scrollbar) = self.scrollbar(width, height) else {
                     return Vec::new();
                 };
-                let mut scroll = self.view.scroll;
+                let mut scroll_seconds = self.view.scroll_seconds;
                 if self
                     .scrollbar
                     .drag_by(scrollbar, x - drag.start_x, |value| {
-                        scroll = Time {
-                            seconds: self.item_range.0.seconds + fraction_from_f64(value),
-                        };
+                        scroll_seconds = self.item_range.0.as_secs_f64() + value;
                     })
                 {
-                    self.view.scroll = scroll;
+                    self.view.scroll_seconds = scroll_seconds;
                     self.view.clamp(self.item_range, width);
                 }
                 Vec::new()
             }
             DragTarget::Pan => {
-                let target = drag.start_scroll.seconds
-                    - self.view.seconds_per_pixel * fraction_from_f64(x - drag.start_x);
+                let target = drag.start_scroll_seconds
+                    - self.view.seconds_per_pixel * (x - drag.start_x);
                 self.set_scroll(width, target);
                 Vec::new()
             }
@@ -545,13 +536,17 @@ impl FrameGraphState {
                 } else {
                     x
                 };
-                let requested_time = snap_keyframe_time(
-                    time_at_x(point_x, width, domain),
+                let requested_time = clamp_graph_time(
+                    snap_keyframe_time(
+                        time_at_x(point_x, width, domain),
+                        self.item_range,
+                        true,
+                        SNAP_RADIUS_PX,
+                        graph_duration_seconds(domain) / graph_plot_width(width),
+                        self.playhead,
+                    )
+                    .snapped(self.frame_step),
                     self.item_range,
-                    true,
-                    SNAP_RADIUS_PX,
-                    graph_duration(domain) / fraction_from_f64(graph_plot_width(width)),
-                    self.playhead,
                 );
                 let requested_value = graph_edit_value(
                     &self.graph,
@@ -607,20 +602,18 @@ impl FrameGraphState {
             return false;
         }
         if !control && let Some(scrollbar) = self.scrollbar(width, height) {
-            let mut scroll = self.view.scroll;
+            let mut scroll_seconds = self.view.scroll_seconds;
             let event = self.scrollbar.scroll_at(
                 scrollbar,
                 Some(vec2(pointer_x as f32, pointer_y as f32)),
                 delta,
                 input,
                 |value| {
-                    scroll = Time {
-                        seconds: self.item_range.0.seconds + fraction_from_f64(value),
-                    };
+                    scroll_seconds = self.item_range.0.as_secs_f64() + value;
                 },
             );
             if event.handled {
-                self.view.scroll = scroll;
+                self.view.scroll_seconds = scroll_seconds;
                 self.view.clamp(self.item_range, width);
                 return true;
             }
@@ -629,11 +622,10 @@ impl FrameGraphState {
             self.zoom(delta, pointer_x, width);
         } else {
             let units = match input {
-                FrameGraphScrollInput::Wheel => delta * WHEEL_UNITS_PER_STEP as f64,
+                FrameGraphScrollInput::Wheel => delta * WHEEL_UNITS_PER_STEP,
                 FrameGraphScrollInput::Surface => delta,
             };
-            let target =
-                self.view.scroll.seconds + self.view.seconds_per_pixel * fraction_from_f64(units);
+            let target = self.view.scroll_seconds + self.view.seconds_per_pixel * units;
             self.set_scroll(width, target);
         }
         true
@@ -783,11 +775,11 @@ impl FrameGraphState {
         let left = GRAPH_PAD;
         let right = (width - GRAPH_PAD).max(left);
         let target = if x < left {
-            self.view.scroll.seconds - self.view.seconds_per_pixel * fraction_from_f64(left - x)
+            self.view.scroll_seconds - self.view.seconds_per_pixel * (left - x)
         } else if x > right {
-            self.view.scroll.seconds + self.view.seconds_per_pixel * fraction_from_f64(x - right)
+            self.view.scroll_seconds + self.view.seconds_per_pixel * (x - right)
         } else {
-            self.view.scroll.seconds
+            self.view.scroll_seconds
         };
         self.set_scroll(width, target);
         self.seek_pointer(x.clamp(left, right), width)
@@ -802,31 +794,25 @@ impl FrameGraphState {
         self.view.clamp(self.item_range, width);
         let domain = self.view.domain(self.item_range, width);
         let pointer_time = time_at_x(pointer_x, width, domain);
-        let scale = if delta < 0.0 {
-            fraction_new(4, 5)
-        } else {
-            fraction_new(5, 4)
-        };
-        let pointer_plot_x =
-            fraction_from_f64((pointer_x - GRAPH_PAD).clamp(0.0, graph_plot_width(width)));
+        let scale = if delta < 0.0 { 0.8 } else { 1.25 };
+        let pointer_plot_x = (pointer_x - GRAPH_PAD).clamp(0.0, graph_plot_width(width));
         self.view.seconds_per_pixel *= scale;
-        self.view.scroll = Time {
-            seconds: pointer_time.seconds - pointer_plot_x * self.view.seconds_per_pixel,
-        };
+        self.view.scroll_seconds =
+            pointer_time.as_secs_f64() - pointer_plot_x * self.view.seconds_per_pixel;
         self.view.clamp(self.item_range, width);
         self.overscroll = None;
     }
 
-    fn set_scroll(&mut self, width: f64, target: Fraction) {
+    fn set_scroll(&mut self, width: f64, target: f64) {
         self.view.initialize(self.item_range, width);
         if !self.can_scroll(width) {
             self.view.clamp(self.item_range, width);
             self.overscroll = None;
             return;
         }
-        let visible = fraction_from_f64(graph_plot_width(width)) * self.view.seconds_per_pixel;
-        let minimum = self.item_range.0.seconds;
-        let maximum = (self.item_range.1.seconds - visible).max(minimum);
+        let visible = graph_plot_width(width) * self.view.seconds_per_pixel;
+        let minimum = self.item_range.0.as_secs_f64();
+        let maximum = (self.item_range.1.as_secs_f64() - visible).max(minimum);
         let edge = if target < minimum {
             Some((Edge::Left, minimum - target))
         } else if target > maximum {
@@ -834,39 +820,38 @@ impl FrameGraphState {
         } else {
             None
         };
-        self.view.scroll = Time {
-            seconds: target.clamp(minimum, maximum),
-        };
+        self.view.scroll_seconds = target.clamp(minimum, maximum);
         self.overscroll = edge.map(|(edge, distance)| GraphOverscroll {
             edge,
             started_at: Instant::now(),
-            distance: (fraction_as_f64(distance) / fraction_as_f64(self.view.seconds_per_pixel))
+            distance: (distance / self.view.seconds_per_pixel)
                 .clamp(1.0, shrimply_skia_adw_ui::OVERSHOOT_MAX_DISTANCE),
         });
     }
 
     fn can_scroll(&self, width: f64) -> bool {
-        fraction_from_f64(graph_plot_width(width)) * self.view.seconds_per_pixel
-            < graph_duration(self.item_range)
+        graph_plot_width(width) * self.view.seconds_per_pixel
+            < graph_duration_seconds(self.item_range)
     }
 
     fn scroll_should_propagate(&self, width: f64, delta: f64) -> bool {
         if !self.can_scroll(width) {
             return true;
         }
-        let visible = fraction_from_f64(graph_plot_width(width)) * self.view.seconds_per_pixel;
-        let maximum = self.item_range.1.seconds - visible;
-        let tolerance = self.view.seconds_per_pixel / fraction_new(2, 1);
-        (delta < 0.0 && self.view.scroll.seconds <= self.item_range.0.seconds + tolerance)
-            || (delta > 0.0 && self.view.scroll.seconds >= maximum - tolerance)
+        let visible = graph_plot_width(width) * self.view.seconds_per_pixel;
+        let maximum = self.item_range.1.as_secs_f64() - visible;
+        let tolerance = self.view.seconds_per_pixel / 2.0;
+        (delta < 0.0
+            && self.view.scroll_seconds <= self.item_range.0.as_secs_f64() + tolerance)
+            || (delta > 0.0 && self.view.scroll_seconds >= maximum - tolerance)
     }
 
     fn scrollbar(&self, width: f64, height: f64) -> Option<Scrollbar> {
         if !self.can_scroll(width) {
             return None;
         }
-        let visible = graph_plot_width(width) * fraction_as_f64(self.view.seconds_per_pixel);
-        let duration = fraction_as_f64(graph_duration(self.item_range));
+        let visible = graph_plot_width(width) * self.view.seconds_per_pixel;
+        let duration = graph_duration_seconds(self.item_range);
         Some(Scrollbar {
             axis: Axis::Horizontal,
             bounds: shrimply_skia_adw_ui::Rect::from_xywh(
@@ -877,7 +862,7 @@ impl FrameGraphState {
             ),
             content_length: duration.max(visible),
             viewport_length: visible,
-            value: fraction_as_f64(self.view.scroll.seconds - self.item_range.0.seconds).max(0.0),
+            value: (self.view.scroll_seconds - self.item_range.0.as_secs_f64()).max(0.0),
             color: Color::LIGHT1,
             outline_color: Color::<f32>::from_rgb8_alpha(0x00, 0x00, 0x0c, 0.95),
             state: slider::idle_state(),
@@ -885,13 +870,11 @@ impl FrameGraphState {
     }
 
     fn apply_scroll_animation(&mut self, width: f64) {
-        let mut scroll = self.view.scroll;
+        let mut scroll_seconds = self.view.scroll_seconds;
         if self.scrollbar.apply_scroll(|value| {
-            scroll = Time {
-                seconds: self.item_range.0.seconds + fraction_from_f64(value),
-            };
+            scroll_seconds = self.item_range.0.as_secs_f64() + value;
         }) {
-            self.view.scroll = scroll;
+            self.view.scroll_seconds = scroll_seconds;
             self.view.clamp(self.item_range, width);
         }
     }
@@ -965,11 +948,11 @@ impl FrameGraphState {
                 for segment in segments {
                     let mut previous = None;
                     for progress in crate::curve_sample_progresses(segment.interpolation) {
-                        let time = Time {
-                            seconds: segment.start.seconds
-                                + (segment.end.seconds - segment.start.seconds)
-                                    * fraction_from_f64(progress),
-                        };
+                        let time = Time::from_seconds_f64(
+                            segment.start.as_secs_f64()
+                                + (segment.end.as_secs_f64() - segment.start.as_secs_f64())
+                                    * progress,
+                        );
                         let value = segment.start_value
                             + (segment.end_value - segment.start_value)
                                 * segment.interpolation.value(progress);
@@ -1007,11 +990,11 @@ impl FrameGraphState {
                             previous = None;
                             continue;
                         };
-                        let time = Time {
-                            seconds: segment.start.seconds
-                                + (segment.end.seconds - segment.start.seconds)
-                                    * fraction_from_f64(progress),
-                        };
+                        let time = Time::from_seconds_f64(
+                            segment.start.as_secs_f64()
+                                + (segment.end.as_secs_f64() - segment.start.as_secs_f64())
+                                    * progress,
+                        );
                         let point = glam::DVec2::new(
                             time_x(time, width, domain),
                             value_y(speed, height, range),
@@ -1052,20 +1035,20 @@ fn graph_plot_width(width: f64) -> f64 {
     (width - GRAPH_PAD * 2.0).max(1.0)
 }
 
-fn graph_duration((start, end): GraphDomain) -> Fraction {
-    (end.seconds - start.seconds).max(fraction_new(1, 1000))
+fn graph_duration_seconds((start, end): GraphDomain) -> f64 {
+    (end.as_secs_f64() - start.as_secs_f64()).max(0.001)
 }
 
-fn minimum_scale(duration: Fraction) -> Fraction {
-    (duration / fraction_new(MINIMUM_VISIBLE_PIXELS, 1))
-        .max(fraction_new(1, MINIMUM_SECONDS_DENOMINATOR))
+fn minimum_scale(duration: f64) -> f64 {
+    (duration / MINIMUM_VISIBLE_PIXELS).max(MINIMUM_SECONDS_PER_PIXEL)
 }
 
 fn time_at_x(x: f64, width: f64, domain: GraphDomain) -> Time {
-    let progress = fraction_from_f64(((x - GRAPH_PAD) / graph_plot_width(width)).clamp(0.0, 1.0));
-    Time {
-        seconds: domain.0.seconds + (domain.1.seconds - domain.0.seconds) * progress,
-    }
+    let progress = ((x - GRAPH_PAD) / graph_plot_width(width)).clamp(0.0, 1.0);
+    Time::from_seconds_f64(
+        domain.0.as_secs_f64()
+            + (domain.1.as_secs_f64() - domain.0.as_secs_f64()) * progress,
+    )
 }
 
 fn value_at_y(y: f64, height: f64, (minimum, maximum): (f64, f64)) -> f64 {
@@ -1263,12 +1246,12 @@ fn move_selected_graph_points(
     } else {
         vec![focus_time]
     };
-    let requested_delta = requested_time.seconds - focus_time.seconds;
+    let requested_delta = requested_time.as_secs_f64() - focus_time.as_secs_f64();
     let minimum = selected_times.iter().min().copied().unwrap_or(focus_time);
     let maximum = selected_times.iter().max().copied().unwrap_or(focus_time);
     let delta = requested_delta.clamp(
-        item_range.0.seconds - minimum.seconds,
-        item_range.1.seconds - maximum.seconds,
+        item_range.0.as_secs_f64() - minimum.as_secs_f64(),
+        item_range.1.as_secs_f64() - maximum.as_secs_f64(),
     );
     let delta_value = if matches!(graph, KeyframeGraph::RawValue { .. }) {
         requested_value - focus_point.value
@@ -1280,14 +1263,12 @@ fn move_selected_graph_points(
         if let Some(point) = graph_key_point(graph, *old_time) {
             updates.push((
                 point.time,
-                Time {
-                    seconds: point.time.seconds + delta,
-                },
+                Time::from_seconds_f64(point.time.as_secs_f64() + delta),
                 graph_edit_value(graph, point.value + delta_value),
             ));
         }
     }
-    if delta > FRACTION_ZERO {
+    if delta > 0.0 {
         updates.sort_by_key(|(old_time, _, _)| std::cmp::Reverse(*old_time));
     } else {
         updates.sort_by_key(|(old_time, _, _)| *old_time);
@@ -1298,9 +1279,7 @@ fn move_selected_graph_points(
     let mut selected: Vec<_> = updates.iter().map(|(_, time, _)| *time).collect();
     selected.sort();
     selected.dedup_by(|left, right| left.approx_eq(*right));
-    let focused = Time {
-        seconds: focus_time.seconds + delta,
-    };
+    let focused = Time::from_seconds_f64(focus_time.as_secs_f64() + delta);
     (updates, selected, focused)
 }
 
@@ -1417,15 +1396,18 @@ fn snap_keyframe_time(
     item_range: GraphDomain,
     enabled: bool,
     radius_px: f64,
-    seconds_per_pixel: Fraction,
+    seconds_per_pixel: f64,
     cursor: Time,
 ) -> Time {
     let time = clamp_graph_time(time, item_range);
     if !enabled {
         return time;
     }
-    let radius = seconds_per_pixel * fraction_from_f64(radius_px);
-    if cursor >= item_range.0 && cursor <= item_range.1 && cursor.abs_diff(time).seconds <= radius {
+    let radius = seconds_per_pixel * radius_px;
+    if cursor >= item_range.0
+        && cursor <= item_range.1
+        && (cursor.as_secs_f64() - time.as_secs_f64()).abs() <= radius
+    {
         cursor
     } else {
         time

@@ -23,7 +23,6 @@ fn main() {
             "qml/SwitchRow.qml",
             "qml/Tabs.qml",
             "qml/TypoUnderline.qml",
-            "qml/Showcase.qml",
         ]))
         .files(["src/backend.rs", "src/frame_graph.rs"])
         .qrc("qml/assets.qrc")

@@ -1,5 +1,5 @@
 use core::pin::Pin;
-use cxx_qt::CxxQtType;
+use cxx_qt::{CxxQtType, Threading};
 use cxx_qt_lib::{QColor, QString, QStringList};
 use shrimply_component_core::{color, number, project_settings, selector, text};
 use shrimply_math_color::Color;
@@ -120,6 +120,7 @@ pub mod qobject {
         #[qproperty(f32, brightness)]
         #[qproperty(f32, alpha)]
         #[qproperty(bool, with_alpha, cxx_name = "withAlpha")]
+        #[qproperty(bool, screen_picking, cxx_name = "screenPicking")]
         #[qproperty(i32, palette_count, cxx_name = "paletteCount")]
         #[qproperty(i32, recent_count, cxx_name = "recentCount")]
         type ColorPickerBackend = super::ColorPickerBackendRust;
@@ -151,12 +152,18 @@ pub mod qobject {
         #[cxx_name = "chooseColor"]
         fn choose_color(self: Pin<&mut ColorPickerBackend>, color: &QColor);
         #[qinvokable]
+        #[cxx_name = "pickScreenColor"]
+        fn pick_screen_color(self: Pin<&mut ColorPickerBackend>);
+        #[qinvokable]
         fn confirm(self: Pin<&mut ColorPickerBackend>);
 
         #[qsignal]
         fn selected(self: Pin<&mut ColorPickerBackend>, color: QColor);
         #[qsignal]
         fn confirmed(self: Pin<&mut ColorPickerBackend>);
+        #[qsignal]
+        #[cxx_name = "screenColorFailed"]
+        fn screen_color_failed(self: Pin<&mut ColorPickerBackend>, message: QString);
 
         #[qobject]
         #[qml_element]
@@ -275,6 +282,7 @@ pub mod qobject {
     impl cxx_qt::Initialize for NumberInputBackend {}
     impl cxx_qt::Initialize for NumberGroupBackend {}
     impl cxx_qt::Initialize for ColorPickerBackend {}
+    impl cxx_qt::Threading for ColorPickerBackend {}
     impl cxx_qt::Initialize for TextInputBackend {}
     impl cxx_qt::Initialize for SelectorBackend {}
     impl cxx_qt::Initialize for ProjectSettingsBackend {}
@@ -576,6 +584,7 @@ pub struct ColorPickerBackendRust {
     brightness: f32,
     alpha: f32,
     with_alpha: bool,
+    screen_picking: bool,
     palette_count: i32,
     recent_count: i32,
     hsva: color::Hsva,
@@ -593,6 +602,7 @@ impl Default for ColorPickerBackendRust {
             brightness: 0.0,
             alpha: 1.0,
             with_alpha: true,
+            screen_picking: false,
             palette_count: color::PALETTE.len() as i32,
             recent_count: 0,
             hsva: color::Hsva::from_color(value),
@@ -672,6 +682,38 @@ impl qobject::ColorPickerBackend {
             value.a = u8::MAX;
         }
         self.as_mut().publish_color(value);
+    }
+
+    pub fn pick_screen_color(mut self: Pin<&mut Self>) {
+        if *self.screen_picking() {
+            return;
+        }
+        self.as_mut().set_screen_picking(true);
+        let qt_thread = self.qt_thread();
+        std::thread::spawn(move || {
+            let result = shrimply_cross_ui_core::screen_color::pick_blocking();
+            let _ = qt_thread.queue(move |mut backend| {
+                backend.as_mut().set_screen_picking(false);
+                match result {
+                    Ok([red, green, blue]) => {
+                        let alpha = if *backend.with_alpha() {
+                            *backend.alpha()
+                        } else {
+                            1.0
+                        };
+                        backend.as_mut().publish_color(Color::from_srgba([
+                            red as f32,
+                            green as f32,
+                            blue as f32,
+                            alpha,
+                        ]));
+                    }
+                    Err(error) => backend
+                        .as_mut()
+                        .screen_color_failed(QString::from(error)),
+                }
+            });
+        });
     }
 
     pub fn confirm(mut self: Pin<&mut Self>) {

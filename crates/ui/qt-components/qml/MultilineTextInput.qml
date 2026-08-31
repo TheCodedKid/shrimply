@@ -44,7 +44,7 @@ ScrollView {
             model: backend.typoCount
             TypoUnderline {
                 required property int index
-                editor: editor
+                target: editor
                 typoBackend: backend
                 typoIndex: index
             }

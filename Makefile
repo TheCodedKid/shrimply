@@ -52,6 +52,8 @@ LAUNCHER_PACKAGE := shrimply-launcher-ui
 QT_LAUNCHER_PACKAGE := shrimply-launcher-qt-ui
 GTK_COMPONENTS_PACKAGE := shrimply-gtk-components
 QT_COMPONENTS_PACKAGE := shrimply-qt-components
+GTK_COMPONENTS_DEMO_PACKAGE := shrimply-gtk-components-demo
+QT_COMPONENTS_DEMO_PACKAGE := shrimply-qt-components-demo
 QT_BIN_NAME := shrimply-qt
 MCP_PACKAGE := shrimply-mcp
 MCP_BIN_NAME := shrimply-mcp
@@ -247,14 +249,14 @@ release: native-deps cuda-artifacts
 check: native-deps cuda-artifacts fmt source-size-check cargo-check lint server-python-check manim-python-check docs-check
 
 components-check: native-deps qt-native-deps
-	$(DEV_BUILD_ENV) QMAKE=$(QT_QMAKE) $(CARGO) check -p $(GTK_COMPONENTS_PACKAGE) -p $(QT_COMPONENTS_PACKAGE) --all-targets
-	$(DEV_BUILD_ENV) QMAKE=$(QT_QMAKE) $(CARGO) clippy -p $(GTK_COMPONENTS_PACKAGE) -p $(QT_COMPONENTS_PACKAGE) --all-targets -- -D warnings
+	$(DEV_BUILD_ENV) QMAKE=$(QT_QMAKE) $(CARGO) check -p $(GTK_COMPONENTS_PACKAGE) -p $(QT_COMPONENTS_PACKAGE) -p $(GTK_COMPONENTS_DEMO_PACKAGE) -p $(QT_COMPONENTS_DEMO_PACKAGE) --all-targets
+	$(DEV_BUILD_ENV) QMAKE=$(QT_QMAKE) $(CARGO) clippy -p $(GTK_COMPONENTS_PACKAGE) -p $(QT_COMPONENTS_PACKAGE) -p $(GTK_COMPONENTS_DEMO_PACKAGE) -p $(QT_COMPONENTS_DEMO_PACKAGE) --all-targets -- -D warnings
 
 gtk-components-showcase: native-deps
-	$(DEV_BUILD_ENV) $(CARGO) run -p $(GTK_COMPONENTS_PACKAGE) --bin shrimply-gtk-components-showcase
+	$(DEV_BUILD_ENV) $(CARGO) run -p $(GTK_COMPONENTS_DEMO_PACKAGE)
 
 qt-components-showcase: qt-native-deps
-	$(DEV_BUILD_ENV) QMAKE=$(QT_QMAKE) $(CARGO) run -p $(QT_COMPONENTS_PACKAGE) --bin shrimply-qt-components-showcase
+	$(DEV_BUILD_ENV) QMAKE=$(QT_QMAKE) $(CARGO) run -p $(QT_COMPONENTS_DEMO_PACKAGE)
 
 dev-components-gtk: gtk-components-showcase
 

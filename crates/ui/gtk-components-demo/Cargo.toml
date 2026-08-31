@@ -1,0 +1,12 @@
+[package]
+name = "shrimply-gtk-components-demo"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+adw.workspace = true
+gtk.workspace = true
+shrimply-cross-ui-theme = { path = "../cross-ui-theme" }
+shrimply-gtk-components = { path = "../gtk-components" }
+shrimply-keyframe-graph-ui = { path = "../../timeline/keyframe-graph-ui" }
+shrimply-math-color = { path = "../../math/color" }
