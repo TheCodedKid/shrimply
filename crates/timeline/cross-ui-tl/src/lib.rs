@@ -1,5 +1,8 @@
 use shrimply_state::preferences::{self, PreferencesSnapshot, SharedPreferences};
 
+mod menu;
+pub use menu::*;
+
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 #[repr(u8)]
 pub enum CursorTool {

@@ -1,5 +1,4 @@
 use super::*;
-use shrimply_ui_foundation::ui::I18nMenuExt;
 
 #[allow(clippy::too_many_arguments)]
 pub(super) fn show_folded_track_context_menu(
@@ -13,8 +12,8 @@ pub(super) fn show_folded_track_context_menu(
     y: f64,
 ) {
     prepare_virtual_track_context_menu(runtime);
-    let menu = gio::Menu::new();
-    menu.append_i18n("Delete Track", "timeline.delete-folded-track");
+    let menu =
+        shrimply_timeline_gtk::menu_model(&shrimply_cross_ui_tl::folded_track_context_menu()).menu;
     let actions = gio::SimpleActionGroup::new();
     add_menu_action(&actions, "delete-folded-track", {
         let area = area.clone();
@@ -37,6 +36,16 @@ pub(super) fn show_folded_track_context_menu(
 
 pub(super) fn create_folded_track(
     area: &gtk::GLArea,
+    project: &Rc<RefCell<Project>>,
+    player_state: &SharedPlayerState,
+    folder: &crate::project::ItemAddress,
+    at_top: bool,
+) {
+    create_folded_track_core(project, player_state, folder, at_top);
+    area.queue_render();
+}
+
+pub(crate) fn create_folded_track_core(
     project: &Rc<RefCell<Project>>,
     player_state: &SharedPlayerState,
     folder: &crate::project::ItemAddress,
@@ -113,7 +122,6 @@ pub(super) fn create_folded_track(
             ..ProjectChange::default()
         },
     );
-    area.queue_render();
 }
 
 fn prepare_virtual_track_context_menu(runtime: &Rc<RefCell<TimelineRuntime>>) {

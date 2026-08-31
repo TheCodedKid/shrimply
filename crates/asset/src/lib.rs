@@ -60,6 +60,7 @@ pub struct AssetChange {
 struct Entry {
     id: u64,
     path: PathBuf,
+    watched_directory: PathBuf,
     version: RwLock<Version>,
     commands: mpsc::Sender<Command>,
 }
@@ -82,6 +83,7 @@ enum Command {
     },
     Unregister {
         path: PathBuf,
+        watched_directory: PathBuf,
         id: u64,
     },
     Event(notify::Result<Event>),
@@ -285,6 +287,7 @@ impl Drop for Entry {
     fn drop(&mut self) {
         let _ = self.commands.send(Command::Unregister {
             path: self.path.clone(),
+            watched_directory: self.watched_directory.clone(),
             id: self.id,
         });
     }
@@ -341,7 +344,11 @@ impl Registry {
             Command::Register { path, response } => {
                 let _ = response.send(self.register(path));
             }
-            Command::Unregister { path, id } => self.unregister(&path, id),
+            Command::Unregister {
+                path,
+                watched_directory,
+                id,
+            } => self.unregister(&path, &watched_directory, id),
             Command::Event(_) => unreachable!("events are handled by the watcher loop"),
         }
     }
@@ -351,13 +358,23 @@ impl Registry {
             return Ok(entry);
         }
         let fingerprint = fingerprint(&path)?;
-        let directory = path
+        let containing_directory = path
             .parent()
             .ok_or_else(|| format!("asset has no containing directory: {}", path.display()))?
             .to_path_buf();
+        let directory = containing_directory
+            .ancestors()
+            .find(|directory| directory.is_dir())
+            .ok_or_else(|| {
+                format!(
+                    "asset has no existing ancestor directory: {}",
+                    path.display()
+                )
+            })?
+            .to_path_buf();
         if !self.watched_directories.contains_key(&directory) {
             self.watcher
-                .watch(&directory, RecursiveMode::NonRecursive)
+                .watch(&directory, RecursiveMode::Recursive)
                 .map_err(|error| {
                     format!(
                         "could not watch asset directory {}: {error}",
@@ -365,7 +382,10 @@ impl Registry {
                     )
                 })?;
         }
-        *self.watched_directories.entry(directory).or_default() += 1;
+        *self
+            .watched_directories
+            .entry(directory.clone())
+            .or_default() += 1;
         self.next_id = self.next_id.wrapping_add(1);
         let entry = Arc::new(Entry {
             id: self.next_id,
@@ -374,13 +394,14 @@ impl Registry {
                 fingerprint,
             }),
             path: path.clone(),
+            watched_directory: directory,
             commands: manager()?.commands.clone(),
         });
         self.entries.insert(path, Arc::downgrade(&entry));
         Ok(entry)
     }
 
-    fn unregister(&mut self, path: &Path, id: u64) {
+    fn unregister(&mut self, path: &Path, watched_directory: &Path, id: u64) {
         let remove = self
             .entries
             .get(path)
@@ -389,17 +410,14 @@ impl Registry {
             return;
         }
         self.entries.remove(path);
-        let Some(directory) = path.parent() else {
-            return;
-        };
-        let Some(count) = self.watched_directories.get_mut(directory) else {
+        let Some(count) = self.watched_directories.get_mut(watched_directory) else {
             return;
         };
         *count = count.saturating_sub(1);
         if *count == 0 {
-            self.watched_directories.remove(directory);
-            if let Err(error) = self.watcher.unwatch(directory) {
-                tracing::warn!(path = %directory.display(), %error, "could not stop watching asset directory");
+            self.watched_directories.remove(watched_directory);
+            if let Err(error) = self.watcher.unwatch(watched_directory) {
+                tracing::warn!(path = %watched_directory.display(), %error, "could not stop watching asset directory");
             }
         }
     }
@@ -426,10 +444,9 @@ impl Registry {
     fn refresh(&mut self, paths: HashSet<PathBuf>, refresh_all: bool) {
         for (path, entry) in &self.entries {
             let affected = refresh_all
-                || paths.contains(path)
-                || path
-                    .parent()
-                    .is_some_and(|directory| paths.contains(directory));
+                || paths.iter().any(|changed| {
+                    path == changed || path.starts_with(changed) || changed.starts_with(path)
+                });
             if !affected {
                 continue;
             }

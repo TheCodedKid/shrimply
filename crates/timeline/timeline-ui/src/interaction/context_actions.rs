@@ -1,12 +1,16 @@
 use super::*;
+use crate::RenderedVideoFrame;
+use shrimply_cross_ui_tl::{
+    ContextItemKind, ContextMenuControl, ItemMenuContext, TrackMenuContext, VideoFrameSelection,
+};
 use shrimply_ui_foundation::tr;
 use shrimply_ui_foundation::ui::I18nAlertDialogExt;
 use shrimply_ui_foundation::ui::I18nFileFilterExt;
 use shrimply_ui_foundation::ui::I18nMenuExt;
 use shrimply_ui_foundation::ui::I18nWidgetExt;
 
-mod folded_items;
-mod folded_tracks;
+pub(crate) mod folded_items;
+pub(crate) mod folded_tracks;
 use folded_items::*;
 use folded_tracks::*;
 
@@ -100,14 +104,6 @@ pub(super) fn show_timeline_item_context_menu(
         debug_assert!(selected_items.contains(&hit));
     }
 
-    let menu = gio::Menu::new();
-    let copy = shrimply_ui_foundation::ui::menu_item_i18n("Copy", "timeline.copy");
-    copy.set_icon(&gio::ThemedIcon::new("edit-copy-symbolic"));
-    menu.append_item(&copy);
-    menu.append_i18n("Cut", "timeline.cut");
-    let paste = shrimply_ui_foundation::ui::menu_item_i18n("Paste", "timeline.paste");
-    paste.set_icon(&gio::ThemedIcon::new("edit-paste-symbolic"));
-    menu.append_item(&paste);
     let property_targets = {
         let project = project.borrow();
         selection_state::selected_item_addresses(selection_state, &project)
@@ -121,17 +117,6 @@ pub(super) fn show_timeline_item_context_menu(
             clipboard.can_append_modifiers(&project, &property_targets),
         )
     };
-    if matches!(hit.kind, TrackKind::Video | TrackKind::Audio) {
-        let property_section = gio::Menu::new();
-        property_section.append_i18n("Replace Properties", "timeline.replace-properties");
-        property_section.append_i18n("Paste Modifiers", "timeline.paste-modifiers");
-        menu.append_section(None, &property_section);
-    }
-    if path.is_some() {
-        let file_section = gio::Menu::new();
-        file_section.append_i18n("Show in Folder", "timeline.show-folder");
-        menu.append_section(None, &file_section);
-    }
     let foldable = {
         let selected = selected_timeline_items(selection_state);
         selected.len() >= 2
@@ -143,20 +128,6 @@ pub(super) fn show_timeline_item_context_menu(
         let project = project.borrow();
         item_group_id(&project, hit).is_some()
     });
-    if foldable || folder.is_some() {
-        let section = gio::Menu::new();
-        if foldable {
-            section.append_i18n("Fold Sequence", "timeline.fold-sequence");
-        }
-        if unlinkable_folder {
-            section.append_i18n("Unlink Folder", "timeline.unlink-folder");
-        }
-        if folder.is_some() {
-            section.append_i18n("Add Track at Top", "timeline.add-folder-track-top");
-            section.append_i18n("Add Track at Bottom", "timeline.add-folder-track-bottom");
-        }
-        menu.append_section(None, &section);
-    }
 
     let speed_items = selected_timeline_items(selection_state)
         .iter()
@@ -182,6 +153,12 @@ pub(super) fn show_timeline_item_context_menu(
             })
             .collect::<Vec<_>>()
     };
+    let playback_speed = speeds
+        .first()
+        .map(|first| ContextMenuControl::PlaybackSpeed {
+            position: shrimply_math_media::playback_speed_scale_position(fraction_as_f64(*first)),
+            mixed: speeds.iter().any(|speed| speed != first),
+        });
     let speed_control = (!speeds.is_empty()).then(|| {
         let first_speed = speeds[0];
         let mixed = speeds.iter().any(|speed| *speed != first_speed);
@@ -269,13 +246,38 @@ pub(super) fn show_timeline_item_context_menu(
         row.add_suffix(&scale);
         row.upcast::<gtk::Widget>()
     });
-    if speed_control.is_some() {
-        let speed_item = gio::MenuItem::new(None, None);
-        speed_item.set_attribute_value("custom", Some(&"speed-control".to_variant()));
-        let speed_section = gio::Menu::new();
-        speed_section.append_item(&speed_item);
-        menu.append_section(None, &speed_section);
-    }
+    let selected_tracks = selected_timeline_tracks(selection_state);
+    let enable_beat_detection = hit.kind == TrackKind::Audio
+        && selected_items
+            .iter()
+            .filter(|key| key.kind == TrackKind::Audio)
+            .any(|key| {
+                project
+                    .borrow()
+                    .audio_tracks
+                    .get(key.track_index)
+                    .and_then(|track| track.items.get(key.item_index))
+                    .is_some_and(|item| !item.beat_detection)
+            });
+    let can_remove_silences = hit.kind == TrackKind::Audio
+        && silence::can_remove(&project.borrow(), &selected_items, &selected_tracks, hit);
+    let contract = shrimply_cross_ui_tl::item_context_menu(ItemMenuContext {
+        kind: match hit.kind {
+            TrackKind::Caption => ContextItemKind::Caption,
+            TrackKind::Video => ContextItemKind::Video,
+            TrackKind::Audio => ContextItemKind::Audio,
+        },
+        can_replace_properties,
+        can_paste_modifiers,
+        has_file: path.is_some(),
+        foldable,
+        unlinkable_folder,
+        folder: folder.is_some(),
+        playback_speed,
+        enable_beat_detection,
+        can_remove_silences,
+    });
+    let menu = shrimply_timeline_gtk::menu_model(&contract).menu;
 
     let actions = gio::SimpleActionGroup::new();
     if foldable {
@@ -382,9 +384,9 @@ pub(super) fn show_timeline_item_context_menu(
             runtime,
             preferences,
             hit,
+            false,
         ),
         TrackKind::Caption => add_caption_item_context_actions(
-            &menu,
             &actions,
             area,
             project,
@@ -401,6 +403,7 @@ pub(super) fn show_timeline_item_context_menu(
             selection_state,
             preferences,
             VideoFrameSelection::Items,
+            false,
         ),
     }
     if let Some(path) = path {
@@ -450,11 +453,14 @@ fn add_video_frame_context_actions(
     selection_state: &SharedSelectionState,
     preferences: &preferences_store::SharedPreferences,
     selection: VideoFrameSelection,
+    append_menu: bool,
 ) {
-    let section = gio::Menu::new();
-    section.append_i18n("Copy Frame", "timeline.copy-frame");
-    section.append_i18n("Save Frame…", "timeline.save-frame");
-    menu.append_section(None, &section);
+    if append_menu {
+        let section = gio::Menu::new();
+        section.append_i18n("Copy Frame", "timeline.copy-frame");
+        section.append_i18n("Save Frame…", "timeline.save-frame");
+        menu.append_section(None, &section);
+    }
 
     add_menu_action(actions, "copy-frame", {
         let area = area.clone();
@@ -564,18 +570,6 @@ fn add_video_frame_context_actions(
     });
 }
 
-struct RenderedVideoFrame {
-    width: i32,
-    height: i32,
-    pixels: Vec<u8>,
-}
-
-#[derive(Clone, Copy)]
-enum VideoFrameSelection {
-    Items,
-    Tracks,
-}
-
 impl RenderedVideoFrame {
     fn texture(self) -> gdk::Texture {
         let stride = self.width as usize * std::mem::size_of::<u32>();
@@ -597,59 +591,15 @@ fn render_selected_video_frame(
     selection: VideoFrameSelection,
     done: impl FnOnce(Result<RenderedVideoFrame, String>) + 'static,
 ) {
-    let project = project.borrow().clone();
-    let item_ids = match selection {
-        VideoFrameSelection::Items => selected_timeline_items(selection_state)
-            .iter()
-            .filter(|key| key.kind == TrackKind::Video)
-            .filter_map(|key| {
-                project
-                    .video_tracks
-                    .get(key.track_index)
-                    .and_then(|track| track.items.get(key.item_index))
-                    .map(|item| item.id)
-            })
-            .collect::<Vec<_>>(),
-        VideoFrameSelection::Tracks => selected_timeline_tracks(selection_state)
-            .iter()
-            .filter(|key| key.kind == TrackKind::Video)
-            .filter_map(|key| project.video_tracks.get(key.track_index))
-            .flat_map(|track| track.items.iter().map(|item| item.id))
-            .collect::<Vec<_>>(),
-    };
-    let position = player_state::snapshot(player_state).position;
+    let (project, position, item_ids) = crate::toolkit_context_menu::prepare_selected_video_frame(
+        project,
+        player_state,
+        selection_state,
+        selection,
+    );
     let (tx, rx) = mpsc::channel();
     thread::spawn(move || {
-        let result = (|| {
-            let canvas_size = project.canvas_size;
-            let mut renderer = shrimply_video::compositor::VideoExportRenderer::new(48_000)?;
-            let frame = renderer.render_items(&project, position, 0, &item_ids)?;
-            let mut rgba = ffmpeg_next::frame::Video::new(
-                ffmpeg_next::format::Pixel::RGBA,
-                canvas_size.width,
-                canvas_size.height,
-            );
-            renderer.copy_to_rgba_frame(frame, &mut rgba)?;
-            let width = i32::try_from(canvas_size.width)
-                .map_err(|_| "selected frame width is too large".to_string())?;
-            let height = i32::try_from(canvas_size.height)
-                .map_err(|_| "selected frame height is too large".to_string())?;
-            let row_bytes = canvas_size.width as usize * std::mem::size_of::<u32>();
-            let stride = rgba.stride(0);
-            let mut pixels = Vec::with_capacity(row_bytes * canvas_size.height as usize);
-            for row in rgba
-                .data(0)
-                .chunks_exact(stride)
-                .take(canvas_size.height as usize)
-            {
-                pixels.extend_from_slice(&row[..row_bytes]);
-            }
-            Ok(RenderedVideoFrame {
-                width,
-                height,
-                pixels,
-            })
-        })();
+        let result = crate::toolkit_context_menu::render_video_frame(project, position, &item_ids);
         let _ = tx.send(result);
     });
 
@@ -680,6 +630,7 @@ fn add_audio_item_context_actions(
     runtime: &Rc<RefCell<TimelineRuntime>>,
     preferences: &preferences_store::SharedPreferences,
     hit: ItemKey,
+    append_menu: bool,
 ) {
     let selected_items = selected_timeline_items(selection_state);
     let selected_tracks = selected_timeline_tracks(selection_state);
@@ -698,51 +649,34 @@ fn add_audio_item_context_actions(
     });
     let can_remove_silences =
         silence::can_remove(&project.borrow(), &selected_items, &selected_tracks, hit);
-    let section = gio::Menu::new();
-    section.append_i18n(
-        if enable_beat_detection {
-            "Enable Beat Detection"
-        } else {
-            "Disable Beat Detection"
-        },
-        "timeline.beat-detection",
-    );
-    section.append_i18n("Export Audio…", "timeline.export-audio");
-    section.append_i18n("Transcribe", "timeline.transcribe");
-    if can_remove_silences {
-        section.append_i18n("Remove Silences", "timeline.remove-silences");
+    if append_menu {
+        let section = gio::Menu::new();
+        section.append_i18n(
+            if enable_beat_detection {
+                "Enable Beat Detection"
+            } else {
+                "Disable Beat Detection"
+            },
+            "timeline.beat-detection",
+        );
+        section.append_i18n("Export Audio…", "timeline.export-audio");
+        section.append_i18n("Transcribe", "timeline.transcribe");
+        if can_remove_silences {
+            section.append_i18n("Remove Silences", "timeline.remove-silences");
+        }
+        menu.append_section(None, &section);
     }
-    menu.append_section(None, &section);
     add_menu_action(actions, "beat-detection", {
         let area = area.clone();
         let project = project.clone();
         let player_state = player_state.clone();
+        let selection_state = selection_state.clone();
         move || {
-            let mut project = project.borrow_mut();
-            let mut changed = false;
-            for key in &selected_audio {
-                if let Some(item) = project
-                    .audio_tracks
-                    .get_mut(key.track_index)
-                    .and_then(|track| track.items.get_mut(key.item_index))
-                    && item.beat_detection != enable_beat_detection
-                {
-                    item.beat_detection = enable_beat_detection;
-                    changed = true;
-                }
-            }
-            if !changed {
-                return;
-            }
-            crate::project::commit_edit(&project, "toggle-beat-detection");
-            drop(project);
-            player_state::refresh_project(
+            crate::toolkit_context_menu::set_selected_audio_beat_detection(
+                &project,
                 &player_state,
-                ProjectChange {
-                    audio_beats: true,
-                    inspector: true,
-                    ..ProjectChange::default()
-                },
+                &selection_state,
+                enable_beat_detection,
             );
             area.queue_render();
         }
@@ -1120,7 +1054,10 @@ fn show_video_track_context_menu(
     y: f64,
 ) {
     prepare_track_context_menu(runtime, selection_state, key);
-    let menu = gio::Menu::new();
+    let menu = shrimply_timeline_gtk::menu_model(&shrimply_cross_ui_tl::track_context_menu(
+        TrackMenuContext::Video,
+    ))
+    .menu;
     let actions = gio::SimpleActionGroup::new();
     add_video_frame_context_actions(
         &menu,
@@ -1131,6 +1068,7 @@ fn show_video_track_context_menu(
         selection_state,
         preferences,
         VideoFrameSelection::Tracks,
+        false,
     );
     popup_timeline_context_menu(area, runtime, &menu, &actions, None, x, y);
     area.queue_render();
@@ -1148,10 +1086,8 @@ fn show_new_track_context_menu(
     y: f64,
 ) {
     prepare_empty_track_context_menu(project, runtime, selection_state);
-    let menu = gio::Menu::new();
-    menu.append_i18n("Add Caption Track", "timeline.add-caption-track");
-    menu.append_i18n("Add Video Track", "timeline.add-video-track");
-    menu.append_i18n("Add Audio Track", "timeline.add-audio-track");
+    let menu =
+        shrimply_timeline_gtk::menu_model(&shrimply_cross_ui_tl::empty_track_context_menu()).menu;
     let actions = gio::SimpleActionGroup::new();
     for (name, kind) in [
         ("add-caption-track", TrackKind::Caption),
@@ -1195,15 +1131,13 @@ fn show_audio_track_context_menu(
         key,
     );
     prepare_track_context_menu(runtime, selection_state, key);
-    let menu = gio::Menu::new();
-    menu.append_i18n("Export Audio…", "timeline.export-audio");
-    menu.append_i18n("Transcribe", "timeline.transcribe");
-    if can_remove_silences {
-        menu.append_i18n("Remove Silences", "timeline.remove-silences");
-    }
-    let gain_item = gio::MenuItem::new(None, None);
-    gain_item.set_attribute_value("custom", Some(&"speed-control".to_variant()));
-    menu.append_item(&gain_item);
+    let menu = shrimply_timeline_gtk::menu_model(&shrimply_cross_ui_tl::track_context_menu(
+        TrackMenuContext::Audio {
+            can_remove_silences,
+            gain_db: project.borrow().audio_tracks[key.track_index].gain_db,
+        },
+    ))
+    .menu;
     let actions = gio::SimpleActionGroup::new();
     add_export_audio_action(&actions, area, project, selection_state);
     add_menu_action(&actions, "transcribe", {
@@ -1296,8 +1230,10 @@ fn show_caption_track_context_menu(
     y: f64,
 ) {
     prepare_track_context_menu(runtime, selection_state, key);
-    let menu = gio::Menu::new();
-    menu.append_i18n("Generate Speech", "timeline.generate-speech");
+    let menu = shrimply_timeline_gtk::menu_model(&shrimply_cross_ui_tl::track_context_menu(
+        TrackMenuContext::Caption,
+    ))
+    .menu;
     let actions = gio::SimpleActionGroup::new();
     add_menu_action(&actions, "generate-speech", {
         let area = area.clone();
@@ -1366,6 +1302,17 @@ fn create_track(
     kind: TrackKind,
     index: Option<usize>,
 ) {
+    create_track_core(project, player_state, selection_state, kind, index);
+    area.queue_render();
+}
+
+pub(crate) fn create_track_core(
+    project: &Rc<RefCell<Project>>,
+    player_state: &SharedPlayerState,
+    selection_state: &SharedSelectionState,
+    kind: TrackKind,
+    index: Option<usize>,
+) {
     let index = {
         let mut project_state = project.borrow_mut();
         let track_count = match kind {
@@ -1407,7 +1354,6 @@ fn create_track(
             ..ProjectChange::default()
         },
     );
-    area.queue_render();
 }
 
 fn prepare_empty_track_context_menu(
@@ -1491,37 +1437,16 @@ pub(super) fn copy_selected_timeline_items(
     selection_state: &SharedSelectionState,
     runtime: &Rc<RefCell<TimelineRuntime>>,
 ) {
-    let (copied, focused) = {
-        let project = project.borrow();
-        (
-            copy_items(
-                &project,
-                &selection_state::selected_item_addresses(selection_state, &project),
-            ),
-            selection_state::focused_item_address(selection_state, &project),
-        )
-    };
-    if copied.is_some() {
+    if crate::toolkit_context_menu::copy_selected_timeline_items_core(
+        project,
+        player_state,
+        selection_state,
+        runtime,
+    ) {
         area.display()
             .clipboard()
             .set_text(crate::clipboard::TIMELINE_MARKER);
     }
-    let property_clipboard = runtime.borrow().property_clipboard.clone();
-    if let Some(focused) = focused {
-        property_clipboard
-            .borrow_mut()
-            .copy_item(&project.borrow(), &focused);
-    } else {
-        property_clipboard.borrow_mut().clear();
-    }
-    runtime.borrow_mut().clipboard = copied;
-    player_state::refresh_project(
-        player_state,
-        player_state::ProjectChange {
-            inspector: true,
-            ..Default::default()
-        },
-    );
 }
 
 pub(super) fn cut_selected_timeline_items(
@@ -1537,7 +1462,7 @@ pub(super) fn cut_selected_timeline_items(
     }
 }
 
-fn item_file_path(project: &Project, key: ItemKey) -> Option<PathBuf> {
+pub(crate) fn item_file_path(project: &Project, key: ItemKey) -> Option<PathBuf> {
     match key.kind {
         TrackKind::Caption => None,
         TrackKind::Video => project

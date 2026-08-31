@@ -13,7 +13,7 @@ use super::external_content::{self, Content, Origin, Placement};
 use super::interaction::paste_timeline_clipboard;
 
 const FILE_MIME_TYPES: &[&str] = &["x-special/gnome-copied-files", "text/uri-list"];
-pub(super) const TIMELINE_MARKER: &str = "shrimply timeline items";
+pub(super) const TIMELINE_MARKER: &str = shrimply_cross_ui_tl::TIMELINE_CLIPBOARD_MARKER;
 
 pub(super) fn paste(
     area: &gtk::GLArea,

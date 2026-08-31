@@ -3,6 +3,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Dialogs
 import QtQuick.Layouts
+import QtQml.Models
 import dev.shrimply.editor
 
 ApplicationWindow {
@@ -471,6 +472,133 @@ ApplicationWindow {
                 }
             }
         }
+    }
+
+    Menu {
+        id: timelineContextMenu
+        popupType: Popup.Window
+
+        Instantiator {
+            model: timelineLoader.item ? timelineLoader.item.contextMenuItems : []
+            delegate: DelegateChooser {
+                role: "kind"
+                DelegateChoice {
+                    roleValue: 1
+                    delegate: MenuItem {
+                        required property var modelData
+                        text: modelData.label
+                        enabled: modelData.enabled
+                        icon.name: modelData.label === "Copy" ? "edit-copy"
+                            : modelData.label === "Cut" ? "edit-cut"
+                            : modelData.label === "Paste" ? "edit-paste" : ""
+                        onTriggered: timelineLoader.item.activateContextMenuItem(modelData.index)
+                    }
+                }
+                DelegateChoice {
+                    roleValue: 2
+                    delegate: MenuSeparator {}
+                }
+                DelegateChoice {
+                    roleValue: 3
+                    delegate: timelineContextControl
+                }
+                DelegateChoice {
+                    roleValue: 4
+                    delegate: timelineContextControl
+                }
+            }
+            onObjectAdded: (index, object) => timelineContextMenu.insertItem(index, object)
+            onObjectRemoved: (index, object) => timelineContextMenu.takeItem(index)
+        }
+    }
+
+    Item {
+        id: timelineContextAnchor
+        parent: timelineLoader.item
+        width: 1
+        height: 1
+        visible: false
+    }
+
+    Component {
+        id: timelineContextControl
+
+        MenuItem {
+            id: controlItem
+            required property var modelData
+            property bool mixed: modelData.mixed
+            property real currentValue: mixed ? 0 : modelData.value
+            implicitWidth: 300
+            implicitHeight: controlLayout.implicitHeight + 16
+
+            contentItem: ColumnLayout {
+                id: controlLayout
+                spacing: 4
+
+                Label {
+                    Layout.fillWidth: true
+                    text: modelData.label + (controlItem.mixed
+                        ? qsTr(" — Mixed")
+                        : modelData.kind === 3
+                            ? " — " + Number(Math.pow(2, controlItem.currentValue).toFixed(2)) + "×"
+                            : " — " + Number(controlItem.currentValue.toFixed(1)) + " dB")
+                }
+
+                Slider {
+                    Layout.fillWidth: true
+                    from: modelData.minimum
+                    to: modelData.maximum
+                    stepSize: modelData.step
+                    value: controlItem.currentValue
+                    onMoved: {
+                        controlItem.mixed = false
+                        controlItem.currentValue = value
+                        timelineLoader.item.setContextMenuControl(modelData.index, value)
+                    }
+                }
+            }
+        }
+    }
+
+    Connections {
+        target: timelineLoader.item
+        function onContextMenuRequested(x, y) {
+            timelineContextAnchor.x = x
+            timelineContextAnchor.y = y
+            timelineContextMenu.popup(timelineContextAnchor, 0, 0)
+        }
+        function onSaveFrameRequested() {
+            timelineSaveFrameDialog.open()
+        }
+        function onContextActionFailed(message) {
+            timelineContextError.text = message
+            timelineContextError.open()
+        }
+        function onDeleteTrackRequested(clipCount) {
+            timelineDeleteTrackDialog.text = qsTr("%1 clips are about to be deleted. Are you sure?").arg(clipCount)
+            timelineDeleteTrackDialog.open()
+        }
+    }
+
+    FileDialog {
+        id: timelineSaveFrameDialog
+        title: qsTr("Save Selected Frame")
+        fileMode: FileDialog.SaveFile
+        nameFilters: [qsTr("PNG image (*.png)")]
+        onAccepted: timelineLoader.item.saveContextFrame(selectedFile)
+    }
+
+    MessageDialog {
+        id: timelineContextError
+        title: qsTr("Timeline Action Failed")
+        buttons: MessageDialog.Ok
+    }
+
+    MessageDialog {
+        id: timelineDeleteTrackDialog
+        title: qsTr("Delete Track?")
+        buttons: MessageDialog.Yes | MessageDialog.Cancel
+        onAccepted: timelineLoader.item.deleteContextFoldedTrack()
     }
 
     MessageDialog {

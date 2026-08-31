@@ -2,6 +2,8 @@
 
 #include <QQuickFramebufferObject>
 #include <QString>
+#include <QUrl>
+#include <QVariantList>
 
 namespace shrimply {
 
@@ -18,6 +20,7 @@ class TimelineSurface : public QQuickFramebufferObject {
     Q_PROPERTY(bool overwriteMode READ overwriteMode NOTIFY dragCollisionModeChanged)
     Q_PROPERTY(bool blockMode READ blockMode NOTIFY dragCollisionModeChanged)
     Q_PROPERTY(bool newTrackMode READ newTrackMode NOTIFY dragCollisionModeChanged)
+    Q_PROPERTY(QVariantList contextMenuItems READ contextMenuItems NOTIFY contextMenuItemsChanged)
 
 public:
     explicit TimelineSurface(QQuickItem *parent = nullptr);
@@ -34,12 +37,22 @@ public:
     Q_INVOKABLE void selectOverwriteMode();
     Q_INVOKABLE void selectBlockMode();
     Q_INVOKABLE void selectNewTrackMode();
+    QVariantList contextMenuItems() const;
+    Q_INVOKABLE void activateContextMenuItem(int index);
+    Q_INVOKABLE void setContextMenuControl(int index, qreal value);
+    Q_INVOKABLE void saveContextFrame(const QUrl &url);
+    Q_INVOKABLE void deleteContextFoldedTrack();
 
 signals:
     void magnetEnabledChanged();
     void beatGridEnabledChanged();
     void cursorToolChanged();
     void dragCollisionModeChanged();
+    void contextMenuItemsChanged();
+    void contextMenuRequested(qreal x, qreal y);
+    void saveFrameRequested();
+    void contextActionFailed(const QString &message);
+    void deleteTrackRequested(int clipCount);
 
 protected:
     void hoverMoveEvent(QHoverEvent *event) override;

@@ -1,11 +1,15 @@
 #include "gpu_surface.h"
 
+#include <QByteArray>
+#include <QClipboard>
 #include <QColor>
 #include <QCursor>
+#include <QFileInfo>
 #include <QFontDatabase>
 #include <QGuiApplication>
 #include <QHoverEvent>
 #include <QIcon>
+#include <QImage>
 #include <QMouseEvent>
 #include <QOpenGLFramebufferObject>
 #include <QOpenGLFramebufferObjectFormat>
@@ -13,10 +17,13 @@
 #include <QQuickOpenGLUtils>
 #include <QQuickWindow>
 #include <QSGRendererInterface>
+#include <QDesktopServices>
+#include <QVariantMap>
 #include <QWheelEvent>
 #include <QtGui/qguiapplication_platform.h>
 #include <QtQml/qqml.h>
 
+#include <cstddef>
 #include <cstdint>
 
 extern "C" bool shrimply_qt_render_timeline(std::uint32_t width, std::uint32_t height,
@@ -36,6 +43,34 @@ extern "C" void shrimply_qt_timeline_pointer_press(std::uint8_t button, float x,
 extern "C" void shrimply_qt_timeline_pointer_release(std::uint8_t button, float x, float y,
                                                        bool control, bool shift);
 extern "C" void shrimply_qt_timeline_scroll(float dx, float dy, bool control, bool shift);
+extern "C" std::size_t shrimply_qt_timeline_prepare_context_menu(float x, float y);
+extern "C" std::size_t shrimply_qt_timeline_context_menu_label(std::size_t index,
+                                                                 std::uint8_t *output,
+                                                                 std::size_t capacity);
+extern "C" std::size_t shrimply_qt_timeline_context_menu_count();
+extern "C" std::uint8_t shrimply_qt_timeline_context_menu_kind(std::size_t index);
+extern "C" bool shrimply_qt_timeline_context_menu_enabled(std::size_t index);
+extern "C" double shrimply_qt_timeline_context_menu_value(std::size_t index);
+extern "C" double shrimply_qt_timeline_context_menu_minimum(std::size_t index);
+extern "C" double shrimply_qt_timeline_context_menu_maximum(std::size_t index);
+extern "C" double shrimply_qt_timeline_context_menu_step(std::size_t index);
+extern "C" bool shrimply_qt_timeline_context_menu_mixed(std::size_t index);
+extern "C" void shrimply_qt_timeline_set_context_menu_control(std::size_t index, double value);
+extern "C" std::uint8_t shrimply_qt_timeline_activate_context_menu_item(std::size_t index);
+extern "C" std::int32_t shrimply_qt_timeline_context_frame_width();
+extern "C" std::int32_t shrimply_qt_timeline_context_frame_height();
+extern "C" std::size_t shrimply_qt_timeline_copy_context_frame(std::uint8_t *output,
+                                                                std::size_t capacity);
+extern "C" std::size_t shrimply_qt_timeline_context_action_error(std::uint8_t *output,
+                                                                  std::size_t capacity);
+extern "C" std::size_t shrimply_qt_timeline_context_open_path(std::uint8_t *output,
+                                                               std::size_t capacity);
+extern "C" std::size_t shrimply_qt_timeline_context_delete_clip_count();
+extern "C" void shrimply_qt_timeline_delete_context_folded_track();
+extern "C" std::size_t shrimply_qt_timeline_clipboard_marker(std::uint8_t *output,
+                                                              std::size_t capacity);
+extern "C" void shrimply_qt_timeline_paste_clipboard_text(const std::uint8_t *text,
+                                                           std::size_t length);
 extern "C" bool shrimply_qt_timeline_magnet();
 extern "C" void shrimply_qt_timeline_set_magnet(bool enabled);
 extern "C" bool shrimply_qt_timeline_beat_grid();
@@ -72,6 +107,46 @@ QOpenGLFramebufferObject *make_fbo(const QSize &size) {
 bool dark_palette() {
     const QColor window = QGuiApplication::palette().color(QPalette::Window);
     return window.lightnessF() < 0.5;
+}
+
+QImage context_frame_image() {
+    const int width = shrimply_qt_timeline_context_frame_width();
+    const int height = shrimply_qt_timeline_context_frame_height();
+    const std::size_t length = shrimply_qt_timeline_copy_context_frame(nullptr, 0);
+    if (width <= 0 || height <= 0 || length != static_cast<std::size_t>(width) * height * 4) {
+        return {};
+    }
+    QByteArray pixels(static_cast<qsizetype>(length), Qt::Uninitialized);
+    if (shrimply_qt_timeline_copy_context_frame(
+            reinterpret_cast<std::uint8_t *>(pixels.data()), length) != length) {
+        return {};
+    }
+    return QImage(reinterpret_cast<const uchar *>(pixels.constData()), width, height,
+                  width * 4, QImage::Format_RGBA8888).copy();
+}
+
+QString context_action_error() {
+    const std::size_t length = shrimply_qt_timeline_context_action_error(nullptr, 0);
+    QByteArray message(static_cast<qsizetype>(length + 1), Qt::Uninitialized);
+    shrimply_qt_timeline_context_action_error(
+        reinterpret_cast<std::uint8_t *>(message.data()), static_cast<std::size_t>(message.size()));
+    return QString::fromUtf8(message.constData());
+}
+
+QString context_open_path() {
+    const std::size_t length = shrimply_qt_timeline_context_open_path(nullptr, 0);
+    QByteArray path(static_cast<qsizetype>(length + 1), Qt::Uninitialized);
+    shrimply_qt_timeline_context_open_path(
+        reinterpret_cast<std::uint8_t *>(path.data()), static_cast<std::size_t>(path.size()));
+    return QString::fromUtf8(path.constData());
+}
+
+QString timeline_clipboard_marker() {
+    const std::size_t length = shrimply_qt_timeline_clipboard_marker(nullptr, 0);
+    QByteArray marker(static_cast<qsizetype>(length + 1), Qt::Uninitialized);
+    shrimply_qt_timeline_clipboard_marker(
+        reinterpret_cast<std::uint8_t *>(marker.data()), static_cast<std::size_t>(marker.size()));
+    return QString::fromUtf8(marker.constData());
 }
 
 class TimelineRenderer final : public QQuickFramebufferObject::Renderer {
@@ -222,7 +297,7 @@ void register_gpu_surfaces() {
 
 TimelineSurface::TimelineSurface(QQuickItem *parent) : QQuickFramebufferObject(parent) {
     setMirrorVertically(true);
-    setAcceptedMouseButtons(Qt::LeftButton | Qt::MiddleButton);
+    setAcceptedMouseButtons(Qt::LeftButton | Qt::MiddleButton | Qt::RightButton);
     setAcceptHoverEvents(true);
 }
 
@@ -308,6 +383,94 @@ void TimelineSurface::selectNewTrackMode() {
     update();
 }
 
+QVariantList TimelineSurface::contextMenuItems() const {
+    QVariantList items;
+    const std::size_t count = shrimply_qt_timeline_context_menu_count();
+    for (std::size_t index = 0; index < count; ++index) {
+        std::uint8_t buffer[256];
+        shrimply_qt_timeline_context_menu_label(index, buffer, sizeof(buffer));
+        QVariantMap item;
+        item.insert(QStringLiteral("index"), static_cast<qulonglong>(index));
+        item.insert(QStringLiteral("kind"), shrimply_qt_timeline_context_menu_kind(index));
+        item.insert(QStringLiteral("label"),
+                    QString::fromUtf8(reinterpret_cast<const char *>(buffer)));
+        item.insert(QStringLiteral("enabled"),
+                    shrimply_qt_timeline_context_menu_enabled(index));
+        item.insert(QStringLiteral("value"), shrimply_qt_timeline_context_menu_value(index));
+        item.insert(QStringLiteral("minimum"), shrimply_qt_timeline_context_menu_minimum(index));
+        item.insert(QStringLiteral("maximum"), shrimply_qt_timeline_context_menu_maximum(index));
+        item.insert(QStringLiteral("step"), shrimply_qt_timeline_context_menu_step(index));
+        item.insert(QStringLiteral("mixed"), shrimply_qt_timeline_context_menu_mixed(index));
+        items.append(item);
+    }
+    return items;
+}
+
+void TimelineSurface::setContextMenuControl(int index, qreal value) {
+    if (index < 0 || index >= contextMenuItems().size()) {
+        return;
+    }
+    shrimply_qt_timeline_set_context_menu_control(static_cast<std::size_t>(index), value);
+    update();
+}
+
+void TimelineSurface::activateContextMenuItem(int index) {
+    if (index < 0 || index >= contextMenuItems().size()) {
+        return;
+    }
+    const std::uint8_t result =
+        shrimply_qt_timeline_activate_context_menu_item(static_cast<std::size_t>(index));
+    if (result == 1) {
+        const QImage image = context_frame_image();
+        if (image.isNull()) {
+            emit contextActionFailed(QStringLiteral("Could not copy the selected frame."));
+        } else {
+            QGuiApplication::clipboard()->setImage(image);
+        }
+    } else if (result == 2) {
+        emit saveFrameRequested();
+    } else if (result == 3) {
+        emit contextActionFailed(context_action_error());
+    } else if (result == 4) {
+        const QString path = context_open_path();
+        if (path.isEmpty() || !QDesktopServices::openUrl(QUrl::fromLocalFile(path))) {
+            emit contextActionFailed(QStringLiteral("Could not open the containing folder."));
+        }
+    } else if (result == 5) {
+        emit deleteTrackRequested(
+            static_cast<int>(shrimply_qt_timeline_context_delete_clip_count()));
+    } else if (result == 6) {
+        QGuiApplication::clipboard()->setText(timeline_clipboard_marker());
+    } else if (result == 7) {
+        const QByteArray text = QGuiApplication::clipboard()->text().toUtf8();
+        shrimply_qt_timeline_paste_clipboard_text(
+            reinterpret_cast<const std::uint8_t *>(text.constData()),
+            static_cast<std::size_t>(text.size()));
+    }
+    emit contextMenuItemsChanged();
+    update();
+}
+
+void TimelineSurface::deleteContextFoldedTrack() {
+    shrimply_qt_timeline_delete_context_folded_track();
+    update();
+}
+
+void TimelineSurface::saveContextFrame(const QUrl &url) {
+    QImage image = context_frame_image();
+    QString path = url.toLocalFile();
+    if (image.isNull() || path.isEmpty()) {
+        emit contextActionFailed(QStringLiteral("Could not save the selected frame."));
+        return;
+    }
+    if (QFileInfo(path).suffix().compare(QStringLiteral("png"), Qt::CaseInsensitive) != 0) {
+        path.append(QStringLiteral(".png"));
+    }
+    if (!image.save(path, "PNG")) {
+        emit contextActionFailed(QStringLiteral("Could not save the selected frame."));
+    }
+}
+
 void TimelineSurface::hoverMoveEvent(QHoverEvent *event) {
     if (middle_mouse_grabbed_) {
         event->accept();
@@ -329,6 +492,16 @@ void TimelineSurface::hoverLeaveEvent(QHoverEvent *event) {
 }
 
 void TimelineSurface::mousePressEvent(QMouseEvent *event) {
+    if (event->button() == Qt::RightButton) {
+        if (shrimply_qt_timeline_prepare_context_menu(event->position().x(),
+                                                       event->position().y()) > 0) {
+            emit contextMenuItemsChanged();
+            emit contextMenuRequested(event->position().x(), event->position().y());
+            update();
+        }
+        event->accept();
+        return;
+    }
     bool control;
     bool shift;
     modifiers(event, control, shift);
@@ -364,6 +537,10 @@ void TimelineSurface::mouseMoveEvent(QMouseEvent *event) {
 }
 
 void TimelineSurface::mouseReleaseEvent(QMouseEvent *event) {
+    if (event->button() == Qt::RightButton) {
+        event->accept();
+        return;
+    }
     bool control;
     bool shift;
     modifiers(event, control, shift);

@@ -1,10 +1,8 @@
 use super::*;
 use shrimply_ui_foundation::tr;
 use shrimply_ui_foundation::ui::I18nAlertDialogExt;
-use shrimply_ui_foundation::ui::I18nMenuExt;
 
 pub(super) fn add_caption_item_context_actions(
-    menu: &gio::Menu,
     actions: &gio::SimpleActionGroup,
     area: &gtk::GLArea,
     project: &Rc<RefCell<Project>>,
@@ -12,9 +10,6 @@ pub(super) fn add_caption_item_context_actions(
     selection_state: &SharedSelectionState,
     preferences: &preferences_store::SharedPreferences,
 ) {
-    let section = gio::Menu::new();
-    section.append_i18n("Generate Speech", "timeline.generate-speech");
-    menu.append_section(None, &section);
     add_menu_action(actions, "generate-speech", {
         let area = area.clone();
         let project = project.clone();

@@ -21,13 +21,23 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use shrimply_cross_ui_core::editor::EditorSession;
-use shrimply_cross_ui_tl::{CursorTool, DragCollisionMode};
 use shrimply_math_color::Color;
-use shrimply_timeline_ui::{ToolkitAudioMeter, ToolkitPointerButton, ToolkitTimeline};
+use shrimply_timeline_qt::{
+    ContextMenuControl, ContextMenuRequest, CursorTool, DragCollisionMode,
+    TIMELINE_CLIPBOARD_MARKER,
+};
+use shrimply_timeline_ui::{
+    RenderedVideoFrame, ToolkitAudioMeter, ToolkitPointerButton, ToolkitTimeline,
+};
 use std::ffi::c_void;
 
 struct Surfaces {
     timeline: ToolkitTimeline,
+    timeline_menu: shrimply_timeline_qt::MenuModel,
+    context_frame: Option<RenderedVideoFrame>,
+    context_open_path: String,
+    context_delete_clip_count: usize,
+    context_action_error: String,
     preview: ToolkitPreview,
     audio_meter: ToolkitAudioMeter,
 }
@@ -60,6 +70,11 @@ pub fn install(session: &EditorSession) -> Result<(), String> {
         );
         *surfaces = Some(Surfaces {
             timeline,
+            timeline_menu: shrimply_timeline_qt::MenuModel::default(),
+            context_frame: None,
+            context_open_path: String::new(),
+            context_delete_clip_count: 0,
+            context_action_error: String::new(),
             preview,
             audio_meter,
         });
@@ -280,6 +295,350 @@ pub extern "C" fn shrimply_qt_timeline_scroll(dx: f32, dy: f32, control: bool, s
             surfaces.timeline.scroll(dx, dy, control, shift);
         }
     });
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn shrimply_qt_timeline_prepare_context_menu(x: f32, y: f32) -> usize {
+    let entries = SURFACES.with_borrow_mut(|surfaces| {
+        let Some(surfaces) = surfaces.as_mut() else {
+            return Vec::new();
+        };
+        surfaces.timeline.prepare_context_menu(x, y);
+        surfaces.timeline_menu =
+            shrimply_timeline_qt::MenuModel::new(surfaces.timeline.context_menu());
+        surfaces.timeline_menu.entries().to_vec()
+    });
+    tracing::debug!(
+        x,
+        y,
+        count = entries.len(),
+        ?entries,
+        "prepared Qt timeline context menu"
+    );
+    entries.len()
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn shrimply_qt_timeline_context_menu_label(
+    index: usize,
+    output: *mut u8,
+    capacity: usize,
+) -> usize {
+    let label = SURFACES.with_borrow(|surfaces| {
+        surfaces.as_ref().map_or("", |surfaces| {
+            match surfaces.timeline_menu.entries().get(index) {
+                Some(shrimply_timeline_qt::MenuEntry::Action(item)) => item.label(),
+                Some(shrimply_timeline_qt::MenuEntry::Control(control)) => control.label(),
+                Some(shrimply_timeline_qt::MenuEntry::Separator) | None => "",
+            }
+        })
+    });
+    let bytes = label.as_bytes();
+    if capacity > 0 {
+        let length = bytes.len().min(capacity - 1);
+        unsafe {
+            std::ptr::copy_nonoverlapping(bytes.as_ptr(), output, length);
+            output.add(length).write(0);
+        }
+    }
+    bytes.len()
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn shrimply_qt_timeline_context_menu_count() -> usize {
+    SURFACES.with_borrow(|surfaces| {
+        surfaces
+            .as_ref()
+            .map_or(0, |surfaces| surfaces.timeline_menu.entries().len())
+    })
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn shrimply_qt_timeline_context_menu_kind(index: usize) -> u8 {
+    SURFACES.with_borrow(|surfaces| {
+        surfaces
+            .as_ref()
+            .and_then(|surfaces| surfaces.timeline_menu.entries().get(index))
+            .map_or(0, |entry| match entry {
+                shrimply_timeline_qt::MenuEntry::Action(_) => 1,
+                shrimply_timeline_qt::MenuEntry::Separator => 2,
+                shrimply_timeline_qt::MenuEntry::Control(ContextMenuControl::PlaybackSpeed {
+                    ..
+                }) => 3,
+                shrimply_timeline_qt::MenuEntry::Control(ContextMenuControl::AudioTrackGain {
+                    ..
+                }) => 4,
+            })
+    })
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn shrimply_qt_timeline_context_menu_enabled(index: usize) -> bool {
+    SURFACES.with_borrow(|surfaces| {
+        surfaces
+            .as_ref()
+            .and_then(|surfaces| surfaces.timeline_menu.entries().get(index))
+            .is_some_and(|entry| match entry {
+                shrimply_timeline_qt::MenuEntry::Action(item) => item.enabled,
+                _ => true,
+            })
+    })
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn shrimply_qt_timeline_context_menu_value(index: usize) -> f64 {
+    SURFACES.with_borrow(|surfaces| {
+        surfaces
+            .as_ref()
+            .and_then(|surfaces| surfaces.timeline_menu.control(index))
+            .map_or(0.0, ContextMenuControl::value)
+    })
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn shrimply_qt_timeline_context_menu_minimum(index: usize) -> f64 {
+    SURFACES.with_borrow(|surfaces| {
+        surfaces
+            .as_ref()
+            .and_then(|surfaces| surfaces.timeline_menu.control(index))
+            .map_or(0.0, ContextMenuControl::minimum)
+    })
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn shrimply_qt_timeline_context_menu_maximum(index: usize) -> f64 {
+    SURFACES.with_borrow(|surfaces| {
+        surfaces
+            .as_ref()
+            .and_then(|surfaces| surfaces.timeline_menu.control(index))
+            .map_or(0.0, ContextMenuControl::maximum)
+    })
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn shrimply_qt_timeline_context_menu_step(index: usize) -> f64 {
+    SURFACES.with_borrow(|surfaces| {
+        surfaces
+            .as_ref()
+            .and_then(|surfaces| surfaces.timeline_menu.control(index))
+            .map_or(0.0, ContextMenuControl::step)
+    })
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn shrimply_qt_timeline_context_menu_mixed(index: usize) -> bool {
+    SURFACES.with_borrow(|surfaces| {
+        surfaces
+            .as_ref()
+            .and_then(|surfaces| surfaces.timeline_menu.control(index))
+            .is_some_and(ContextMenuControl::mixed)
+    })
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn shrimply_qt_timeline_set_context_menu_control(index: usize, value: f64) {
+    SURFACES.with_borrow_mut(|surfaces| {
+        let Some(surfaces) = surfaces.as_mut() else {
+            return;
+        };
+        if let Some(control) = surfaces.timeline_menu.control(index) {
+            surfaces.timeline.set_context_menu_control(control, value);
+        }
+    });
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn shrimply_qt_timeline_activate_context_menu_item(index: usize) -> u8 {
+    tracing::debug!(index, "activating Qt timeline context menu item");
+    SURFACES.with_borrow_mut(|surfaces| {
+        let Some(surfaces) = surfaces.as_mut() else {
+            return 0;
+        };
+        surfaces.context_frame = None;
+        surfaces.context_open_path.clear();
+        surfaces.context_delete_clip_count = 0;
+        surfaces.context_action_error.clear();
+        let request = surfaces
+            .timeline_menu
+            .action(index)
+            .and_then(|action| surfaces.timeline.activate_context_menu_action(action));
+        surfaces.timeline_menu = shrimply_timeline_qt::MenuModel::default();
+        let (selection, result_code) = match request {
+            None => return 0,
+            Some(ContextMenuRequest::CopyFrame(selection)) => (selection, 1),
+            Some(ContextMenuRequest::SaveFrame(selection)) => (selection, 2),
+            Some(ContextMenuRequest::ShowInFolder) => {
+                let Some(path) = surfaces.timeline.context_file_path() else {
+                    surfaces.context_action_error = "The selected item has no file.".to_string();
+                    return 3;
+                };
+                match shrimply_cross_ui_core::desktop_open::prepare(path, None) {
+                    Ok(
+                        shrimply_cross_ui_core::desktop_open::Action::Open(path)
+                        | shrimply_cross_ui_core::desktop_open::Action::FocusRevealed(path),
+                    ) => {
+                        surfaces.context_open_path = path.to_string_lossy().into_owned();
+                        return 4;
+                    }
+                    Err(error) => {
+                        surfaces.context_action_error = error;
+                        return 3;
+                    }
+                }
+            }
+            Some(ContextMenuRequest::DeleteFoldedTrack { clip_count }) => {
+                surfaces.context_delete_clip_count = clip_count;
+                return 5;
+            }
+            Some(ContextMenuRequest::SetTimelineClipboardMarker) => return 6,
+            Some(ContextMenuRequest::PasteFromClipboard) => return 7,
+            Some(request) => {
+                surfaces.context_action_error =
+                    format!("{request:?} is not implemented by the Qt timeline adapter");
+                return 3;
+            }
+        };
+        match surfaces.timeline.render_context_video_frame(selection) {
+            Ok(frame) => {
+                surfaces.context_frame = Some(frame);
+                result_code
+            }
+            Err(error) => {
+                surfaces.context_action_error = error;
+                3
+            }
+        }
+    })
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn shrimply_qt_timeline_clipboard_marker(
+    output: *mut u8,
+    capacity: usize,
+) -> usize {
+    let bytes = TIMELINE_CLIPBOARD_MARKER.as_bytes();
+    if !output.is_null() && capacity > 0 {
+        let length = bytes.len().min(capacity - 1);
+        unsafe {
+            std::ptr::copy_nonoverlapping(bytes.as_ptr(), output, length);
+            output.add(length).write(0);
+        }
+    }
+    bytes.len()
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn shrimply_qt_timeline_paste_clipboard_text(text: *const u8, length: usize) {
+    if text.is_null() {
+        return;
+    }
+    let text = unsafe { std::slice::from_raw_parts(text, length) };
+    if let Ok(text) = std::str::from_utf8(text) {
+        SURFACES.with_borrow(|surfaces| {
+            if let Some(surfaces) = surfaces.as_ref() {
+                surfaces
+                    .timeline
+                    .paste_context_clipboard_text(text.to_owned());
+            }
+        });
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn shrimply_qt_timeline_context_delete_clip_count() -> usize {
+    SURFACES.with_borrow(|surfaces| {
+        surfaces
+            .as_ref()
+            .map_or(0, |surfaces| surfaces.context_delete_clip_count)
+    })
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn shrimply_qt_timeline_delete_context_folded_track() {
+    SURFACES.with_borrow_mut(|surfaces| {
+        if let Some(surfaces) = surfaces.as_mut() {
+            surfaces.timeline.delete_context_folded_track();
+            surfaces.context_delete_clip_count = 0;
+        }
+    });
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn shrimply_qt_timeline_context_open_path(
+    output: *mut u8,
+    capacity: usize,
+) -> usize {
+    SURFACES.with_borrow(|surfaces| {
+        let value = surfaces
+            .as_ref()
+            .map_or(&[][..], |surfaces| surfaces.context_open_path.as_bytes());
+        if !output.is_null() && capacity > value.len() {
+            unsafe { std::ptr::copy_nonoverlapping(value.as_ptr(), output, value.len()) };
+            unsafe { *output.add(value.len()) = 0 };
+        }
+        value.len()
+    })
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn shrimply_qt_timeline_context_frame_width() -> i32 {
+    SURFACES.with_borrow(|surfaces| {
+        surfaces
+            .as_ref()
+            .and_then(|surfaces| surfaces.context_frame.as_ref())
+            .map_or(0, |frame| frame.width)
+    })
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn shrimply_qt_timeline_context_frame_height() -> i32 {
+    SURFACES.with_borrow(|surfaces| {
+        surfaces
+            .as_ref()
+            .and_then(|surfaces| surfaces.context_frame.as_ref())
+            .map_or(0, |frame| frame.height)
+    })
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn shrimply_qt_timeline_copy_context_frame(
+    output: *mut u8,
+    capacity: usize,
+) -> usize {
+    SURFACES.with_borrow(|surfaces| {
+        let Some(pixels) = surfaces
+            .as_ref()
+            .and_then(|surfaces| surfaces.context_frame.as_ref())
+            .map(|frame| frame.pixels.as_slice())
+        else {
+            return 0;
+        };
+        if !output.is_null() && capacity >= pixels.len() {
+            unsafe { std::ptr::copy_nonoverlapping(pixels.as_ptr(), output, pixels.len()) };
+        }
+        pixels.len()
+    })
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn shrimply_qt_timeline_context_action_error(
+    output: *mut u8,
+    capacity: usize,
+) -> usize {
+    SURFACES.with_borrow(|surfaces| {
+        let error = surfaces
+            .as_ref()
+            .map_or("", |surfaces| surfaces.context_action_error.as_str());
+        let bytes = error.as_bytes();
+        if !output.is_null() && capacity > 0 {
+            let length = bytes.len().min(capacity - 1);
+            unsafe {
+                std::ptr::copy_nonoverlapping(bytes.as_ptr(), output, length);
+                output.add(length).write(0);
+            }
+        }
+        bytes.len()
+    })
 }
 
 #[unsafe(no_mangle)]

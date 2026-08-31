@@ -5430,6 +5430,7 @@ dependencies = [
 name = "shrimply-cross-ui-tl"
 version = "0.1.0"
 dependencies = [
+ "shrimply-project",
  "shrimply-state",
 ]
 
@@ -6091,7 +6092,6 @@ dependencies = [
  "glam 0.33.5",
  "shrimply-audio",
  "shrimply-cross-ui-core",
- "shrimply-cross-ui-tl",
  "shrimply-math-color",
  "shrimply-playback-performance",
  "shrimply-preview-core",
@@ -6099,6 +6099,7 @@ dependencies = [
  "shrimply-project",
  "shrimply-skia-adw-ui",
  "shrimply-state",
+ "shrimply-timeline-qt",
  "shrimply-timeline-ui",
  "shrimply-video",
  "tracing",
@@ -6381,6 +6382,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "shrimply-timeline-gtk"
+version = "0.1.0"
+dependencies = [
+ "gtk4",
+ "shrimply-cross-ui-tl",
+ "shrimply-ui-foundation",
+]
+
+[[package]]
+name = "shrimply-timeline-qt"
+version = "0.1.0"
+dependencies = [
+ "shrimply-cross-ui-tl",
+]
+
+[[package]]
 name = "shrimply-timeline-snap"
 version = "0.1.0"
 dependencies = [
@@ -6418,6 +6435,7 @@ dependencies = [
  "shrimply-state",
  "shrimply-support",
  "shrimply-timeline",
+ "shrimply-timeline-gtk",
  "shrimply-timeline-snap",
  "shrimply-transcription",
  "shrimply-tts",

@@ -404,6 +404,46 @@ fn insert_text(
     text: String,
     placement: Placement,
 ) -> bool {
+    let inserted = insert_text_core(
+        project,
+        player_state,
+        selection_state,
+        runtime,
+        text,
+        placement,
+    );
+    if inserted {
+        area.queue_render();
+    }
+    inserted
+}
+
+pub(crate) fn insert_text_at_playhead_core(
+    project: &Rc<RefCell<Project>>,
+    player_state: &SharedPlayerState,
+    selection_state: &SharedSelectionState,
+    runtime: &Rc<RefCell<TimelineRuntime>>,
+    text: String,
+) -> bool {
+    insert_text_core(
+        project,
+        player_state,
+        selection_state,
+        runtime,
+        text,
+        Placement::Playhead,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn insert_text_core(
+    project: &Rc<RefCell<Project>>,
+    player_state: &SharedPlayerState,
+    selection_state: &SharedSelectionState,
+    runtime: &Rc<RefCell<TimelineRuntime>>,
+    text: String,
+    placement: Placement,
+) -> bool {
     if text.is_empty() {
         return false;
     }
@@ -511,7 +551,6 @@ fn insert_text(
             ..ProjectChange::default()
         },
     );
-    area.queue_render();
     true
 }
 

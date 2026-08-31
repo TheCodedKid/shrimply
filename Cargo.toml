@@ -63,6 +63,8 @@ members = [
     "crates/support",
     "crates/timeline/timeline",
     "crates/timeline/cross-ui-tl",
+    "crates/timeline/timeline-gtk",
+    "crates/timeline/timeline-qt",
     "crates/timeline/timeline-snap",
     "crates/timeline/timeline-ui",
     "crates/timeline/timeline-value",

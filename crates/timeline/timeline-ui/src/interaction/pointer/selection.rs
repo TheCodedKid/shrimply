@@ -2,7 +2,7 @@ use super::*;
 use crate::project::ItemAddress;
 use crate::timeline_operation::TimelineOperationContext;
 
-pub(in crate::interaction) fn select_item_in_context(
+pub(crate) fn select_item_in_context(
     context: &dyn TimelineOperationContext,
     project: &Project,
     selection_state: &SharedSelectionState,

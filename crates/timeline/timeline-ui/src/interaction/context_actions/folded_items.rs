@@ -1,5 +1,4 @@
 use super::*;
-use shrimply_ui_foundation::ui::I18nMenuExt;
 
 #[allow(clippy::too_many_arguments)]
 pub(super) fn show_folded_item_context_menu(
@@ -41,31 +40,16 @@ pub(super) fn show_folded_item_context_menu(
         )
     };
 
-    let menu = gio::Menu::new();
-    menu.append_i18n("Move Out", "timeline.move-out-of-sequence");
-
-    if groupable || ungroupable {
-        let section = gio::Menu::new();
-        if groupable {
-            section.append_i18n("Group", "timeline.group");
-        }
-        if ungroupable {
-            section.append_i18n("Ungroup", "timeline.ungroup");
-        }
-        menu.append_section(None, &section);
-    }
-
-    if folder {
-        let section = gio::Menu::new();
-        section.append_i18n("Add Track at Top", "timeline.add-folder-track-top");
-        section.append_i18n("Add Track at Bottom", "timeline.add-folder-track-bottom");
-        menu.append_section(None, &section);
-    }
-
-    let property_section = gio::Menu::new();
-    property_section.append_i18n("Replace Properties", "timeline.replace-properties");
-    property_section.append_i18n("Paste Modifiers", "timeline.paste-modifiers");
-    menu.append_section(None, &property_section);
+    let menu = shrimply_timeline_gtk::menu_model(&shrimply_cross_ui_tl::folded_item_context_menu(
+        shrimply_cross_ui_tl::FoldedItemMenuContext {
+            groupable,
+            ungroupable,
+            folder,
+            can_replace_properties,
+            can_paste_modifiers,
+        },
+    ))
+    .menu;
 
     let actions = gio::SimpleActionGroup::new();
     add_menu_action(&actions, "move-out-of-sequence", {
@@ -160,6 +144,17 @@ fn move_item_out_of_sequence(
     context: &dyn TimelineOperationContext,
     address: &crate::project::ItemAddress,
 ) {
+    move_item_out_of_sequence_core(project, player_state, selection_state, context, address);
+    area.queue_render();
+}
+
+pub(crate) fn move_item_out_of_sequence_core(
+    project: &Rc<RefCell<Project>>,
+    player_state: &SharedPlayerState,
+    selection_state: &SharedSelectionState,
+    context: &dyn TimelineOperationContext,
+    address: &crate::project::ItemAddress,
+) {
     let (moved, kind, duration) = {
         let mut project = project.borrow_mut();
         let Some(moved) = context.move_item_out(&mut project, address) else {
@@ -193,5 +188,4 @@ fn move_item_out_of_sequence(
             inspector: true,
         },
     );
-    area.queue_render();
 }

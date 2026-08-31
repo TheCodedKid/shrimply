@@ -30,12 +30,32 @@ fn paste_selected_item_properties(
     runtime: &Rc<RefCell<TimelineRuntime>>,
     modifiers_only: bool,
 ) {
+    let Some(message) = paste_selected_item_properties_core(
+        project,
+        player_state,
+        selection_state,
+        runtime,
+        modifiers_only,
+    ) else {
+        return;
+    };
+    shrimply_ui_foundation::toast::show_confirmation_text_for_widget(area, &message);
+    area.queue_render();
+}
+
+pub(crate) fn paste_selected_item_properties_core(
+    project: &Rc<RefCell<Project>>,
+    player_state: &SharedPlayerState,
+    selection_state: &SharedSelectionState,
+    runtime: &Rc<RefCell<TimelineRuntime>>,
+    modifiers_only: bool,
+) -> Option<String> {
     let targets = {
         let project = project.borrow();
         selection_state::selected_item_addresses(selection_state, &project)
     };
     if targets.is_empty() {
-        return;
+        return None;
     }
     let clipboard = runtime.borrow().property_clipboard.clone();
     let result = {
@@ -60,7 +80,7 @@ fn paste_selected_item_properties(
         result
     };
     if !result.changed {
-        return;
+        return None;
     }
     let message = if modifiers_only {
         if result.modifiers_added == 1 {
@@ -79,7 +99,6 @@ fn paste_selected_item_properties(
             &[("count", result.changed_items.to_string())],
         )
     };
-    shrimply_ui_foundation::toast::show_confirmation_text_for_widget(area, &message);
     if result.stabilization {
         let project = project.borrow();
         for target in &targets {
@@ -101,11 +120,28 @@ fn paste_selected_item_properties(
             ..ProjectChange::default()
         },
     );
-    area.queue_render();
+    Some(message)
 }
 
 pub(crate) fn paste_timeline_clipboard(
     area: &gtk::GLArea,
+    project: &Rc<RefCell<Project>>,
+    player_state: &SharedPlayerState,
+    selection_state: &SharedSelectionState,
+    clipboard: &TimelineClipboard,
+    sequence_scope: &crate::project::SequenceScopeId,
+) {
+    paste_timeline_clipboard_core(
+        project,
+        player_state,
+        selection_state,
+        clipboard,
+        sequence_scope,
+    );
+    area.queue_render();
+}
+
+pub(crate) fn paste_timeline_clipboard_core(
     project: &Rc<RefCell<Project>>,
     player_state: &SharedPlayerState,
     selection_state: &SharedSelectionState,
@@ -148,11 +184,18 @@ pub(crate) fn paste_timeline_clipboard(
             ..ProjectChange::default()
         },
     );
-    area.queue_render();
 }
 
 pub(super) fn group_selected_timeline_items(
     area: &gtk::GLArea,
+    project: &Rc<RefCell<Project>>,
+    selection_state: &SharedSelectionState,
+) {
+    group_selected_timeline_items_core(project, selection_state);
+    area.queue_render();
+}
+
+pub(crate) fn group_selected_timeline_items_core(
     project: &Rc<RefCell<Project>>,
     selection_state: &SharedSelectionState,
 ) {
@@ -170,11 +213,19 @@ pub(super) fn group_selected_timeline_items(
 
     let project = project.borrow();
     selection_state::set_selected_item_addresses(selection_state, &project, selected, focused);
-    area.queue_render();
 }
 
 pub(super) fn fold_selected_timeline_items(
     area: &gtk::GLArea,
+    project: &Rc<RefCell<Project>>,
+    player_state: &SharedPlayerState,
+    selection_state: &SharedSelectionState,
+) {
+    fold_selected_timeline_items_core(project, player_state, selection_state);
+    area.queue_render();
+}
+
+pub(crate) fn fold_selected_timeline_items_core(
     project: &Rc<RefCell<Project>>,
     player_state: &SharedPlayerState,
     selection_state: &SharedSelectionState,
@@ -205,11 +256,18 @@ pub(super) fn fold_selected_timeline_items(
             ..ProjectChange::default()
         },
     );
-    area.queue_render();
 }
 
 pub(super) fn ungroup_selected_timeline_items(
     area: &gtk::GLArea,
+    project: &Rc<RefCell<Project>>,
+    selection_state: &SharedSelectionState,
+) {
+    ungroup_selected_timeline_items_core(project, selection_state);
+    area.queue_render();
+}
+
+pub(crate) fn ungroup_selected_timeline_items_core(
     project: &Rc<RefCell<Project>>,
     selection_state: &SharedSelectionState,
 ) {
@@ -227,7 +285,6 @@ pub(super) fn ungroup_selected_timeline_items(
 
     let project = project.borrow();
     selection_state::set_selected_item_addresses(selection_state, &project, selected, focused);
-    area.queue_render();
 }
 
 fn group_selected_item_addresses(
@@ -320,6 +377,16 @@ pub(super) fn delete_selected_addressed_items(
     selection_state: &SharedSelectionState,
     ripple: bool,
 ) {
+    delete_selected_addressed_items_core(project, player_state, selection_state, ripple);
+    area.queue_render();
+}
+
+pub(crate) fn delete_selected_addressed_items_core(
+    project: &Rc<RefCell<Project>>,
+    player_state: &SharedPlayerState,
+    selection_state: &SharedSelectionState,
+    ripple: bool,
+) {
     let selection = {
         let project = project.borrow();
         selection_state::selected_item_addresses(selection_state, &project)
@@ -399,7 +466,6 @@ pub(super) fn delete_selected_addressed_items(
             player_state::seek_time(player_state, position);
         }
     }
-    area.queue_render();
 }
 
 pub(super) fn delete_selected_tracks(
@@ -485,6 +551,16 @@ fn delete_selected_tracks_now(
     project: &Rc<RefCell<Project>>,
     player_state: &SharedPlayerState,
     selection_state: &SharedSelectionState,
+    selected_tracks: Vec<crate::project::TrackAddress>,
+) {
+    delete_selected_tracks_now_core(project, player_state, selection_state, selected_tracks);
+    area.queue_render();
+}
+
+pub(crate) fn delete_selected_tracks_now_core(
+    project: &Rc<RefCell<Project>>,
+    player_state: &SharedPlayerState,
+    selection_state: &SharedSelectionState,
     mut selected_tracks: Vec<crate::project::TrackAddress>,
 ) {
     let mut seen = hashbrown::HashSet::new();
@@ -526,7 +602,6 @@ fn delete_selected_tracks_now(
     if !changed {
         let project = project.borrow();
         selection_state::set_selected_track_addresses(selection_state, &project, Vec::new(), None);
-        area.queue_render();
         return;
     }
 
@@ -546,10 +621,9 @@ fn delete_selected_tracks_now(
             inspector: true,
         },
     );
-    area.queue_render();
 }
 
-fn selected_track_clip_count(
+pub(crate) fn selected_track_clip_count(
     project: &Project,
     selected_tracks: &[crate::project::TrackAddress],
 ) -> usize {

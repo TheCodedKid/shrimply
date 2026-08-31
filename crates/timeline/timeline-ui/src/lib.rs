@@ -44,7 +44,11 @@ use adw::prelude::*;
 use gtk::glib;
 use renderer::{Align2, FontId, Rect, Stroke, StrokeKind, Vec2, vec2};
 use shrimply_core::timeline_value::{TimelineBool, TimelineValue};
-pub use shrimply_cross_ui_tl::{CursorTool, DragCollisionMode, TimelineTools, ToolState};
+pub use shrimply_cross_ui_tl::{
+    ContextItemKind, ContextMenu, ContextMenuAction, ContextMenuControl, ContextMenuEntry,
+    ContextMenuItem, ContextMenuRequest, CursorTool, DragCollisionMode, FoldedItemMenuContext,
+    ItemMenuContext, TimelineTools, ToolState, TrackMenuContext, VideoFrameSelection,
+};
 use shrimply_skia_adw_ui::theme;
 use shrimply_timeline::{TrackGap, TrackKey};
 
@@ -72,6 +76,7 @@ mod setup;
 mod silence;
 mod snapping;
 mod timeline_operation;
+mod toolkit_context_menu;
 mod track_controls;
 mod view;
 
@@ -164,12 +169,24 @@ pub enum TimelineCursor {
     Crosshair,
 }
 
+pub struct RenderedVideoFrame {
+    pub width: i32,
+    pub height: i32,
+    pub pixels: Vec<u8>,
+}
+
 pub struct ToolkitTimeline {
     project: Rc<RefCell<Project>>,
     player_state: SharedPlayerState,
     playback_performance: playback_performance::SharedCollector,
     selection_state: SharedSelectionState,
     tools: TimelineTools,
+    context_menu: ContextMenu,
+    context_track: Option<TrackKey>,
+    context_folded_track: Option<crate::project::TrackAddress>,
+    context_item: Option<crate::project::ItemAddress>,
+    context_file_path: Option<PathBuf>,
+    context_new_track_at_top: Option<bool>,
     runtime: Rc<RefCell<TimelineRuntime>>,
     waveform: Option<setup::WaveformSubscription>,
     beats: Option<setup::BeatSubscription>,
@@ -218,6 +235,12 @@ impl ToolkitTimeline {
             playback_performance,
             selection_state,
             tools,
+            context_menu: ContextMenu::default(),
+            context_track: None,
+            context_folded_track: None,
+            context_item: None,
+            context_file_path: None,
+            context_new_track_at_top: None,
             runtime,
             waveform: Some(waveform),
             beats: Some(beats),

@@ -6,7 +6,7 @@ mod selection;
 
 use actions::*;
 use scrolling::*;
-pub(in crate::interaction) use selection::select_item_in_context;
+pub(crate) use selection::select_item_in_context;
 pub(crate) use selection::set_timeline_selection;
 use selection::{activate_track_button, timeline_cut};
 pub(super) use selection::{select_track, set_selection};

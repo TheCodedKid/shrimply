@@ -251,7 +251,6 @@ enum Pending {
 
 enum State {
     Idle,
-    WaitingForEditorLock,
     WaitingForKdenlive,
     WaitingForOtioSettings,
     Working(Receiver<Pending>),
@@ -291,23 +290,6 @@ impl ProjectLoader {
             matches!(self.state, State::Idle),
             "project loader already started"
         );
-        match acquire_editor_lock() {
-            Ok(()) => self.begin_after_editor_lock(),
-            Err(project::ProjectLockError::AlreadyLockedByOtherInstance { pid }) => {
-                self.state = State::WaitingForEditorLock;
-                LoadEvent::LockedByOtherInstance(pid)
-            }
-            Err(error) => {
-                self.state = State::Finished;
-                LoadEvent::Error {
-                    heading: "Could not start editor",
-                    body: editor_lock_error(error),
-                }
-            }
-        }
-    }
-
-    fn begin_after_editor_lock(&mut self) -> LoadEvent {
         if has_extension(&self.path, "kdenlive") {
             self.state = State::WaitingForKdenlive;
             LoadEvent::ConfirmKdenlive
@@ -444,28 +426,13 @@ impl ProjectLoader {
 
     pub fn retry_locked_project(&mut self, stop_other: bool, pid: u32) -> LoadEvent {
         assert!(
-            matches!(
-                self.state,
-                State::WaitingForEditorLock | State::WaitingForLock
-            ),
+            matches!(self.state, State::WaitingForLock),
             "lock response without a pending lock"
         );
         if stop_other && !project::terminate_project_process(pid) {
             return LoadEvent::Error {
                 heading: "Could not stop other editor",
                 body: "Shrimply could not signal the other process.".to_string(),
-            };
-        }
-        if matches!(self.state, State::WaitingForEditorLock) {
-            return match acquire_editor_lock() {
-                Ok(()) => self.begin_after_editor_lock(),
-                Err(project::ProjectLockError::AlreadyLockedByOtherInstance { pid }) => {
-                    LoadEvent::LockedByOtherInstance(pid)
-                }
-                Err(error) => LoadEvent::Error {
-                    heading: "Could not start editor",
-                    body: editor_lock_error(error),
-                },
             };
         }
         self.start_native_load();
@@ -636,30 +603,6 @@ impl ProjectLoader {
                     body,
                 }
             }
-        }
-    }
-}
-
-fn acquire_editor_lock() -> Result<(), project::ProjectLockError> {
-    let runtime = std::env::var_os("XDG_RUNTIME_DIR")
-        .map(PathBuf::from)
-        .unwrap_or_else(std::env::temp_dir);
-    project::acquire_project_lock(&runtime.join("shrimply-editor-instance.shrimp"))
-}
-
-fn editor_lock_error(error: project::ProjectLockError) -> String {
-    match error {
-        project::ProjectLockError::AlreadyLockedByThisInstance => {
-            "Shrimply editor is already running in this process.".to_string()
-        }
-        project::ProjectLockError::AlreadyLockedByOtherInstance { pid } => {
-            format!("Shrimply editor is already running (PID {pid}).")
-        }
-        project::ProjectLockError::RegistryUnavailable => {
-            "could not access the editor lock registry".to_string()
-        }
-        project::ProjectLockError::CouldNotCreate(error) => {
-            format!("could not lock the editor process: {error}")
         }
     }
 }
