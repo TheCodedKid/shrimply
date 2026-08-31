@@ -1,5 +1,6 @@
 use hashbrown::{HashMap, HashSet};
 
+pub(super) use crate::DragCollisionMode;
 use crate::project::{
     AudioItem, AudioSource, AudioTrack, CaptionItem, FoldedSequence, ItemAddress, ItemKind,
     ItemMut, ItemRef, Project, ProjectItem, RepeatStrategy, SequenceReference, Time, Transform,
@@ -208,14 +209,6 @@ pub(crate) struct DragPosition {
     track_offsets: Vec<TrackOffset>,
     new_tracks: Vec<(TrackKind, usize)>,
     valid_drop: bool,
-}
-
-#[derive(Clone, Copy, Default, Eq, PartialEq)]
-pub(super) enum DragCollisionMode {
-    #[default]
-    Overwrite,
-    Block,
-    NewTrack,
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]

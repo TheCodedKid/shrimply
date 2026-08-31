@@ -36,6 +36,18 @@ extern "C" void shrimply_qt_timeline_pointer_press(std::uint8_t button, float x,
 extern "C" void shrimply_qt_timeline_pointer_release(std::uint8_t button, float x, float y,
                                                        bool control, bool shift);
 extern "C" void shrimply_qt_timeline_scroll(float dx, float dy, bool control, bool shift);
+extern "C" bool shrimply_qt_timeline_magnet();
+extern "C" void shrimply_qt_timeline_set_magnet(bool enabled);
+extern "C" bool shrimply_qt_timeline_beat_grid();
+extern "C" void shrimply_qt_timeline_set_beat_grid(bool enabled);
+extern "C" bool shrimply_qt_timeline_cut_enabled();
+extern "C" void shrimply_qt_timeline_set_cut_enabled(bool enabled);
+extern "C" bool shrimply_qt_timeline_overwrite_mode();
+extern "C" bool shrimply_qt_timeline_block_mode();
+extern "C" bool shrimply_qt_timeline_new_track_mode();
+extern "C" void shrimply_qt_timeline_select_overwrite_mode();
+extern "C" void shrimply_qt_timeline_select_block_mode();
+extern "C" void shrimply_qt_timeline_select_new_track_mode();
 extern "C" bool shrimply_qt_timeline_begin_pointer_lock(void *display, void *surface,
                                                           void *seat);
 extern "C" void shrimply_qt_timeline_end_pointer_lock(bool control, bool shift);
@@ -216,6 +228,84 @@ TimelineSurface::TimelineSurface(QQuickItem *parent) : QQuickFramebufferObject(p
 
 QQuickFramebufferObject::Renderer *TimelineSurface::createRenderer() const {
     return new TimelineRenderer();
+}
+
+bool TimelineSurface::magnetEnabled() const {
+    return shrimply_qt_timeline_magnet();
+}
+
+void TimelineSurface::setMagnetEnabled(bool enabled) {
+    if (magnetEnabled() == enabled) {
+        return;
+    }
+    shrimply_qt_timeline_set_magnet(enabled);
+    emit magnetEnabledChanged();
+    update();
+}
+
+bool TimelineSurface::beatGridEnabled() const {
+    return shrimply_qt_timeline_beat_grid();
+}
+
+void TimelineSurface::setBeatGridEnabled(bool enabled) {
+    if (beatGridEnabled() == enabled) {
+        return;
+    }
+    shrimply_qt_timeline_set_beat_grid(enabled);
+    emit beatGridEnabledChanged();
+    update();
+}
+
+bool TimelineSurface::cutEnabled() const {
+    return shrimply_qt_timeline_cut_enabled();
+}
+
+void TimelineSurface::setCutEnabled(bool enabled) {
+    if (cutEnabled() == enabled) {
+        return;
+    }
+    shrimply_qt_timeline_set_cut_enabled(enabled);
+    emit cursorToolChanged();
+    update();
+}
+
+bool TimelineSurface::overwriteMode() const {
+    return shrimply_qt_timeline_overwrite_mode();
+}
+
+bool TimelineSurface::blockMode() const {
+    return shrimply_qt_timeline_block_mode();
+}
+
+bool TimelineSurface::newTrackMode() const {
+    return shrimply_qt_timeline_new_track_mode();
+}
+
+void TimelineSurface::selectOverwriteMode() {
+    if (overwriteMode()) {
+        return;
+    }
+    shrimply_qt_timeline_select_overwrite_mode();
+    emit dragCollisionModeChanged();
+    update();
+}
+
+void TimelineSurface::selectBlockMode() {
+    if (blockMode()) {
+        return;
+    }
+    shrimply_qt_timeline_select_block_mode();
+    emit dragCollisionModeChanged();
+    update();
+}
+
+void TimelineSurface::selectNewTrackMode() {
+    if (newTrackMode()) {
+        return;
+    }
+    shrimply_qt_timeline_select_new_track_mode();
+    emit dragCollisionModeChanged();
+    update();
 }
 
 void TimelineSurface::hoverMoveEvent(QHoverEvent *event) {

@@ -44,6 +44,7 @@ use adw::prelude::*;
 use gtk::glib;
 use renderer::{Align2, FontId, Rect, Stroke, StrokeKind, Vec2, vec2};
 use shrimply_core::timeline_value::{TimelineBool, TimelineValue};
+pub use shrimply_cross_ui_tl::{CursorTool, DragCollisionMode, TimelineTools, ToolState};
 use shrimply_skia_adw_ui::theme;
 use shrimply_timeline::{TrackGap, TrackKey};
 
@@ -96,9 +97,9 @@ use track_controls::{
 use view::*;
 
 use items::{
-    DragCollisionMode, DragIndicator, DragPreviewStatus, DraggedGroup, ItemKey, ResizeDrag,
-    TimelineClipboard, TrackKind, fitted_transition_durations, is_item_dragged, is_item_selected,
-    resize_item_times, row_for_track, target_item_times, target_track_index, transition_durations,
+    DragIndicator, DragPreviewStatus, DraggedGroup, ItemKey, ResizeDrag, TimelineClipboard,
+    TrackKind, fitted_transition_durations, is_item_dragged, is_item_selected, resize_item_times,
+    row_for_track, target_item_times, target_track_index, transition_durations,
 };
 
 const TRACK_LABEL_BUTTON_SIZE: f64 = 26.0;
@@ -168,6 +169,7 @@ pub struct ToolkitTimeline {
     player_state: SharedPlayerState,
     playback_performance: playback_performance::SharedCollector,
     selection_state: SharedSelectionState,
+    tools: TimelineTools,
     runtime: Rc<RefCell<TimelineRuntime>>,
     waveform: Option<setup::WaveformSubscription>,
     beats: Option<setup::BeatSubscription>,
@@ -185,6 +187,7 @@ impl ToolkitTimeline {
         preferences: preferences_store::SharedPreferences,
         property_clipboard: shrimply_property_transfer::SharedClipboard,
     ) -> Self {
+        let tools = TimelineTools::new(preferences.clone());
         let playhead_visibility_requested = Rc::new(Cell::new(false));
         let (timeline_zoom, timeline_center) = {
             let project = project.borrow();
@@ -206,12 +209,7 @@ impl ToolkitTimeline {
         )));
         let preference_runtime = runtime.clone();
         preferences_store::connect(&preferences, move |snapshot| {
-            let mut runtime = preference_runtime.borrow_mut();
-            runtime.default_visual_duration = snapshot.default_visual_duration;
-            runtime.default_text_font_family = snapshot.default_text_font_family;
-            runtime.beat_grid_enabled =
-                timeline_beat_grid_from_preference(&snapshot.timeline_beat_grid);
-            runtime.snap_radius_px = f64::from(snapshot.timeline_snap_radius_px);
+            preference_runtime.borrow_mut().apply_preferences(&snapshot);
         });
         let (waveform, beats) = setup::toolkit_audio_loaders(&project.borrow());
         Self {
@@ -219,6 +217,7 @@ impl ToolkitTimeline {
             player_state,
             playback_performance,
             selection_state,
+            tools,
             runtime,
             waveform: Some(waveform),
             beats: Some(beats),
@@ -459,6 +458,26 @@ impl ToolkitTimeline {
         });
     }
 
+    pub fn tool_state(&self) -> ToolState {
+        self.tools.state()
+    }
+
+    pub fn set_magnet(&self, enabled: bool) {
+        self.tools.set_magnet(enabled);
+    }
+
+    pub fn set_beat_grid(&self, enabled: bool) {
+        self.tools.set_beat_grid(enabled);
+    }
+
+    pub fn set_cursor_tool(&self, cursor: CursorTool) {
+        self.tools.set_cursor(cursor);
+    }
+
+    pub fn set_drag_collision_mode(&self, mode: DragCollisionMode) {
+        self.tools.set_drag_collision(mode);
+    }
+
     pub fn destroy(&self) {
         self.runtime.borrow_mut().renderer.destroy();
     }
@@ -535,13 +554,7 @@ pub fn new(
     let preference_runtime = runtime.clone();
     let preference_area = area.clone();
     preferences_store::connect(&preferences, move |snapshot| {
-        let mut runtime = preference_runtime.borrow_mut();
-        runtime.default_visual_duration = snapshot.default_visual_duration;
-        runtime.default_text_font_family = snapshot.default_text_font_family;
-        runtime.beat_grid_enabled =
-            timeline_beat_grid_from_preference(&snapshot.timeline_beat_grid);
-        runtime.snap_radius_px = f64::from(snapshot.timeline_snap_radius_px);
-        drop(runtime);
+        preference_runtime.borrow_mut().apply_preferences(&snapshot);
         preference_area.queue_render();
     });
     start_waveform_loader(&area, project.clone(), runtime.clone());
@@ -847,7 +860,7 @@ pub fn new(
         destroy_runtime.borrow_mut().renderer.destroy();
     });
 
-    let sidebar = timeline_sidebar(&area, &runtime, &preferences);
+    let sidebar = timeline_sidebar(&area, &preferences);
     let timeline = gtk::Box::new(gtk::Orientation::Horizontal, 0);
     timeline.append(&sidebar);
     timeline.append(&area);

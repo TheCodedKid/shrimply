@@ -15,6 +15,7 @@ shrimply-3dgs = { path = "../../3d/3dgs" }
 shrimply-audio = { path = "../../audio/audio" }
 shrimply-blender = { path = "../../blender/blender-bridge" }
 shrimply-core = { path = "../../core" }
+shrimply-cross-ui-tl = { path = "../cross-ui-tl" }
 shrimply-export = { path = "../../export/export" }
 shrimply-math-media = { path = "../../math/media" }
 shrimply-math-core = { path = "../../math/core" }

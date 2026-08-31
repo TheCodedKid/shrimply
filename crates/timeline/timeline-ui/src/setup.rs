@@ -302,19 +302,3 @@ pub(super) fn timeline_tool_button(icon_name: &str) -> gtk::ToggleButton {
     button.add_css_class("flat");
     button
 }
-
-pub(super) fn timeline_magnet_from_preference(value: &str) -> bool {
-    value == "true"
-}
-
-pub(super) fn timeline_beat_grid_from_preference(value: &str) -> bool {
-    value == "true"
-}
-
-pub(super) fn drag_collision_mode_from_preference(value: &str) -> DragCollisionMode {
-    match value {
-        "block" => DragCollisionMode::Block,
-        "new_track" => DragCollisionMode::NewTrack,
-        _ => DragCollisionMode::Overwrite,
-    }
-}

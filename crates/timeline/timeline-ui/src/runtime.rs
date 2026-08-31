@@ -92,6 +92,7 @@ impl TimelineRuntime {
         timeline_center: Option<Time>,
         property_clipboard: shrimply_property_transfer::SharedClipboard,
     ) -> Self {
+        let tools = ToolState::from_preferences(&preferences);
         let mut view = TimelineViewState::default();
         if let Some(zoom) = timeline_zoom.filter(|zoom| *zoom > Time::ZERO) {
             let seconds_per_pixel = zoom.as_secs_f64();
@@ -103,13 +104,11 @@ impl TimelineRuntime {
         }
         Self {
             renderer: TimelineRenderer::new(),
-            snap_enabled: timeline_magnet_from_preference(&preferences.timeline_magnet),
-            beat_grid_enabled: timeline_beat_grid_from_preference(&preferences.timeline_beat_grid),
+            snap_enabled: tools.magnet,
+            beat_grid_enabled: tools.beat_grid,
             snap_radius_px: f64::from(preferences.timeline_snap_radius_px),
-            cut_enabled: preferences.timeline_cursor == "cut",
-            drag_collision_mode: drag_collision_mode_from_preference(
-                &preferences.timeline_drag_collision_mode,
-            ),
+            cut_enabled: tools.cursor == CursorTool::Cut,
+            drag_collision_mode: tools.drag_collision,
             suppress_double_click_selection: false,
             started_at: Instant::now(),
             pending_scrolls: Vec::new(),
@@ -173,6 +172,20 @@ impl TimelineRuntime {
         self.pointer_release_pos = None;
         self.middle_pressed = false;
         self.middle_released = false;
+    }
+
+    pub(super) fn apply_preferences(
+        &mut self,
+        preferences: &preferences_store::PreferencesSnapshot,
+    ) {
+        let tools = ToolState::from_preferences(preferences);
+        self.snap_enabled = tools.magnet;
+        self.beat_grid_enabled = tools.beat_grid;
+        self.cut_enabled = tools.cursor == CursorTool::Cut;
+        self.drag_collision_mode = tools.drag_collision;
+        self.snap_radius_px = f64::from(preferences.timeline_snap_radius_px);
+        self.default_visual_duration = preferences.default_visual_duration;
+        self.default_text_font_family = preferences.default_text_font_family.clone();
     }
 }
 

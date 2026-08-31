@@ -21,6 +21,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use shrimply_cross_ui_core::editor::EditorSession;
+use shrimply_cross_ui_tl::{CursorTool, DragCollisionMode};
 use shrimply_math_color::Color;
 use shrimply_timeline_ui::{ToolkitAudioMeter, ToolkitPointerButton, ToolkitTimeline};
 use std::ffi::c_void;
@@ -279,6 +280,114 @@ pub extern "C" fn shrimply_qt_timeline_scroll(dx: f32, dy: f32, control: bool, s
             surfaces.timeline.scroll(dx, dy, control, shift);
         }
     });
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn shrimply_qt_timeline_magnet() -> bool {
+    SURFACES.with_borrow(|surfaces| {
+        surfaces
+            .as_ref()
+            .is_some_and(|surfaces| surfaces.timeline.tool_state().magnet)
+    })
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn shrimply_qt_timeline_set_magnet(enabled: bool) {
+    SURFACES.with_borrow(|surfaces| {
+        if let Some(surfaces) = surfaces.as_ref() {
+            surfaces.timeline.set_magnet(enabled);
+        }
+    });
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn shrimply_qt_timeline_beat_grid() -> bool {
+    SURFACES.with_borrow(|surfaces| {
+        surfaces
+            .as_ref()
+            .is_some_and(|surfaces| surfaces.timeline.tool_state().beat_grid)
+    })
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn shrimply_qt_timeline_set_beat_grid(enabled: bool) {
+    SURFACES.with_borrow(|surfaces| {
+        if let Some(surfaces) = surfaces.as_ref() {
+            surfaces.timeline.set_beat_grid(enabled);
+        }
+    });
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn shrimply_qt_timeline_cut_enabled() -> bool {
+    SURFACES.with_borrow(|surfaces| {
+        surfaces
+            .as_ref()
+            .is_some_and(|surfaces| surfaces.timeline.tool_state().cursor == CursorTool::Cut)
+    })
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn shrimply_qt_timeline_set_cut_enabled(enabled: bool) {
+    SURFACES.with_borrow(|surfaces| {
+        if let Some(surfaces) = surfaces.as_ref() {
+            surfaces.timeline.set_cursor_tool(if enabled {
+                CursorTool::Cut
+            } else {
+                CursorTool::Pointer
+            });
+        }
+    });
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn shrimply_qt_timeline_overwrite_mode() -> bool {
+    SURFACES.with_borrow(|surfaces| {
+        surfaces.as_ref().is_some_and(|surfaces| {
+            surfaces.timeline.tool_state().drag_collision == DragCollisionMode::Overwrite
+        })
+    })
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn shrimply_qt_timeline_block_mode() -> bool {
+    SURFACES.with_borrow(|surfaces| {
+        surfaces.as_ref().is_some_and(|surfaces| {
+            surfaces.timeline.tool_state().drag_collision == DragCollisionMode::Block
+        })
+    })
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn shrimply_qt_timeline_new_track_mode() -> bool {
+    SURFACES.with_borrow(|surfaces| {
+        surfaces.as_ref().is_some_and(|surfaces| {
+            surfaces.timeline.tool_state().drag_collision == DragCollisionMode::NewTrack
+        })
+    })
+}
+
+fn select_drag_collision_mode(mode: DragCollisionMode) {
+    SURFACES.with_borrow(|surfaces| {
+        if let Some(surfaces) = surfaces.as_ref() {
+            surfaces.timeline.set_drag_collision_mode(mode);
+        }
+    });
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn shrimply_qt_timeline_select_overwrite_mode() {
+    select_drag_collision_mode(DragCollisionMode::Overwrite);
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn shrimply_qt_timeline_select_block_mode() {
+    select_drag_collision_mode(DragCollisionMode::Block);
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn shrimply_qt_timeline_select_new_track_mode() {
+    select_drag_collision_mode(DragCollisionMode::NewTrack);
 }
 
 #[unsafe(no_mangle)]

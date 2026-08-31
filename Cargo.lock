@@ -5427,6 +5427,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "shrimply-cross-ui-tl"
+version = "0.1.0"
+dependencies = [
+ "shrimply-state",
+]
+
+[[package]]
 name = "shrimply-decoder-pool"
 version = "0.1.0"
 dependencies = [
@@ -6084,6 +6091,7 @@ dependencies = [
  "glam 0.33.5",
  "shrimply-audio",
  "shrimply-cross-ui-core",
+ "shrimply-cross-ui-tl",
  "shrimply-math-color",
  "shrimply-playback-performance",
  "shrimply-preview-core",
@@ -6394,6 +6402,7 @@ dependencies = [
  "shrimply-audio",
  "shrimply-blender",
  "shrimply-core",
+ "shrimply-cross-ui-tl",
  "shrimply-export",
  "shrimply-math-color",
  "shrimply-math-core",

@@ -16,7 +16,6 @@ struct TrackAddContext {
 
 pub(super) fn timeline_sidebar(
     area: &gtk::GLArea,
-    runtime: &Rc<RefCell<TimelineRuntime>>,
     preferences: &preferences_store::SharedPreferences,
 ) -> gtk::Box {
     let toolbar = gtk::Box::new(gtk::Orientation::Vertical, 6);
@@ -47,44 +46,37 @@ pub(super) fn timeline_sidebar(
     let new_track = timeline_tool_button("track-move-above-symbolic");
     new_track.set_tooltip_i18n("New Track");
 
-    let snapshot = preferences_store::snapshot(preferences);
-    magnet.set_active(timeline_magnet_from_preference(&snapshot.timeline_magnet));
-    beat_grid.set_active(timeline_beat_grid_from_preference(
-        &snapshot.timeline_beat_grid,
-    ));
-    pointer.set_active(snapshot.timeline_cursor == "pointer");
-    cut.set_active(snapshot.timeline_cursor == "cut");
-    overwrite.set_active(snapshot.timeline_drag_collision_mode == "overwrite");
-    block.set_active(snapshot.timeline_drag_collision_mode == "block");
-    new_track.set_active(snapshot.timeline_drag_collision_mode == "new_track");
+    let tools = TimelineTools::new(preferences.clone());
+    let state = tools.state();
+    magnet.set_active(state.magnet);
+    beat_grid.set_active(state.beat_grid);
+    pointer.set_active(state.cursor == CursorTool::Pointer);
+    cut.set_active(state.cursor == CursorTool::Cut);
+    overwrite.set_active(state.drag_collision == DragCollisionMode::Overwrite);
+    block.set_active(state.drag_collision == DragCollisionMode::Block);
+    new_track.set_active(state.drag_collision == DragCollisionMode::NewTrack);
 
-    let runtime_for_magnet = runtime.clone();
     let area_for_magnet = area.clone();
-    let preferences_for_magnet = preferences.clone();
+    let tools_for_magnet = tools.clone();
     magnet.connect_toggled(move |button| {
-        runtime_for_magnet.borrow_mut().snap_enabled = button.is_active();
-        preferences_store::set_timeline_magnet(&preferences_for_magnet, button.is_active());
+        tools_for_magnet.set_magnet(button.is_active());
         area_for_magnet.queue_render();
     });
 
-    let runtime_for_beat_grid = runtime.clone();
     let area_for_beat_grid = area.clone();
-    let preferences_for_beat_grid = preferences.clone();
+    let tools_for_beat_grid = tools.clone();
     beat_grid.connect_toggled(move |button| {
-        runtime_for_beat_grid.borrow_mut().beat_grid_enabled = button.is_active();
-        preferences_store::set_timeline_beat_grid(&preferences_for_beat_grid, button.is_active());
+        tools_for_beat_grid.set_beat_grid(button.is_active());
         area_for_beat_grid.queue_render();
     });
 
     let area_for_pointer = area.clone();
     let cut_for_pointer = cut.clone();
-    let runtime_for_pointer = runtime.clone();
-    let preferences_for_pointer = preferences.clone();
+    let tools_for_pointer = tools.clone();
     pointer.connect_toggled(move |button| {
         if button.is_active() {
             cut_for_pointer.set_active(false);
-            runtime_for_pointer.borrow_mut().cut_enabled = false;
-            preferences_store::set_timeline_cursor(&preferences_for_pointer, "pointer");
+            tools_for_pointer.set_cursor(CursorTool::Pointer);
             area_for_pointer.queue_render();
         } else if !cut_for_pointer.is_active() {
             button.set_active(true);
@@ -93,17 +85,14 @@ pub(super) fn timeline_sidebar(
 
     let area_for_cut = area.clone();
     let pointer_for_cut = pointer.clone();
-    let runtime_for_cut = runtime.clone();
-    let preferences_for_cut = preferences.clone();
+    let tools_for_cut = tools.clone();
     cut.connect_toggled(move |button| {
         if button.is_active() {
             pointer_for_cut.set_active(false);
-            runtime_for_cut.borrow_mut().cut_enabled = true;
-            preferences_store::set_timeline_cursor(&preferences_for_cut, "cut");
+            tools_for_cut.set_cursor(CursorTool::Cut);
             tracing::debug!("timeline cut tool enabled");
             area_for_cut.queue_render();
         } else if !pointer_for_cut.is_active() {
-            runtime_for_cut.borrow_mut().cut_enabled = false;
             tracing::debug!("timeline cut tool disabled");
             button.set_active(true);
         }
@@ -112,17 +101,12 @@ pub(super) fn timeline_sidebar(
     let area_for_overwrite = area.clone();
     let block_for_overwrite = block.clone();
     let new_track_for_overwrite = new_track.clone();
-    let runtime_for_overwrite = runtime.clone();
-    let preferences_for_overwrite = preferences.clone();
+    let tools_for_overwrite = tools.clone();
     overwrite.connect_toggled(move |button| {
         if button.is_active() {
             block_for_overwrite.set_active(false);
             new_track_for_overwrite.set_active(false);
-            runtime_for_overwrite.borrow_mut().drag_collision_mode = DragCollisionMode::Overwrite;
-            preferences_store::set_timeline_drag_collision_mode(
-                &preferences_for_overwrite,
-                "overwrite",
-            );
+            tools_for_overwrite.set_drag_collision(DragCollisionMode::Overwrite);
             area_for_overwrite.queue_render();
         } else if !block_for_overwrite.is_active() && !new_track_for_overwrite.is_active() {
             button.set_active(true);
@@ -132,14 +116,12 @@ pub(super) fn timeline_sidebar(
     let area_for_block = area.clone();
     let overwrite_for_block = overwrite.clone();
     let new_track_for_block = new_track.clone();
-    let runtime_for_block = runtime.clone();
-    let preferences_for_block = preferences.clone();
+    let tools_for_block = tools.clone();
     block.connect_toggled(move |button| {
         if button.is_active() {
             overwrite_for_block.set_active(false);
             new_track_for_block.set_active(false);
-            runtime_for_block.borrow_mut().drag_collision_mode = DragCollisionMode::Block;
-            preferences_store::set_timeline_drag_collision_mode(&preferences_for_block, "block");
+            tools_for_block.set_drag_collision(DragCollisionMode::Block);
             area_for_block.queue_render();
         } else if !overwrite_for_block.is_active() && !new_track_for_block.is_active() {
             button.set_active(true);
@@ -149,17 +131,12 @@ pub(super) fn timeline_sidebar(
     let area_for_new_track = area.clone();
     let overwrite_for_new_track = overwrite.clone();
     let block_for_new_track = block.clone();
-    let runtime_for_new_track = runtime.clone();
-    let preferences_for_new_track = preferences.clone();
+    let tools_for_new_track = tools;
     new_track.connect_toggled(move |button| {
         if button.is_active() {
             overwrite_for_new_track.set_active(false);
             block_for_new_track.set_active(false);
-            runtime_for_new_track.borrow_mut().drag_collision_mode = DragCollisionMode::NewTrack;
-            preferences_store::set_timeline_drag_collision_mode(
-                &preferences_for_new_track,
-                "new_track",
-            );
+            tools_for_new_track.set_drag_collision(DragCollisionMode::NewTrack);
             area_for_new_track.queue_render();
         } else if !overwrite_for_new_track.is_active() && !block_for_new_track.is_active() {
             button.set_active(true);

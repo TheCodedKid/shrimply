@@ -12,10 +12,34 @@ void register_gpu_surfaces();
 
 class TimelineSurface : public QQuickFramebufferObject {
     Q_OBJECT
+    Q_PROPERTY(bool magnetEnabled READ magnetEnabled WRITE setMagnetEnabled NOTIFY magnetEnabledChanged)
+    Q_PROPERTY(bool beatGridEnabled READ beatGridEnabled WRITE setBeatGridEnabled NOTIFY beatGridEnabledChanged)
+    Q_PROPERTY(bool cutEnabled READ cutEnabled WRITE setCutEnabled NOTIFY cursorToolChanged)
+    Q_PROPERTY(bool overwriteMode READ overwriteMode NOTIFY dragCollisionModeChanged)
+    Q_PROPERTY(bool blockMode READ blockMode NOTIFY dragCollisionModeChanged)
+    Q_PROPERTY(bool newTrackMode READ newTrackMode NOTIFY dragCollisionModeChanged)
 
 public:
     explicit TimelineSurface(QQuickItem *parent = nullptr);
     Renderer *createRenderer() const override;
+    bool magnetEnabled() const;
+    void setMagnetEnabled(bool enabled);
+    bool beatGridEnabled() const;
+    void setBeatGridEnabled(bool enabled);
+    bool cutEnabled() const;
+    void setCutEnabled(bool enabled);
+    bool overwriteMode() const;
+    bool blockMode() const;
+    bool newTrackMode() const;
+    Q_INVOKABLE void selectOverwriteMode();
+    Q_INVOKABLE void selectBlockMode();
+    Q_INVOKABLE void selectNewTrackMode();
+
+signals:
+    void magnetEnabledChanged();
+    void beatGridEnabledChanged();
+    void cursorToolChanged();
+    void dragCollisionModeChanged();
 
 protected:
     void hoverMoveEvent(QHoverEvent *event) override;

@@ -371,15 +371,88 @@ ApplicationWindow {
                     Layout.preferredWidth: 44
 
                     ColumnLayout {
+                        id: timelineToolColumn
+
                         anchors.top: parent.top
                         anchors.horizontalCenter: parent.horizontalCenter
-                        ToolButton { icon.name: "edit-select"; text: qsTr("Selection"); display: AbstractButton.IconOnly; checked: true }
-                        ToolButton { icon.name: "snap"; text: qsTr("Snapping"); display: AbstractButton.IconOnly; checkable: true }
-                        ToolButton { icon.name: "edit-cut"; text: qsTr("Cut"); display: AbstractButton.IconOnly; checkable: true }
+                        ToolButton {
+                            icon.name: "snap"
+                            text: qsTr("Magnet")
+                            display: AbstractButton.IconOnly
+                            checkable: true
+                            Binding on checked { value: timelineLoader.item ? timelineLoader.item.magnetEnabled : false }
+                            onClicked: if (timelineLoader.item) timelineLoader.item.magnetEnabled = checked
+                        }
+                        ToolButton {
+                            icon.name: "view-grid"
+                            text: qsTr("Beat Grid")
+                            display: AbstractButton.IconOnly
+                            checkable: true
+                            Binding on checked { value: timelineLoader.item ? timelineLoader.item.beatGridEnabled : false }
+                            onClicked: if (timelineLoader.item) timelineLoader.item.beatGridEnabled = checked
+                        }
+                        ToolSeparator {}
+                        ToolButton {
+                            icon.name: "edit-select"
+                            text: qsTr("Pointer")
+                            display: AbstractButton.IconOnly
+                            checkable: true
+                            Binding on checked {
+                                value: timelineLoader.item ? !timelineLoader.item.cutEnabled : false
+                            }
+                            onClicked: if (checked && timelineLoader.item)
+                                timelineLoader.item.cutEnabled = false
+                        }
+                        ToolButton {
+                            icon.name: "edit-cut"
+                            text: qsTr("Cut")
+                            display: AbstractButton.IconOnly
+                            checkable: true
+                            Binding on checked {
+                                value: timelineLoader.item ? timelineLoader.item.cutEnabled : false
+                            }
+                            onClicked: if (checked && timelineLoader.item)
+                                timelineLoader.item.cutEnabled = true
+                        }
+                        ToolSeparator {}
+                        ToolButton {
+                            icon.name: "timeline-mode-overwrite"
+                            text: qsTr("Overwrite/Insert")
+                            display: AbstractButton.IconOnly
+                            checkable: true
+                            Binding on checked {
+                                value: timelineLoader.item ? timelineLoader.item.overwriteMode : false
+                            }
+                            onClicked: if (checked && timelineLoader.item)
+                                timelineLoader.item.selectOverwriteMode()
+                        }
+                        ToolButton {
+                            icon.name: "dialog-cancel"
+                            text: qsTr("Block")
+                            display: AbstractButton.IconOnly
+                            checkable: true
+                            Binding on checked {
+                                value: timelineLoader.item ? timelineLoader.item.blockMode : false
+                            }
+                            onClicked: if (checked && timelineLoader.item)
+                                timelineLoader.item.selectBlockMode()
+                        }
+                        ToolButton {
+                            icon.name: "selection-move-to-layer-above"
+                            text: qsTr("New Track")
+                            display: AbstractButton.IconOnly
+                            checkable: true
+                            Binding on checked {
+                                value: timelineLoader.item ? timelineLoader.item.newTrackMode : false
+                            }
+                            onClicked: if (checked && timelineLoader.item)
+                                timelineLoader.item.selectNewTrackMode()
+                        }
                     }
                 }
 
                 Loader {
+                    id: timelineLoader
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     active: backend.ready
