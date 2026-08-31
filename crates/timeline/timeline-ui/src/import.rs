@@ -251,6 +251,77 @@ pub(super) fn direct_media_kind(kind: FileKind) -> bool {
     )
 }
 
+pub(crate) enum TrackImportStart {
+    Inspect(TrackImportInspection),
+    Complete((ImportResult, Time)),
+}
+
+pub(crate) struct TrackImportInspection {
+    pub(crate) subscription: Subscription<InspectionKey, (), MediaInfo>,
+    pub(crate) context: TrackImportContext,
+}
+
+pub(crate) struct TrackImportContext {
+    kind: TrackKind,
+    track_indices: Vec<usize>,
+    start: Time,
+}
+
+pub(crate) fn start_track_import(
+    project: &mut Project,
+    path: PathBuf,
+    kind: TrackKind,
+    track_indices: Vec<usize>,
+    start: Time,
+    default_visual_duration: Time,
+) -> Result<TrackImportStart, String> {
+    if track_indices.is_empty() {
+        return Err("no import tracks were selected".to_string());
+    }
+    let file_kind = file_kind(&path).ok_or_else(|| "unsupported file type".to_string())?;
+    if direct_media_kind(file_kind) && kind != TrackKind::Caption {
+        return Ok(TrackImportStart::Inspect(TrackImportInspection {
+            subscription: request_inspection(path, project.canvas_size, default_visual_duration),
+            context: TrackImportContext {
+                kind,
+                track_indices,
+                start,
+            },
+        }));
+    }
+    if file_kind != FileKind::Vtt {
+        return Err(if kind == TrackKind::Caption {
+            "only VTT files can be imported to caption tracks"
+        } else {
+            "MKV and WebM need to be remuxed before track import"
+        }
+        .to_string());
+    }
+    if kind != TrackKind::Caption {
+        return Err("VTT files can only be imported to caption tracks".to_string());
+    }
+    let result = apply_vtt_to_tracks(project, &path, &track_indices, start)?;
+    crate::project::commit_edit(project, "import-vtt");
+    Ok(TrackImportStart::Complete((result, project.duration())))
+}
+
+pub(crate) fn finish_track_import_inspection(
+    project: &mut Project,
+    context: TrackImportContext,
+    info: &MediaInfo,
+) -> Result<(ImportResult, Time), String> {
+    info.snapshot.ensure_current()?;
+    let result = apply_media_to_tracks(
+        project,
+        info,
+        context.kind,
+        &context.track_indices,
+        context.start,
+    )?;
+    crate::project::commit_edit(project, "import-media-to-tracks");
+    Ok((result, project.duration()))
+}
+
 pub fn inspect(
     path: PathBuf,
     canvas_size: CanvasSize,

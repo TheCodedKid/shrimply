@@ -5477,6 +5477,7 @@ dependencies = [
  "shrimply-preview-qt",
  "shrimply-preview-runtime",
  "shrimply-project",
+ "shrimply-qt-helpers",
  "shrimply-state",
  "shrimply-support",
  "tracing",
@@ -6275,6 +6276,16 @@ dependencies = [
  "hashbrown 0.17.1",
  "psd",
  "rayon",
+]
+
+[[package]]
+name = "shrimply-qt-helpers"
+version = "0.1.0"
+dependencies = [
+ "cxx",
+ "cxx-qt",
+ "cxx-qt-build",
+ "cxx-qt-lib",
 ]
 
 [[package]]

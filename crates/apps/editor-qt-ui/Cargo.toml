@@ -19,6 +19,7 @@ shrimply-preview-qt = { path = "../../preview/preview-qt" }
 shrimply-preview-runtime = { path = "../../preview/preview-runtime" }
 shrimply-preferences-qt = { path = "../../preferences/preferences-qt" }
 shrimply-project = { path = "../../project/project" }
+shrimply-qt-helpers = { path = "../../ui/qt-helpers" }
 shrimply-state = { path = "../../state" }
 shrimply-support = { path = "../../support" }
 tracing.workspace = true

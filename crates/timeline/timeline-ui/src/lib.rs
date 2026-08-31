@@ -181,14 +181,6 @@ pub struct TrackAddMenuPresentation {
     pub y: f32,
 }
 
-struct PendingTrackImport {
-    subscription:
-        shrimply_resource_pipeline::Subscription<import::InspectionKey, (), import::MediaInfo>,
-    kind: TrackKind,
-    track_indices: Vec<usize>,
-    start: Time,
-}
-
 pub struct ToolkitTimeline {
     project: Rc<RefCell<Project>>,
     player_state: SharedPlayerState,
@@ -203,7 +195,7 @@ pub struct ToolkitTimeline {
     context_new_track_at_top: Option<bool>,
     track_add_request: Option<TrackAddMenuRequest>,
     track_add_presentation: Option<TrackAddMenuPresentation>,
-    pending_track_import: Option<PendingTrackImport>,
+    pending_track_import: Option<import::TrackImportInspection>,
     track_import_error: Option<String>,
     runtime: Rc<RefCell<TimelineRuntime>>,
     waveform: Option<setup::WaveformSubscription>,
@@ -389,49 +381,27 @@ impl ToolkitTimeline {
             .iter()
             .map(|target| target.track_index)
             .collect::<Vec<_>>();
-        let file_kind =
-            import::file_kind(&path).ok_or_else(|| "unsupported file type".to_string())?;
         let start = player_state::snapshot(&self.player_state).position;
-
-        if import::direct_media_kind(file_kind) && kind != TrackKind::Caption {
-            let project = self.project.borrow();
-            let runtime = self.runtime.borrow();
-            self.pending_track_import = Some(PendingTrackImport {
-                subscription: import::request_inspection(
-                    path,
-                    project.canvas_size,
-                    runtime.default_visual_duration,
-                ),
-                kind,
-                track_indices,
-                start,
-            });
-            return Ok(());
-        }
-
-        let result = if file_kind == import::FileKind::Vtt {
-            if kind != TrackKind::Caption {
-                Err("VTT files can only be imported to caption tracks".to_string())
-            } else {
-                let mut project = self.project.borrow_mut();
-                let result =
-                    import::apply_vtt_to_tracks(&mut project, &path, &track_indices, start);
-                if result.is_ok() {
-                    crate::project::commit_edit(&project, "import-vtt");
-                }
-                result.map(|result| (result, project.duration()))
+        let default_visual_duration = self.runtime.borrow().default_visual_duration;
+        let started = import::start_track_import(
+            &mut self.project.borrow_mut(),
+            path,
+            kind,
+            track_indices,
+            start,
+            default_visual_duration,
+        )?;
+        match started {
+            import::TrackImportStart::Inspect(inspection) => {
+                self.pending_track_import = Some(inspection);
+                Ok(())
             }
-        } else if kind == TrackKind::Caption {
-            Err("only VTT files can be imported to caption tracks".to_string())
-        } else {
-            Err("MKV and WebM need to be remuxed before track import".to_string())
-        };
-        interaction::finish_track_import_core(
-            &self.project,
-            &self.player_state,
-            &self.selection_state,
-            result,
-        )
+            import::TrackImportStart::Complete(result) => interaction::finish_track_import_core(
+                &self.player_state,
+                &self.selection_state,
+                Ok(result),
+            ),
+        }
     }
 
     pub fn take_track_import_error(&mut self) -> Option<String> {
@@ -451,20 +421,11 @@ impl ToolkitTimeline {
                     .pending_track_import
                     .take()
                     .expect("finished track import must exist");
-                info.snapshot.ensure_current().and_then(|()| {
-                    let mut project = self.project.borrow_mut();
-                    let result = import::apply_media_to_tracks(
-                        &mut project,
-                        &info,
-                        pending.kind,
-                        &pending.track_indices,
-                        pending.start,
-                    );
-                    if result.is_ok() {
-                        crate::project::commit_edit(&project, "import-media-to-tracks");
-                    }
-                    result.map(|result| (result, project.duration()))
-                })
+                import::finish_track_import_inspection(
+                    &mut self.project.borrow_mut(),
+                    pending.context,
+                    &info,
+                )
             }
             shrimply_resource_pipeline::TryNext::Event(
                 shrimply_resource_pipeline::Event::Failed(error),
@@ -484,12 +445,9 @@ impl ToolkitTimeline {
             )
             | shrimply_resource_pipeline::TryNext::Empty => return,
         };
-        if let Err(error) = interaction::finish_track_import_core(
-            &self.project,
-            &self.player_state,
-            &self.selection_state,
-            result,
-        ) {
+        if let Err(error) =
+            interaction::finish_track_import_core(&self.player_state, &self.selection_state, result)
+        {
             self.track_import_error = Some(error);
         }
     }

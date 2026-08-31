@@ -358,7 +358,7 @@ ApplicationWindow {
                                 Button {
                                     text: backend.translate("Choose…")
                                     enabled: !root.blenderBusy
-                                    onClicked: blenderDialog.open()
+                                    onClicked: root.blenderBusy = backend.choosePreferenceBlenderBinary()
                                 }
                                 Button {
                                     text: backend.translate("Clear")
@@ -482,16 +482,6 @@ ApplicationWindow {
         onAccepted: {
             fontFamily.text = selectedFont.family
             backend.setPreferenceValue("default-text-font-family", fontFamily.text)
-        }
-    }
-    FileDialog {
-        id: blenderDialog
-        title: backend.translate("Choose Blender Binary")
-        fileMode: FileDialog.OpenFile
-        onAccepted: {
-            root.blenderBusy = true
-            if (root.showConnectorError(backend.setPreferenceBlenderBinary(selectedFile)))
-                root.blenderBusy = false
         }
     }
     Dialog {

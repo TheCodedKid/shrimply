@@ -11,8 +11,6 @@ fn main() {
         .files(["src/backend.rs"])
         .qrc("qml/assets.qrc")
         .cpp_files([
-            "include/native_file_dialog.h",
-            "src/native_file_dialog.cpp",
             "../../preview/preview-qt/include/gpu_surface.h",
             "../../preview/preview-qt/src/gpu_surface.cpp",
         ])
@@ -20,7 +18,6 @@ fn main() {
         .qt_module("OpenGL")
         .qt_module("Widgets")
         .cc_builder(|build| {
-            build.include("include");
             build.include("../../preview/preview-qt/include");
         })
         .build();

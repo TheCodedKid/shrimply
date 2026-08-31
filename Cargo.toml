@@ -79,6 +79,7 @@ members = [
     "crates/ui/i18n-core",
     "crates/ui/i18n-gtk",
     "crates/ui/i18n-qt",
+    "crates/ui/qt-helpers",
     "crates/ui/skia-adw-ui",
     "crates/ui/ui-foundation",
     "crates/ui/wayland-pointer-lock",

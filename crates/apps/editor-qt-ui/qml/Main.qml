@@ -62,7 +62,15 @@ ApplicationWindow {
         function onRequestDestination(title, suggestedName) {
             window.destinationTitle = title
             window.destinationName = suggestedName
-            destinationDialog.open()
+            Qt.callLater(function() {
+                const path = StandardPaths.writableLocation(StandardPaths.DocumentsLocation) + "/" + window.destinationName
+                const selected = backend.showFileSaveDialog(
+                    path,
+                    window.destinationTitle,
+                    backend.translate("Shrimply projects (*.shrimp)"),
+                    "shrimp")
+                backend.chooseDestination(selected.toString().length > 0, selected)
+            })
         }
         function onRequestWarnings(body) {
             warningDialog.text = body
@@ -631,9 +639,22 @@ ApplicationWindow {
             timelineTrackAddAnchor.y = y
             timelineTrackAddMenu.popup(timelineTrackAddAnchor, 0, 0)
         }
-        function onTrackImportRequested() { timelineTrackImportDialog.open() }
+        function onTrackImportRequested() {
+            const selected = backend.showOpenFileDialog(
+                "",
+                backend.translate("Import to Track"),
+                backend.translate("All files (*)"))
+            if (selected.toString().length > 0)
+                timelineLoader.item.importTrackFile(selected)
+        }
         function onSaveFrameRequested() {
-            timelineSaveFrameDialog.open()
+            const selected = backend.showFileSaveDialog(
+                "",
+                backend.translate("Save Selected Frame"),
+                backend.translate("PNG image (*.png)"),
+                "png")
+            if (selected.toString().length > 0)
+                timelineLoader.item.saveContextFrame(selected)
         }
         function onContextActionFailed(message) {
             timelineContextError.text = message
@@ -643,21 +664,6 @@ ApplicationWindow {
             timelineDeleteTrackDialog.text = backend.translate("%1 clips are about to be deleted. Are you sure?").arg(clipCount)
             timelineDeleteTrackDialog.open()
         }
-    }
-
-    FileDialog {
-        id: timelineTrackImportDialog
-        title: backend.translate("Import to Track")
-        fileMode: FileDialog.OpenFile
-        onAccepted: timelineLoader.item.importTrackFile(selectedFile)
-    }
-
-    FileDialog {
-        id: timelineSaveFrameDialog
-        title: backend.translate("Save Selected Frame")
-        fileMode: FileDialog.SaveFile
-        nameFilters: [backend.translate("PNG image (*.png)")]
-        onAccepted: timelineLoader.item.saveContextFrame(selectedFile)
     }
 
     MessageDialog {
@@ -711,16 +717,6 @@ ApplicationWindow {
         buttons: MessageDialog.Ok | MessageDialog.Cancel
         onAccepted: backend.confirmRepair(true)
         onRejected: backend.confirmRepair(false)
-    }
-
-    FileDialog {
-        id: destinationDialog
-        title: window.destinationTitle
-        fileMode: FileDialog.SaveFile
-        nameFilters: [backend.translate("Shrimply projects (*.shrimp)")]
-        currentFile: StandardPaths.writableLocation(StandardPaths.DocumentsLocation) + "/" + window.destinationName
-        onAccepted: backend.chooseDestination(true, selectedFile)
-        onRejected: backend.chooseDestination(false, "")
     }
 
     MessageDialog {

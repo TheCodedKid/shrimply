@@ -13,17 +13,6 @@ const GIB_BYTES: f64 = 1024.0 * 1024.0 * 1024.0;
 #[cxx_qt::bridge]
 pub mod qobject {
     unsafe extern "C++" {
-        include!("native_file_dialog.h");
-        type QGuiApplication = cxx_qt_lib::QGuiApplication;
-        #[namespace = "shrimply"]
-        fn new_widget_application() -> UniquePtr<QGuiApplication>;
-        #[namespace = "shrimply"]
-        fn save_project_file_dialog(
-            suggested_url: &QUrl,
-            title: &QString,
-            filter: &QString,
-        ) -> QUrl;
-
         include!("gpu_surface.h");
         #[namespace = "shrimply"]
         fn force_opengl();
@@ -99,6 +88,23 @@ pub mod qobject {
         #[cxx_name = "showSaveAsDialog"]
         fn show_save_as_dialog(self: Pin<&mut EditorBackend>);
         #[qinvokable]
+        #[cxx_name = "showOpenFileDialog"]
+        fn show_open_file_dialog(
+            self: Pin<&mut EditorBackend>,
+            initial_path: &QString,
+            title: &QString,
+            filter: &QString,
+        ) -> QUrl;
+        #[qinvokable]
+        #[cxx_name = "showFileSaveDialog"]
+        fn show_file_save_dialog(
+            self: Pin<&mut EditorBackend>,
+            suggested_path: &QString,
+            title: &QString,
+            filter: &QString,
+            default_suffix: &QString,
+        ) -> QUrl;
+        #[qinvokable]
         fn undo(self: Pin<&mut EditorBackend>);
         #[qinvokable]
         fn redo(self: Pin<&mut EditorBackend>);
@@ -154,8 +160,8 @@ pub mod qobject {
         #[cxx_name = "selectPreferenceServer"]
         fn select_preference_server(self: Pin<&mut EditorBackend>, index: i32);
         #[qinvokable]
-        #[cxx_name = "setPreferenceBlenderBinary"]
-        fn set_preference_blender_binary(self: Pin<&mut EditorBackend>, url: &QUrl) -> QString;
+        #[cxx_name = "choosePreferenceBlenderBinary"]
+        fn choose_preference_blender_binary(self: Pin<&mut EditorBackend>) -> bool;
         #[qinvokable]
         #[cxx_name = "clearPreferenceBlenderBinary"]
         fn clear_preference_blender_binary(self: Pin<&mut EditorBackend>);
@@ -414,16 +420,45 @@ impl qobject::EditorBackend {
         let path = shrimply_cross_ui_core::editor::suggested_save_as_path();
         let suggested_url = QUrl::from_local_file(&QString::from(path.to_string_lossy().as_ref()));
         tracing::debug!(suggested = %path.display(), "opening Qt Save As dialog");
-        let url = qobject::save_project_file_dialog(
+        let url = shrimply_qt_helpers::save_file_dialog(
             &suggested_url,
             &shrimply_i18n_qt::text("Save Project As"),
             &shrimply_i18n_qt::text("Shrimply projects (*.shrimp)"),
+            &QString::from("shrimp"),
         );
         if url.is_empty() {
             tracing::debug!("Qt Save As dialog canceled");
             return;
         }
         self.as_mut().save_as_url(&url);
+    }
+
+    pub fn show_open_file_dialog(
+        self: Pin<&mut Self>,
+        initial_path: &QString,
+        title: &QString,
+        filter: &QString,
+    ) -> QUrl {
+        shrimply_qt_helpers::open_file_dialog(
+            &QUrl::from_local_file(initial_path),
+            title,
+            filter,
+        )
+    }
+
+    pub fn show_file_save_dialog(
+        self: Pin<&mut Self>,
+        suggested_path: &QString,
+        title: &QString,
+        filter: &QString,
+        default_suffix: &QString,
+    ) -> QUrl {
+        shrimply_qt_helpers::save_file_dialog(
+            &QUrl::from_local_file(suggested_path),
+            title,
+            filter,
+            default_suffix,
+        )
     }
 
     fn save_as_url(self: Pin<&mut Self>, url: &QUrl) {
@@ -542,9 +577,19 @@ impl qobject::EditorBackend {
         }
     }
 
-    pub fn set_preference_blender_binary(mut self: Pin<&mut Self>, url: &QUrl) -> QString {
-        let Some(path) = local_path(url) else {
-            return QString::from("Blender binary must be a local file");
+    pub fn choose_preference_blender_binary(mut self: Pin<&mut Self>) -> bool {
+        let current = self
+            .as_mut()
+            .preference_connector()
+            .value(&QString::from("blender-binary"));
+        let initial_url = QUrl::from_local_file(&current);
+        let url = shrimply_qt_helpers::open_file_dialog(
+            &initial_url,
+            &shrimply_i18n_qt::text("Choose Blender Binary"),
+            &shrimply_i18n_qt::text("All files (*)"),
+        );
+        let Some(path) = local_path(&url) else {
+            return false;
         };
         let (sender, receiver) = std::sync::mpsc::channel();
         std::thread::spawn(move || {
@@ -553,7 +598,7 @@ impl qobject::EditorBackend {
             ));
         });
         self.as_mut().rust_mut().get_mut().blender_probe = Some(receiver);
-        QString::default()
+        true
     }
 
     pub fn clear_preference_blender_binary(self: Pin<&mut Self>) {

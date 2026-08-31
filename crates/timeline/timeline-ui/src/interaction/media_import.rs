@@ -54,6 +54,19 @@ fn inspect_media(
     on_ready: impl FnOnce(&gtk::GLArea, import::MediaInfo) + 'static,
 ) {
     let subscription = import::request_inspection(path, canvas_size, default_visual_duration);
+    deliver_media_inspection(area, runtime, subscription, on_ready);
+}
+
+fn deliver_media_inspection(
+    area: &gtk::GLArea,
+    runtime: &Rc<RefCell<TimelineRuntime>>,
+    subscription: shrimply_resource_pipeline::Subscription<
+        import::InspectionKey,
+        (),
+        import::MediaInfo,
+    >,
+    on_ready: impl FnOnce(&gtk::GLArea, import::MediaInfo) + 'static,
+) {
     let mut on_ready = Some(on_ready);
     let handle = shrimply_ui_foundation::resource_pipeline::deliver(
         area.downgrade(),
@@ -175,9 +188,8 @@ fn finish_media_import(
         let mut runtime = runtime.borrow_mut();
         runtime.import_preview = None;
     }
-    let project = project.borrow();
     let focused_item = result.selection.first().copied();
-    set_timeline_selection(&project, selection_state, result.selection, focused_item);
+    selection_state::set_selected_items(selection_state, result.selection, focused_item);
     player_state::refresh_project(
         player_state,
         ProjectChange {
@@ -332,77 +344,55 @@ fn import_path_to_tracks(
     target_kind: TrackKind,
     track_indices: Vec<usize>,
 ) {
-    let Some(file_kind) = import::file_kind(&path) else {
-        show_error_dialog(area, "Could not import file", "Unsupported file type");
-        return;
-    };
     let start = player_state::snapshot(player_state).position;
-    if import::direct_media_kind(file_kind) && target_kind != TrackKind::Caption {
-        let (canvas_size, default_visual_duration) = {
-            let project = project.borrow();
-            let runtime = runtime.borrow();
-            (project.canvas_size, runtime.default_visual_duration)
-        };
-        let project = project.clone();
-        let player_state = player_state.clone();
-        let selection_state = selection_state.clone();
-        inspect_media(
-            area,
-            runtime,
-            path,
-            canvas_size,
-            default_visual_duration,
-            move |area, info| {
-                let result = {
-                    let mut project_state = project.borrow_mut();
-                    let result = import::apply_media_to_tracks(
-                        &mut project_state,
-                        &info,
-                        target_kind,
-                        &track_indices,
-                        start,
-                    );
-                    if result.is_ok() {
-                        crate::project::commit_edit(&project_state, "import-media-to-tracks");
-                    }
-                    result.map(|result| (result, project_state.duration()))
-                };
-                finish_track_import(area, &project, &player_state, &selection_state, result);
-            },
-        );
-        return;
-    }
-
-    let result = if file_kind == import::FileKind::Vtt {
-        if target_kind != TrackKind::Caption {
-            Err("VTT files can only be imported to caption tracks".to_string())
-        } else {
-            let mut project_state = project.borrow_mut();
-            let result =
-                import::apply_vtt_to_tracks(&mut project_state, &path, &track_indices, start);
-            if result.is_ok() {
-                crate::project::commit_edit(&project_state, "import-vtt");
-            }
-            result.map(|result| (result, project_state.duration()))
+    let default_visual_duration = runtime.borrow().default_visual_duration;
+    let started = import::start_track_import(
+        &mut project.borrow_mut(),
+        path,
+        target_kind,
+        track_indices,
+        start,
+        default_visual_duration,
+    );
+    let started = match started {
+        Ok(started) => started,
+        Err(error) => {
+            finish_track_import(area, player_state, selection_state, Err(error));
+            return;
         }
-    } else if target_kind == TrackKind::Caption {
-        Err("Only VTT files can be imported to caption tracks".to_string())
-    } else {
-        Err("MKV and WebM need to be remuxed before track import".to_string())
     };
-
-    finish_track_import(area, project, player_state, selection_state, result);
+    match started {
+        import::TrackImportStart::Complete(result) => {
+            finish_track_import(area, player_state, selection_state, Ok(result));
+        }
+        import::TrackImportStart::Inspect(inspection) => {
+            let import::TrackImportInspection {
+                subscription,
+                context,
+            } = inspection;
+            let project = project.clone();
+            let player_state = player_state.clone();
+            let selection_state = selection_state.clone();
+            deliver_media_inspection(area, runtime, subscription, move |area, info| {
+                let result = import::finish_track_import_inspection(
+                    &mut project.borrow_mut(),
+                    context,
+                    &info,
+                );
+                finish_track_import(area, &player_state, &selection_state, result);
+            });
+        }
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
 fn finish_track_import(
     area: &gtk::GLArea,
-    project: &Rc<RefCell<Project>>,
     player_state: &SharedPlayerState,
     selection_state: &SharedSelectionState,
     result: Result<(import::ImportResult, Time), String>,
 ) {
-    if let Err(error) = finish_track_import_core(project, player_state, selection_state, result) {
+    if let Err(error) = finish_track_import_core(player_state, selection_state, result) {
         show_error_dialog(area, "Could not import file", &error);
         return;
     }
@@ -410,15 +400,13 @@ fn finish_track_import(
 }
 
 pub(crate) fn finish_track_import_core(
-    project: &Rc<RefCell<Project>>,
     player_state: &SharedPlayerState,
     selection_state: &SharedSelectionState,
     result: Result<(import::ImportResult, Time), String>,
 ) -> Result<(), String> {
     let (result, duration) = result?;
-    let project = project.borrow();
     let focused_item = result.selection.first().copied();
-    set_timeline_selection(&project, selection_state, result.selection, focused_item);
+    selection_state::set_selected_items(selection_state, result.selection, focused_item);
     player_state::refresh_project(
         player_state,
         ProjectChange {
