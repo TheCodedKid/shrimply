@@ -9,7 +9,13 @@ const SUPPORTED_LOCALES: [&str; 11] = [
 ];
 
 pub fn init_system_locale() {
-    let locale = glib::language_names()
+    let mut candidates = Vec::new();
+    for variable in ["LANGUAGE", "LC_ALL", "LC_MESSAGES", "LANG"] {
+        if let Ok(value) = std::env::var(variable) {
+            candidates.extend(value.split(':').map(str::to_string));
+        }
+    }
+    let locale = candidates
         .iter()
         .map(|locale| normalize_locale(locale))
         .find(|locale| SUPPORTED_LOCALES.contains(&locale.as_str()))
