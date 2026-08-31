@@ -38,7 +38,7 @@ Before submitting a contribution, read the repository's
 Shrimply's main application is written in Rust and uses these technologies:
 
 - **Interface**: GTK 4 and libadwaita
-- **Rendering**: Skia, wgpu, and CUDA
+- **Rendering**: Skia, wgpu, Slang, and CUDA
 - **Media**: FFmpeg and PipeWire
 - **Compute server**: Python
 
