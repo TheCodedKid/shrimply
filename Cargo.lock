@@ -5427,6 +5427,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "shrimply-cross-ui-theme"
+version = "0.1.0"
+dependencies = [
+ "shrimply-math-color",
+]
+
+[[package]]
 name = "shrimply-cross-ui-tl"
 version = "0.1.0"
 dependencies = [
@@ -5489,6 +5496,7 @@ dependencies = [
  "shrimply-audio",
  "shrimply-blender",
  "shrimply-cross-ui-core",
+ "shrimply-cross-ui-theme",
  "shrimply-export-ui",
  "shrimply-inspector-ui",
  "shrimply-kdenlive",
@@ -5503,7 +5511,6 @@ dependencies = [
  "shrimply-project",
  "shrimply-property-transfer",
  "shrimply-server-client",
- "shrimply-skia-adw-ui",
  "shrimply-state",
  "shrimply-support",
  "shrimply-timeline",
@@ -5630,6 +5637,7 @@ dependencies = [
  "shrimply-benchmarking",
  "shrimply-blender",
  "shrimply-core",
+ "shrimply-cross-ui-theme",
  "shrimply-discrete-keyframe-graph-ui",
  "shrimply-evaluation",
  "shrimply-interpolation",
@@ -5698,6 +5706,7 @@ dependencies = [
 name = "shrimply-keyframe-graph-ui"
 version = "0.1.0"
 dependencies = [
+ "shrimply-cross-ui-theme",
  "shrimply-discrete-keyframe-graph-ui",
  "shrimply-interpolation",
  "shrimply-math-color",
@@ -6146,6 +6155,7 @@ dependencies = [
  "glam 0.33.5",
  "shrimply-audio",
  "shrimply-cross-ui-core",
+ "shrimply-cross-ui-theme",
  "shrimply-math-color",
  "shrimply-playback-performance",
  "shrimply-preview-core",
@@ -6168,6 +6178,7 @@ dependencies = [
  "glow",
  "libc",
  "shrimply-audio",
+ "shrimply-cross-ui-theme",
  "shrimply-gpu-memory",
  "shrimply-math-color",
  "shrimply-math-core",
@@ -6471,6 +6482,7 @@ dependencies = [
  "shrimply-audio",
  "shrimply-blender",
  "shrimply-core",
+ "shrimply-cross-ui-theme",
  "shrimply-cross-ui-tl",
  "shrimply-export",
  "shrimply-math-color",

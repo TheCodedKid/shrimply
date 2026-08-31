@@ -44,12 +44,12 @@ use adw::prelude::*;
 use gtk::glib;
 use renderer::{Align2, FontId, Rect, Stroke, StrokeKind, Vec2, vec2};
 use shrimply_core::timeline_value::{TimelineBool, TimelineValue};
+use shrimply_cross_ui_theme as theme;
 pub use shrimply_cross_ui_tl::{
     ContextItemKind, ContextMenu, ContextMenuAction, ContextMenuControl, ContextMenuEntry,
     ContextMenuItem, ContextMenuRequest, CursorTool, DragCollisionMode, FoldedItemMenuContext,
     ItemMenuContext, TimelineTools, ToolState, TrackMenuContext, VideoFrameSelection,
 };
-use shrimply_skia_adw_ui::theme;
 use shrimply_timeline::{TrackGap, TrackKey};
 
 mod audio_meter;

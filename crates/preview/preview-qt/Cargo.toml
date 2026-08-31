@@ -7,6 +7,7 @@ edition = "2024"
 glam.workspace = true
 shrimply-audio = { path = "../../audio/audio" }
 shrimply-cross-ui-core = { path = "../../ui/cross-ui-core" }
+shrimply-cross-ui-theme = { path = "../../ui/cross-ui-theme" }
 shrimply-timeline-qt = { path = "../../timeline/timeline-qt" }
 shrimply-math-color = { path = "../../math/color" }
 shrimply-playback-performance = { path = "../playback-performance" }

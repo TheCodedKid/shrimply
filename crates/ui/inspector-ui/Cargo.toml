@@ -46,6 +46,7 @@ shrimply-video-generation = { path = "../../video/video-generation" }
 shrimply-video-generation-ui = { path = "../../video/video-generation-ui" }
 shrimply-video = { path = "../../video/rendering" }
 shrimply-math-color = { path = "../../math/color", features = ["gdk"] }
+shrimply-cross-ui-theme = { path = "../cross-ui-theme" }
 shrimply-math-geometry = { path = "../../math/geometry" }
 shrimply-math-core = { path = "../../math/core" }
 skia-safe = { workspace = true, features = ["gl", "textlayout"] }

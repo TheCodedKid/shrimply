@@ -26,6 +26,31 @@
 #include <cstddef>
 #include <cstdint>
 
+struct ShrimplyPaletteColor {
+    float red;
+    float green;
+    float blue;
+    float alpha;
+};
+
+struct ShrimplyPlatformPalette {
+    ShrimplyPaletteColor window_bg;
+    ShrimplyPaletteColor window_fg;
+    ShrimplyPaletteColor view_bg;
+    ShrimplyPaletteColor view_fg;
+    ShrimplyPaletteColor alternate_bg;
+    ShrimplyPaletteColor button_bg;
+    ShrimplyPaletteColor button_fg;
+    ShrimplyPaletteColor border;
+    ShrimplyPaletteColor accent_bg;
+    ShrimplyPaletteColor accent_fg;
+};
+
+constexpr std::size_t PLATFORM_PALETTE_COLOR_COUNT = 10;
+static_assert(sizeof(ShrimplyPlatformPalette)
+              == sizeof(ShrimplyPaletteColor) * PLATFORM_PALETTE_COLOR_COUNT);
+
+extern "C" void shrimply_qt_set_platform_palette(const ShrimplyPlatformPalette *palette);
 extern "C" bool shrimply_qt_render_timeline(std::uint32_t width, std::uint32_t height,
                                              float scale, float red, float green,
                                              float blue, float alpha, bool dark);
@@ -109,6 +134,27 @@ bool dark_palette() {
     return window.lightnessF() < 0.5;
 }
 
+ShrimplyPaletteColor palette_color(const QPalette &palette, QPalette::ColorRole role) {
+    const QColor color = palette.color(role);
+    return {color.redF(), color.greenF(), color.blueF(), color.alphaF()};
+}
+
+ShrimplyPlatformPalette platform_palette() {
+    const QPalette palette = QGuiApplication::palette();
+    return {
+        palette_color(palette, QPalette::Window),
+        palette_color(palette, QPalette::WindowText),
+        palette_color(palette, QPalette::Base),
+        palette_color(palette, QPalette::Text),
+        palette_color(palette, QPalette::AlternateBase),
+        palette_color(palette, QPalette::Button),
+        palette_color(palette, QPalette::ButtonText),
+        palette_color(palette, QPalette::Mid),
+        palette_color(palette, QPalette::Highlight),
+        palette_color(palette, QPalette::HighlightedText),
+    };
+}
+
 QImage context_frame_image() {
     const int width = shrimply_qt_timeline_context_frame_width();
     const int height = shrimply_qt_timeline_context_frame_height();
@@ -161,11 +207,13 @@ public:
 
     void render() override {
         const QSize size = framebufferObject()->size();
-        const QColor accent = QGuiApplication::palette().color(QPalette::Highlight);
+        const ShrimplyPlatformPalette palette = platform_palette();
+        shrimply_qt_set_platform_palette(&palette);
         if (!shrimply_qt_render_timeline(
                 static_cast<std::uint32_t>(size.width()),
                 static_cast<std::uint32_t>(size.height()), scale_,
-                accent.redF(), accent.greenF(), accent.blueF(), accent.alphaF(),
+                palette.accent_bg.red, palette.accent_bg.green,
+                palette.accent_bg.blue, palette.accent_bg.alpha,
                 dark_palette())) {
             qFatal("Shrimply could not render the timeline with OpenGL");
         }
@@ -190,12 +238,13 @@ public:
 
     void render() override {
         const QSize size = framebufferObject()->size();
-        const QColor background = QGuiApplication::palette().color(QPalette::Window);
+        const ShrimplyPlatformPalette palette = platform_palette();
+        shrimply_qt_set_platform_palette(&palette);
         if (!shrimply_qt_render_preview(
                 static_cast<std::uint32_t>(size.width()),
                 static_cast<std::uint32_t>(size.height()), scale_,
-                background.redF(), background.greenF(), background.blueF(),
-                background.alphaF(), dark_palette(), fullscreen_)) {
+                palette.window_bg.red, palette.window_bg.green, palette.window_bg.blue,
+                palette.window_bg.alpha, dark_palette(), fullscreen_)) {
             qFatal("Shrimply could not render the preview with OpenGL");
         }
         QQuickOpenGLUtils::resetOpenGLState();
@@ -219,6 +268,8 @@ public:
 
     void render() override {
         const QSize size = framebufferObject()->size();
+        const ShrimplyPlatformPalette palette = platform_palette();
+        shrimply_qt_set_platform_palette(&palette);
         if (!shrimply_qt_render_audio_meter(
                 static_cast<std::uint32_t>(size.width()),
                 static_cast<std::uint32_t>(size.height()), scale_,

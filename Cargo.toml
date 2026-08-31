@@ -75,6 +75,7 @@ members = [
     "crates/timeline/discrete-keyframe-graph-ui",
     "crates/ui/inspector-ui",
     "crates/ui/cross-ui-core",
+    "crates/ui/cross-ui-theme",
     "crates/ui/i18n-core",
     "crates/ui/i18n-gtk",
     "crates/ui/i18n-qt",

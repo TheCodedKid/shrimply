@@ -364,7 +364,7 @@ pub(crate) fn build(
             let painter = match renderer.begin_frame(
                 screen_size_px,
                 pixels_per_point,
-                shrimply_skia_adw_ui::theme::current().view_bg,
+                shrimply_cross_ui_theme::current().view_bg,
             ) {
                 Ok(painter) => painter,
                 Err(error) => {

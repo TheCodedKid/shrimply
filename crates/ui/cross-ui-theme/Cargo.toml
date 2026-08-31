@@ -1,0 +1,7 @@
+[package]
+name = "shrimply-cross-ui-theme"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+shrimply-math-color = { path = "../../math/color" }

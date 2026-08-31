@@ -1,5 +1,7 @@
-//! Adwaita's complete light and dark palettes for custom-drawn UI, mirrored
-//! from `libadwaita/src/stylesheet/_colors.scss`.
+//! Shared colors for custom-drawn UI.
+//!
+//! Adwaita colors provide the defaults. Platform adapters may supply their
+//! native palette without coupling shared drawing code to GTK or Qt.
 
 use shrimply_math_color::Color;
 use std::cell::Cell;
@@ -70,14 +72,36 @@ pub static DARK: Theme = Theme::new(true);
 
 std::thread_local! {
     static DARK_MODE: Cell<bool> = const { Cell::new(false) };
+    static PLATFORM_PALETTE: Cell<Option<PlatformPalette>> = const { Cell::new(None) };
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct PlatformPalette {
+    pub window_bg: Color,
+    pub window_fg: Color,
+    pub view_bg: Color,
+    pub view_fg: Color,
+    pub alternate_bg: Color,
+    pub button_bg: Color,
+    pub button_fg: Color,
+    pub border: Color,
+    pub accent_bg: Color,
+    pub accent_fg: Color,
 }
 
 pub fn set_dark(dark: bool) {
     DARK_MODE.set(dark);
 }
 
-pub fn current() -> &'static Theme {
-    if DARK_MODE.get() { &DARK } else { &LIGHT }
+pub fn set_platform_palette(palette: Option<PlatformPalette>) {
+    PLATFORM_PALETTE.set(palette);
+}
+
+pub fn current() -> Theme {
+    let base = if DARK_MODE.get() { DARK } else { LIGHT };
+    PLATFORM_PALETTE
+        .get()
+        .map_or(base, |palette| base.with_platform_palette(palette))
 }
 
 impl Theme {
@@ -241,6 +265,46 @@ impl Theme {
             overview_bg: select(dark, Color::OVERVIEW_BG_LIGHT, Color::OVERVIEW_BG_DARK),
             overview_fg: select(dark, Color::OVERVIEW_FG_LIGHT, Color::OVERVIEW_FG_DARK),
         }
+    }
+
+    fn with_platform_palette(mut self, palette: PlatformPalette) -> Self {
+        self.window_bg = palette.window_bg;
+        self.window_fg = palette.window_fg;
+        self.view_bg = palette.view_bg;
+        self.view_fg = palette.view_fg;
+        self.headerbar_bg = palette.window_bg;
+        self.headerbar_fg = palette.window_fg;
+        self.headerbar_border = palette.border;
+        self.headerbar_backdrop = palette.window_bg;
+        self.headerbar_shade = palette.border;
+        self.headerbar_darker_shade = palette.border;
+        self.sidebar_bg = palette.alternate_bg;
+        self.sidebar_fg = palette.view_fg;
+        self.sidebar_backdrop = palette.window_bg;
+        self.sidebar_border = palette.border;
+        self.sidebar_shade = palette.border.alpha_multiply(0.5);
+        self.secondary_sidebar_bg = palette.window_bg;
+        self.secondary_sidebar_fg = palette.window_fg;
+        self.secondary_sidebar_backdrop = palette.window_bg;
+        self.secondary_sidebar_border = palette.border;
+        self.secondary_sidebar_shade = palette.border.alpha_multiply(0.5);
+        self.card_bg = palette.button_bg;
+        self.card_fg = palette.button_fg;
+        self.card_shade = palette.border;
+        self.dialog_bg = palette.window_bg;
+        self.dialog_fg = palette.window_fg;
+        self.popover_bg = palette.window_bg;
+        self.popover_fg = palette.window_fg;
+        self.popover_shade = palette.border;
+        self.thumbnail_bg = palette.view_bg;
+        self.thumbnail_fg = palette.view_fg;
+        self.shade = palette.border;
+        self.scrollbar_outline = palette.border;
+        self.active_toggle_bg = palette.accent_bg;
+        self.active_toggle_fg = palette.accent_fg;
+        self.overview_bg = palette.window_bg;
+        self.overview_fg = palette.window_fg;
+        self
     }
 }
 

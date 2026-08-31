@@ -101,6 +101,61 @@ fn render(result: Result<(), String>, surface: &str) -> bool {
     }
 }
 
+#[repr(C)]
+struct PlatformColor {
+    red: f32,
+    green: f32,
+    blue: f32,
+    alpha: f32,
+}
+
+#[repr(C)]
+struct PlatformPalette {
+    window_bg: PlatformColor,
+    window_fg: PlatformColor,
+    view_bg: PlatformColor,
+    view_fg: PlatformColor,
+    alternate_bg: PlatformColor,
+    button_bg: PlatformColor,
+    button_fg: PlatformColor,
+    border: PlatformColor,
+    accent_bg: PlatformColor,
+    accent_fg: PlatformColor,
+}
+
+const PLATFORM_PALETTE_COLOR_COUNT: usize = 10;
+const _: () = assert!(
+    std::mem::size_of::<PlatformPalette>()
+        == std::mem::size_of::<PlatformColor>() * PLATFORM_PALETTE_COLOR_COUNT
+);
+
+impl PlatformColor {
+    fn color(&self) -> Color {
+        Color::new(self.red, self.green, self.blue, self.alpha)
+    }
+}
+
+#[unsafe(no_mangle)]
+unsafe extern "C" fn shrimply_qt_set_platform_palette(palette: *const PlatformPalette) {
+    let palette = unsafe {
+        palette
+            .as_ref()
+            .expect("Qt must provide its platform palette")
+    };
+    shrimply_cross_ui_theme::set_platform_palette(Some(shrimply_cross_ui_theme::PlatformPalette {
+        window_bg: palette.window_bg.color(),
+        window_fg: palette.window_fg.color(),
+        view_bg: palette.view_bg.color(),
+        view_fg: palette.view_fg.color(),
+        alternate_bg: palette.alternate_bg.color(),
+        button_bg: palette.button_bg.color(),
+        button_fg: palette.button_fg.color(),
+        border: palette.border.color(),
+        accent_bg: palette.accent_bg.color(),
+        accent_fg: palette.accent_fg.color(),
+    }));
+}
+
 #[unsafe(no_mangle)]
 pub extern "C" fn shrimply_qt_render_timeline(
     width: u32,
@@ -112,7 +167,7 @@ pub extern "C" fn shrimply_qt_render_timeline(
     alpha: f32,
     dark: bool,
 ) -> bool {
-    shrimply_skia_adw_ui::theme::set_dark(dark);
+    shrimply_cross_ui_theme::set_dark(dark);
     SURFACES.with_borrow_mut(|surfaces| {
         let Some(surfaces) = surfaces.as_mut() else {
             return missing("timeline");
@@ -138,7 +193,7 @@ pub extern "C" fn shrimply_qt_render_preview(
     dark: bool,
     fullscreen: bool,
 ) -> bool {
-    shrimply_skia_adw_ui::theme::set_dark(dark);
+    shrimply_cross_ui_theme::set_dark(dark);
     SURFACES.with_borrow_mut(|surfaces| {
         let Some(surfaces) = surfaces.as_mut() else {
             return missing("preview");
@@ -163,7 +218,7 @@ pub extern "C" fn shrimply_qt_render_audio_meter(
     scale: f32,
     dark: bool,
 ) -> bool {
-    shrimply_skia_adw_ui::theme::set_dark(dark);
+    shrimply_cross_ui_theme::set_dark(dark);
     SURFACES.with_borrow_mut(|surfaces| {
         let Some(surfaces) = surfaces.as_mut() else {
             return missing("audio meter");

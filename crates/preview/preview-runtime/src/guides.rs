@@ -374,8 +374,8 @@ pub fn draw(
 
 fn draw_rulers(painter: &TimelinePainter, viewport: PreviewViewport, surface_rect: Rect) {
     let content_rect = viewport.content_rect;
-    let background = shrimply_skia_adw_ui::theme::current().sidebar_bg;
-    let foreground = shrimply_skia_adw_ui::theme::current().sidebar_fg;
+    let background = shrimply_cross_ui_theme::current().sidebar_bg;
+    let foreground = shrimply_cross_ui_theme::current().sidebar_fg;
     painter.rect_filled(
         Rect::from_min_size(
             vec2(surface_rect.left(), surface_rect.top()),

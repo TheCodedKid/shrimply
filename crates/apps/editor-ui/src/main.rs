@@ -69,9 +69,9 @@ fn main() -> glib::ExitCode {
 
     app.connect_activate(move |app| {
         let style = adw::StyleManager::default();
-        shrimply_skia_adw_ui::theme::set_dark(style.is_dark());
+        shrimply_cross_ui_theme::set_dark(style.is_dark());
         style.connect_dark_notify(|style| {
-            shrimply_skia_adw_ui::theme::set_dark(style.is_dark());
+            shrimply_cross_ui_theme::set_dark(style.is_dark());
         });
         begin_project_load(app, project_path.clone());
     });
