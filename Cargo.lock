@@ -5413,6 +5413,7 @@ dependencies = [
  "shrimply-asset",
  "shrimply-audio",
  "shrimply-blender",
+ "shrimply-i18n-core",
  "shrimply-kdenlive",
  "shrimply-math-core",
  "shrimply-otio",
@@ -6208,7 +6209,6 @@ name = "shrimply-project"
 version = "0.1.0"
 dependencies = [
  "glam 0.33.5",
- "glib",
  "hashbrown 0.17.1",
  "icu_locale",
  "libc",

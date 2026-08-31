@@ -15,7 +15,7 @@ fn main() -> ExitCode {
         return ExitCode::FAILURE;
     }
     backend::qobject::force_opengl();
-    QGuiApplication::set_desktop_file_name(&QString::from("dev.shrimply.Shrimply.Editor.Qt"));
+    QGuiApplication::set_desktop_file_name(&QString::from("dev.shrimply.Shrimply.Qt"));
     let mut app = QGuiApplication::new();
     let Some(mut app) = app.as_mut() else {
         eprintln!("could not create Qt application");

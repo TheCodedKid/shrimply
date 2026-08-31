@@ -43,8 +43,16 @@ pub enum LoadEvent {
     Canceled,
 }
 
-pub enum SessionEvent {
-    AudioPlaybackStopped(String),
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct EditorTitle {
+    pub text: String,
+    pub save_error: Option<String>,
+}
+
+#[derive(Default)]
+pub struct SessionUpdate {
+    pub audio_playback_stopped: Option<String>,
+    pub title: Option<EditorTitle>,
 }
 
 pub struct EditorSession {
@@ -59,6 +67,9 @@ pub struct EditorSession {
     pub property_clipboard: shrimply_property_transfer::SharedClipboard,
     asset_changes: async_channel::Receiver<shrimply_asset::AssetChange>,
     pending_cursor: Rc<Cell<Option<project::Time>>>,
+    commit_status: Rc<RefCell<project::CommitStatus>>,
+    project_name: RefCell<String>,
+    title_dirty: Rc<Cell<bool>>,
 }
 
 impl EditorSession {
@@ -104,6 +115,15 @@ impl EditorSession {
             audio_levels.clone(),
         )?);
         connect_audio_playback(&project, &player_state, &audio_player);
+        let commit_status = Rc::new(RefCell::new(project::CommitStatus::Idle));
+        let current_commit_status = commit_status.clone();
+        let title_dirty = Rc::new(Cell::new(true));
+        let changed_title = title_dirty.clone();
+        project::connect_commit_status(move |status| {
+            *current_commit_status.borrow_mut() = status;
+            changed_title.set(true);
+        });
+        let project_name = RefCell::new(project.borrow().name.clone());
         Ok(Self {
             project,
             player_state,
@@ -116,16 +136,17 @@ impl EditorSession {
             property_clipboard: shrimply_property_transfer::new_clipboard(),
             asset_changes: shrimply_asset::subscribe(),
             pending_cursor,
+            commit_status,
+            project_name,
+            title_dirty,
         })
     }
 
-    pub fn poll(&self) -> Option<SessionEvent> {
+    pub fn poll(&self) -> SessionUpdate {
+        project::poll_commit_status();
         player_state::tick(&self.player_state);
-        let event = self
-            .audio_player
-            .take_failure()
-            .map(SessionEvent::AudioPlaybackStopped);
-        if event.is_some() {
+        let audio_playback_stopped = self.audio_player.take_failure();
+        if audio_playback_stopped.is_some() {
             player_state::set_playing(&self.player_state, false);
         }
         while let Ok(change) = self.asset_changes.try_recv() {
@@ -156,15 +177,96 @@ impl EditorSession {
                 );
             }
         }
-        let Some(position) = self.pending_cursor.take() else {
-            return event;
-        };
-        let mut project = self.project.borrow_mut();
-        if project.cursor_position != Some(position) {
-            project.cursor_position = Some(position);
-            project::save_view_state(&project);
+        let name = self.project.borrow().name.clone();
+        if *self.project_name.borrow() != name {
+            if let Err(error) =
+                shrimply_support::recent_projects::touch(&project::active_project_path(), &name)
+            {
+                tracing::warn!(%error, "could not update recent projects");
+            }
+            *self.project_name.borrow_mut() = name;
+            self.title_dirty.set(true);
         }
-        event
+        if let Some(position) = self.pending_cursor.take() {
+            let mut project = self.project.borrow_mut();
+            if project.cursor_position != Some(position) {
+                project.cursor_position = Some(position);
+                project::save_view_state(&project);
+            }
+        }
+        SessionUpdate {
+            audio_playback_stopped,
+            title: self.title_dirty.replace(false).then(|| self.title()),
+        }
+    }
+
+    pub fn title(&self) -> EditorTitle {
+        editor_title(&self.project.borrow().name, &self.commit_status.borrow())
+    }
+
+    pub fn save(&self) -> Result<(), String> {
+        project::save()
+    }
+
+    pub fn save_as(&self, mut path: PathBuf) -> Result<PathBuf, String> {
+        if !has_extension(&path, "shrimp") {
+            path.set_extension("shrimp");
+        }
+        project::save_as(&path)?;
+        let name = self.project.borrow().name.clone();
+        if let Err(error) = shrimply_support::recent_projects::touch(&path, &name) {
+            tracing::warn!(%error, "could not update recent projects");
+        }
+        player_state::refresh_project(
+            &self.player_state,
+            player_state::ProjectChange {
+                inspector: true,
+                ..Default::default()
+            },
+        );
+        Ok(path)
+    }
+}
+
+pub fn suggested_save_as_path() -> PathBuf {
+    let current = project::active_project_path();
+    let name = current
+        .file_stem()
+        .and_then(|name| name.to_str())
+        .map(|name| format!("{name} copy.shrimp"))
+        .unwrap_or_else(|| "project copy.shrimp".to_string());
+    current.with_file_name(name)
+}
+
+fn editor_title(project_name: &str, status: &project::CommitStatus) -> EditorTitle {
+    let text = match status {
+        project::CommitStatus::InProgress(action) => shrimply_i18n_core::text_args(
+            "%{project} — %{action}",
+            &[
+                ("project", project_name.to_owned()),
+                ("action", shrimply_i18n_core::text(action).into_owned()),
+            ],
+        ),
+        project::CommitStatus::SavePending => shrimply_i18n_core::text_args(
+            "%{project} — Unsaved",
+            &[("project", project_name.to_owned())],
+        ),
+        project::CommitStatus::Saving => shrimply_i18n_core::text_args(
+            "%{project} — Saving",
+            &[("project", project_name.to_owned())],
+        ),
+        project::CommitStatus::SaveFailed(_) => shrimply_i18n_core::text_args(
+            "%{project} — Unsaved — Save failed",
+            &[("project", project_name.to_owned())],
+        ),
+        project::CommitStatus::Idle => project_name.to_string(),
+    };
+    EditorTitle {
+        text,
+        save_error: match status {
+            project::CommitStatus::SaveFailed(error) => Some(error.clone()),
+            _ => None,
+        },
     }
 }
 

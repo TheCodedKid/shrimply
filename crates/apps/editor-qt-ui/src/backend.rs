@@ -1,7 +1,7 @@
 use core::pin::Pin;
 use cxx_qt::CxxQtType;
 use cxx_qt_lib::{QString, QUrl};
-use shrimply_cross_ui_core::editor::{EditorSession, LoadEvent, ProjectLoader, SessionEvent};
+use shrimply_cross_ui_core::editor::{EditorSession, LoadEvent, ProjectLoader};
 use shrimply_math_core::{Fraction, frame_count, frame_index, time_from_signed_frame};
 use shrimply_project::project::{self, CanvasSize};
 use shrimply_state::player_state;
@@ -84,6 +84,12 @@ pub mod qobject {
         fn seek_frame(self: Pin<&mut EditorBackend>, frame: i64);
         #[qinvokable]
         fn save(self: Pin<&mut EditorBackend>);
+        #[qinvokable]
+        #[cxx_name = "saveAs"]
+        fn save_as(self: Pin<&mut EditorBackend>, url: &QUrl);
+        #[qinvokable]
+        #[cxx_name = "suggestedSaveAsUrl"]
+        fn suggested_save_as_url(self: Pin<&mut EditorBackend>) -> QUrl;
         #[qinvokable]
         fn undo(self: Pin<&mut EditorBackend>);
         #[qinvokable]
@@ -268,14 +274,19 @@ impl qobject::EditorBackend {
     }
 
     pub fn poll(mut self: Pin<&mut Self>) {
-        let session_event = self
+        let session_update = self
             .as_ref()
             .rust()
             .session
             .as_deref()
-            .and_then(EditorSession::poll);
-        if let Some(SessionEvent::AudioPlaybackStopped(error)) = session_event {
+            .map(EditorSession::poll)
+            .unwrap_or_default();
+        if let Some(error) = session_update.audio_playback_stopped {
             self.as_mut().show_playback_error(QString::from(error));
+        }
+        if let Some(title) = session_update.title {
+            self.as_mut()
+                .set_project_title(QString::from(title.text.as_str()));
         }
         let event = self
             .as_mut()
@@ -382,9 +393,34 @@ impl qobject::EditorBackend {
     }
 
     pub fn save(self: Pin<&mut Self>) {
-        if let Err(error) = project::save() {
+        let Some(session) = self.session.as_deref() else {
+            return;
+        };
+        if let Err(error) = session.save() {
             self.emit_error("Could not save project", &error);
         }
+    }
+
+    pub fn save_as(self: Pin<&mut Self>, url: &QUrl) {
+        let Some(path) = local_path(url) else {
+            self.emit_error(
+                "Could not save project",
+                "The selected location does not have a local path.",
+            );
+            return;
+        };
+        tracing::debug!(path = %path.display(), "Qt Save As destination accepted");
+        let Some(session) = self.session.as_deref() else {
+            return;
+        };
+        if let Err(error) = session.save_as(path) {
+            self.emit_error("Could not save project", &error);
+        }
+    }
+
+    pub fn suggested_save_as_url(self: Pin<&mut Self>) -> QUrl {
+        let path = shrimply_cross_ui_core::editor::suggested_save_as_path();
+        QUrl::from_local_file(&QString::from(path.to_string_lossy().as_ref()))
     }
 
     pub fn undo(self: Pin<&mut Self>) {
@@ -724,8 +760,6 @@ impl qobject::EditorBackend {
                 shrimply_preview_qt::install(&session).unwrap_or_else(|error| {
                     panic!("could not initialize Qt GPU surfaces: {error}")
                 });
-                self.as_mut()
-                    .set_project_title(QString::from(session.project.borrow().name.as_str()));
                 self.as_mut().rust_mut().get_mut().session = Some(Box::pin(session));
                 self.as_mut().set_ready(true);
                 self.as_mut().update_player_properties();

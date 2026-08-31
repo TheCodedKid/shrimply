@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::sync::{Mutex, OnceLock, mpsc};
 
 #[derive(Clone, Debug)]
 pub enum CommitStatus {
@@ -17,6 +18,16 @@ pub(super) enum SaveStatus {
     Saving,
     Failed(String),
 }
+
+enum StatusEvent {
+    Finish,
+    Save(SaveStatus),
+}
+
+static STATUS_EVENTS: OnceLock<(
+    mpsc::Sender<StatusEvent>,
+    Mutex<mpsc::Receiver<StatusEvent>>,
+)> = OnceLock::new();
 
 type Listener = Rc<dyn Fn(CommitStatus)>;
 
@@ -59,7 +70,42 @@ pub(super) fn set_save(status: SaveStatus) {
 }
 
 pub(super) fn request_save(status: SaveStatus) {
-    glib::idle_add_once(move || set_save(status));
+    send(StatusEvent::Save(status));
+}
+
+pub(super) fn request_finish() {
+    send(StatusEvent::Finish);
+}
+
+pub fn poll() {
+    let (_, receiver) = status_events();
+    while let Ok(event) = receiver
+        .lock()
+        .expect("project status receiver lock poisoned")
+        .try_recv()
+    {
+        match event {
+            StatusEvent::Finish => finish(),
+            StatusEvent::Save(status) => set_save(status),
+        }
+    }
+}
+
+fn send(event: StatusEvent) {
+    status_events()
+        .0
+        .send(event)
+        .expect("project status receiver stopped unexpectedly");
+}
+
+fn status_events() -> &'static (
+    mpsc::Sender<StatusEvent>,
+    Mutex<mpsc::Receiver<StatusEvent>>,
+) {
+    STATUS_EVENTS.get_or_init(|| {
+        let (sender, receiver) = mpsc::channel();
+        (sender, Mutex::new(receiver))
+    })
 }
 
 fn update(change: impl FnOnce(&mut Manager)) {

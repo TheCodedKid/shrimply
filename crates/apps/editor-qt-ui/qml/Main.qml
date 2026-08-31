@@ -88,11 +88,18 @@ ApplicationWindow {
         visible: backend.ready && !window.fullscreenPreview
 
         Menu {
-            title: backend.translate("Project")
+            title: backend.translate("File")
             popupType: Popup.Native
 
             Action { text: backend.translate("Save"); shortcut: StandardKey.Save; onTriggered: backend.save() }
-            Action { text: backend.translate("Save As…"); shortcut: StandardKey.SaveAs }
+            Action {
+                text: backend.translate("Save As…")
+                shortcut: StandardKey.SaveAs
+                onTriggered: {
+                    saveAsDialog.selectedFile = backend.suggestedSaveAsUrl()
+                    Qt.callLater(saveAsDialog.open)
+                }
+            }
             MenuSeparator {}
             Action { text: backend.translate("Export…"); shortcut: "Ctrl+E" }
             MenuSeparator {}
@@ -597,6 +604,16 @@ ApplicationWindow {
             timelineDeleteTrackDialog.text = backend.translate("%1 clips are about to be deleted. Are you sure?").arg(clipCount)
             timelineDeleteTrackDialog.open()
         }
+    }
+
+    FileDialog {
+        id: saveAsDialog
+        title: backend.translate("Save Project As")
+        fileMode: FileDialog.SaveFile
+        options: FileDialog.DontUseNativeDialog
+        nameFilters: [backend.translate("Shrimply projects (*.shrimp)")]
+        defaultSuffix: "shrimp"
+        onAccepted: backend.saveAs(selectedFile)
     }
 
     FileDialog {

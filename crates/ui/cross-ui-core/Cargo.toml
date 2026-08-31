@@ -10,6 +10,7 @@ glib.workspace = true
 shrimply-asset = { path = "../../asset" }
 shrimply-audio = { path = "../../audio/audio" }
 shrimply-blender = { path = "../../blender/blender-bridge" }
+shrimply-i18n-core = { path = "../i18n-core" }
 shrimply-math-core = { path = "../../math/core" }
 shrimply-kdenlive = { path = "../../project/kdenlive" }
 shrimply-otio = { path = "../../project/otio" }

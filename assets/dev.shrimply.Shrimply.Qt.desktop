@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=Shrimply Qt
+GenericName=Video Editor
+Comment=A simple video editor
+Exec=shrimply-qt %f
+TryExec=shrimply-qt
+Icon=dev.shrimply.Shrimply
+Terminal=false
+StartupNotify=true
+PrefersNonDefaultGPU=true
+Categories=AudioVideo;Video;Qt;KDE;
+Keywords=video;audio;editor;timeline;

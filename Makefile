@@ -70,6 +70,7 @@ DATADIR ?= $(PREFIX)/share
 APPLICATIONSDIR ?= $(DATADIR)/applications
 ICONDIR ?= $(DATADIR)/icons/hicolor/scalable/apps
 DESKTOP_FILE := assets/dev.shrimply.Shrimply.desktop
+QT_DESKTOP_FILE := assets/dev.shrimply.Shrimply.Qt.desktop
 APP_ICON := assets/icons/dev.shrimply.Shrimply.svg
 RHUBARB_LIBRARY := target/release/libshrimply-rhubarb.so
 RHUBARB_MODEL_SOURCE := external/rhubarb-lip-sync/rhubarb/lib/pocketsphinx-rev13216/model/en-us
@@ -102,7 +103,7 @@ FEDORA_PACKAGES := \
 	poppler-glib-devel \
 	freetype-devel
 
-.PHONY: native-deps qt-native-deps cuda-target-check cuda-artifacts dev qt-build dev-qt dev-server docs docs-check run run-qt build release check server-python-check manim manim-python-check manim-parameter-check cargo-check fmt fmt-check lint test frame-rate-test video-lifecycle-test transparent-fill-frame-range-test transparent-fill-cache-test transparent-fill-decoder-test transparent-fill-kernel-test transparent-fill-compositor-test transparent-fill-playback-test transparent-fill-e2e-fixture transparent-fill-e2e-test decode-ahead-benchmark paint-interpolation-test crash-report oxide-doctor oxide-setup clean-dev clean deps-fedora install install-codex-mcp-dev install-agy-mcp-dev uninstall
+.PHONY: native-deps qt-native-deps qt-desktop-file cuda-target-check cuda-artifacts dev qt-build dev-qt dev-server docs docs-check run run-qt build release check server-python-check manim manim-python-check manim-parameter-check cargo-check fmt fmt-check lint test frame-rate-test video-lifecycle-test transparent-fill-frame-range-test transparent-fill-cache-test transparent-fill-decoder-test transparent-fill-kernel-test transparent-fill-compositor-test transparent-fill-playback-test transparent-fill-e2e-fixture transparent-fill-e2e-test decode-ahead-benchmark paint-interpolation-test crash-report oxide-doctor oxide-setup clean-dev clean deps-fedora install install-codex-mcp-dev install-agy-mcp-dev uninstall
 
 native-deps:
 	@$(PKG_CONFIG) --exists rubberband || { echo "Missing Rubber Band development files (pkg-config: rubberband)" >&2; exit 1; }
@@ -206,7 +207,11 @@ qt-build: native-deps qt-native-deps cuda-artifacts
 	$(DEV_BUILD_ENV) QMAKE=$(QT_QMAKE) CARGO_TERM_COLOR=always $(CARGO) build -p $(QT_EDITOR_PACKAGE) -p $(QT_LAUNCHER_PACKAGE) -p $(MCP_PACKAGE) --bins
 
 dev-qt: SHELL := /bin/bash
-dev-qt: qt-build
+qt-desktop-file:
+	sed -e 's|^Exec=.*|Exec=$(CURDIR)/target/debug/$(QT_BIN_NAME) %f|' -e 's|^TryExec=.*|TryExec=$(CURDIR)/target/debug/$(QT_BIN_NAME)|' $(QT_DESKTOP_FILE) | $(INSTALL) -Dm644 /dev/stdin "$(APPLICATIONSDIR)/dev.shrimply.Shrimply.Qt.desktop"
+	@command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database "$(APPLICATIONSDIR)" >/dev/null || true
+
+dev-qt: qt-build qt-desktop-file
 	@started="$$(date --iso-8601=seconds)"; \
 	$(BUILD_ENV) RUST_LOG=$(RUST_LOG) target/debug/$(QT_BIN_NAME) 2>&1 \
 		| tee >(sed -E 's/\x1B\[[0-9;]*[[:alpha:]]//g' > "$(QT_DEV_LOG)"); \
@@ -228,7 +233,7 @@ docs-check:
 
 run: dev
 
-run-qt: qt-build
+run-qt: qt-build qt-desktop-file
 	$(BUILD_ENV) RUST_LOG=$(RUST_LOG) target/debug/$(QT_BIN_NAME)
 
 build: native-deps cuda-artifacts
@@ -398,6 +403,7 @@ uninstall:
 	rm -f "$(DESTDIR)$(BINDIR)/libshrimply-rhubarb.so"
 	rm -rf "$(DESTDIR)$(DATADIR)/shrimply/rhubarb"
 	rm -f "$(DESTDIR)$(APPLICATIONSDIR)/dev.shrimply.Shrimply.desktop"
+	rm -f "$(DESTDIR)$(APPLICATIONSDIR)/dev.shrimply.Shrimply.Qt.desktop"
 	rm -f "$(DESTDIR)$(ICONDIR)/dev.shrimply.Shrimply.svg"
 	@if test -z "$(DESTDIR)"; then \
 		command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database "$(APPLICATIONSDIR)" >/dev/null || true; \

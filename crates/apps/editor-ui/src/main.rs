@@ -19,7 +19,7 @@ use ffmpeg_next as ffmpeg;
 use gdk_pixbuf::prelude::PixbufAnimationExtManual;
 use gtk::gdk::prelude::GdkCairoContextExt;
 use gtk::{gio, glib};
-use shrimply_cross_ui_core::editor::{EditorSession, LoadEvent, ProjectLoader, SessionEvent};
+use shrimply_cross_ui_core::editor::{EditorSession, LoadEvent, ProjectLoader};
 use std::cell::{Cell, RefCell};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -101,15 +101,6 @@ fn build_ui(window: &adw::ApplicationWindow, project: project::Project) {
     let preferences = session.preferences.clone();
     let audio_levels = session.audio_levels.clone();
     let audio_player = session.audio_player.clone();
-    let polling_session = session.clone();
-    let polling_window = window.clone();
-    window.add_tick_callback(move |_, _| {
-        if let Some(SessionEvent::AudioPlaybackStopped(error)) = polling_session.poll() {
-            let dialog = adw::AlertDialog::new(Some("Audio playback stopped"), Some(&error));
-            dialog.present(Some(&polling_window));
-        }
-        glib::ControlFlow::Continue
-    });
     let mcp_server = RefCell::new(Some(
         mcp::start(
             project.clone(),
@@ -198,40 +189,20 @@ fn build_ui(window: &adw::ApplicationWindow, project: project::Project) {
     panel_toggles.append(&inspector_toggle);
     panel_toggles.append(&timeline_toggle);
     header_bar.pack_start(&panel_toggles);
-    let project_name = Rc::new(RefCell::new(project.borrow().name.clone()));
-    let commit_status = Rc::new(RefCell::new(project::CommitStatus::Idle));
-    let status_project_name = project_name.clone();
-    let current_commit_status = commit_status.clone();
-    let status_title = title.clone();
-    let status_window = window.clone();
-    project::connect_commit_status(move |status| {
-        update_project_title(
-            &status_window,
-            &status_title,
-            &status_project_name.borrow(),
-            &status,
-        );
-        *current_commit_status.borrow_mut() = status;
-    });
-
-    let name_project = project.clone();
-    let name_window = window.clone();
-    let name_commit_status = commit_status.clone();
-    player_state::connect_named(&player_state, "editor project name", move |event| {
-        if !matches!(event, player_state::PlayerEvent::Project(_)) {
-            return;
+    let polling_session = session.clone();
+    let polling_window = window.clone();
+    window.add_tick_callback(move |_, _| {
+        let update = polling_session.poll();
+        if let Some(error) = update.audio_playback_stopped {
+            let dialog = adw::AlertDialog::new(Some("Audio playback stopped"), Some(&error));
+            dialog.present(Some(&polling_window));
         }
-        let name = name_project.borrow().name.clone();
-        if *project_name.borrow() == name {
-            return;
+        if let Some(next) = update.title {
+            title.set_label(&next.text);
+            title.set_tooltip_text(next.save_error.as_deref());
+            polling_window.set_title(Some(&next.text));
         }
-        *project_name.borrow_mut() = name.clone();
-        update_project_title(&name_window, &title, &name, &name_commit_status.borrow());
-        if let Err(error) =
-            shrimply_support::recent_projects::touch(&project::active_project_path(), &name)
-        {
-            tracing::warn!("Could not update recent projects: {error}");
-        }
+        glib::ControlFlow::Continue
     });
 
     let toolbar = adw::ToolbarView::new();
@@ -245,14 +216,7 @@ fn build_ui(window: &adw::ApplicationWindow, project: project::Project) {
     window.set_default_size(DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT);
     window.set_content(Some(&toasts));
 
-    header_menu::add(
-        &header_bar,
-        window,
-        &toasts,
-        project.clone(),
-        player_state.clone(),
-        preferences.clone(),
-    );
+    header_menu::add(&header_bar, window, &toasts, session);
     window.present();
     video_player.grab_focus();
 }
@@ -329,42 +293,6 @@ fn connect_panel_toggle(
         }));
         animation.play();
     });
-}
-
-fn update_project_title(
-    window: &adw::ApplicationWindow,
-    title: &gtk::Label,
-    project_name: &str,
-    status: &project::CommitStatus,
-) {
-    let label = match status {
-        project::CommitStatus::InProgress(action) => shrimply_ui_foundation::i18n::text_args(
-            "%{project} — %{action}",
-            &[
-                ("project", project_name.to_owned()),
-                ("action", tr!(action).into_owned()),
-            ],
-        ),
-        project::CommitStatus::SavePending => shrimply_ui_foundation::i18n::text_args(
-            "%{project} — Unsaved",
-            &[("project", project_name.to_owned())],
-        ),
-        project::CommitStatus::Saving => shrimply_ui_foundation::i18n::text_args(
-            "%{project} — Saving",
-            &[("project", project_name.to_owned())],
-        ),
-        project::CommitStatus::SaveFailed(_) => shrimply_ui_foundation::i18n::text_args(
-            "%{project} — Unsaved — Save failed",
-            &[("project", project_name.to_owned())],
-        ),
-        project::CommitStatus::Idle => project_name.to_string(),
-    };
-    title.set_label(&label);
-    title.set_tooltip_text(match status {
-        project::CommitStatus::SaveFailed(error) => Some(error),
-        _ => None,
-    });
-    window.set_title(Some(&label));
 }
 
 fn begin_project_load(app: &adw::Application, path: PathBuf) {

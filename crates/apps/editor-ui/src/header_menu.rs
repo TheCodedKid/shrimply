@@ -12,10 +12,11 @@ pub(crate) fn add(
     header_bar: &adw::HeaderBar,
     window: &adw::ApplicationWindow,
     toasts: &adw::ToastOverlay,
-    project: Rc<RefCell<project::Project>>,
-    player_state: player_state::SharedPlayerState,
-    preferences: shrimply_preferences_core::SharedPreferences,
+    session: Rc<shrimply_cross_ui_core::editor::EditorSession>,
 ) {
+    let project = session.project.clone();
+    let player_state = session.player_state.clone();
+    let preferences = session.preferences.clone();
     let menu = gio::Menu::new();
     let project_menu = gio::Menu::new();
     project_menu.append_i18n("New Project", "win.new-project");
@@ -69,14 +70,14 @@ pub(crate) fn add(
     add_action(window, "save-as", {
         let window = window.clone();
         let toasts = toasts.clone();
-        let project = project.clone();
-        let player_state = player_state.clone();
-        move || show_save_as_dialog(&window, &toasts, &project, &player_state)
+        let session = session.clone();
+        move || show_save_as_dialog(&window, &toasts, &session)
     });
     add_action(window, "save", {
         let window = window.clone();
+        let session = session.clone();
         move || {
-            if let Err(error) = project::save() {
+            if let Err(error) = session.save() {
                 show_error_dialog(&window, "Could not save project", &error);
             }
         }
@@ -238,18 +239,17 @@ fn show_open_project_dialog(window: &adw::ApplicationWindow) {
 fn show_save_as_dialog(
     window: &adw::ApplicationWindow,
     toasts: &adw::ToastOverlay,
-    current_project: &Rc<RefCell<project::Project>>,
-    player_state: &player_state::SharedPlayerState,
+    session: &Rc<shrimply_cross_ui_core::editor::EditorSession>,
 ) {
     let label = "Save Project As";
     let filter = shrimply_ui_foundation::project_open::project_file_filter();
     let filters = gio::ListStore::new::<gtk::FileFilter>();
     filters.append(&filter);
-    let initial_name = project::active_project_path()
-        .file_stem()
+    let initial_name = shrimply_cross_ui_core::editor::suggested_save_as_path()
+        .file_name()
         .and_then(|name| name.to_str())
-        .map(|name| format!("{name} copy.shrimp"))
-        .unwrap_or_else(|| "project copy.shrimp".to_string());
+        .expect("save-as suggestion must have a file name")
+        .to_string();
     let dialog = gtk::FileDialog::builder()
         .title(tr!(label).as_ref())
         .initial_name(initial_name)
@@ -259,8 +259,7 @@ fn show_save_as_dialog(
     let window = window.clone();
     let parent = window.clone();
     let toasts = toasts.clone();
-    let current_project = current_project.clone();
-    let player_state = player_state.clone();
+    let session = session.clone();
     shrimply_ui_foundation::file_picker::save(
         label,
         &dialog,
@@ -269,7 +268,7 @@ fn show_save_as_dialog(
             let Ok(file) = result else {
                 return;
             };
-            let Some(mut path) = file.path() else {
+            let Some(path) = file.path() else {
                 show_error_dialog(
                     &window,
                     "Could not save project",
@@ -277,36 +276,16 @@ fn show_save_as_dialog(
                 );
                 return;
             };
-            if !has_shrimp_extension(&path) {
-                path.set_extension("shrimp");
-            }
-            if let Err(error) = project::save_as(&path) {
+            if let Err(error) = session.save_as(path) {
                 show_error_dialog(&window, "Could not save project", &error);
                 return;
             }
-            let name = current_project.borrow().name.clone();
-            if let Err(error) = shrimply_support::recent_projects::touch(&path, &name) {
-                tracing::warn!("Could not update recent projects: {error}");
-            }
-            player_state::refresh_project(
-                &player_state,
-                player_state::ProjectChange {
-                    inspector: true,
-                    ..player_state::ProjectChange::default()
-                },
-            );
             shrimply_ui_foundation::toast::show_confirmation(
                 &toasts,
                 "Project saved to the new location",
             );
         },
     );
-}
-
-fn has_shrimp_extension(path: &Path) -> bool {
-    path.extension()
-        .and_then(|extension| extension.to_str())
-        .is_some_and(|extension| extension.eq_ignore_ascii_case("shrimp"))
 }
 
 fn launch_sibling(name: &str, argument: Option<&Path>) -> Result<(), String> {

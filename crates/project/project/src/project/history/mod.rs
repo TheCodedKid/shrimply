@@ -2,7 +2,7 @@ mod memory;
 mod status;
 mod storage;
 
-pub use status::{CommitStatus, connect_commit_status};
+pub use status::{CommitStatus, connect_commit_status, poll as poll_commit_status};
 pub use storage::{create_new_project_file, create_project_file, serialize_project_json};
 
 use super::*;
@@ -14,6 +14,7 @@ use std::sync::mpsc::{self, Sender, SyncSender};
 use std::thread;
 use std::time::{Duration, Instant};
 
+use status::request_finish as request_finish_commit_status;
 use status::{SaveStatus, begin as begin_commit_status, finish as finish_commit_status};
 use status::{request_save as request_save_status_update, set_save as set_save_status};
 
@@ -343,7 +344,7 @@ fn start_history_worker(mut project: Project, mut path: PathBuf) -> SyncSender<H
                     last_update = Instant::now();
                     request_save_status_update(SaveStatus::Pending);
                     tracing::debug!(step, "Updated pending project snapshot");
-                    glib::idle_add_once(finish_commit_status);
+                    request_finish_commit_status();
                 }
                 HistoryJob::ViewState {
                     cursor_position,
