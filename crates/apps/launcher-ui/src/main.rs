@@ -1,7 +1,7 @@
 use adw::prelude::*;
 use gtk::{gio, glib};
-use shrimply_ui_foundation::project_settings::ProjectSettingsSelector;
-use shrimply_ui_foundation::tr;
+use shrimply_gtk_components::project_settings::ProjectSettingsSelector;
+use shrimply_gtk_components::tr;
 use std::path::Path;
 use std::sync::mpsc;
 use std::thread;
@@ -15,7 +15,7 @@ const PROJECT_PATH_LINES: i32 = 3;
 
 fn main() -> glib::ExitCode {
     shrimply_support::diagnostics::init();
-    shrimply_ui_foundation::i18n::init_system_locale();
+    shrimply_gtk_components::i18n::init_system_locale();
     let mut args = std::env::args_os().skip(1);
     if let Some(path) = args.next() {
         if args.next().is_some() {
@@ -52,7 +52,7 @@ fn main() -> glib::ExitCode {
 }
 
 fn build_ui(app: &adw::Application) {
-    shrimply_ui_foundation::icons::register_bundled();
+    shrimply_gtk_components::icons::register_bundled();
 
     let left_header = adw::HeaderBar::new();
     left_header.set_show_end_title_buttons(false);
@@ -217,7 +217,7 @@ fn refresh_recents(
         let last_edited_subtitle = last_edited
             .as_ref()
             .map(|date| {
-                shrimply_ui_foundation::i18n::text_args(
+                shrimply_gtk_components::i18n::text_args(
                     "Last edited %{date}",
                     &[("date", date.clone())],
                 )
@@ -271,7 +271,7 @@ fn refresh_recents(
             let popover = popover.clone();
             move |_| {
                 popover.popdown();
-                if let Err(error) = shrimply_ui_foundation::desktop_open::show_path_in_folder(
+                if let Err(error) = shrimply_gtk_components::desktop_open::show_path_in_folder(
                     window.upcast_ref(),
                     path.clone(),
                 ) {
@@ -330,7 +330,7 @@ fn show_project_info(
         let path = path.to_path_buf();
         let window = window.clone();
         move |button| {
-            if let Err(error) = shrimply_ui_foundation::desktop_open::show_path_in_folder(
+            if let Err(error) = shrimply_gtk_components::desktop_open::show_path_in_folder(
                 button.upcast_ref(),
                 path.clone(),
             ) {
@@ -356,7 +356,7 @@ fn show_project_info(
 fn show_open_project(window: &adw::ApplicationWindow, app: &adw::Application) {
     let window = window.clone();
     let app = app.clone();
-    shrimply_ui_foundation::project_open::open_project(&window.clone(), move |result| {
+    shrimply_gtk_components::project_open::open_project(&window.clone(), move |result| {
         let path = match result {
             Ok(Some(path)) => path,
             Ok(None) => return,
@@ -420,7 +420,7 @@ fn show_create_project(window: &adw::ApplicationWindow, app: &adw::Application) 
                 show_error(&window, "Could not create project", "Invalid frame rate.");
                 return;
             };
-            let filter = shrimply_ui_foundation::project_open::project_file_filter();
+            let filter = shrimply_gtk_components::project_open::project_file_filter();
             let filters = gio::ListStore::new::<gtk::FileFilter>();
             filters.append(&filter);
             let label = "Create Project";
@@ -435,7 +435,7 @@ fn show_create_project(window: &adw::ApplicationWindow, app: &adw::Application) 
             dialog.close();
             let window_for_save = window.clone();
             let app_for_save = app.clone();
-            shrimply_ui_foundation::file_picker::save(
+            shrimply_gtk_components::file_picker::save(
                 label,
                 &save,
                 Some(window.upcast_ref::<gtk::Window>()),

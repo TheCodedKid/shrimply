@@ -1,7 +1,5 @@
-use shrimply_ui_foundation::tr;
-use std::{
-    cell::RefCell, collections::BTreeSet, fs, path::PathBuf, rc::Rc, sync::OnceLock, time::Duration,
-};
+use shrimply_gtk_components::tr;
+use std::{cell::RefCell, collections::BTreeSet, rc::Rc, time::Duration};
 
 use adw::prelude::*;
 use gtk::glib::{self, SourceId};
@@ -10,7 +8,6 @@ use sourceview5::prelude::*;
 
 use crate::transform_eval::TransformExpressionCache;
 
-const RHAI_LANGUAGE: &str = include_str!("rhai.lang");
 const EDITOR_HEIGHT: i32 = 86;
 const INDENT_WIDTH: i32 = 2;
 const INDENT: &str = "  ";
@@ -21,8 +18,6 @@ time t local_t value duration fps canvas_width canvas_height \
 media_width media_height source_width source_height seed \
 sin cos tan random shake vol Fraction abs int sqrt pow clamp lerp \
 rgb rgba gray graya hsv hsva oklab oklaba";
-
-static RHAI_LANGUAGE_DIR: OnceLock<Option<String>> = OnceLock::new();
 
 #[derive(Clone, Copy)]
 pub(crate) enum ExpressionValue {
@@ -769,46 +764,7 @@ fn set_diagnostic_label(label: &gtk::Label, message: Option<&str>) {
 }
 
 fn set_rhai_language(buffer: &sourceview5::Buffer) {
-    let manager = sourceview5::LanguageManager::new();
-    if let Some(path) = rhai_language_dir() {
-        let mut paths: Vec<String> = manager
-            .search_path()
-            .into_iter()
-            .map(|path| path.to_string())
-            .collect();
-        if !paths.iter().any(|existing| existing == path) {
-            paths.push(path.to_string());
-            let refs: Vec<&str> = paths.iter().map(String::as_str).collect();
-            manager.set_search_path(&refs);
-        }
-    }
-    if let Some(language) = manager.language("rhai") {
-        buffer.set_language(Some(&language));
-        buffer.set_highlight_syntax(true);
-    }
-}
-
-fn rhai_language_dir() -> Option<&'static str> {
-    RHAI_LANGUAGE_DIR
-        .get_or_init(|| {
-            let dir = std::env::temp_dir().join("shrimply-gtksourceview");
-            write_rhai_language(&dir)
-                .inspect_err(|error| {
-                    tracing::warn!("Could not install Rhai language spec: {error}")
-                })
-                .ok()
-                .and_then(|_| dir.to_str().map(str::to_string))
-        })
-        .as_deref()
-}
-
-fn write_rhai_language(dir: &PathBuf) -> Result<(), std::io::Error> {
-    fs::create_dir_all(dir)?;
-    let path = dir.join("rhai.lang");
-    if fs::read_to_string(&path).ok().as_deref() == Some(RHAI_LANGUAGE) {
-        return Ok(());
-    }
-    fs::write(path, RHAI_LANGUAGE)
+    shrimply_gtk_components::ui::configure_code_language(buffer, "rhai");
 }
 
 fn set_style_scheme(buffer: &sourceview5::Buffer) {

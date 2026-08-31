@@ -121,7 +121,7 @@ pub(super) fn start_waveform_loader(
     };
     let (_, subscription) = waveform_pipeline().request(request);
     let runtime_for_delivery = runtime.clone();
-    let handle = shrimply_ui_foundation::resource_pipeline::deliver(
+    let handle = shrimply_gtk_components::resource_pipeline::deliver(
         area.downgrade(),
         subscription,
         WAVEFORM_POLL_INTERVAL,
@@ -162,7 +162,7 @@ pub(super) fn start_beat_loader(
     };
     let (_, subscription) = beat_pipeline().request(request);
     let runtime_for_delivery = runtime.clone();
-    let handle = shrimply_ui_foundation::resource_pipeline::deliver(
+    let handle = shrimply_gtk_components::resource_pipeline::deliver(
         area.downgrade(),
         subscription,
         BEAT_POLL_INTERVAL,

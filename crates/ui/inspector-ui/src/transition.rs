@@ -1,5 +1,7 @@
 use crate::player_state::{self, ProjectChange};
 use crate::ui::NumberPicker;
+use shrimply_gtk_components::tr;
+use shrimply_gtk_components::ui::{ColorPicker, switch_row};
 use shrimply_project::project::{
     AudioClipTransition, AudioClipTransitionCurve, AudioTransition, DrawingFillMode, Interpolation,
     ItemAddress, MAX_VISUAL_CLIP_TRANSITION_CLOCK_SOFTNESS,
@@ -8,8 +10,6 @@ use shrimply_project::project::{
     VisualClipTransition, VisualClipTransitionKind, VisualTransition, VisualTransitionKind,
     WriteOrdering,
 };
-use shrimply_ui_foundation::tr;
-use shrimply_ui_foundation::ui::{ColorPicker, switch_row};
 
 use super::{Inspectable, InspectorContext, section::InspectorSection, selector::selector};
 

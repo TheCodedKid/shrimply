@@ -1,5 +1,5 @@
 use gtk::prelude::*;
-use shrimply_ui_foundation::tr;
+use shrimply_gtk_components::tr;
 
 use crate::{InspectorContext, player_state};
 use shrimply_video_modifiers::{

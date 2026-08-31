@@ -1,7 +1,7 @@
 use crate::{server, store as preferences_store};
 use adw::prelude::*;
-use shrimply_ui_foundation::tr;
-use shrimply_ui_foundation::ui::ColorPicker;
+use shrimply_gtk_components::tr;
+use shrimply_gtk_components::ui::ColorPicker;
 
 pub fn show_preferences_dialog(
     window: &adw::ApplicationWindow,
@@ -357,7 +357,7 @@ pub fn show_preferences_dialog(
         let store = choose_store.clone();
         let row = choose_row.clone();
         let parent = choose_dialog.clone();
-        shrimply_ui_foundation::file_picker::open(
+        shrimply_gtk_components::file_picker::open(
             "Choose Blender Binary",
             &picker,
             parent.root().and_downcast::<gtk::Window>().as_ref(),

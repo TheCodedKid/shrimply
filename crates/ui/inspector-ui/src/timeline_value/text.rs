@@ -3,8 +3,8 @@ use std::rc::Rc;
 
 use gtk::prelude::*;
 use shrimply_evaluation::{FrameAudioAnalysis, TransformExpressionCache, VisualEvaluation};
+use shrimply_gtk_components::ui::MultilineTextInput;
 use shrimply_project::project::{Project, TextItem, Time, VideoItemContent};
-use shrimply_ui_foundation::ui::MultilineTextInput;
 use uuid::Uuid;
 
 use crate::InspectedItem as SelectedItem;
@@ -228,19 +228,19 @@ fn expression_feedback(
     };
     let base = value.value_at(time);
     let Some(expression) = &value.expression else {
-        return shrimply_ui_foundation::i18n::text_args("Output: %{output}", &[("output", base)]);
+        return shrimply_gtk_components::i18n::text_args("Output: %{output}", &[("output", base)]);
     };
     if let Some(error) = TransformExpressionCache::syntax_diagnostic(&expression.source) {
         return format!("Syntax error: {}", error.message);
     }
     if expression.source.trim().is_empty() {
-        return shrimply_ui_foundation::i18n::text_args("Output: %{output}", &[("output", base)]);
+        return shrimply_gtk_components::i18n::text_args("Output: %{output}", &[("output", base)]);
     }
     let evaluation =
         VisualEvaluation::for_item_with_audio(project, item, evaluation_position, audio);
     match cache.eval_timeline_value_result(&evaluation, value.id, &expression.source, &base) {
         Ok(output) => {
-            shrimply_ui_foundation::i18n::text_args("Output: %{output}", &[("output", output)])
+            shrimply_gtk_components::i18n::text_args("Output: %{output}", &[("output", output)])
         }
         Err(error) => format!("Evaluation error: {error}"),
     }
@@ -669,4 +669,4 @@ fn local_time(project: &Project, key: SelectedItem, position: Time) -> Option<Ti
 fn visible_area(project: &Project, key: SelectedItem) -> Option<(Time, Time)> {
     crate::video::visual_visible_area(project, key)
 }
-use shrimply_ui_foundation::tr;
+use shrimply_gtk_components::tr;

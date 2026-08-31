@@ -1,6 +1,6 @@
 use super::*;
-use shrimply_ui_foundation::tr;
-use shrimply_ui_foundation::ui::I18nAlertDialogExt;
+use shrimply_gtk_components::tr;
+use shrimply_gtk_components::ui::I18nAlertDialogExt;
 
 pub(super) fn replace_selected_item_properties(
     area: &gtk::GLArea,
@@ -39,7 +39,7 @@ fn paste_selected_item_properties(
     ) else {
         return;
     };
-    shrimply_ui_foundation::toast::show_confirmation_text_for_widget(area, &message);
+    shrimply_gtk_components::toast::show_confirmation_text_for_widget(area, &message);
     area.queue_render();
 }
 
@@ -86,7 +86,7 @@ pub(crate) fn paste_selected_item_properties_core(
         if result.modifiers_added == 1 {
             tr!("1 effect pasted").into_owned()
         } else {
-            shrimply_ui_foundation::i18n::text_args(
+            shrimply_gtk_components::i18n::text_args(
                 "%{count} effects pasted",
                 &[("count", result.modifiers_added.to_string())],
             )
@@ -94,7 +94,7 @@ pub(crate) fn paste_selected_item_properties_core(
     } else if result.changed_items == 1 {
         tr!("Properties replaced on 1 item").into_owned()
     } else {
-        shrimply_ui_foundation::i18n::text_args(
+        shrimply_gtk_components::i18n::text_args(
             "Properties replaced on %{count} items",
             &[("count", result.changed_items.to_string())],
         )

@@ -242,6 +242,10 @@ impl Lifecycle {
         self.drag.is_some() || resize_animating(self.resize) || scroll_animating(self.scroll)
     }
 
+    pub fn visual_animating(&self) -> bool {
+        resize_animating(self.resize) || scroll_animating(self.scroll)
+    }
+
     fn interaction_scrollbar(&self, mut scrollbar: Scrollbar, active: bool) -> Scrollbar {
         scrollbar.state = ScrollbarState {
             expansion: self.resize.expansion.max(1.0),

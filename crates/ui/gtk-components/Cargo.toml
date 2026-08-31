@@ -1,7 +1,11 @@
 [package]
-name = "shrimply-ui-foundation"
+name = "shrimply-gtk-components"
 version = "0.1.0"
 edition = "2024"
+
+[[bin]]
+name = "shrimply-gtk-components-showcase"
+path = "src/bin/components_showcase.rs"
 
 [dependencies]
 async-channel.workspace = true
@@ -12,7 +16,9 @@ glow.workspace = true
 gtk.workspace = true
 num-traits.workspace = true
 shrimply-project-core = { path = "../../project/project-core" }
+shrimply-component-core = { path = "../component-core" }
 shrimply-cross-ui-core = { path = "../cross-ui-core" }
+shrimply-cross-ui-theme = { path = "../cross-ui-theme" }
 shrimply-resource-pipeline = { path = "../../resource-pipeline" }
 shrimply-math-color = { path = "../../math/color", features = ["gdk", "skia"] }
 shrimply-math-core = { path = "../../math/core" }
@@ -20,10 +26,10 @@ shrimply-math-geometry = { path = "../../math/geometry", features = ["skia"] }
 shrimply-skia-adw-ui = { path = "../skia-adw-ui" }
 shrimply-wayland-pointer-lock = { path = "../wayland-pointer-lock" }
 shrimply-i18n-gtk = { path = "../i18n-gtk" }
+shrimply-interpolation = { path = "../../interpolation" }
+shrimply-keyframe-graph-ui = { path = "../../timeline/keyframe-graph-ui" }
 skia-safe = { workspace = true, features = ["gl", "vulkan", "textlayout"] }
 sourceview5.workspace = true
 strum.workspace = true
 tracing.workspace = true
-typos.workspace = true
-typos-dict.workspace = true
-unicase.workspace = true
+uuid.workspace = true

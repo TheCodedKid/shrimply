@@ -1,4 +1,4 @@
-use shrimply_ui_foundation::tr;
+use shrimply_gtk_components::tr;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -11,9 +11,9 @@ use crate::keyframe_editor::{self, KeyframeEditorActions, KeyframeGraph, SpeedSe
 use crate::player_state::{self, ProjectChange, SharedPlayerState};
 use crate::timeline_value::*;
 use crate::{InspectorContext, keyframe_model};
+use shrimply_gtk_components::ui::ColorPicker;
 use shrimply_project::project::Time;
 use shrimply_project::project::{Color, Project};
-use shrimply_ui_foundation::ui::ColorPicker;
 use uuid::Uuid;
 
 pub(crate) type ColorGetMut = for<'a> fn(

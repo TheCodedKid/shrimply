@@ -18,7 +18,7 @@ pub fn menu_model(contract: &ContextMenu) -> MenuModel {
                 ContextMenuEntry::Action(item) => {
                     let action = format!("timeline.{}", item.action.id());
                     let menu_item =
-                        shrimply_ui_foundation::ui::menu_item_i18n(item.label(), &action);
+                        shrimply_gtk_components::ui::menu_item_i18n(item.label(), &action);
                     let icon = match item.action {
                         shrimply_cross_ui_tl::ContextMenuAction::Copy => Some("edit-copy-symbolic"),
                         shrimply_cross_ui_tl::ContextMenuAction::Paste => {

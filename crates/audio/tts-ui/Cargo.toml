@@ -12,6 +12,6 @@ shrimply-project = { path = "../../project/project" }
 shrimply-server-client = { path = "../../server-client" }
 shrimply-state = { path = "../../state" }
 shrimply-tts = { path = "../tts" }
-shrimply-ui-foundation = { path = "../../ui/ui-foundation" }
+shrimply-gtk-components = { path = "../../ui/gtk-components" }
 tracing.workspace = true
 uuid = { workspace = true, features = ["v4"] }

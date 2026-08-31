@@ -40,7 +40,7 @@ shrimply-tts = { path = "../../audio/tts" }
 shrimply-tts-ui = { path = "../../audio/tts-ui" }
 shrimply-support = { path = "../../support" }
 shrimply-timeline = { path = "../../timeline/timeline" }
-shrimply-ui-foundation = { path = "../ui-foundation" }
+shrimply-gtk-components = { path = "../gtk-components" }
 shrimply-video-modifiers = { path = "../../video/video-modifiers" }
 shrimply-video-generation = { path = "../../video/video-generation" }
 shrimply-video-generation-ui = { path = "../../video/video-generation-ui" }

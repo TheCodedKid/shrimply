@@ -3,7 +3,7 @@ use std::{cell::Cell, rc::Rc, time::Duration};
 use gtk::{glib, prelude::*};
 use shrimply_audio::modifier_cache::{self, Status};
 use shrimply_audio_modifiers::{AudioModifierEffect, CacheFormat, CacheModifier, OpusCacheQuality};
-use shrimply_ui_foundation::ui::{ProgressButton, ProgressButtonState, control_row, dropdown};
+use shrimply_gtk_components::ui::{ProgressButton, ProgressButtonState, control_row, dropdown};
 use uuid::Uuid;
 
 use crate::{

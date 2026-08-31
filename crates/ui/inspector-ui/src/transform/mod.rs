@@ -1,4 +1,4 @@
-use shrimply_ui_foundation::tr;
+use shrimply_gtk_components::tr;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::{Duration, Instant};

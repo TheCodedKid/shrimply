@@ -1,0 +1,13 @@
+<RCC>
+  <qresource prefix="/qt/qml/dev/shrimply/components/icons">
+    <file alias="padlock.svg">../../../../assets/icons/padlock2-symbolic.svg</file>
+    <file alias="padlock-open.svg">../../../../assets/icons/padlock2-open-symbolic.svg</file>
+    <file alias="code.svg">../../../../assets/icons/code-symbolic.svg</file>
+    <file alias="keyframe.svg">../../../../assets/icons/stopwatch-symbolic.svg</file>
+    <file alias="previous.svg">icons/previous.svg</file>
+    <file alias="next.svg">icons/next.svg</file>
+    <file alias="add.svg">icons/add.svg</file>
+    <file alias="remove.svg">icons/remove.svg</file>
+    <file alias="screen-color.svg">icons/screen-color.svg</file>
+  </qresource>
+</RCC>

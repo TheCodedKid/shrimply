@@ -1,5 +1,5 @@
 use hashbrown::HashSet;
-use shrimply_ui_foundation::tr;
+use shrimply_gtk_components::tr;
 use std::cell::RefCell;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -571,7 +571,7 @@ impl ProgressDialog {
 
     fn set(&self, current: usize, total: usize, preview: &str) {
         self.chunk
-            .set_label(&shrimply_ui_foundation::i18n::text_args(
+            .set_label(&shrimply_gtk_components::i18n::text_args(
                 "Chunk %{current}/%{total}",
                 &[
                     ("current", current.to_string()),

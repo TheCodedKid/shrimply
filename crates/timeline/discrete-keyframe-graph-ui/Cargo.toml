@@ -5,5 +5,5 @@ edition = "2024"
 
 [dependencies]
 shrimply-math-core = { path = "../../math/core" }
-shrimply-ui-foundation = { path = "../../ui/ui-foundation" }
 shrimply-math-color = { path = "../../math/color" }
+shrimply-skia-adw-ui = { path = "../../ui/skia-adw-ui" }

@@ -1,11 +1,11 @@
-use shrimply_ui_foundation::tr;
-use shrimply_ui_foundation::ui::I18nWidgetExt;
+use shrimply_gtk_components::tr;
+use shrimply_gtk_components::ui::I18nWidgetExt;
 use std::{cell::Cell, rc::Rc, time::Duration};
 
 use gtk::glib;
 use gtk::prelude::*;
+use shrimply_gtk_components::ui::{ProgressButton, ProgressButtonState, enum_dropdown, switch_row};
 use shrimply_project::project::Project;
-use shrimply_ui_foundation::ui::{ProgressButton, ProgressButtonState, enum_dropdown, switch_row};
 use shrimply_video_modifiers::{ModifierEffect, RasterModifierEffect, sam2::Sam2Modifier};
 use uuid::Uuid;
 
@@ -58,7 +58,7 @@ pub fn add_rows(value: &Sam2Modifier, out: &gtk::Box, id: Uuid, context: &Inspec
     for (index, point) in value.points.iter().enumerate() {
         let row = gtk::Box::new(gtk::Orientation::Horizontal, 6);
         let position = super::vec_row(
-            &shrimply_ui_foundation::i18n::text_args(
+            &shrimply_gtk_components::i18n::text_args(
                 "Point %{number}",
                 &[("number", (index + 1).to_string())],
             ),

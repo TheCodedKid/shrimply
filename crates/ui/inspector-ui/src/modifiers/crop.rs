@@ -1,7 +1,7 @@
 use super::{InspectorContext, ScalarOptions, scalar_row};
 use crate::player_state::{self, ProjectChange};
 use gtk::prelude::*;
-use shrimply_ui_foundation::ui::selector;
+use shrimply_gtk_components::ui::selector;
 use shrimply_video_modifiers::{ModifierEffect, RasterModifierEffect, crop::CropModifier};
 use uuid::Uuid;
 

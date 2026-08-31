@@ -1,7 +1,7 @@
 use std::{cell::Cell, rc::Rc, time::Duration};
 
 use gtk::{glib, prelude::*};
-use shrimply_ui_foundation::ui::{ProgressButton, ProgressButtonState, control_row, dropdown};
+use shrimply_gtk_components::ui::{ProgressButton, ProgressButtonState, control_row, dropdown};
 use shrimply_video::modifier_cache::{self, Status};
 use shrimply_video_modifiers::{
     ModifierEffect, RasterModifierEffect,

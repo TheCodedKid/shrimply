@@ -1,7 +1,7 @@
-use shrimply_ui_foundation::tr;
-use shrimply_ui_foundation::ui::I18nFileFilterExt;
-use shrimply_ui_foundation::ui::I18nMenuExt;
-use shrimply_ui_foundation::ui::I18nWidgetExt;
+use shrimply_gtk_components::tr;
+use shrimply_gtk_components::ui::I18nFileFilterExt;
+use shrimply_gtk_components::ui::I18nMenuExt;
+use shrimply_gtk_components::ui::I18nWidgetExt;
 use std::cell::{Cell, RefCell};
 
 mod fullscreen;
@@ -14,6 +14,7 @@ pub use shrimply_preview_runtime::{
 pub use shrimply_audio as audio;
 pub use shrimply_core::timeline_value;
 pub use shrimply_evaluation as transform_eval;
+pub use shrimply_gtk_components::{gl_loader, playback_shortcuts};
 pub use shrimply_math_color::Color;
 pub use shrimply_math_core::Fraction;
 pub use shrimply_project::{caption, project, time_format};
@@ -21,7 +22,6 @@ pub use shrimply_render_core::math;
 pub use shrimply_state::player_state;
 pub use shrimply_state::preview_focus;
 pub use shrimply_timeline::selection_state;
-pub use shrimply_ui_foundation::{gl_loader, playback_shortcuts};
 pub use shrimply_video as video;
 pub use shrimply_video_modifiers as modifiers;
 
@@ -30,7 +30,7 @@ pub mod preferences {
 }
 
 pub mod timeline {
-    pub use shrimply_ui_foundation::canvas as renderer;
+    pub use shrimply_gtk_components::canvas as renderer;
 }
 use std::rc::Rc;
 use std::time::{Duration, Instant};
@@ -1014,7 +1014,7 @@ fn rebuild_paint_palette_buttons(
         let button = gtk::ToggleButton::new();
         button.set_child(Some(&swatch));
         button.set_size_request(PREVIEW_TOOLBAR_ICON_SIZE, PREVIEW_TOOLBAR_ICON_SIZE);
-        button.set_tooltip_text(Some(&shrimply_ui_foundation::i18n::text_args(
+        button.set_tooltip_text(Some(&shrimply_gtk_components::i18n::text_args(
             "Paint texture %{number}",
             &[("number", (index + 1).to_string())],
         )));
@@ -1212,7 +1212,7 @@ fn attach_preview_context_menu(
             let parent = save_area.root().and_downcast::<gtk::Window>();
             let result_area = save_area.clone();
             let result_preferences = save_preferences.clone();
-            shrimply_ui_foundation::file_picker::save(
+            shrimply_gtk_components::file_picker::save(
                 label,
                 &dialog,
                 parent.as_ref(),
@@ -1296,7 +1296,7 @@ fn update_controls(
     time_label.set_label(&playback_time_label(snapshot.position, snapshot.duration));
     let playback_speed_text = crate::playback_speed_label(snapshot.playback_speed);
     playback_speed_label.set_label(&playback_speed_text);
-    playback_speed_label.set_tooltip_text(Some(&shrimply_ui_foundation::i18n::text_args(
+    playback_speed_label.set_tooltip_text(Some(&shrimply_gtk_components::i18n::text_args(
         "Playback speed %{speed}",
         &[("speed", playback_speed_text)],
     )));

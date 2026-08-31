@@ -2,6 +2,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use gtk::prelude::*;
+use shrimply_gtk_components::ui::switch_row;
 use shrimply_math_core::Fraction;
 use shrimply_project::project::{
     MAX_MOTION_BLUR_SAMPLES, MAX_MOTION_BLUR_SHUTTER_ANGLE_DEGREES,
@@ -10,7 +11,6 @@ use shrimply_project::project::{
     RepeatStrategy, Time, VideoItem, VisualMotionBlur, default_playback_speed, native_playback_fps,
     playback_speed_or_default,
 };
-use shrimply_ui_foundation::ui::switch_row;
 
 use crate::InspectedItem as SelectedItem;
 use crate::player_state::{self, ProjectChange, SharedPlayerState};

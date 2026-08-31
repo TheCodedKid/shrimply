@@ -10,7 +10,7 @@ shrimply-math-core = { path = "../../math/core" }
 shrimply-project = { path = "../../project/project" }
 shrimply-server-client = { path = "../../server-client" }
 shrimply-state = { path = "../../state" }
-shrimply-ui-foundation = { path = "../../ui/ui-foundation" }
+shrimply-gtk-components = { path = "../../ui/gtk-components" }
 shrimply-video-generation = { path = "../video-generation" }
 tracing.workspace = true
 uuid = { workspace = true, features = ["v4"] }

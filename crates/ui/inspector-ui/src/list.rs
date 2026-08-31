@@ -4,8 +4,8 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use gtk::prelude::*;
+use shrimply_gtk_components::tr;
 use shrimply_project::project::ItemAddress;
-use shrimply_ui_foundation::tr;
 
 use super::InspectorContext;
 use super::item::{HeaderAction, HeaderButtonToggle, HeaderToggle, InspectorListItem};

@@ -337,7 +337,7 @@ fn update_preview(
         import::request_inspection(path.clone(), canvas_size, default_visual_duration);
     let project = project.clone();
     let runtime_for_result = runtime.clone();
-    let handle = shrimply_ui_foundation::resource_pipeline::deliver(
+    let handle = shrimply_gtk_components::resource_pipeline::deliver(
         area.downgrade(),
         subscription,
         IMPORT_INSPECTION_DELIVERY_INTERVAL,

@@ -1,4 +1,4 @@
-use shrimply_ui_foundation::tr;
+use shrimply_gtk_components::tr;
 use std::cell::{Cell, RefCell};
 use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
@@ -9,6 +9,7 @@ use std::time::Duration;
 
 use gtk::prelude::*;
 use gtk::{gio, glib};
+use shrimply_gtk_components::ui;
 use shrimply_math_core::{
     fraction_as_f64, fraction_denominator, fraction_numerator, fraction_snapped,
 };
@@ -18,7 +19,6 @@ use shrimply_tts::{
     Fraction, InputDefinition, Speech, TableColumn, TtsModel, TtsSettings, TtsValue, is_visible,
     speech_request, sync_settings,
 };
-use shrimply_ui_foundation::ui;
 use uuid::Uuid;
 
 enum GenerationMessage {
@@ -851,9 +851,10 @@ fn audio_widget(key: &str, label: &str, input: InputContext) -> gtk::Widget {
             let Some(path) = path else {
                 return;
             };
-            if let Err(error) =
-                shrimply_ui_foundation::desktop_open::show_path_in_folder(button.upcast_ref(), path)
-            {
+            if let Err(error) = shrimply_gtk_components::desktop_open::show_path_in_folder(
+                button.upcast_ref(),
+                path,
+            ) {
                 let dialog = gtk::AlertDialog::builder()
                     .message("Could not show reference audio")
                     .detail(error)
@@ -874,7 +875,7 @@ fn audio_widget(key: &str, label: &str, input: InputContext) -> gtk::Widget {
         let path_label = selected_path.clone();
         let clear = clear_for_choose.clone();
         let show = show_for_choose.clone();
-        shrimply_ui_foundation::file_picker::open(
+        shrimply_gtk_components::file_picker::open(
             &chooser_label,
             &chooser,
             button

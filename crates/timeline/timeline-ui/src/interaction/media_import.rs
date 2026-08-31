@@ -1,6 +1,6 @@
 use super::*;
-use shrimply_ui_foundation::tr;
-use shrimply_ui_foundation::ui::I18nAlertDialogExt;
+use shrimply_gtk_components::tr;
+use shrimply_gtk_components::ui::I18nAlertDialogExt;
 
 const MEDIA_INSPECTION_DELIVERY_INTERVAL: Duration = Duration::from_millis(16);
 
@@ -68,7 +68,7 @@ fn deliver_media_inspection(
     on_ready: impl FnOnce(&gtk::GLArea, import::MediaInfo) + 'static,
 ) {
     let mut on_ready = Some(on_ready);
-    let handle = shrimply_ui_foundation::resource_pipeline::deliver(
+    let handle = shrimply_gtk_components::resource_pipeline::deliver(
         area.downgrade(),
         subscription,
         MEDIA_INSPECTION_DELIVERY_INTERVAL,
@@ -248,7 +248,7 @@ fn prompt_for_video_settings(
             .to_string()
     });
     let body = match (changes.0, fps_label) {
-        (Some(size), Some(fps)) => shrimply_ui_foundation::i18n::text_args(
+        (Some(size), Some(fps)) => shrimply_gtk_components::i18n::text_args(
             "This is the first video in the project. Match the project to its %{width}×%{height} resolution and %{fps} FPS?",
             &[
                 ("width", size.width.to_string()),
@@ -256,14 +256,14 @@ fn prompt_for_video_settings(
                 ("fps", fps),
             ],
         ),
-        (Some(size), None) => shrimply_ui_foundation::i18n::text_args(
+        (Some(size), None) => shrimply_gtk_components::i18n::text_args(
             "This is the first video in the project. Match the project to its %{width}×%{height} resolution?",
             &[
                 ("width", size.width.to_string()),
                 ("height", size.height.to_string()),
             ],
         ),
-        (None, Some(fps)) => shrimply_ui_foundation::i18n::text_args(
+        (None, Some(fps)) => shrimply_gtk_components::i18n::text_args(
             "This is the first video in the project. Match the project to its %{fps} FPS?",
             &[("fps", fps)],
         ),
@@ -311,7 +311,7 @@ pub(crate) fn open_track_import_dialog(
     let player_state = player_state.clone();
     let selection_state = selection_state.clone();
     let runtime = runtime.clone();
-    shrimply_ui_foundation::file_picker::open(
+    shrimply_gtk_components::file_picker::open(
         label,
         &dialog,
         None::<&gtk::Window>,

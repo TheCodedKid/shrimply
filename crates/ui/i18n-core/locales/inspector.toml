@@ -221,7 +221,7 @@ ja = "解析FPS"
 "ko" = "분석 FPS"
 "ru" = "FPS анализа"
 pt = "FPS de análise"
-tr = "FPS Analizi"
+tr = "Analiz FPS'si"
 it = "FPS di analisi"
 
 ["Analysis status"]
@@ -949,7 +949,7 @@ ja = "字幕テキストの色"
 "ko" = "자막 텍스트 색상"
 "ru" = "Цвет текста субтитров"
 pt = "Cor do texto da legenda"
-tr = "Alt yazı metin rengi"
+tr = "Altyazı metin rengi"
 it = "Colore del testo dei sottotitoli"
 
 ["Ceiling"]
@@ -963,7 +963,7 @@ ja = "上限"
 "ko" = "상한"
 "ru" = "Верхний предел"
 pt = "Teto"
-tr = "Sınır"
+tr = "Tavan"
 it = "Limite superiore"
 
 ["Cell size"]
@@ -1061,7 +1061,7 @@ ja = "プロジェクト設定を変更しますか？"
 "ko" = "프로젝트 설정을 변경할까요?"
 "ru" = "Изменить настройки проекта?"
 pt = "Alterar configurações do projeto?"
-tr = "Proje Ayarları Değiştirilsin Mi?"
+tr = "Proje ayarları değiştirilsin mi?"
 it = "Modificare le impostazioni del progetto?"
 
 ["Changing the frame rate or resolution can affect timing, visual layout, and rendered output. Existing media and effects may no longer match the project."]
@@ -1509,7 +1509,7 @@ ja = "等加速度ウェイト"
 "ko" = "등가속도 가중치"
 "ru" = "Вес постоянного ускорения"
 pt = "Peso de aceleração constante"
-tr = "Sabit hızlandırma ağırlığı"
+tr = "Sabit ivme ağırlığı"
 it = "Peso di accelerazione costante"
 
 ["Constant-motion weight"]
@@ -1593,7 +1593,7 @@ ja = "JSONをコピー"
 "ko" = "JSON 복사"
 "ru" = "Копировать JSON"
 pt = "Copiar JSON"
-tr = "JSON Kopyala"
+tr = "JSON'u kopyala"
 it = "Copia JSON"
 
 ["Corner radius"]
@@ -1705,7 +1705,7 @@ ja = "クロスハッチ"
 "ko" = "크로스해칭"
 "ru" = "Перекрёстная штриховка"
 pt = "Hachura cruzada"
-tr = "Çapraz Çizgi"
+tr = "Çapraz tarama"
 it = "Tratteggio incrociato"
 
 ["Curvature"]
@@ -1747,7 +1747,7 @@ ja = "カットオフ"
 "ko" = "컷오프"
 "ru" = "Срез"
 pt = "Corte"
-tr = "Kesme Noktası"
+tr = "Kesim"
 it = "Cutoff"
 
 ["Damping"]
@@ -1943,7 +1943,7 @@ ja = "ひし形"
 "ko" = "마름모"
 "ru" = "Ромб"
 pt = "Losango"
-tr = "Baklava"
+tr = "Eşkenar dörtgen"
 it = "Rombo"
 
 ["Diffusion"]
@@ -2055,7 +2055,7 @@ ja = "分布"
 "ko" = "분포"
 "ru" = "Распределение"
 pt = "Distribuição"
-tr = "Dağıtım"
+tr = "Dağılım"
 it = "Distribuzione"
 
 ["Distribution randomness"]
@@ -2125,7 +2125,7 @@ ja = "フォントファミリーをダウンロード中…"
 "ko" = "글꼴 모음 다운로드 중…"
 "ru" = "Загрузка семейства шрифта…"
 pt = "Baixando família de fontes…"
-tr = "Yazı tipi ailesi yükleniyor…"
+tr = "Yazı tipi ailesi indiriliyor…"
 it = "Download della famiglia di font…"
 
 ["Drag onto a visual clip in the timeline"]
@@ -2181,7 +2181,7 @@ ja = "ドライブ"
 "ko" = "드라이브"
 "ru" = "Драйв"
 pt = "Drive"
-tr = "Sürücü"
+tr = "Sürme"
 it = "Drive"
 
 ["Duration"]
@@ -2209,7 +2209,7 @@ ja = "エッジ"
 "ko" = "가장자리"
 "ru" = "Край"
 pt = "Borda"
-tr = "Köşe"
+tr = "Kenar"
 it = "Bordo"
 
 ["Edge color"]
@@ -2223,7 +2223,7 @@ ja = "エッジ色"
 "ko" = "가장자리 색상"
 "ru" = "Цвет края"
 pt = "Cor da borda"
-tr = "Köşe rengi"
+tr = "Kenar rengi"
 it = "Colore bordo"
 
 ["Edge softness"]
@@ -2237,7 +2237,7 @@ ja = "エッジの柔らかさ"
 "ko" = "가장자리 부드러움"
 "ru" = "Мягкость краёв"
 pt = "Suavidade da borda"
-tr = "Köşe yumuşaklığı"
+tr = "Kenar yumuşaklığı"
 it = "Morbidezza bordo"
 
 ["Edge width"]
@@ -2251,7 +2251,7 @@ ja = "エッジ幅"
 "ko" = "가장자리 너비"
 "ru" = "Ширина края"
 pt = "Largura da borda"
-tr = "Köşe genişliği"
+tr = "Kenar genişliği"
 it = "Larghezza bordo"
 
 ["Edit after the shared beginning"]
@@ -2377,7 +2377,7 @@ ja = "有効"
 "ko" = "활성화됨"
 "ru" = "Включено"
 pt = "Habilitado"
-tr = "Etkinleştirildi"
+tr = "Etkin"
 it = "Attivo"
 
 ["End cap"]
@@ -2391,7 +2391,7 @@ ja = "終端キャップ"
 "ko" = "엔드캡"
 "ru" = "Концевой колпачок"
 pt = "Extremidade final"
-tr = "Kapanış ekranı"
+tr = "Bitiş ucu"
 it = "Estremità finale"
 
 ["End taper"]
@@ -2503,7 +2503,7 @@ ja = "シードを変化"
 "ko" = "시드 변경"
 "ru" = "Эволюция сида"
 pt = "Evoluir semente"
-tr = "Evrim tohumu"
+tr = "Tohumu değiştir"
 it = "Evolvi seed"
 
 ["Expand"]
@@ -2559,7 +2559,7 @@ ja = "エッジを拡張"
 "ko" = "가장자리 확장"
 "ru" = "Расширить край"
 pt = "Estender borda"
-tr = "Köşeyi uzat"
+tr = "Kenarı uzat"
 it = "Estendi bordo"
 
 ["FOV"]
@@ -2573,7 +2573,7 @@ ja = "視野角"
 "ko" = "시야각 (FOV)"
 "ru" = "Угол обзора (FOV)"
 pt = "Campo de visão"
-tr = "Görüş Açısı (FOV)"
+tr = "Görüş Alanı"
 it = "FOV"
 
 ["FPS"]
@@ -2587,7 +2587,7 @@ ja = "FPS"
 "ko" = "FPS"
 "ru" = "FPS"
 pt = "FPS"
-tr = "Kare Hızı (FPS)"
+tr = "FPS"
 it = "FPS"
 
 ["Fade"]
@@ -2699,7 +2699,7 @@ ja = "フィードバック"
 "ko" = "피드백"
 "ru" = "Обратная связь"
 pt = "Realimentação"
-tr = "Geri Bildirim"
+tr = "Geri besleme"
 it = "Feedback"
 
 ["File Location"]
@@ -2811,7 +2811,7 @@ ja = "折りサイズ"
 "ko" = "접기 크기"
 "ru" = "Размер складывания"
 pt = "Tamanho da dobra"
-tr = "Katlama botyutu"
+tr = "Katlama boyutu"
 it = "Dimensione piegatura"
 
 ["Folded Sequence"]

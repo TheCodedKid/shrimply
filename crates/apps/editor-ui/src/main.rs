@@ -1,15 +1,15 @@
 use shrimply_export_ui as export;
+use shrimply_gtk_components::tr;
+use shrimply_gtk_components::ui::I18nAlertDialogExt;
+use shrimply_gtk_components::ui::I18nFileFilterExt;
 use shrimply_support::crash;
-use shrimply_ui_foundation::tr;
-use shrimply_ui_foundation::ui::I18nAlertDialogExt;
-use shrimply_ui_foundation::ui::I18nFileFilterExt;
 mod header_menu;
 mod mcp;
+use shrimply_gtk_components::project_settings::ProjectSettingsSelector;
 use shrimply_inspector_ui as inspector;
 use shrimply_preview_gtk as video_player;
 use shrimply_state::player_state;
 use shrimply_timeline_ui as timeline;
-use shrimply_ui_foundation::project_settings::ProjectSettingsSelector;
 
 pub use shrimply_audio as audio;
 pub use shrimply_project::project;
@@ -45,7 +45,7 @@ enum PanelSide {
 fn main() -> glib::ExitCode {
     crash::install();
     shrimply_support::diagnostics::init();
-    shrimply_ui_foundation::i18n::init_system_locale();
+    shrimply_gtk_components::i18n::init_system_locale();
     crash::install_glib_hooks();
     let mut args = std::env::args_os().skip(1);
     let Some(project_path) = args.next().map(PathBuf::from) else {
@@ -296,7 +296,7 @@ fn connect_panel_toggle(
 }
 
 fn begin_project_load(app: &adw::Application, path: PathBuf) {
-    shrimply_ui_foundation::icons::register_bundled();
+    shrimply_gtk_components::icons::register_bundled();
     let window = adw::ApplicationWindow::builder()
         .application(app)
         .title(tr!("Shrimply").as_ref())
@@ -486,7 +486,7 @@ fn choose_project_destination(
         .build();
     let callback_app = app.clone();
     let callback_window = window.clone();
-    shrimply_ui_foundation::file_picker::save(
+    shrimply_gtk_components::file_picker::save(
         title,
         &dialog,
         Some(window.upcast_ref::<gtk::Window>()),

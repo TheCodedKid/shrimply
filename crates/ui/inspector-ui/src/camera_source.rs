@@ -1,4 +1,4 @@
-use shrimply_ui_foundation::tr;
+use shrimply_gtk_components::tr;
 use std::{
     cell::RefCell,
     collections::{HashMap, HashSet},
@@ -68,7 +68,7 @@ fn source_dropdown(source: &CameraSource, context: &InspectorContext) -> gtk::Dr
             .map(|(index, track)| {
                 (
                     Some(track.id),
-                    shrimply_ui_foundation::i18n::text_args(
+                    shrimply_gtk_components::i18n::text_args(
                         "Visual track %{number}",
                         &[("number", index.to_string())],
                     ),
@@ -83,7 +83,7 @@ fn source_dropdown(source: &CameraSource, context: &InspectorContext) -> gtk::Dr
         let id = selected_id.expect("only tracked sources can be unavailable");
         choices.push((
             Some(id),
-            shrimply_ui_foundation::i18n::text_args(
+            shrimply_gtk_components::i18n::text_args(
                 "Unavailable (%{id})",
                 &[("id", id.to_string())],
             ),
@@ -154,7 +154,7 @@ fn add_tracking_controls(
                 _ => model.clone(),
             };
             if available.is_some_and(|available| !available.contains(model)) {
-                shrimply_ui_foundation::i18n::text_args(
+                shrimply_gtk_components::i18n::text_args(
                     "%{label} (Unavailable)",
                     &[("label", label)],
                 )
@@ -342,7 +342,7 @@ fn status_label(status: &AnalysisStatus) -> String {
             message,
             completed_frames,
             total_frames,
-        } if *total_frames != 0 => shrimply_ui_foundation::i18n::text_args(
+        } if *total_frames != 0 => shrimply_gtk_components::i18n::text_args(
             "%{message} %{completed}/%{total}",
             &[
                 ("message", tr!(message).into_owned()),
@@ -353,7 +353,7 @@ fn status_label(status: &AnalysisStatus) -> String {
         AnalysisStatus::Analyzing { message, .. } => tr!(message).into_owned(),
         AnalysisStatus::Cancelling => tr!("Cancelling").into_owned(),
         AnalysisStatus::Cancelled => tr!("Cancelled").into_owned(),
-        AnalysisStatus::Ready { sample_count } => shrimply_ui_foundation::i18n::text_args(
+        AnalysisStatus::Ready { sample_count } => shrimply_gtk_components::i18n::text_args(
             "Ready (%{count} samples)",
             &[("count", sample_count.to_string())],
         ),

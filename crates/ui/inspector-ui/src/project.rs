@@ -4,8 +4,8 @@ use crate::{
     ui::{Number2Picker, SingleLineTextInput, dropdown},
 };
 use adw::prelude::*;
+use shrimply_gtk_components::{tr, ui::I18nAlertDialogExt};
 use shrimply_project::project::Project;
-use shrimply_ui_foundation::{tr, ui::I18nAlertDialogExt};
 use std::{cell::Cell, rc::Rc};
 
 use super::{Inspectable, InspectorContext, item::flat, list, section::InspectorSection};
@@ -185,7 +185,7 @@ impl Inspectable for Project {
             if count == 1 {
                 tr!(singular).into_owned()
             } else {
-                shrimply_ui_foundation::i18n::text_args(plural, &[("count", count.to_string())])
+                shrimply_gtk_components::i18n::text_args(plural, &[("count", count.to_string())])
             }
         };
         let track_counts = [

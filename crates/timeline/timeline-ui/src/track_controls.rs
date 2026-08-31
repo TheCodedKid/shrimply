@@ -1,6 +1,6 @@
 use super::*;
 use gtk::gdk;
-use shrimply_ui_foundation::ui::I18nWidgetExt;
+use shrimply_gtk_components::ui::I18nWidgetExt;
 
 const TRACK_ADD_MENU_ICON_SIZE: i32 = 16;
 const TRACK_ADD_MENU_ITEM_GAP: i32 = 12;

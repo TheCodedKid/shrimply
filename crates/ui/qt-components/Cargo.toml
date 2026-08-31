@@ -1,0 +1,30 @@
+[package]
+name = "shrimply-qt-components"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "shrimply-qt-components-showcase"
+path = "src/main.rs"
+
+[dependencies]
+cxx.workspace = true
+cxx-qt.workspace = true
+cxx-qt-lib = { workspace = true, features = ["qt_full"] }
+shrimply-component-core = { path = "../component-core" }
+shrimply-cross-ui-core = { path = "../cross-ui-core" }
+shrimply-cross-ui-theme = { path = "../cross-ui-theme" }
+shrimply-i18n-qt = { path = "../i18n-qt" }
+shrimply-interpolation = { path = "../../interpolation" }
+shrimply-keyframe-graph-ui = { path = "../../timeline/keyframe-graph-ui" }
+shrimply-math-color = { path = "../../math/color" }
+shrimply-math-core = { path = "../../math/core" }
+shrimply-project-core = { path = "../../project/project-core" }
+shrimply-qt-helpers = { path = "../qt-helpers" }
+shrimply-skia-adw-ui = { path = "../skia-adw-ui" }
+shrimply-support = { path = "../../support" }
+shrimply-wayland-pointer-lock = { path = "../wayland-pointer-lock" }
+uuid.workspace = true
+
+[build-dependencies]
+cxx-qt-build = { workspace = true, features = ["link_qt_object_files"] }

@@ -1,8 +1,8 @@
 use crate::{export, player_state, project};
 use adw::prelude::*;
 use gtk::gio;
-use shrimply_ui_foundation::tr;
-use shrimply_ui_foundation::ui::I18nMenuExt;
+use shrimply_gtk_components::tr;
+use shrimply_gtk_components::ui::I18nMenuExt;
 use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -221,7 +221,7 @@ fn show_shortcuts_dialog(window: &adw::ApplicationWindow) {
 
 fn show_open_project_dialog(window: &adw::ApplicationWindow) {
     let window = window.clone();
-    shrimply_ui_foundation::project_open::open_project(&window.clone(), move |result| {
+    shrimply_gtk_components::project_open::open_project(&window.clone(), move |result| {
         let path = match result {
             Ok(Some(path)) => path,
             Ok(None) => return,
@@ -242,7 +242,7 @@ fn show_save_as_dialog(
     session: &Rc<shrimply_cross_ui_core::editor::EditorSession>,
 ) {
     let label = "Save Project As";
-    let filter = shrimply_ui_foundation::project_open::project_file_filter();
+    let filter = shrimply_gtk_components::project_open::project_file_filter();
     let filters = gio::ListStore::new::<gtk::FileFilter>();
     filters.append(&filter);
     let initial_name = shrimply_cross_ui_core::editor::suggested_save_as_path()
@@ -260,7 +260,7 @@ fn show_save_as_dialog(
     let parent = window.clone();
     let toasts = toasts.clone();
     let session = session.clone();
-    shrimply_ui_foundation::file_picker::save(
+    shrimply_gtk_components::file_picker::save(
         label,
         &dialog,
         Some(parent.upcast_ref::<gtk::Window>()),
@@ -280,7 +280,7 @@ fn show_save_as_dialog(
                 show_error_dialog(&window, "Could not save project", &error);
                 return;
             }
-            shrimply_ui_foundation::toast::show_confirmation(
+            shrimply_gtk_components::toast::show_confirmation(
                 &toasts,
                 "Project saved to the new location",
             );

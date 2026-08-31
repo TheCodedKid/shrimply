@@ -2,14 +2,14 @@ use adw::prelude::AdwDialogExt;
 use ffmpeg_next as ffmpeg;
 use gtk::prelude::*;
 use shrimply_core::timeline_value::*;
+use shrimply_gtk_components::tr;
+use shrimply_gtk_components::ui::I18nFileFilterExt;
 use shrimply_project::project::{Project, Time, VideoItemContent, generated_item_keyframe_span};
 use shrimply_scene_3d::{
     AntiAliasing, BackgroundAddressMode, Camera3d, CameraProjection, Environment3d,
     EnvironmentSource, LightSamplingQuality, ObjScene, PathTracingMode, PbrMaterial, ShadingModel,
     ToonOutlineMethod, ToonOutlineMode, ToonOutlineQuality, ToonShadowKind, ToonTextureFilter,
 };
-use shrimply_ui_foundation::tr;
-use shrimply_ui_foundation::ui::I18nFileFilterExt;
 
 use crate::InspectedItem as SelectedItem;
 use crate::InspectorContext;
@@ -1322,7 +1322,7 @@ fn environment_picker(value: &Environment3d, context: &InspectorContext) -> gtk:
             .filters(&filters)
             .build();
         let context = choose_context.clone();
-        shrimply_ui_foundation::file_picker::open(
+        shrimply_gtk_components::file_picker::open(
             label,
             &dialog,
             None::<&gtk::Window>,

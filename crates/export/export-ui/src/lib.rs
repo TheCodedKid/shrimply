@@ -1,9 +1,9 @@
 pub use shrimply_export::{audio, video};
-use shrimply_ui_foundation::tr;
-use shrimply_ui_foundation::ui::I18nMenuExt;
+use shrimply_gtk_components::tr;
+use shrimply_gtk_components::ui::I18nMenuExt;
 
+pub use shrimply_gtk_components::desktop_open;
 pub use shrimply_project::{caption, project, time_format};
-pub use shrimply_ui_foundation::desktop_open;
 
 use shrimply_math_media as math;
 
@@ -135,7 +135,7 @@ fn open_ytt_dialog(
         let parent_for_result = export_parent.clone();
         let toasts = toasts.clone();
         let project = project.clone();
-        shrimply_ui_foundation::file_picker::save(
+        shrimply_gtk_components::file_picker::save(
             label,
             &file_dialog,
             Some(export_parent.upcast_ref::<gtk::Window>()),
@@ -164,12 +164,12 @@ fn open_ytt_dialog(
                             let title = if paths.len() == 1 {
                                 tr!("Captions exported").into_owned()
                             } else {
-                                shrimply_ui_foundation::i18n::text_args(
+                                shrimply_gtk_components::i18n::text_args(
                                     "%{count} caption files exported",
                                     &[("count", paths.len().to_string())],
                                 )
                             };
-                            shrimply_ui_foundation::export_feedback::show_export_finished_text(
+                            shrimply_gtk_components::export_feedback::show_export_finished_text(
                                 &toasts,
                                 &parent_for_result,
                                 &title,
@@ -607,7 +607,7 @@ fn open_export_page(
         let parent_for_save = parent_for_export.clone();
         let parent_for_error = parent_for_export.clone();
         let toasts = toasts_for_export.clone();
-        shrimply_ui_foundation::file_picker::save(
+        shrimply_gtk_components::file_picker::save(
             label,
             &file_dialog,
             Some(parent_for_save.upcast_ref::<gtk::Window>()),
@@ -784,11 +784,11 @@ fn start_video_export(
                 if was_cancelled && output_opened.load(Ordering::Relaxed) {
                     let _ = fs::remove_file(&path);
                 } else {
-                    let title = shrimply_ui_foundation::i18n::text_args(
+                    let title = shrimply_gtk_components::i18n::text_args(
                         "Video exported in %{duration}",
                         &[("duration", time_format::human_duration(started.elapsed()))],
                     );
-                    shrimply_ui_foundation::export_feedback::show_export_finished_text(
+                    shrimply_gtk_components::export_feedback::show_export_finished_text(
                         &toasts, &parent, &title, &path,
                     );
                 }
@@ -867,7 +867,7 @@ fn update_video_export_progress(
             }
             .clamp(0.0, 1.0);
             progress.set_fraction(fraction);
-            progress.set_text(Some(&shrimply_ui_foundation::i18n::text_args(
+            progress.set_text(Some(&shrimply_gtk_components::i18n::text_args(
                 "Preparing audio (%{percent}%)",
                 &[("percent", format!("{:.0}", fraction * 100.0))],
             )));
@@ -889,7 +889,7 @@ fn update_video_export_progress(
             }
             .clamp(0.0, 1.0);
             progress.set_fraction(fraction);
-            progress.set_text(Some(&shrimply_ui_foundation::i18n::text_args(
+            progress.set_text(Some(&shrimply_gtk_components::i18n::text_args(
                 "Encoding audio (%{percent}%)",
                 &[("percent", format!("{:.0}", fraction * 100.0))],
             )));
@@ -914,7 +914,7 @@ fn update_video_export_progress(
                 ))
             });
             let progress_text = if fps_milli > 0 {
-                shrimply_ui_foundation::i18n::text_args(
+                shrimply_gtk_components::i18n::text_args(
                     "%{current} of %{total} frames (%{percent}%) - %{fps} fps - %{eta} left",
                     &[
                         ("current", current_frame.to_string()),
@@ -931,7 +931,7 @@ fn update_video_export_progress(
                     ],
                 )
             } else {
-                shrimply_ui_foundation::i18n::text_args(
+                shrimply_gtk_components::i18n::text_args(
                     "%{current} of %{total} frames (%{percent}%)",
                     &[
                         ("current", current_frame.to_string()),
@@ -965,7 +965,7 @@ fn open_project_json_dialog(
     let parent_for_error = parent.clone();
     let toasts = toasts.clone();
     let project = project.clone();
-    shrimply_ui_foundation::file_picker::save(
+    shrimply_gtk_components::file_picker::save(
         label,
         &dialog,
         Some(parent_for_save.upcast_ref::<gtk::Window>()),
@@ -1057,7 +1057,7 @@ pub(crate) fn show_export_finished(
     title: &str,
     path: &std::path::Path,
 ) {
-    shrimply_ui_foundation::export_feedback::show_export_finished(toasts, parent, title, path);
+    shrimply_gtk_components::export_feedback::show_export_finished(toasts, parent, title, path);
 }
 
 fn default_json_filename(project: &project::Project) -> String {

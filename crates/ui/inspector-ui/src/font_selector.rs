@@ -1,5 +1,5 @@
 use hashbrown::HashMap;
-use shrimply_ui_foundation::tr;
+use shrimply_gtk_components::tr;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};

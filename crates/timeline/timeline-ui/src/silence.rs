@@ -1,5 +1,5 @@
-use shrimply_ui_foundation::tr;
-use shrimply_ui_foundation::ui::I18nAlertDialogExt;
+use shrimply_gtk_components::tr;
+use shrimply_gtk_components::ui::I18nAlertDialogExt;
 use std::cell::RefCell;
 use std::rc::Rc;
 

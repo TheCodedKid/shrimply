@@ -6,4 +6,4 @@ edition = "2024"
 [dependencies]
 gtk.workspace = true
 shrimply-cross-ui-tl = { path = "../cross-ui-tl" }
-shrimply-ui-foundation = { path = "../../ui/ui-foundation" }
+shrimply-gtk-components = { path = "../../ui/gtk-components" }

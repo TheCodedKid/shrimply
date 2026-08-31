@@ -1,7 +1,7 @@
 use gtk::prelude::*;
 use shrimply_core::timeline_value::{TimelineBase, TimelineValue, TimelineValueType};
-use shrimply_ui_foundation::tr;
-use shrimply_ui_foundation::ui::I18nWidgetExt;
+use shrimply_gtk_components::tr;
+use shrimply_gtk_components::ui::I18nWidgetExt;
 
 use super::LABEL_WIDTH_CHARS;
 

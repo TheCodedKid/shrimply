@@ -1,12 +1,18 @@
-use shrimply_ui_foundation::canvas::{Rect, Stroke, StrokeKind, Vec2, vec2};
+use shrimply_skia_adw_ui::canvas::{Rect, Stroke, StrokeKind, Vec2, vec2};
 use skia_safe::PathBuilder;
 
 use shrimply_interpolation::Interpolation;
 use shrimply_math_color::Color;
 use shrimply_math_core::{Fraction, Time, fraction_floor_i64};
-use shrimply_ui_foundation::canvas::TimelinePainter;
-use shrimply_ui_foundation::cursor;
+use shrimply_skia_adw_ui::{canvas::TimelinePainter, cursor};
 use uuid::Uuid;
+
+mod controller;
+pub use controller::{
+    FRAME_GRAPH_HEIGHT, FrameGraphAction, FrameGraphKey, FrameGraphModifiers,
+    FrameGraphPointerButton, FrameGraphPointerPosition, FrameGraphScrollInput, FrameGraphState,
+    FrameGraphStatus, GRAPH_SLIDER_HEIGHT,
+};
 
 pub const GRAPH_PAD: f64 = 12.0;
 pub const STEP_GRAPH_RANGE: (f64, f64) = (-0.15, 1.15);
@@ -52,6 +58,7 @@ pub struct SpeedSegment {
     pub interpolation: Interpolation,
 }
 
+#[derive(Clone)]
 pub enum KeyframeGraph {
     Step {
         points: Vec<KeyframePoint>,

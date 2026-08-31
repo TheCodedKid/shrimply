@@ -1,5 +1,5 @@
 use gtk::prelude::*;
-use shrimply_ui_foundation::tr;
+use shrimply_gtk_components::tr;
 use uuid::Uuid;
 
 use super::{InspectorContext, ScalarOptions, color_row, integer_scalar_row, scalar_row};

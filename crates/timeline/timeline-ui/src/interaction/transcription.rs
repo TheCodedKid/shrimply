@@ -1,6 +1,6 @@
 use super::*;
-use shrimply_ui_foundation::tr;
-use shrimply_ui_foundation::ui::I18nAlertDialogExt;
+use shrimply_gtk_components::tr;
+use shrimply_gtk_components::ui::I18nAlertDialogExt;
 
 pub(super) fn add_caption_item_context_actions(
     actions: &gio::SimpleActionGroup,
@@ -203,7 +203,7 @@ fn show_transcribe_dialog_with_models(
             } else {
                 "%{count} chunks will be transcribed."
             };
-            chunk_count_label.set_label(&shrimply_ui_foundation::i18n::text_args(
+            chunk_count_label.set_label(&shrimply_gtk_components::i18n::text_args(
                 key,
                 &[("count", count.to_string())],
             ));

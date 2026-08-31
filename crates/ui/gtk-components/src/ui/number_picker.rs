@@ -1,26 +1,25 @@
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
-use std::str::FromStr;
 use std::time::{Duration, Instant};
 
 use gtk::prelude::*;
 use gtk::{gdk, glib};
 use num_traits::ToPrimitive;
 use num_traits::{NumCast, PrimInt};
+use shrimply_component_core::number::{
+    DEFAULT_DRAG_PIXELS, DEFAULT_MAXIMUM, DEFAULT_MINIMUM, DRAG_THRESHOLD_PIXELS,
+    NumberConfig as NumberPickerConfig, accepted_value, finite_fraction_or, format_value,
+    parse_fraction, positive_fraction_or,
+};
 use shrimply_math_core::Fraction;
 use shrimply_math_core::{
-    FRACTION_ZERO, fraction_as_f64, fraction_from_f64, fraction_from_integer, fraction_is_finite,
+    FRACTION_ZERO, fraction_as_f64, fraction_from_f64, fraction_from_integer,
 };
 
 use super::pointer_lock::PointerLock;
 
 const DISPLAY_PAGE: &str = "display";
 const ENTRY_PAGE: &str = "entry";
-const DEFAULT_DRAG_PIXELS: f64 = 3.0;
-const DRAG_THRESHOLD_PIXELS: f64 = 2.0;
-const MAX_DRAG_STEPS: i64 = 1_000_000;
-const DEFAULT_MINIMUM: i64 = -1_000_000;
-const DEFAULT_MAXIMUM: i64 = 1_000_000;
 const SLOW_NUMBER_PICKER_LOG_THRESHOLD: Duration = Duration::from_millis(2);
 
 thread_local! {
@@ -723,13 +722,9 @@ impl Number2PickerBuilder {
             };
         }
 
-        let initial_ratio = if second.value == FRACTION_ZERO {
-            fraction_from_integer(1)
-        } else {
-            first.value / second.value
-        };
+        let initial_ratio = shrimply_component_core::number::pair_ratio(first.value, second.value);
         let locked = Rc::new(Cell::new(true));
-        let locked_ratio = Rc::new(Cell::new(fraction_as_f64(initial_ratio)));
+        let locked_ratio = Rc::new(Cell::new(initial_ratio));
         let first_handle = Rc::new(RefCell::new(None::<NumberPickerHandle>));
         let second_handle = Rc::new(RefCell::new(None::<NumberPickerHandle>));
         let on_first_change: Rc<dyn Fn(Fraction)> = match on_first_change {
@@ -764,11 +759,7 @@ impl Number2PickerBuilder {
                         return;
                     }
                     let ratio = locked_ratio.get();
-                    let next = if ratio.abs() <= f64::EPSILON {
-                        value
-                    } else {
-                        fraction_from_f64(fraction_as_f64(value) / ratio)
-                    };
+                    let next = shrimply_component_core::number::pair_second(value, ratio);
                     if let Some(handle) = second_handle.borrow().as_ref() {
                         let cascade_started = Instant::now();
                         let next = set_handle_value(handle, next);
@@ -778,9 +769,10 @@ impl Number2PickerBuilder {
                             || cascade_elapsed >= SLOW_NUMBER_PICKER_LOG_THRESHOLD
                         {
                             tracing::debug!(
-                                "number2_picker: lock_cascade source=first value={:.6} cascaded={:.6} ratio={ratio:.6} primary_on_change_elapsed_us={} cascade_elapsed_us={}",
+                                "number2_picker: lock_cascade source=first value={:.6} cascaded={:.6} ratio={:.6} primary_on_change_elapsed_us={} cascade_elapsed_us={}",
                                 fraction_as_f64(value),
                                 fraction_as_f64(next),
+                                fraction_as_f64(ratio),
                                 primary_elapsed.as_micros(),
                                 cascade_elapsed.as_micros(),
                             );
@@ -806,7 +798,7 @@ impl Number2PickerBuilder {
                     if !locked.get() {
                         return;
                     }
-                    let next = fraction_from_f64(fraction_as_f64(value) * locked_ratio.get());
+                    let next = value * locked_ratio.get();
                     if let Some(handle) = first_handle.borrow().as_ref() {
                         let cascade_started = Instant::now();
                         let next = set_handle_value(handle, next);
@@ -819,7 +811,7 @@ impl Number2PickerBuilder {
                                 "number2_picker: lock_cascade source=second value={:.6} cascaded={:.6} ratio={:.6} primary_on_change_elapsed_us={} cascade_elapsed_us={}",
                                 fraction_as_f64(value),
                                 fraction_as_f64(next),
-                                locked_ratio.get(),
+                                fraction_as_f64(locked_ratio.get()),
                                 primary_elapsed.as_micros(),
                                 cascade_elapsed.as_micros(),
                             );
@@ -867,12 +859,10 @@ impl Number2PickerBuilder {
                 let Some(second) = second_handle.borrow().clone() else {
                     return;
                 };
-                let second = second.value.get();
-                locked_ratio.set(if second == FRACTION_ZERO {
-                    1.0
-                } else {
-                    fraction_as_f64(first.value.get()) / fraction_as_f64(second)
-                });
+                locked_ratio.set(shrimply_component_core::number::pair_ratio(
+                    first.value.get(),
+                    second.value.get(),
+                ));
             });
         }
 
@@ -973,11 +963,11 @@ impl Number3PickerBuilder {
             .on_commit
             .map(|callback| callback.map_or_else(|| Rc::new(|_| {}) as Rc<_>, Rc::from));
         let locked = Rc::new(Cell::new(self.enable_lock));
-        let ratios = Rc::new(Cell::new(number3_ratios(
+        let ratios = Rc::new(Cell::new(shrimply_component_core::number::triple_ratios([
             self.values[0].value,
             self.values[1].value,
             self.values[2].value,
-        )));
+        ])));
         let handles = Rc::new(RefCell::new([None, None, None]));
         let mut parts = Vec::with_capacity(3);
         for (axis, picker) in self.values.into_iter().enumerate() {
@@ -992,15 +982,8 @@ impl Number3PickerBuilder {
                     if !locked.get() {
                         return;
                     }
-                    let ratios = ratios.get();
-                    let value = fraction_as_f64(value);
-                    let first = match axis {
-                        0 => value,
-                        1 if ratios[0].abs() > f64::EPSILON => value / ratios[0],
-                        2 if ratios[1].abs() > f64::EPSILON => value / ratios[1],
-                        _ => value,
-                    };
-                    let next = [first, first * ratios[0], first * ratios[1]];
+                    let next =
+                        shrimply_component_core::number::locked_triple(axis, value, ratios.get());
                     for other in 0..3 {
                         if other == axis {
                             continue;
@@ -1008,7 +991,7 @@ impl Number3PickerBuilder {
                         let Some(handle) = change_handles.borrow()[other].clone() else {
                             continue;
                         };
-                        let next = set_handle_value(&handle, fraction_from_f64(next[other]));
+                        let next = set_handle_value(&handle, next[other]);
                         callbacks[other](next);
                     }
                 })
@@ -1057,29 +1040,21 @@ pub struct Number3PickerParts {
     pub handles: [NumberPickerHandle; 3],
 }
 
-fn number3_ratios(first: Fraction, second: Fraction, third: Fraction) -> [f64; 2] {
-    if first == FRACTION_ZERO {
-        [1.0, 1.0]
-    } else {
-        let first = fraction_as_f64(first);
-        [
-            fraction_as_f64(second) / first,
-            fraction_as_f64(third) / first,
-        ]
-    }
-}
-
-fn number3_handle_ratios(handles: &[Option<NumberPickerHandle>; 3]) -> [f64; 2] {
+fn number3_handle_ratios(handles: &[Option<NumberPickerHandle>; 3]) -> [Fraction; 2] {
     let Some(first) = handles[0].as_ref() else {
-        return [1.0, 1.0];
+        return [fraction_from_integer(1); 2];
     };
     let Some(second) = handles[1].as_ref() else {
-        return [1.0, 1.0];
+        return [fraction_from_integer(1); 2];
     };
     let Some(third) = handles[2].as_ref() else {
-        return [1.0, 1.0];
+        return [fraction_from_integer(1); 2];
     };
-    number3_ratios(first.value.get(), second.value.get(), third.value.get())
+    shrimply_component_core::number::triple_ratios([
+        first.value.get(),
+        second.value.get(),
+        third.value.get(),
+    ])
 }
 
 fn build_number_row<const N: usize>(
@@ -1164,15 +1139,6 @@ fn set_display_handle_value(handle: &NumberPickerHandle, value: Fraction) -> Fra
         return handle.value.get();
     }
     set_handle_value(handle, value)
-}
-
-struct NumberPickerConfig {
-    minimum: Fraction,
-    maximum: Fraction,
-    drag_step: Fraction,
-    drag_pixels: f64,
-    digits: usize,
-    fallback: Fraction,
 }
 
 fn begin_edit(
@@ -1438,7 +1404,7 @@ fn apply_drag_offset(
     drag_start_value: Fraction,
     offset_x: f64,
 ) {
-    let steps = drag_steps(offset_x, config.drag_pixels);
+    let steps = shrimply_component_core::number::drag_steps(offset_x, config.drag_pixels);
     let started = Instant::now();
     let changed = set_value(
         value,
@@ -1459,53 +1425,6 @@ fn apply_drag_offset(
 
 fn release_pointer_lock(lock: &Rc<RefCell<Option<PointerLock>>>) {
     lock.borrow_mut().take();
-}
-
-fn accepted_value(config: &NumberPickerConfig, value: Fraction) -> Fraction {
-    let value = finite_fraction_or(value, config.fallback);
-    if config.minimum <= config.maximum {
-        value.clamp(config.minimum, config.maximum)
-    } else {
-        value.clamp(config.maximum, config.minimum)
-    }
-}
-
-fn drag_steps(offset_x: f64, drag_pixels: f64) -> i64 {
-    (offset_x / drag_pixels)
-        .round()
-        .clamp(-(MAX_DRAG_STEPS as f64), MAX_DRAG_STEPS as f64) as i64
-}
-
-fn format_value(config: &NumberPickerConfig, value: Fraction) -> String {
-    let value = fraction_as_f64(value);
-    let value = if value.abs() < 10.0_f64.powi(-(config.digits as i32)) / 2.0 {
-        0.0
-    } else {
-        value
-    };
-    format!("{:.*}", config.digits, value)
-}
-
-fn parse_fraction(value: &str) -> Option<Fraction> {
-    Fraction::from_str(value)
-        .ok()
-        .filter(|value| fraction_is_finite(*value))
-}
-
-fn finite_fraction_or(value: Fraction, fallback: Fraction) -> Fraction {
-    if fraction_is_finite(value) {
-        value
-    } else {
-        fallback
-    }
-}
-
-fn positive_fraction_or(value: Fraction, fallback: Fraction) -> Fraction {
-    if fraction_as_f64(value) > 0.0 {
-        value
-    } else {
-        fallback
-    }
 }
 
 fn integer_from_fraction<T>(value: Fraction) -> T

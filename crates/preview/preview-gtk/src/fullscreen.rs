@@ -1,5 +1,5 @@
 use super::*;
-use shrimply_ui_foundation::ui::I18nWidgetExt;
+use shrimply_gtk_components::ui::I18nWidgetExt;
 
 const CONTROLS_HIDE_DELAY: Duration = Duration::from_secs(3);
 const REVEAL_POINTER_THRESHOLD: f32 = 1.0;

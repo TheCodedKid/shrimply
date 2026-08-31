@@ -1,5 +1,5 @@
 use adw::prelude::*;
-use shrimply_ui_foundation::{
+use shrimply_gtk_components::{
     tr,
     ui::{StringChoice, labeled_string_selector, switch_row},
 };

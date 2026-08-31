@@ -1,6 +1,6 @@
 use super::*;
-use shrimply_ui_foundation::tr;
-use shrimply_ui_foundation::ui::I18nWidgetExt;
+use shrimply_gtk_components::tr;
+use shrimply_gtk_components::ui::I18nWidgetExt;
 
 pub(crate) fn connect_graph_refresh_impl(
     context: &InspectorContext,
@@ -71,12 +71,13 @@ pub(super) fn update_graph_scroll(
     item_range: GraphDomain,
     width: f64,
     pointer_x: f64,
-    dx: f64,
-    dy: f64,
+    delta: (f64, f64),
     ctrl: bool,
+    input: shrimply_skia_adw_ui::slider::ScrollInput,
 ) -> Option<(GraphOverscrollEdge, f64)> {
     view.initialize(item_range, width);
     view.clamp(item_range, width);
+    let (dx, dy) = delta;
     let delta = if dx.abs() > f64::EPSILON { dx } else { dy };
     if delta.abs() <= f64::EPSILON {
         return None;
@@ -91,7 +92,11 @@ pub(super) fn update_graph_scroll(
         view.clamp(item_range, width);
         None
     } else {
-        let target = view.scroll_seconds + delta * view.seconds_per_pixel * 120.0;
+        let units = match input {
+            shrimply_skia_adw_ui::slider::ScrollInput::Wheel => delta * GRAPH_WHEEL_UNITS_PER_STEP,
+            shrimply_skia_adw_ui::slider::ScrollInput::Surface => delta,
+        };
+        let target = view.scroll_seconds + units * view.seconds_per_pixel;
         set_graph_scroll_seconds(view, item_range, width, target)
     }
 }

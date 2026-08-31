@@ -1,6 +1,6 @@
 use gtk::prelude::*;
+use shrimply_gtk_components::ui::{control_row, enum_dropdown};
 use shrimply_project::project::Project;
-use shrimply_ui_foundation::ui::{control_row, enum_dropdown};
 use shrimply_video_modifiers::{ModifierEffect, VectorModifierEffect, text_mask::TextMaskModifier};
 use uuid::Uuid;
 

@@ -1,5 +1,5 @@
-use shrimply_ui_foundation::tr;
-use shrimply_ui_foundation::ui::I18nWidgetExt;
+use shrimply_gtk_components::tr;
+use shrimply_gtk_components::ui::I18nWidgetExt;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::Instant;
@@ -23,11 +23,11 @@ use super::{InspectorContext, keyframe_graph::GraphDomain, keyframe_model};
 
 const GRAPH_CONTENT_HEIGHT: i32 = 112;
 const GRAPH_HEIGHT: i32 = GRAPH_CONTENT_HEIGHT + GRAPH_SLIDER_HEIGHT as i32;
+const GRAPH_WHEEL_UNITS_PER_STEP: f64 = 120.0;
 pub(super) const GRAPH_PAD: f64 = 12.0;
 pub(super) const STEP_GRAPH_RANGE: (f64, f64) = (-0.15, 1.15);
 pub(super) const CURSOR_LANE_HEIGHT: f64 = 18.0;
 pub(super) const GRAPH_SLIDER_HEIGHT: f64 = 20.0;
-const GRAPH_SCROLLBAR_WHEEL_PAGE_FRACTION: f64 = 0.25;
 const HIT_RADIUS: f64 = 7.0;
 pub(super) const SPEED_CURVE_STEPS: usize = 48;
 const CURVE_BREAK_OFFSET: f64 = 1.0 / (SPEED_CURVE_STEPS as f64 * 64.0);
@@ -508,6 +508,11 @@ pub(crate) fn build(
             let ctrl = controller
                 .current_event_state()
                 .contains(gdk::ModifierType::CONTROL_MASK);
+            let input = if controller.unit() == gdk::ScrollUnit::Wheel {
+                shrimply_skia_adw_ui::slider::ScrollInput::Wheel
+            } else {
+                shrimply_skia_adw_ui::slider::ScrollInput::Surface
+            };
             let delta = if dx.abs() > f64::EPSILON { dx } else { dy };
             if !ctrl && delta.abs() > f64::EPSILON {
                 let pointer = controller
@@ -526,10 +531,11 @@ pub(crate) fn build(
                 }
                 if let Some(scrollbar) = graph_scrollbar(*view, item_range, width, height) {
                     let mut scroll_seconds = view.scroll_seconds;
-                    let event = scrollbar_lifecycle.borrow_mut().scroll_pages_at(
+                    let event = scrollbar_lifecycle.borrow_mut().scroll_at(
                         scrollbar,
                         pointer,
-                        delta * GRAPH_SCROLLBAR_WHEEL_PAGE_FRACTION,
+                        delta,
+                        input,
                         |value| scroll_seconds = item_range.0.as_secs_f64() + value,
                     );
                     if event.handled {
@@ -554,9 +560,9 @@ pub(crate) fn build(
                 item_range,
                 width,
                 pointer_x,
-                dx,
-                dy,
+                (dx, dy),
                 ctrl,
+                input,
             );
             if update_graph_overscroll(&overscroll, edge) {
                 start_graph_animation_tick(
@@ -1069,12 +1075,12 @@ pub(crate) fn build(
                             let message = if count == 1 {
                                 tr!("1 keyframe copied").into_owned()
                             } else {
-                                shrimply_ui_foundation::i18n::text_args(
+                                shrimply_gtk_components::i18n::text_args(
                                     "%{count} keyframes copied",
                                     &[("count", count.to_string())],
                                 )
                             };
-                            shrimply_ui_foundation::toast::show_confirmation_text_for_widget(
+                            shrimply_gtk_components::toast::show_confirmation_text_for_widget(
                                 &graph, &message,
                             );
                         }
@@ -1129,12 +1135,12 @@ pub(crate) fn build(
                                 let message = if times.len() == 1 {
                                     tr!("1 keyframe pasted").into_owned()
                                 } else {
-                                    shrimply_ui_foundation::i18n::text_args(
+                                    shrimply_gtk_components::i18n::text_args(
                                         "%{count} keyframes pasted",
                                         &[("count", times.len().to_string())],
                                     )
                                 };
-                                shrimply_ui_foundation::toast::show_confirmation_text_for_widget(
+                                shrimply_gtk_components::toast::show_confirmation_text_for_widget(
                                     &graph, &message,
                                 );
                                 let focus = times.first().copied();

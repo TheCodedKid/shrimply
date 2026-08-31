@@ -1,4 +1,4 @@
-use shrimply_ui_foundation::tr;
+use shrimply_gtk_components::tr;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::Duration;
@@ -12,11 +12,11 @@ use shrimply_math_core::Fraction;
 use crate::InspectedItem as SelectedItem;
 use crate::player_state::{self, ProjectChange, SharedPlayerState};
 use crate::ui::NumberPicker;
+use shrimply_gtk_components::ui::switch_row;
 use shrimply_project::project::{
     AudioItem, AudioSource, AudioSpeedMethod, Project, RepeatStrategy, Time,
     default_playback_speed, playback_speed_or_default,
 };
-use shrimply_ui_foundation::ui::switch_row;
 
 use super::{
     Inspectable, InspectorContext,
@@ -449,7 +449,7 @@ fn audio_stream_rows(item: &AudioItem, context: &InspectorContext) -> Vec<gtk::W
     }
     let labels = (0..stream_count)
         .map(|stream| {
-            shrimply_ui_foundation::i18n::text_args(
+            shrimply_gtk_components::i18n::text_args(
                 "Audio stream %{number}",
                 &[("number", (stream + 1).to_string())],
             )

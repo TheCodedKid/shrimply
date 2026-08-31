@@ -1,6 +1,6 @@
 use super::*;
 use crate::project::ItemRef;
-use shrimply_ui_foundation::{i18n::text_args, tr};
+use shrimply_gtk_components::{i18n::text_args, tr};
 
 pub(super) fn draw_import_preview(
     draw: &TimelineDraw<'_>,

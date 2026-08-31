@@ -1,4 +1,4 @@
-use shrimply_ui_foundation::tr;
+use shrimply_gtk_components::tr;
 use std::rc::Rc;
 
 use adw::prelude::{ActionRowExt, PreferencesRowExt};
@@ -114,7 +114,7 @@ fn add_page_control(
     let page_count = if pages.len() == 1 {
         tr!("1 page").into_owned()
     } else {
-        shrimply_ui_foundation::i18n::text_args(
+        shrimply_gtk_components::i18n::text_args(
             "%{count} pages",
             &[("count", pages.len().to_string())],
         )

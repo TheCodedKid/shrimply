@@ -1,5 +1,5 @@
 use gtk::prelude::*;
-use shrimply_ui_foundation::ui::switch_row;
+use shrimply_gtk_components::ui::switch_row;
 use uuid::Uuid;
 
 use super::{InspectorContext, ScalarOptions, scalar_row};

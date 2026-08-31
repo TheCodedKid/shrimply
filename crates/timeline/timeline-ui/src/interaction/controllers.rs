@@ -2,7 +2,7 @@ use super::*;
 
 use crate::renderer::Rect;
 use crate::runtime::TimelineSoftwareCursor;
-use shrimply_ui_foundation::{cursor::software_cursor_from_name, ui::PointerLock};
+use shrimply_gtk_components::{cursor::software_cursor_from_name, ui::PointerLock};
 
 struct CursorGrab {
     pointer_lock: PointerLock,

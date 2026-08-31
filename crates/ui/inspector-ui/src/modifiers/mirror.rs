@@ -1,7 +1,7 @@
 use super::InspectorContext;
 use crate::player_state::{self, ProjectChange};
 use gtk::prelude::*;
-use shrimply_ui_foundation::ui::switch_row;
+use shrimply_gtk_components::ui::switch_row;
 use shrimply_video_modifiers::{ModifierEffect, RasterModifierEffect, mirror::MirrorModifier};
 use uuid::Uuid;
 

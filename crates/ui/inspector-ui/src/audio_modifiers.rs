@@ -1,5 +1,5 @@
-use shrimply_ui_foundation::tr;
-use shrimply_ui_foundation::ui::{I18nWidgetExt, switch_row};
+use shrimply_gtk_components::tr;
+use shrimply_gtk_components::ui::{I18nWidgetExt, switch_row};
 use std::rc::Rc;
 use std::thread;
 
@@ -970,11 +970,11 @@ fn apply_action(context: &InspectorContext, id: Uuid, action: Action) {
             .property_clipboard
             .borrow_mut()
             .copy_audio_modifier(modifier);
-        let message = shrimply_ui_foundation::i18n::text_args(
+        let message = shrimply_gtk_components::i18n::text_args(
             "%{name} copied",
             &[("name", modifier.effect.display_name().to_owned())],
         );
-        shrimply_ui_foundation::toast::show_confirmation_text_for_widget(
+        shrimply_gtk_components::toast::show_confirmation_text_for_widget(
             &context.category_bar,
             &message,
         );
@@ -989,7 +989,7 @@ fn apply_action(context: &InspectorContext, id: Uuid, action: Action) {
         && matches!(item.modifiers[index].effect, AudioModifierEffect::Cache(_))
         && let Err(error) = shrimply_audio::modifier_cache::invalidate(id)
     {
-        shrimply_ui_foundation::toast::show_confirmation_text_for_widget(
+        shrimply_gtk_components::toast::show_confirmation_text_for_widget(
             &context.category_bar,
             &format!("Could not remove cache: {error}"),
         );
@@ -1058,12 +1058,12 @@ fn paste_modifiers(context: &InspectorContext) {
     let message = if result.modifiers_added == 1 {
         tr!("1 effect pasted").into_owned()
     } else {
-        shrimply_ui_foundation::i18n::text_args(
+        shrimply_gtk_components::i18n::text_args(
             "%{count} effects pasted",
             &[("count", result.modifiers_added.to_string())],
         )
     };
-    shrimply_ui_foundation::toast::show_confirmation_text_for_widget(
+    shrimply_gtk_components::toast::show_confirmation_text_for_widget(
         &context.category_bar,
         &message,
     );

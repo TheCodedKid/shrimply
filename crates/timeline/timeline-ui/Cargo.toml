@@ -31,7 +31,7 @@ shrimply-timeline-snap = { path = "../timeline-snap" }
 shrimply-transcription = { path = "../../audio/transcription" }
 shrimply-tts = { path = "../../audio/tts" }
 shrimply-tts-ui = { path = "../../audio/tts-ui" }
-shrimply-ui-foundation = { path = "../../ui/ui-foundation" }
+shrimply-gtk-components = { path = "../../ui/gtk-components" }
 shrimply-wayland-pointer-lock = { path = "../../ui/wayland-pointer-lock" }
 shrimply-video = { path = "../../video/rendering" }
 shrimply-video-recording = { path = "../../video/video-recording" }

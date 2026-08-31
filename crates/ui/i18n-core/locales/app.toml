@@ -151,7 +151,7 @@ ja = "協力"
 "ko" = "다음 분들의 도움으로 제작"
 "ru" = "Разработан с помощью"
 pt = "Desenvolvido com a ajuda de"
-tr = "Bu kişiler tarafından yardımla yapıldı:"
+tr = "Katkıda bulunanlar"
 it = "Creato con l'aiuto di"
 
 ["Caption background color"]
@@ -165,7 +165,7 @@ ja = "字幕の背景色"
 "ko" = "자막 배경색"
 "ru" = "Цвет фона субтитров"
 pt = "Cor de fundo da legenda"
-tr = "Alt yazı arka plan rengi"
+tr = "Altyazı arka plan rengi"
 it = "Colore sfondo sottotitoli"
 
 ["Captions"]
@@ -179,7 +179,7 @@ ja = "字幕"
 "ko" = "자막"
 "ru" = "Субтитры"
 pt = "Legendas"
-tr = "Alt Yazılar"
+tr = "Altyazılar"
 it = "Sottotitoli"
 
 ["CUDA"]
@@ -249,7 +249,7 @@ ja = "Blender 実行ファイルの設定を消去"
 "ko" = "Blender 실행 파일 지우기"
 "ru" = "Очистить исполняемый файл Blender"
 pt = "Limpar executável do Blender"
-tr = "Blender Yürütülebilir Yolunu Kaldır"
+tr = "Blender yürütülebilir dosyasını temizle"
 it = "Rimuovi il binario di Blender"
 
 ["Clear History"]
@@ -263,7 +263,7 @@ ja = "履歴を消去"
 "ko" = "기록 지우기"
 "ru" = "Очистить историю"
 pt = "Limpar histórico"
-tr = "Geçmişi Kaldır"
+tr = "Geçmişi Temizle"
 it = "Cancella la cronologia"
 
 ["Click to type, drag horizontally to adjust"]
@@ -277,7 +277,7 @@ ja = "クリックして入力、または横にドラッグして調整"
 "ko" = "클릭하여 입력하고 가로로 드래그하여 조정"
 "ru" = "Нажмите, чтобы ввести текст, или перетащите по горизонтали для изменения"
 pt = "Clique para digitar, arraste horizontalmente para ajustar"
-tr = "Yazmak için tıkla, ayarlamak için yatay şekilde sürükle"
+tr = "Yazmak için tıklayın, ayarlamak için yatay olarak sürükleyin"
 it = "Clicca per scrivere, trascina orizzontalmente per aggiustare"
 
 ["Compatibility Notice"]
@@ -389,7 +389,7 @@ ja = "一部のクリップがプロジェクトのフレームグリッドに�
 ko = "일부 클립이 프로젝트 프레임 격자에 맞지 않습니다. 수정하면 클립 경계를 스냅하고 최소한으로 이동한 뒤 원본을 변경하지 않고 새 프로젝트로 저장합니다."
 ru = "Некоторые клипы не выровнены по сетке кадров проекта. Исправление привяжет и минимально сдвинет их границы, а затем сохранит новый проект без изменения исходного."
 pt = "Alguns clipes não estão alinhados à grade de quadros do projeto. A correção ajustará e deslocará minimamente os limites dos clipes e salvará um novo projeto sem alterar o original."
-tr = "Bazı klipler projenin kare ızgarasına hizalı değil. Onları düzeltmek, klip sınırlarını bir anlığına kaydırıp ardından orijinalini değiştirmeden yeni bir proje kaydedecektir."
+tr = "Bazı klipler proje kare ızgarasıyla hizalı değil. Düzeltme işlemi klip sınırlarını ızgaraya oturtup mümkün olduğunca az kaydıracak, ardından özgün projeyi değiştirmeden yeni bir proje kaydedecektir."
 it = "Alcune clip non sono allineate alla griglia dei fotogrammi del progetto. La correzione aggancerà e sposterà leggermente i bordi delle clip, salvando un nuovo progetto senza modificare l'originale."
 
 ["Compute"]
@@ -627,7 +627,7 @@ ja = "ビジュアルの既定の長さ"
 "ko" = "기본 비주얼 클립 길이"
 "ru" = "Длительность визуального элемента по умолчанию"
 pt = "Duração visual padrão"
-tr = "Varsayılan Görsel Süre"
+tr = "Varsayılan Görsel Süresi"
 it = "Durata visuale predefinita"
 
 ["Delete Server"]
@@ -683,7 +683,7 @@ ja = "タイムライン、ビート、プレビューのスナップ距離（�
 "ko" = "타임라인, 비트 및 미리보기 스냅 거리(픽셀)"
 "ru" = "Расстояние в пикселях для привязки таймлайна, битов и предпросмотра"
 pt = "Distância em pixels para encaixe na linha do tempo, batidas e pré-visualização"
-tr = "Zaman çizgelesi, vuruş ve önizleme hizalaması için piksel cinsinden mesafe"
+tr = "Zaman akışı, vuruş ve önizleme hizalaması için piksel cinsinden mesafe"
 it = "Distanza in pixel per l'aggancio a sequenza, beat e anteprima"
 
 ["Drop shadow extent around the video frame in pixels"]
@@ -851,7 +851,7 @@ ja = "GPU ホストメモリ予算"
 "ko" = "GPU 호스트 메모리 예산"
 "ru" = "Бюджет системной памяти GPU"
 pt = "Limite de memória do host para GPU"
-tr = "Ana GPU Bellek Maliyeti"
+tr = "GPU Ana Bellek Bütçesi"
 it = "Limite memoria host per GPU"
 
 ["Import Kdenlive as Shrimply Project"]
@@ -991,7 +991,7 @@ ja = "詳細を見る"
 "ko" = "자세히 알아보기"
 "ru" = "Подробнее"
 pt = "Saiba mais"
-tr = "Daha çok öğren"
+tr = "Daha Fazla Bilgi"
 it = "Scopri di più"
 
 ["Light Blue"]
@@ -1187,7 +1187,7 @@ ja = "有効な動画デコーダーセッションの最大数"
 "ko" = "최대 활성 비디오 디코더 세션 수"
 "ru" = "Максимальное количество активных сеансов видеодекодера"
 pt = "Número máximo de sessões ativas do decodificador de vídeo"
-tr = "En fazla aktif çözücü oturum sayısı"
+tr = "Etkin video kod çözücü oturumlarının azami sayısı"
 it = "Numero massimo di sessioni di decodifica video attive"
 
 ["New Project"]
@@ -1411,7 +1411,7 @@ ja = "プロジェクト名"
 "ko" = "프로젝트 이름"
 "ru" = "Название проекта"
 pt = "Nome do projeto"
-tr = "Proje İsmi"
+tr = "Proje Adı"
 it = "Nome del progetto"
 
 ["Project Settings"]
@@ -1509,7 +1509,7 @@ ja = "最近使った色"
 "ko" = "최근 항목"
 "ru" = "Недавние"
 pt = "Recentes"
-tr = "En Son"
+tr = "Son Kullanılanlar"
 it = "Recenti"
 
 ["Red"]

@@ -1,6 +1,6 @@
 use gtk::prelude::Cast;
 use shrimply_core::timeline_value::TimelineStep;
-use shrimply_ui_foundation::tr;
+use shrimply_gtk_components::tr;
 
 pub(super) use crate::ui::{
     StringChoice, dropdown, enum_selector, labeled_string_selector, selector, string_selector,

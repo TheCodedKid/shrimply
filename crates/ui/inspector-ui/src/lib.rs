@@ -42,16 +42,16 @@ pub fn font_family_selector(
 use std::cell::{Cell, RefCell};
 
 pub use shrimply_evaluation as transform_eval;
+pub use shrimply_gtk_components::{desktop_open, skia_font, ui};
 pub use shrimply_math_color::Color;
 pub use shrimply_project::time_format;
 pub use shrimply_render_core::math;
 pub use shrimply_state::player_state;
 pub use shrimply_state::preview_focus;
 pub use shrimply_timeline::selection_state;
-pub use shrimply_ui_foundation::{desktop_open, skia_font, ui};
 
 pub mod timeline {
-    pub use shrimply_ui_foundation::{canvas as renderer, cursor};
+    pub use shrimply_gtk_components::{canvas as renderer, cursor};
 }
 
 use hashbrown::{HashMap, HashSet};

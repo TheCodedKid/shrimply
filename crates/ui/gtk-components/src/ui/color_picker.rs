@@ -9,6 +9,7 @@ use gtk::gio;
 use gtk::gio::prelude::{DBusProxyExt, SettingsExt};
 use gtk::glib;
 use gtk::glib::variant::ToVariant;
+use shrimply_component_core::color::{Hsva, PALETTE, RECENT_LIMIT, color_hex};
 use shrimply_math_color::Color;
 
 use super::color_swatch::{ColorSwatch, SwatchShape};
@@ -19,7 +20,6 @@ const SELECTION_SIZE: i32 = 300;
 const BAR_SIZE: i32 = 24;
 const TRACK_SIZE: f64 = 16.0;
 const THUMB_RADIUS: f64 = 10.0;
-const RECENT_LIMIT: usize = 8;
 const CHECKER_SIZE: f64 = 8.0;
 
 const PORTAL_DESTINATION: &str = "org.freedesktop.portal.Desktop";
@@ -34,78 +34,6 @@ static PORTAL_TOKEN: AtomicU32 = AtomicU32::new(1);
 thread_local! {
     static RECENT_COLORS: RefCell<Vec<Color<u8>>> = RefCell::new(load_recent_colors());
 }
-
-#[derive(Clone, Copy, PartialEq)]
-struct Hsva {
-    hue: f32,
-    saturation: f32,
-    value: f32,
-    alpha: f32,
-}
-
-impl Hsva {
-    fn from_color(color: Color<u8>) -> Self {
-        let [hue, saturation, value, alpha] = color.to_hsva();
-        Self {
-            hue,
-            saturation,
-            value,
-            alpha,
-        }
-    }
-
-    fn color(self) -> Color<u8> {
-        Color::from_hsva(self.hue, self.saturation, self.value, self.alpha)
-    }
-}
-
-const PALETTE: [(&str, Color<u8>); 45] = [
-    ("Very Light Blue", Color::from_rgb(0x99, 0xc1, 0xf1)),
-    ("Light Blue", Color::from_rgb(0x62, 0xa0, 0xea)),
-    ("Blue", Color::from_rgb(0x35, 0x84, 0xe4)),
-    ("Dark Blue", Color::from_rgb(0x1c, 0x71, 0xd8)),
-    ("Very Dark Blue", Color::from_rgb(0x1a, 0x5f, 0xb4)),
-    ("Very Light Green", Color::from_rgb(0x8f, 0xf0, 0xa4)),
-    ("Light Green", Color::from_rgb(0x57, 0xe3, 0x89)),
-    ("Green", Color::from_rgb(0x33, 0xd1, 0x7a)),
-    ("Dark Green", Color::from_rgb(0x2e, 0xc2, 0x7e)),
-    ("Very Dark Green", Color::from_rgb(0x26, 0xa2, 0x69)),
-    ("Very Light Yellow", Color::from_rgb(0xf9, 0xf0, 0x6b)),
-    ("Light Yellow", Color::from_rgb(0xf8, 0xe4, 0x5c)),
-    ("Yellow", Color::from_rgb(0xf6, 0xd3, 0x2d)),
-    ("Dark Yellow", Color::from_rgb(0xf5, 0xc2, 0x11)),
-    ("Very Dark Yellow", Color::from_rgb(0xe5, 0xa5, 0x0a)),
-    ("Very Light Orange", Color::from_rgb(0xff, 0xbe, 0x6f)),
-    ("Light Orange", Color::from_rgb(0xff, 0xa3, 0x48)),
-    ("Orange", Color::from_rgb(0xff, 0x78, 0x00)),
-    ("Dark Orange", Color::from_rgb(0xe6, 0x61, 0x00)),
-    ("Very Dark Orange", Color::from_rgb(0xc6, 0x46, 0x00)),
-    ("Very Light Red", Color::from_rgb(0xf6, 0x61, 0x51)),
-    ("Light Red", Color::from_rgb(0xed, 0x33, 0x3b)),
-    ("Red", Color::from_rgb(0xe0, 0x1b, 0x24)),
-    ("Dark Red", Color::from_rgb(0xc0, 0x1c, 0x28)),
-    ("Very Dark Red", Color::from_rgb(0xa5, 0x1d, 0x2d)),
-    ("Very Light Purple", Color::from_rgb(0xdc, 0x8a, 0xdd)),
-    ("Light Purple", Color::from_rgb(0xc0, 0x61, 0xcb)),
-    ("Purple", Color::from_rgb(0x91, 0x41, 0xac)),
-    ("Dark Purple", Color::from_rgb(0x81, 0x3d, 0x9c)),
-    ("Very Dark Purple", Color::from_rgb(0x61, 0x35, 0x83)),
-    ("Very Light Brown", Color::from_rgb(0xcd, 0xab, 0x8f)),
-    ("Light Brown", Color::from_rgb(0xb5, 0x83, 0x5a)),
-    ("Brown", Color::from_rgb(0x98, 0x6a, 0x44)),
-    ("Dark Brown", Color::from_rgb(0x86, 0x5e, 0x3c)),
-    ("Very Dark Brown", Color::from_rgb(0x63, 0x45, 0x2c)),
-    ("White", Color::from_rgb(0xff, 0xff, 0xff)),
-    ("Light Gray 1", Color::from_rgb(0xf6, 0xf5, 0xf4)),
-    ("Light Gray 2", Color::from_rgb(0xde, 0xdd, 0xda)),
-    ("Light Gray 3", Color::from_rgb(0xc0, 0xbf, 0xbc)),
-    ("Light Gray 4", Color::from_rgb(0x9a, 0x99, 0x96)),
-    ("Dark Gray 1", Color::from_rgb(0x77, 0x76, 0x7b)),
-    ("Dark Gray 2", Color::from_rgb(0x5e, 0x5c, 0x64)),
-    ("Dark Gray 3", Color::from_rgb(0x3d, 0x38, 0x46)),
-    ("Dark Gray 4", Color::from_rgb(0x24, 0x1f, 0x31)),
-    ("Black", Color::from_rgb(0x00, 0x00, 0x00)),
-];
 
 pub struct ColorPicker;
 
@@ -161,8 +89,12 @@ impl ColorPickerBuilder {
         let row = gtk::Box::new(gtk::Orientation::Horizontal, 8);
         row.append(&sample);
         row.append(&hex);
-        let adaptive = adw::BreakpointBin::builder().child(&row).build();
         let narrow_width = if self.with_alpha { 104 } else { 88 };
+        let adaptive = adw::BreakpointBin::builder()
+            .child(&row)
+            .width_request(narrow_width)
+            .height_request(22)
+            .build();
         let narrow = adw::Breakpoint::new(
             adw::BreakpointCondition::parse(&format!("max-width: {narrow_width}px"))
                 .expect("valid color picker breakpoint"),
@@ -767,9 +699,7 @@ async fn pick_screen_color() -> Result<Color<u8>, String> {
 fn remember_color(color: Color<u8>) {
     RECENT_COLORS.with(|colors| {
         let mut colors = colors.borrow_mut();
-        colors.retain(|recent| *recent != color);
-        colors.insert(0, color);
-        colors.truncate(RECENT_LIMIT);
+        shrimply_component_core::color::remember_color(&mut colors, color);
         let values = colors
             .iter()
             .map(|color| {
@@ -800,17 +730,6 @@ fn load_recent_colors() -> Vec<Color<u8>> {
         })
         .take(RECENT_LIMIT)
         .collect()
-}
-
-fn color_hex(color: Color<u8>, with_alpha: bool) -> String {
-    if with_alpha {
-        format!(
-            "#{:02X}{:02X}{:02X}{:02X}",
-            color.r, color.g, color.b, color.a
-        )
-    } else {
-        format!("#{:02X}{:02X}{:02X}", color.r, color.g, color.b)
-    }
 }
 
 fn draw_checkerboard(context: &cairo::Context, width: i32, height: i32) {

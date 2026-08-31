@@ -1,0 +1,12 @@
+[package]
+name = "shrimply-component-core"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+shrimply-math-color = { path = "../../math/color" }
+shrimply-math-core = { path = "../../math/core" }
+shrimply-project-core = { path = "../../project/project-core" }
+typos.workspace = true
+typos-dict.workspace = true
+unicase.workspace = true

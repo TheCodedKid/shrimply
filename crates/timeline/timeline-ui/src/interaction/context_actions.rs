@@ -3,11 +3,11 @@ use crate::RenderedVideoFrame;
 use shrimply_cross_ui_tl::{
     ContextItemKind, ContextMenuControl, ItemMenuContext, TrackMenuContext, VideoFrameSelection,
 };
-use shrimply_ui_foundation::tr;
-use shrimply_ui_foundation::ui::I18nAlertDialogExt;
-use shrimply_ui_foundation::ui::I18nFileFilterExt;
-use shrimply_ui_foundation::ui::I18nMenuExt;
-use shrimply_ui_foundation::ui::I18nWidgetExt;
+use shrimply_gtk_components::tr;
+use shrimply_gtk_components::ui::I18nAlertDialogExt;
+use shrimply_gtk_components::ui::I18nFileFilterExt;
+use shrimply_gtk_components::ui::I18nMenuExt;
+use shrimply_gtk_components::ui::I18nWidgetExt;
 
 pub(crate) mod folded_items;
 pub(crate) mod folded_tracks;
@@ -473,7 +473,7 @@ fn add_video_frame_context_actions(
                 move |result| match result {
                     Ok(frame) => {
                         area.display().clipboard().set_texture(&frame.texture());
-                        shrimply_ui_foundation::toast::show_confirmation_for_widget(
+                        shrimply_gtk_components::toast::show_confirmation_for_widget(
                             &area,
                             "Frame copied",
                         );
@@ -513,7 +513,7 @@ fn add_video_frame_context_actions(
             let player_state = player_state.clone();
             let selection_state = selection_state.clone();
             let preferences = preferences.clone();
-            shrimply_ui_foundation::file_picker::save(
+            shrimply_gtk_components::file_picker::save(
                 label,
                 &dialog,
                 area.root().and_downcast::<gtk::Window>().as_ref(),
@@ -788,7 +788,7 @@ fn show_export_audio_dialog(
                 .build();
             let area = area.clone();
             let export_project = selection.project.clone();
-            shrimply_ui_foundation::file_picker::save(
+            shrimply_gtk_components::file_picker::save(
                 label,
                 &file_dialog,
                 area.root().and_downcast::<gtk::Window>().as_ref(),
@@ -894,7 +894,7 @@ fn show_export_audio_dialog(
                                         }
                                     };
                                     progress_bar.set_text(Some(
-                                        &shrimply_ui_foundation::i18n::text_args(
+                                        &shrimply_gtk_components::i18n::text_args(
                                             progress_text,
                                             &[("percent", format!("{:.0}", fraction * 100.0))],
                                         ),

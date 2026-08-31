@@ -12,5 +12,5 @@ shrimply-math-core = { path = "../../math/core" }
 shrimply-math-media = { path = "../../math/media" }
 shrimply-project = { path = "../../project/project" }
 shrimply-state = { path = "../../state" }
-shrimply-ui-foundation = { path = "../../ui/ui-foundation" }
+shrimply-gtk-components = { path = "../../ui/gtk-components" }
 tracing.workspace = true

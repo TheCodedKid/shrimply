@@ -1,4 +1,4 @@
-use shrimply_ui_foundation::ui::I18nWidgetExt;
+use shrimply_gtk_components::ui::I18nWidgetExt;
 use std::rc::Rc;
 
 use gtk::glib;
@@ -87,7 +87,7 @@ fn controls(blender: &BlenderItem, source: &Asset, context: &InspectorContext) -
         vec![StringChoice {
             value: scene_value.to_string(),
             label: if blender.scene.is_empty() {
-                shrimply_ui_foundation::i18n::text(scene_value).into_owned()
+                shrimply_gtk_components::i18n::text(scene_value).into_owned()
             } else {
                 scene_value.to_string()
             },
@@ -124,7 +124,7 @@ fn controls(blender: &BlenderItem, source: &Asset, context: &InspectorContext) -
         vec![StringChoice {
             value: view_layer_value.to_string(),
             label: if blender.view_layer.is_empty() {
-                shrimply_ui_foundation::i18n::text(view_layer_value).into_owned()
+                shrimply_gtk_components::i18n::text(view_layer_value).into_owned()
             } else {
                 view_layer_value.to_string()
             },
@@ -159,7 +159,7 @@ fn controls(blender: &BlenderItem, source: &Asset, context: &InspectorContext) -
         vec![StringChoice {
             value: camera_value.to_string(),
             label: if blender.camera.is_empty() {
-                shrimply_ui_foundation::i18n::text(camera_value).into_owned()
+                shrimply_gtk_components::i18n::text(camera_value).into_owned()
             } else {
                 camera_value.to_string()
             },

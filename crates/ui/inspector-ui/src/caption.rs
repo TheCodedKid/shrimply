@@ -1,4 +1,4 @@
-use shrimply_ui_foundation::tr;
+use shrimply_gtk_components::tr;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -6,11 +6,11 @@ use crate::InspectedItem as SelectedItem;
 use crate::player_state::{self, ProjectChange, SharedPlayerState};
 use crate::ui::NumberPicker;
 use adw::prelude::*;
+use shrimply_gtk_components::ui::{ColorPicker, MultilineTextInput, switch_row};
 use shrimply_project::project::{
     CaptionEdgeStyle, CaptionFont, CaptionItem, CaptionWritingDirection, Color, HorizontalAlign,
     Project, VerticalAlign,
 };
-use shrimply_ui_foundation::ui::{ColorPicker, MultilineTextInput, switch_row};
 
 use super::{
     Inspectable, InspectorContext,

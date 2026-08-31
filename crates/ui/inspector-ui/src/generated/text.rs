@@ -447,7 +447,7 @@ fn font_variation_controls(
                 .label(&axis.tag)
                 .halign(gtk::Align::Start)
                 .hexpand(true)
-                .tooltip_text(shrimply_ui_foundation::i18n::text_args(
+                .tooltip_text(shrimply_gtk_components::i18n::text_args(
                     "%{axis} variation axis",
                     &[("axis", axis.tag.clone())],
                 ))

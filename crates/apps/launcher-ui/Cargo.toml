@@ -13,5 +13,5 @@ gtk.workspace = true
 shrimply-cross-ui-core = { path = "../../ui/cross-ui-core" }
 shrimply-support = { path = "../../support" }
 shrimply-project = { path = "../../project/project" }
-shrimply-ui-foundation = { path = "../../ui/ui-foundation" }
+shrimply-gtk-components = { path = "../../ui/gtk-components" }
 tracing.workspace = true

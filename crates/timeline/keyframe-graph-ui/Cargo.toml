@@ -8,8 +8,9 @@ shrimply-discrete-keyframe-graph-ui = { path = "../discrete-keyframe-graph-ui" }
 shrimply-cross-ui-theme = { path = "../../ui/cross-ui-theme" }
 shrimply-interpolation = { path = "../../interpolation" }
 shrimply-math-core = { path = "../../math/core" }
-shrimply-ui-foundation = { path = "../../ui/ui-foundation" }
 shrimply-math-color = { path = "../../math/color" }
+shrimply-math-geometry = { path = "../../math/geometry" }
+glam.workspace = true
 skia-safe = { workspace = true, features = ["gl", "textlayout"] }
 shrimply-skia-adw-ui = { path = "../../ui/skia-adw-ui" }
 uuid = { workspace = true, features = ["v4", "serde"] }

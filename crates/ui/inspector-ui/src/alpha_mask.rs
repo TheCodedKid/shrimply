@@ -1,8 +1,8 @@
 use std::rc::Rc;
 
 use gtk::prelude::*;
+use shrimply_gtk_components::ui::switch_row;
 use shrimply_project::project::{AlphaMaskShape, VisualAlphaMask, VisualAlphaMaskTarget};
-use shrimply_ui_foundation::ui::switch_row;
 
 use crate::{
     InspectorContext,

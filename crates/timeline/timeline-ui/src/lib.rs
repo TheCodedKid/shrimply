@@ -6,13 +6,13 @@ use std::rc::Rc;
 use std::time::{Duration, Instant};
 
 pub use shrimply_audio as audio;
+pub use shrimply_gtk_components::{desktop_open, playback_shortcuts, skia_font, skia_system_font};
 pub use shrimply_math_color::Color;
 pub use shrimply_math_core::Fraction;
 pub use shrimply_project::{caption, project, time_format, timeline_search};
 pub use shrimply_state::player_state;
 pub use shrimply_timeline::selection_state;
 pub use shrimply_transcription as transcription;
-pub use shrimply_ui_foundation::{desktop_open, playback_shortcuts, skia_font, skia_system_font};
 
 pub mod preferences {
     pub use shrimply_state::preferences as store;
@@ -20,7 +20,7 @@ pub mod preferences {
 
 pub mod export {
     pub use shrimply_export::audio;
-    pub use shrimply_ui_foundation::export_feedback::show_export_finished_for_widget;
+    pub use shrimply_gtk_components::export_feedback::show_export_finished_for_widget;
 }
 
 use shrimply_math_media as math;
@@ -59,7 +59,7 @@ mod beat_grid;
 mod clipboard;
 mod context_menu;
 mod drawing;
-pub use shrimply_ui_foundation::cursor;
+pub use shrimply_gtk_components::cursor;
 mod caption_tts;
 mod drag_and_drop;
 mod external_content;
@@ -71,7 +71,7 @@ mod interaction;
 mod items;
 mod recording;
 mod runtime;
-pub use shrimply_ui_foundation::canvas as renderer;
+pub use shrimply_gtk_components::canvas as renderer;
 pub(crate) mod ruler;
 mod setup;
 mod silence;

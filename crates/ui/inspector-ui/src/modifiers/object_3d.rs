@@ -1,9 +1,9 @@
 use adw::prelude::AdwDialogExt;
 use gtk::prelude::*;
+use shrimply_gtk_components::tr;
+use shrimply_gtk_components::ui::I18nFileFilterExt;
 use shrimply_project::project::Project;
 use shrimply_scene_3d::{MAX_IOR, MIN_IOR, MIN_ROUGHNESS, NormalMode};
-use shrimply_ui_foundation::tr;
-use shrimply_ui_foundation::ui::I18nFileFilterExt;
 use shrimply_video_modifiers::{
     ModifierEffect,
     scene_3d::{Object3dModifier, Scene3dModifierEffect},
@@ -151,7 +151,7 @@ fn file_row(value: &Object3dModifier, id: Uuid, context: &InspectorContext) -> g
             .filters(&filters)
             .build();
         let context = choose_context.clone();
-        shrimply_ui_foundation::file_picker::open(
+        shrimply_gtk_components::file_picker::open(
             label,
             &dialog,
             None::<&gtk::Window>,

@@ -1,5 +1,5 @@
 use super::*;
-use shrimply_ui_foundation::ui::switch_row;
+use shrimply_gtk_components::ui::switch_row;
 
 #[derive(Default)]
 pub(super) struct ManimParameters(Vec<ManimParameter>);
@@ -43,8 +43,9 @@ fn controls(parameters: &ManimParameters, context: &InspectorContext) -> Vec<gtk
                 },
                 ManimParameterValue::Integer(value),
             ) => {
-                let mut builder = shrimply_ui_foundation::ui::NumberPicker::integer_builder(*value)
-                    .drag_step(*step as f64);
+                let mut builder =
+                    shrimply_gtk_components::ui::NumberPicker::integer_builder(*value)
+                        .drag_step(*step as f64);
                 if let Some(minimum) = minimum {
                     builder = builder.minimum(*minimum as f64);
                 }
@@ -57,7 +58,7 @@ fn controls(parameters: &ManimParameters, context: &InspectorContext) -> Vec<gtk
                         update(ManimParameterValue::Integer(value));
                     })
                     .build();
-                section.add_wide_control(&shrimply_ui_foundation::ui::control_row(
+                section.add_wide_control(&shrimply_gtk_components::ui::control_row(
                     &parameter.label,
                     &control,
                 ));
@@ -74,7 +75,7 @@ fn controls(parameters: &ManimParameters, context: &InspectorContext) -> Vec<gtk
                     .trim_end_matches('0')
                     .split_once('.')
                     .map_or(0, |(_, fraction)| fraction.len());
-                let mut builder = shrimply_ui_foundation::ui::NumberPicker::builder(*value)
+                let mut builder = shrimply_gtk_components::ui::NumberPicker::builder(*value)
                     .drag_step(*step)
                     .digits(digits);
                 if let Some(minimum) = minimum {
@@ -87,7 +88,7 @@ fn controls(parameters: &ManimParameters, context: &InspectorContext) -> Vec<gtk
                 let control = builder
                     .on_commit(move |value| update(ManimParameterValue::Float(value)))
                     .build();
-                section.add_wide_control(&shrimply_ui_foundation::ui::control_row(
+                section.add_wide_control(&shrimply_gtk_components::ui::control_row(
                     &parameter.label,
                     &control,
                 ));
@@ -100,7 +101,7 @@ fn controls(parameters: &ManimParameters, context: &InspectorContext) -> Vec<gtk
                 },
             ) => {
                 let update = parameter_update(context, item_key.clone(), parameter);
-                let control = shrimply_ui_foundation::ui::NumberPicker::fraction_builder(
+                let control = shrimply_gtk_components::ui::NumberPicker::fraction_builder(
                     fraction_new(*numerator, *denominator),
                 )
                 .drag_step(0.05)
@@ -112,27 +113,27 @@ fn controls(parameters: &ManimParameters, context: &InspectorContext) -> Vec<gtk
                     });
                 })
                 .build();
-                section.add_wide_control(&shrimply_ui_foundation::ui::control_row(
+                section.add_wide_control(&shrimply_gtk_components::ui::control_row(
                     &parameter.label,
                     &control,
                 ));
             }
             (ManimParameterControl::Color, ManimParameterValue::Color(value)) => {
                 let update = parameter_update(context, item_key.clone(), parameter);
-                let control = shrimply_ui_foundation::ui::ColorPicker::builder(*value)
+                let control = shrimply_gtk_components::ui::ColorPicker::builder(*value)
                     .title(&parameter.label)
                     .with_alpha(false)
                     .hexpand(true)
                     .on_change(move |value| update(ManimParameterValue::Color(value)))
                     .build();
-                section.add_wide_control(&shrimply_ui_foundation::ui::control_row(
+                section.add_wide_control(&shrimply_gtk_components::ui::control_row(
                     &parameter.label,
                     &control,
                 ));
             }
             (ManimParameterControl::Option { options }, ManimParameterValue::Option(value)) => {
                 let update = parameter_update(context, item_key.clone(), parameter);
-                let control = shrimply_ui_foundation::ui::string_selector(
+                let control = shrimply_gtk_components::ui::string_selector(
                     &parameter.label,
                     value,
                     options.clone(),
@@ -151,10 +152,10 @@ fn controls(parameters: &ManimParameters, context: &InspectorContext) -> Vec<gtk
             }
             (ManimParameterControl::String, ManimParameterValue::String(value)) => {
                 let update = parameter_update(context, item_key.clone(), parameter);
-                let control = shrimply_ui_foundation::ui::SingleLineTextInput::builder(value)
+                let control = shrimply_gtk_components::ui::SingleLineTextInput::builder(value)
                     .on_commit(move |value| update(ManimParameterValue::String(value)))
                     .build();
-                section.add_wide_control(&shrimply_ui_foundation::ui::control_row(
+                section.add_wide_control(&shrimply_gtk_components::ui::control_row(
                     &parameter.label,
                     &control,
                 ));

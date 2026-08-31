@@ -3,11 +3,11 @@ use std::fmt::Display;
 use std::rc::Rc;
 
 use gtk::prelude::*;
+pub use shrimply_component_core::selector::StringChoice;
+use shrimply_component_core::selector::{identity_choices, searchable, selected_index};
 use strum::IntoEnumIterator;
 
 use super::control_row;
-
-const MAX_OPTIONS_WITHOUT_SEARCH: usize = 5;
 
 #[derive(Clone)]
 pub struct StringSelector {
@@ -15,12 +15,6 @@ pub struct StringSelector {
     dropdown: gtk::DropDown,
     choices: Rc<RefCell<Vec<StringChoice>>>,
     updating: Rc<Cell<bool>>,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct StringChoice {
-    pub value: String,
-    pub label: String,
 }
 
 impl StringSelector {
@@ -33,11 +27,8 @@ impl StringSelector {
     }
 
     pub fn set_choices(&self, value: &str, choices: Vec<StringChoice>) {
-        let searchable = choices.len() > MAX_OPTIONS_WITHOUT_SEARCH;
-        let selected = choices
-            .iter()
-            .position(|choice| choice.value == value)
-            .unwrap_or_default();
+        let enable_search = searchable(choices.len());
+        let selected = selected_index(value, &choices);
         let labels = choices
             .iter()
             .map(|choice| choice.label.as_str())
@@ -47,7 +38,7 @@ impl StringSelector {
         *self.choices.borrow_mut() = choices;
         self.dropdown.set_model(Some(&model));
         self.dropdown.set_selected(selected as u32);
-        self.dropdown.set_enable_search(searchable);
+        self.dropdown.set_enable_search(enable_search);
         self.updating.set(false);
     }
 
@@ -65,16 +56,6 @@ pub fn string_selector(
     labeled_string_selector(label, value, identity_choices(options), changed)
 }
 
-fn identity_choices(options: Vec<String>) -> Vec<StringChoice> {
-    options
-        .into_iter()
-        .map(|option| StringChoice {
-            value: option.clone(),
-            label: option,
-        })
-        .collect()
-}
-
 pub fn labeled_string_selector(
     label: &str,
     value: &str,
@@ -85,15 +66,12 @@ pub fn labeled_string_selector(
         .iter()
         .map(|choice| choice.label.as_str())
         .collect::<Vec<_>>();
-    let selected = choices
-        .iter()
-        .position(|choice| choice.value == value)
-        .unwrap_or_default();
+    let selected = selected_index(value, &choices);
     let expression = gtk::StringObject::this_expression("string");
     let dropdown = gtk::DropDown::builder()
         .model(&gtk::StringList::new(&labels))
         .selected(selected as u32)
-        .enable_search(choices.len() > MAX_OPTIONS_WITHOUT_SEARCH)
+        .enable_search(searchable(choices.len()))
         .expression(&expression)
         .halign(gtk::Align::Fill)
         .hexpand(true)
@@ -146,7 +124,7 @@ where
     let dropdown = gtk::DropDown::builder()
         .model(&gtk::StringList::new(&labels))
         .selected(selected as u32)
-        .enable_search(options.len() > MAX_OPTIONS_WITHOUT_SEARCH)
+        .enable_search(searchable(options.len()))
         .expression(&expression)
         .halign(gtk::Align::Fill)
         .hexpand(true)

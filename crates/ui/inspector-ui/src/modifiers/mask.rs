@@ -1,6 +1,6 @@
 use gtk::prelude::*;
+use shrimply_gtk_components::tr;
 use shrimply_project::project::Project;
-use shrimply_ui_foundation::tr;
 use shrimply_video_modifiers::{ModifierEffect, RasterModifierEffect, mask::MaskModifier};
 use uuid::Uuid;
 
@@ -8,7 +8,7 @@ use crate::{
     InspectorContext,
     player_state::{self, ProjectChange},
 };
-use shrimply_ui_foundation::ui::{control_row, switch_row};
+use shrimply_gtk_components::ui::{control_row, switch_row};
 
 pub fn add_rows(value: &MaskModifier, out: &gtk::Box, id: Uuid, context: &InspectorContext) {
     let source = gtk::Box::new(gtk::Orientation::Horizontal, 4);
@@ -156,7 +156,7 @@ fn mask_item_label(
                 .iter()
                 .position(|item| item.id == id)
                 .map(|item_index| {
-                    shrimply_ui_foundation::i18n::text_args(
+                    shrimply_gtk_components::i18n::text_args(
                         "Track %{track} · Item %{item}",
                         &[
                             ("track", (track_index + 1).to_string()),

@@ -1,9 +1,9 @@
 use super::store;
 use adw::prelude::*;
 use gtk::{gio, glib};
-use shrimply_ui_foundation::tr;
-use shrimply_ui_foundation::ui::I18nAlertDialogExt;
-use shrimply_ui_foundation::ui::I18nWidgetExt;
+use shrimply_gtk_components::tr;
+use shrimply_gtk_components::ui::I18nAlertDialogExt;
+use shrimply_gtk_components::ui::I18nWidgetExt;
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -711,7 +711,7 @@ fn server_version(status: &ServerStatus) -> String {
 }
 
 fn server_summary(status: &ServerStatus) -> String {
-    let version = shrimply_ui_foundation::i18n::text_args(
+    let version = shrimply_gtk_components::i18n::text_args(
         "Version %{version}",
         &[("version", server_version(status))],
     );
@@ -755,7 +755,7 @@ fn show_status(rows: &Rows, status: &ServerStatus) {
     rows.torch.set_subtitle(&status.torch.version);
     rows.cuda.set_subtitle(
         &match (&status.torch.cuda_runtime, status.torch.cuda_available) {
-            (Some(runtime), true) => shrimply_ui_foundation::i18n::text_args(
+            (Some(runtime), true) => shrimply_gtk_components::i18n::text_args(
                 "%{runtime} · Available",
                 &[("runtime", runtime.clone())],
             ),
@@ -809,7 +809,7 @@ fn show_status(rows: &Rows, status: &ServerStatus) {
     rows.current_device.set(selected_device);
     rows.updating_device.set(false);
     rows.jobs
-        .set_subtitle(&shrimply_ui_foundation::i18n::text_args(
+        .set_subtitle(&shrimply_gtk_components::i18n::text_args(
             "%{queued} queued · %{active} active",
             &[
                 ("queued", status.compute.queued_jobs.to_string()),

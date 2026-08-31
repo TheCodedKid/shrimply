@@ -5,9 +5,9 @@ use ffmpeg::{format, media};
 use ffmpeg_next as ffmpeg;
 use glam::UVec2;
 use gtk::glib;
+use shrimply_gtk_components::tr;
 use shrimply_media_info::{ExactRatio, ExactTime, FileInfo, StreamInfo};
 use shrimply_project::project::{Asset, Time};
-use shrimply_ui_foundation::tr;
 
 use super::{
     InspectorContext,

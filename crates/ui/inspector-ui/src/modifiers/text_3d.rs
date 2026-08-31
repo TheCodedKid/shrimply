@@ -2,9 +2,9 @@ use gtk::prelude::*;
 use shrimply_core::{
     FontFamily, FontVariation, TextDirection, TextFontStyle, TextHorizontalAlign, VerticalAlign,
 };
+use shrimply_gtk_components::ui::MultilineTextInput;
 use shrimply_project::project::Project;
 use shrimply_scene_3d::{MAX_IOR, MIN_IOR, MIN_ROUGHNESS, NormalMode};
-use shrimply_ui_foundation::ui::MultilineTextInput;
 use shrimply_video_modifiers::{
     ModifierEffect,
     scene_3d::{Scene3dModifierEffect, Text3dModifier},
@@ -253,7 +253,7 @@ fn font_variations(
                     .label(&axis.tag)
                     .halign(gtk::Align::Start)
                     .hexpand(true)
-                    .tooltip_text(shrimply_ui_foundation::i18n::text_args(
+                    .tooltip_text(shrimply_gtk_components::i18n::text_args(
                         "%{axis} variation axis",
                         &[("axis", axis.tag.clone())],
                     ))

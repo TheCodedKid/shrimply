@@ -1,4 +1,4 @@
-use shrimply_ui_foundation::tr;
+use shrimply_gtk_components::tr;
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -9,11 +9,11 @@ use std::time::Duration;
 
 use gtk::glib;
 use gtk::prelude::*;
+use shrimply_gtk_components::ui;
 use shrimply_math_core::{
     fraction_as_f64, fraction_denominator, fraction_numerator, fraction_snapped,
 };
 use shrimply_state::preferences as preferences_store;
-use shrimply_ui_foundation::ui;
 use shrimply_video_generation::{
     Fraction, GenerationResult, InputDefinition, MediaAsset, MediaKind, VideoGenerationModel,
     VideoGenerationSettings, VideoGenerationValue, generation_request, is_visible, sync_settings,
@@ -797,7 +797,7 @@ fn media_widget(
             let key = key.clone();
             let accepted = accepted.clone();
             let rebuild = rebuild.clone();
-            shrimply_ui_foundation::file_picker::open(
+            shrimply_gtk_components::file_picker::open(
                 &label,
                 &chooser,
                 button

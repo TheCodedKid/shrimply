@@ -1,4 +1,4 @@
-use shrimply_ui_foundation::tr;
+use shrimply_gtk_components::tr;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::Duration;
@@ -48,7 +48,7 @@ pub(super) fn widget() -> gtk::Widget {
             .display()
             .clipboard()
             .set_text(&shrimply_benchmarking::report_json());
-        shrimply_ui_foundation::toast::show_confirmation_for_widget(
+        shrimply_gtk_components::toast::show_confirmation_for_widget(
             button,
             "Benchmark report copied",
         );
@@ -114,7 +114,7 @@ fn refresh(status: &adw::ExpanderRow, rows: &RefCell<Vec<adw::ActionRow>>) {
             .unwrap_or_default();
         let row = adw::ActionRow::builder()
             .title(timing.name)
-            .subtitle(shrimply_ui_foundation::i18n::text_args(
+            .subtitle(shrimply_gtk_components::i18n::text_args(
                 "Last %{last} · Avg %{average} · Min %{minimum} · Max %{maximum} · %{samples} samples%{percentage}",
                 &[
                     ("last", duration_label(timing.last)),

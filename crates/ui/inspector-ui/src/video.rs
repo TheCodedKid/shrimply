@@ -1,5 +1,5 @@
-use shrimply_ui_foundation::tr;
-use shrimply_ui_foundation::ui::I18nWidgetExt;
+use shrimply_gtk_components::tr;
+use shrimply_gtk_components::ui::I18nWidgetExt;
 use std::cell::RefCell;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -13,6 +13,8 @@ use gtk::prelude::*;
 use crate::InspectedItem as SelectedItem;
 use crate::player_state::{self, ProjectChange, SharedPlayerState};
 use crate::timeline_value::*;
+use shrimply_gtk_components::resource_pipeline::{UiSubscription, deliver};
+use shrimply_gtk_components::ui::{ColorPicker, control_row, dropdown};
 use shrimply_math_core::{fraction_denominator, fraction_new, fraction_numerator};
 use shrimply_project::project::{
     AssetSnapshot, AudioItem, AudioSource, AudioTrack, Color, LayerBlendMode, LayerVisibility,
@@ -23,8 +25,6 @@ use shrimply_project::project::{
 };
 use shrimply_project::svg_color;
 use shrimply_resource_pipeline::{Event, JobContext, Pipeline, Processor};
-use shrimply_ui_foundation::resource_pipeline::{UiSubscription, deliver};
-use shrimply_ui_foundation::ui::{ColorPicker, control_row, dropdown};
 use shrimply_video_modifiers::VisualKind;
 
 use super::{
@@ -1137,7 +1137,7 @@ fn video_stream_rows(item: &VideoItem, context: &InspectorContext) -> Vec<gtk::W
     }
     let labels = (0..stream_count)
         .map(|stream| {
-            shrimply_ui_foundation::i18n::text_args(
+            shrimply_gtk_components::i18n::text_args(
                 "Video stream %{number}",
                 &[("number", (stream + 1).to_string())],
             )
@@ -1162,7 +1162,7 @@ fn video_stream_rows(item: &VideoItem, context: &InspectorContext) -> Vec<gtk::W
             stream.map_or_else(
                 || tr!("None").into_owned(),
                 |stream| {
-                    shrimply_ui_foundation::i18n::text_args(
+                    shrimply_gtk_components::i18n::text_args(
                         "Video stream %{number}",
                         &[("number", (stream + 1).to_string())],
                     )
@@ -1524,14 +1524,14 @@ fn svg_color_section(
         let label = match color.kind {
             SvgPaintKind::Fill => {
                 fill_count += 1;
-                shrimply_ui_foundation::i18n::text_args(
+                shrimply_gtk_components::i18n::text_args(
                     "Fill color %{number}",
                     &[("number", fill_count.to_string())],
                 )
             }
             SvgPaintKind::Stroke => {
                 stroke_count += 1;
-                shrimply_ui_foundation::i18n::text_args(
+                shrimply_gtk_components::i18n::text_args(
                     "Stroke color %{number}",
                     &[("number", stroke_count.to_string())],
                 )

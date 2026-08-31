@@ -11,4 +11,4 @@ pango.workspace = true
 shrimply-blender = { path = "../../blender/blender-bridge" }
 shrimply-inspector-ui = { path = "../../ui/inspector-ui" }
 shrimply-preferences-core = { path = "../preferences-core" }
-shrimply-ui-foundation = { path = "../../ui/ui-foundation" }
+shrimply-gtk-components = { path = "../../ui/gtk-components" }

@@ -109,7 +109,7 @@ ja = "オーディオトラック"
 "ko" = "오디오 트랙"
 "ru" = "Аудиодорожка"
 pt = "Faixa de áudio"
-tr = "Ses Parçası"
+tr = "Ses İzi"
 it = "Traccia audio"
 
 ["Background"]
@@ -179,7 +179,7 @@ ja = "字幕"
 "ko" = "자막"
 "ru" = "Субтитры"
 pt = "Legenda"
-tr = "Alt Yazı"
+tr = "Altyazı"
 it = "Sottotitolo"
 
 ["Caption Track"]
@@ -193,7 +193,7 @@ ja = "字幕トラック"
 "ko" = "자막 트랙"
 "ru" = "Дорожка субтитров"
 pt = "Faixa de legendas"
-tr = "Alt Yazı Parçası"
+tr = "Altyazı İzi"
 it = "Traccia dei sottotitoli"
 
 ["Choose…"]
@@ -319,7 +319,7 @@ ja = "形式"
 "ko" = "형식"
 "ru" = "Формат"
 pt = "Formato"
-tr = "Format"
+tr = "Biçim"
 it = "Formato"
 
 ["Frame Rate"]
@@ -403,7 +403,7 @@ ja = "新規トラック"
 "ko" = "새 트랙"
 "ru" = "Новая дорожка"
 pt = "Nova faixa"
-tr = "Yeni Parça"
+tr = "Yeni İz"
 it = "Nuova traccia"
 
 ["None"]
@@ -487,7 +487,7 @@ ja = "プリセット"
 "ko" = "프리셋"
 "ru" = "Пресет"
 pt = "Predefinição"
-tr = "Ön Ayar"
+tr = "Önayar"
 it = "Preimpostato"
 
 ["Sending request…"]
@@ -613,7 +613,7 @@ ja = "ビデオトラック"
 "ko" = "비디오 트랙"
 "ru" = "Видеодорожка"
 pt = "Faixa de vídeo"
-tr = "Video Parçası"
+tr = "Video İzi"
 it = "Traccia video"
 
 ["Width"]

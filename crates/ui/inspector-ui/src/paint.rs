@@ -1,5 +1,5 @@
-use shrimply_ui_foundation::tr;
-use shrimply_ui_foundation::ui::I18nFileFilterExt;
+use shrimply_gtk_components::tr;
+use shrimply_gtk_components::ui::I18nFileFilterExt;
 use std::path::PathBuf;
 use std::rc::Rc;
 
@@ -106,7 +106,7 @@ fn palette_controls(value: &PaintPalette, context: &InspectorContext) -> Vec<gtk
         let color = &entry.color;
         let row = gtk::Box::new(gtk::Orientation::Horizontal, 6);
         let color_control = color_control(
-            &shrimply_ui_foundation::i18n::text_args(
+            &shrimply_gtk_components::i18n::text_args(
                 "Color %{number}",
                 &[("number", (display_index + 1).to_string())],
             ),
@@ -326,7 +326,7 @@ fn drawing_control(value: &TimelineValue<PaintDrawing>, context: &InspectorConte
     let time = local_time(context);
     let drawing = value.value_at(time);
     let summary = gtk::Label::builder()
-        .label(shrimply_ui_foundation::i18n::text_args(
+        .label(shrimply_gtk_components::i18n::text_args(
             "%{strokes} strokes, %{fills} fills",
             &[
                 ("strokes", drawing.strokes.len().to_string()),
@@ -800,7 +800,7 @@ fn texture_picker(entry: &PaintPaletteEntry, context: &InspectorContext) -> gtk:
             .filters(&filters)
             .build();
         let context = choose_context.clone();
-        shrimply_ui_foundation::file_picker::open(
+        shrimply_gtk_components::file_picker::open(
             label,
             &dialog,
             None::<&gtk::Window>,

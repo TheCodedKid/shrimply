@@ -5,6 +5,7 @@ use std::time::Duration;
 use gtk::glib::{self, SourceId};
 use gtk::prelude::*;
 use gtk::{gio, gio::prelude::ActionMapExt};
+use shrimply_component_core::text::{TypoMark, limited_text, typo_marks};
 use sourceview5::prelude::*;
 
 const MAX_TYPO_CORRECTIONS: usize = 6;
@@ -183,13 +184,6 @@ impl MultilineTextInputBuilder {
     }
 }
 
-fn limited_text(text: &str, max_length: Option<usize>) -> String {
-    let Some(max_length) = max_length else {
-        return text.to_string();
-    };
-    text.chars().take(max_length).collect()
-}
-
 struct PendingCommit {
     source_id: Option<SourceId>,
     dirty: bool,
@@ -255,67 +249,21 @@ fn flush_pending_commit(
     }
 }
 
-#[derive(Clone)]
-struct TypoMark {
-    start: i32,
-    end: i32,
-    message: String,
-    corrections: Vec<String>,
-}
-
 fn update_typo_marks(
     buffer: &sourceview5::Buffer,
     typo_tag: &gtk::TextTag,
-    typo_marks: &Rc<RefCell<Vec<TypoMark>>>,
+    current_marks: &Rc<RefCell<Vec<TypoMark>>>,
 ) {
     let (start, end) = buffer.bounds();
     buffer.remove_tag(typo_tag, &start, &end);
     let text = buffer.text(&start, &end, true).to_string();
-    let marks = text_typo_marks(&text);
+    let marks = typo_marks(&text);
     for mark in &marks {
         let start = buffer.iter_at_offset(mark.start);
         let end = buffer.iter_at_offset(mark.end);
         buffer.apply_tag(typo_tag, &start, &end);
     }
-    *typo_marks.borrow_mut() = marks;
-}
-
-fn text_typo_marks(text: &str) -> Vec<TypoMark> {
-    let tokenizer = typos::tokens::Tokenizer::new();
-    let mut marks = Vec::new();
-    for ident in tokenizer.parse_str(text) {
-        for word in ident.split() {
-            let Some(corrections) = typos_dict::WORD.find(&unicase::UniCase::new(word.token()))
-            else {
-                continue;
-            };
-            let start = char_offset(text, word.offset());
-            let end = char_offset(text, word.offset() + word.token().len());
-            let message = if corrections.is_empty() {
-                format!("Possible typo: {}", word.token())
-            } else {
-                format!(
-                    "Possible typo: {} -> {}",
-                    word.token(),
-                    corrections.join(", ")
-                )
-            };
-            marks.push(TypoMark {
-                start,
-                end,
-                message,
-                corrections: corrections
-                    .iter()
-                    .map(|correction| correction.to_string())
-                    .collect(),
-            });
-        }
-    }
-    marks
-}
-
-fn char_offset(text: &str, byte_offset: usize) -> i32 {
-    text[..byte_offset].chars().count().min(i32::MAX as usize) as i32
+    *current_marks.borrow_mut() = marks;
 }
 
 fn connect_typo_tooltips(view: &sourceview5::View, typo_marks: Rc<RefCell<Vec<TypoMark>>>) {
@@ -448,7 +396,7 @@ fn replace_text_range(buffer: &sourceview5::Buffer, start: i32, end: i32, replac
     buffer.insert(&mut start, replacement);
 }
 
-fn set_text_style_scheme(buffer: &sourceview5::Buffer) {
+pub(super) fn set_text_style_scheme(buffer: &sourceview5::Buffer) {
     let manager = sourceview5::StyleSchemeManager::default();
     let scheme_name = if adw::StyleManager::default().is_dark() {
         "Adwaita-dark"

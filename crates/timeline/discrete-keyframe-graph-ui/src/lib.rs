@@ -1,6 +1,6 @@
 use shrimply_math_color::Color;
 use shrimply_math_core::{Time, fraction_floor_i64, fraction_from_integer};
-use shrimply_ui_foundation::canvas::{FontId, Rect, Stroke, StrokeKind, TimelinePainter, vec2};
+use shrimply_skia_adw_ui::canvas::{FontId, Rect, Stroke, StrokeKind, TimelinePainter, vec2};
 
 pub const CONTENT_HEIGHT: i32 = 52;
 pub const MAX_FRAME_WIDTH: f64 = 48.0;
