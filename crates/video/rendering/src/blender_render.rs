@@ -100,7 +100,7 @@ impl BlenderElement {
             let pixels = shrimply_loading_screen::render(
                 self.canvas_size.width,
                 self.canvas_size.height,
-                shrimply_i18n::text("Starting Blender…").as_ref(),
+                shrimply_i18n_core::text("Starting Blender…").as_ref(),
                 LOADING_COLOR,
                 LOADING_PROGRESS_COLOR,
             )?;

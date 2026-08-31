@@ -1,12 +1,16 @@
 use rusqlite::{Connection, OptionalExtension, params};
 use shrimply_math_color::Color;
 use shrimply_math_core::{Fraction, Time};
-use shrimply_project::project::{DEFAULT_TEXT_FONT_FAMILY, FontFamily};
+use shrimply_project::project::DEFAULT_TEXT_FONT_FAMILY;
+pub use shrimply_project::project::FontFamily;
 use std::cell::RefCell;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::str::FromStr;
+
+mod ui;
+pub use ui::*;
 
 const CONFIG_DIR: &str = "config";
 const SETTINGS_DB: &str = "config/settings.sqlite";
@@ -37,8 +41,8 @@ const DEFAULT_CAPTION_BACKGROUND_COLOR: Color<u8> = Color::new(0, 0, 0, 204);
 const DEFAULT_TIMELINE_MAGNET: &str = "true";
 const DEFAULT_TIMELINE_BEAT_GRID: &str = "false";
 const DEFAULT_TIMELINE_SNAP_RADIUS_PX: u32 = 10;
-pub const MIN_TIMELINE_SNAP_RADIUS_PX: u32 = 1;
-pub const MAX_TIMELINE_SNAP_RADIUS_PX: u32 = 50;
+const MIN_TIMELINE_SNAP_RADIUS_PX: u32 = 1;
+const MAX_TIMELINE_SNAP_RADIUS_PX: u32 = 50;
 const DEFAULT_PREVIEW_PADDING_PX: u32 = 20;
 const DEFAULT_PREVIEW_SHADOW_SIZE_PX: u32 = 20;
 const DEFAULT_PREVIEW_UPSAMPLE_METHOD: PreviewUpsampleMethod = PreviewUpsampleMethod::Bilinear;
@@ -46,10 +50,10 @@ const DEFAULT_PREVIEW_DOWNSAMPLE_METHOD: PreviewDownsampleMethod =
     PreviewDownsampleMethod::Trilinear;
 const DEFAULT_PREVIEW_GUIDES_VISIBLE: bool = false;
 const DEFAULT_TEMPORAL_DECODER_POOL_SIZE: u32 = 16;
-pub const MAX_PREVIEW_PADDING_PX: u32 = 200;
-pub const MAX_PREVIEW_SHADOW_SIZE_PX: u32 = 200;
-pub const MIN_TEMPORAL_DECODER_POOL_SIZE: u32 = 1;
-pub const MAX_TEMPORAL_DECODER_POOL_SIZE: u32 = 256;
+const MAX_PREVIEW_PADDING_PX: u32 = 200;
+const MAX_PREVIEW_SHADOW_SIZE_PX: u32 = 200;
+const MIN_TEMPORAL_DECODER_POOL_SIZE: u32 = 1;
+const MAX_TEMPORAL_DECODER_POOL_SIZE: u32 = 256;
 const GIB_BYTES: u64 = 1024 * 1024 * 1024;
 const DEFAULT_TIMELINE_CURSOR: &str = "pointer";
 const DEFAULT_TIMELINE_DRAG_COLLISION_MODE: &str = "overwrite";
@@ -859,6 +863,45 @@ pub fn set_compute_server_urls(store: &SharedPreferences, urls: &[String]) {
         return;
     }
     notify_listeners(state);
+}
+
+pub fn normalize_server_url(value: &str) -> Result<String, &'static str> {
+    let value = value.trim().trim_end_matches('/');
+    let Some(rest) = value
+        .strip_prefix("http://")
+        .or_else(|| value.strip_prefix("https://"))
+    else {
+        return Err("Use an http:// or https:// server URL");
+    };
+    let host = rest.split(['/', '?', '#']).next().unwrap_or_default();
+    if host.is_empty() {
+        return Err("Server URL must include a host");
+    }
+    if host.starts_with(':') || value.chars().any(char::is_whitespace) {
+        return Err("Enter a valid server URL");
+    }
+    Ok(value.to_string())
+}
+
+pub fn validate_blender_binary(path: &Path) -> Result<PathBuf, String> {
+    let path = shrimply_blender::canonical_binary(path)?;
+    shrimply_blender::probe(&path)?;
+    Ok(path)
+}
+
+pub fn apply_blender_binary(store: &SharedPreferences, path: Option<PathBuf>) {
+    set_blender_binary(store, path.as_deref());
+    shrimply_blender::set_binary(snapshot(store).blender_binary);
+}
+
+pub use shrimply_server_client::ServerStatus;
+
+pub fn compute_server_status(url: &str) -> Result<ServerStatus, String> {
+    shrimply_server_client::server_status(url)
+}
+
+pub fn select_compute_device(url: &str, device: &str) -> Result<ServerStatus, String> {
+    shrimply_server_client::set_compute_device(url, device)
 }
 
 pub fn set_last_stt_model(store: &SharedPreferences, model: &str) {

@@ -5,11 +5,9 @@ edition = "2024"
 
 [dependencies]
 hashbrown.workspace = true
-libc.workspace = true
-rusqlite = { workspace = true, features = ["bundled"] }
 shrimply-benchmarking = { path = "../benchmarking" }
-shrimply-math-color = { path = "../math/color" }
 shrimply-math-core = { path = "../math/core" }
+shrimply-preferences-core = { path = "../preferences/preferences-core" }
 shrimply-project = { path = "../project/project" }
 shrimply-preview-core = { path = "../preview/preview-core" }
 shrimply-support = { path = "../support" }

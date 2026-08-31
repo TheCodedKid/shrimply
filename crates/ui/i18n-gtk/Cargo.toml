@@ -1,0 +1,7 @@
+[package]
+name = "shrimply-i18n-gtk"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+shrimply-i18n-core = { path = "../i18n-core" }

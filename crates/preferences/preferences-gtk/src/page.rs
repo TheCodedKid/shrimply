@@ -1,7 +1,5 @@
-use crate::preferences::{server, store as preferences_store};
+use crate::{server, store as preferences_store};
 use adw::prelude::*;
-use num_traits::ToPrimitive;
-use shrimply_math_core::{Fraction, Time};
 use shrimply_ui_foundation::tr;
 use shrimply_ui_foundation::ui::ColorPicker;
 
@@ -10,6 +8,27 @@ pub fn show_preferences_dialog(
     preferences: preferences_store::SharedPreferences,
 ) {
     let snapshot = preferences_store::snapshot(&preferences);
+    let caption_size_range =
+        preferences_store::integer_range(preferences_store::PreferenceId::CaptionFontSize)
+            .expect("caption font size must be numeric");
+    let duration_range =
+        preferences_store::integer_range(preferences_store::PreferenceId::DefaultVisualDuration)
+            .expect("visual duration must be numeric");
+    let snap_range =
+        preferences_store::integer_range(preferences_store::PreferenceId::TimelineSnapRadius)
+            .expect("timeline snap radius must be numeric");
+    let padding_range =
+        preferences_store::integer_range(preferences_store::PreferenceId::PreviewPadding)
+            .expect("preview padding must be numeric");
+    let shadow_range =
+        preferences_store::integer_range(preferences_store::PreferenceId::PreviewShadowSize)
+            .expect("preview shadow size must be numeric");
+    let decoder_range =
+        preferences_store::integer_range(preferences_store::PreferenceId::TemporalDecoderPoolSize)
+            .expect("decoder pool size must be numeric");
+    let memory_range =
+        preferences_store::integer_range(preferences_store::PreferenceId::GpuHostMemory)
+            .expect("GPU host memory must be numeric");
 
     let default_font_row = adw::ActionRow::builder()
         .title(tr!("Default Text Font").as_ref())
@@ -26,7 +45,11 @@ pub fn show_preferences_dialog(
     text_group.set_title(tr!("Text").as_ref());
     text_group.add(&default_font_row);
 
-    let caption_font_size = adw::SpinRow::with_range(8.0, 240.0, 1.0);
+    let caption_font_size = adw::SpinRow::with_range(
+        caption_size_range.minimum as f64,
+        caption_size_range.maximum as f64,
+        caption_size_range.step as f64,
+    );
     caption_font_size.set_title(tr!("Font Size").as_ref());
     caption_font_size.set_value(snapshot.caption_font_size as f64);
     caption_font_size.set_digits(0);
@@ -40,15 +63,19 @@ pub fn show_preferences_dialog(
     caption_group.add(&caption_font_size);
     caption_group.add(&caption_background_color_row);
 
-    let default_visual_duration = adw::SpinRow::with_range(0.1, 3600.0, 0.1);
+    let default_visual_duration = adw::SpinRow::with_range(
+        duration_range.minimum as f64 / duration_range.scale as f64,
+        duration_range.maximum as f64 / duration_range.scale as f64,
+        duration_range.step as f64 / duration_range.scale as f64,
+    );
     default_visual_duration.set_title(tr!("Default Visual Duration").as_ref());
     default_visual_duration.set_value(snapshot.default_visual_duration.as_secs_f64());
     default_visual_duration.set_digits(1);
 
     let snap_radius = adw::SpinRow::with_range(
-        f64::from(preferences_store::MIN_TIMELINE_SNAP_RADIUS_PX),
-        f64::from(preferences_store::MAX_TIMELINE_SNAP_RADIUS_PX),
-        1.0,
+        snap_range.minimum as f64,
+        snap_range.maximum as f64,
+        snap_range.step as f64,
     );
     snap_radius.set_title(tr!("Snap Attraction Radius").as_ref());
     snap_radius
@@ -62,9 +89,9 @@ pub fn show_preferences_dialog(
     timeline_group.add(&snap_radius);
 
     let preview_padding = adw::SpinRow::with_range(
-        0.0,
-        f64::from(preferences_store::MAX_PREVIEW_PADDING_PX),
-        1.0,
+        padding_range.minimum as f64,
+        padding_range.maximum as f64,
+        padding_range.step as f64,
     );
     preview_padding.set_title(tr!("Padding").as_ref());
     preview_padding.set_subtitle(tr!("Space around the video frame in pixels").as_ref());
@@ -72,9 +99,9 @@ pub fn show_preferences_dialog(
     preview_padding.set_digits(0);
 
     let preview_shadow_size = adw::SpinRow::with_range(
-        0.0,
-        f64::from(preferences_store::MAX_PREVIEW_SHADOW_SIZE_PX),
-        1.0,
+        shadow_range.minimum as f64,
+        shadow_range.maximum as f64,
+        shadow_range.step as f64,
     );
     preview_shadow_size.set_title(tr!("Shadow Size").as_ref());
     preview_shadow_size
@@ -123,9 +150,9 @@ pub fn show_preferences_dialog(
     preview_group.add(&preview_downsample_method);
 
     let temporal_decoder_pool_size = adw::SpinRow::with_range(
-        f64::from(preferences_store::MIN_TEMPORAL_DECODER_POOL_SIZE),
-        f64::from(preferences_store::MAX_TEMPORAL_DECODER_POOL_SIZE),
-        1.0,
+        decoder_range.minimum as f64,
+        decoder_range.maximum as f64,
+        decoder_range.step as f64,
     );
     temporal_decoder_pool_size.set_title(tr!("Temporal Decoder Pool Size").as_ref());
     temporal_decoder_pool_size
@@ -134,23 +161,21 @@ pub fn show_preferences_dialog(
     temporal_decoder_pool_size.set_digits(0);
 
     let gpu_host_memory = adw::SpinRow::with_range(
-        0.0,
-        preferences_store::physical_system_memory_gib()
-            .to_f64()
-            .expect("physical RAM GiB must convert to f64"),
-        0.25,
+        memory_range.minimum as f64 / memory_range.scale as f64,
+        memory_range.maximum as f64 / memory_range.scale as f64,
+        memory_range.step as f64 / memory_range.scale as f64,
     );
     gpu_host_memory.set_title(tr!("GPU Host Memory Budget").as_ref());
     gpu_host_memory.set_subtitle(
         tr!("Maximum system RAM available for CUDA spill and reconstructible GPU resources")
             .as_ref(),
     );
-    gpu_host_memory.set_value(
-        snapshot
-            .gpu_host_memory_gib
-            .to_f64()
-            .expect("GPU host memory preference must convert to f64"),
-    );
+    let preferences_store::PreferenceValue::Integer(memory_quarters) =
+        preferences_store::value(&preferences, preferences_store::PreferenceId::GpuHostMemory)
+    else {
+        unreachable!("GPU host memory must have an integer UI representation")
+    };
+    gpu_host_memory.set_value(memory_quarters as f64 / memory_range.scale as f64);
     gpu_host_memory.set_digits(2);
 
     let performance_group = adw::PreferencesGroup::new();
@@ -206,15 +231,24 @@ pub fn show_preferences_dialog(
 
     let font_preferences = preferences.clone();
     caption_font_size.connect_value_notify(move |row| {
-        let value = row.value().clamp(8.0, 240.0) as f32;
-        preferences_store::set_caption_font_size(&font_preferences, value);
+        preferences_store::set_value(
+            &font_preferences,
+            preferences_store::PreferenceId::CaptionFontSize,
+            preferences_store::PreferenceValue::Integer(row.value().round() as i64),
+        )
+        .expect("caption font size has a fixed integer type");
     });
 
     let color_store = preferences.clone();
     let color_button = ColorPicker::builder(snapshot.caption_background_color)
         .title(tr!("Caption background color").as_ref())
         .on_change(move |color| {
-            preferences_store::set_caption_background_color(&color_store, color)
+            preferences_store::set_value(
+                &color_store,
+                preferences_store::PreferenceId::CaptionBackgroundColor,
+                preferences_store::PreferenceValue::Color(color),
+            )
+            .expect("caption background color has a fixed color type")
         })
         .build();
     color_button.set_valign(gtk::Align::Center);
@@ -224,78 +258,92 @@ pub fn show_preferences_dialog(
 
     let duration_store = preferences.clone();
     default_visual_duration.connect_value_notify(move |row| {
-        preferences_store::set_default_visual_duration(
+        preferences_store::set_value(
             &duration_store,
-            Time::from_seconds_f64(row.value()),
-        );
+            preferences_store::PreferenceId::DefaultVisualDuration,
+            preferences_store::PreferenceValue::Integer(
+                (row.value() * duration_range.scale as f64).round() as i64,
+            ),
+        )
+        .expect("visual duration has a fixed integer UI type");
     });
 
     let snap_radius_store = preferences.clone();
     snap_radius.connect_value_notify(move |row| {
-        preferences_store::set_timeline_snap_radius_px(
+        preferences_store::set_value(
             &snap_radius_store,
-            row.value().round() as u32,
-        );
+            preferences_store::PreferenceId::TimelineSnapRadius,
+            preferences_store::PreferenceValue::Integer(row.value().round() as i64),
+        )
+        .expect("timeline snap radius has a fixed integer type");
     });
 
     let preview_padding_store = preferences.clone();
     preview_padding.connect_value_notify(move |row| {
-        preferences_store::set_preview_padding_px(
+        preferences_store::set_value(
             &preview_padding_store,
-            row.value().round() as u32,
-        );
+            preferences_store::PreferenceId::PreviewPadding,
+            preferences_store::PreferenceValue::Integer(row.value().round() as i64),
+        )
+        .expect("preview padding has a fixed integer type");
     });
 
     let preview_shadow_store = preferences.clone();
     preview_shadow_size.connect_value_notify(move |row| {
-        preferences_store::set_preview_shadow_size_px(
+        preferences_store::set_value(
             &preview_shadow_store,
-            row.value().round() as u32,
-        );
+            preferences_store::PreferenceId::PreviewShadowSize,
+            preferences_store::PreferenceValue::Integer(row.value().round() as i64),
+        )
+        .expect("preview shadow size has a fixed integer type");
     });
 
     let preview_upsample_store = preferences.clone();
     preview_upsample_method.connect_selected_notify(move |row| {
-        let method = match row.selected() {
-            0 => preferences_store::PreviewUpsampleMethod::Nearest,
-            1 => preferences_store::PreviewUpsampleMethod::Bilinear,
-            _ => unreachable!("preview upsample method must be a listed option"),
-        };
-        preferences_store::set_preview_upsample_method(&preview_upsample_store, method);
+        preferences_store::set_value(
+            &preview_upsample_store,
+            preferences_store::PreferenceId::PreviewUpsampleMethod,
+            preferences_store::PreferenceValue::Integer(i64::from(row.selected())),
+        )
+        .expect("preview upsample method has a fixed integer UI type");
     });
 
     let preview_downsample_store = preferences.clone();
     preview_downsample_method.connect_selected_notify(move |row| {
-        let method = match row.selected() {
-            0 => preferences_store::PreviewDownsampleMethod::Nearest,
-            1 => preferences_store::PreviewDownsampleMethod::Bilinear,
-            2 => preferences_store::PreviewDownsampleMethod::Trilinear,
-            _ => unreachable!("preview downsample method must be a listed option"),
-        };
-        preferences_store::set_preview_downsample_method(&preview_downsample_store, method);
+        preferences_store::set_value(
+            &preview_downsample_store,
+            preferences_store::PreferenceId::PreviewDownsampleMethod,
+            preferences_store::PreferenceValue::Integer(i64::from(row.selected())),
+        )
+        .expect("preview downsample method has a fixed integer UI type");
     });
 
     let temporal_decoder_pool_store = preferences.clone();
     temporal_decoder_pool_size.connect_value_notify(move |row| {
-        preferences_store::set_temporal_decoder_pool_size(
+        preferences_store::set_value(
             &temporal_decoder_pool_store,
-            row.value().round() as u32,
-        );
+            preferences_store::PreferenceId::TemporalDecoderPoolSize,
+            preferences_store::PreferenceValue::Integer(row.value().round() as i64),
+        )
+        .expect("decoder pool size has a fixed integer type");
     });
 
     let gpu_host_memory_store = preferences.clone();
     gpu_host_memory.connect_value_notify(move |row| {
-        preferences_store::set_gpu_host_memory_gib(
+        preferences_store::set_value(
             &gpu_host_memory_store,
-            gib_fraction(row.value()),
-        );
+            preferences_store::PreferenceId::GpuHostMemory,
+            preferences_store::PreferenceValue::Integer(
+                (row.value() * memory_range.scale as f64).round() as i64,
+            ),
+        )
+        .expect("GPU host memory has a fixed integer UI type");
     });
 
     let clear_store = preferences.clone();
     let clear_row = blender_row.clone();
     clear_blender.connect_clicked(move |_| {
-        preferences_store::set_blender_binary(&clear_store, None);
-        shrimply_blender::set_binary(None);
+        preferences_store::apply_blender_binary(&clear_store, None);
         clear_row.set_subtitle(tr!("Not configured").as_ref());
     });
 
@@ -320,8 +368,7 @@ pub fn show_preferences_dialog(
                 let (sender, receiver) = async_channel::bounded(1);
                 let probe_path = path.clone();
                 std::thread::spawn(move || {
-                    let result = shrimply_blender::canonical_binary(&probe_path)
-                        .and_then(|path| shrimply_blender::probe(&path).map(|()| path));
+                    let result = preferences_store::validate_blender_binary(&probe_path);
                     let _ = sender.send_blocking(result);
                 });
                 let store = store.clone();
@@ -332,8 +379,7 @@ pub fn show_preferences_dialog(
                     };
                     match result {
                         Ok(path) => {
-                            preferences_store::set_blender_binary(&store, Some(&path));
-                            shrimply_blender::set_binary(Some(path.clone()));
+                            preferences_store::apply_blender_binary(&store, Some(path.clone()));
                             row.set_subtitle(&path.display().to_string());
                         }
                         Err(error) => {
@@ -351,8 +397,4 @@ pub fn show_preferences_dialog(
     });
 
     dialog.present(Some(window.upcast_ref::<gtk::Widget>()));
-}
-
-fn gib_fraction(value: f64) -> Fraction {
-    Fraction::new((value.max(0.0) * 4.0).round() as u64, 4_u64)
 }

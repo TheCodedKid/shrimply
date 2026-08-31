@@ -13,10 +13,11 @@ cxx-qt.workspace = true
 cxx-qt-lib = { workspace = true, features = ["qt_full"] }
 ffmpeg-next.workspace = true
 shrimply-cross-ui-core = { path = "../../ui/cross-ui-core" }
-shrimply-i18n = { path = "../../ui/i18n" }
+shrimply-i18n-qt = { path = "../../ui/i18n-qt" }
 shrimply-math-core = { path = "../../math/core" }
 shrimply-preview-qt = { path = "../../preview/preview-qt" }
 shrimply-preview-runtime = { path = "../../preview/preview-runtime" }
+shrimply-preferences-qt = { path = "../../preferences/preferences-qt" }
 shrimply-project = { path = "../../project/project" }
 shrimply-state = { path = "../../state" }
 shrimply-support = { path = "../../support" }

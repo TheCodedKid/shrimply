@@ -6,7 +6,7 @@ use std::process::ExitCode;
 
 fn main() -> ExitCode {
     shrimply_support::diagnostics::init();
-    shrimply_i18n::init_system_locale();
+    shrimply_i18n_qt::init_system_locale();
 
     let mut args = std::env::args_os().skip(1);
     if let Some(path) = args.next() {

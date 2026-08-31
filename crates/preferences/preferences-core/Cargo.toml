@@ -1,0 +1,14 @@
+[package]
+name = "shrimply-preferences-core"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+libc.workspace = true
+rusqlite = { workspace = true, features = ["bundled"] }
+shrimply-blender = { path = "../../blender/blender-bridge" }
+shrimply-math-color = { path = "../../math/color" }
+shrimply-math-core = { path = "../../math/core" }
+shrimply-project = { path = "../../project/project" }
+shrimply-server-client = { path = "../../server-client" }
+tracing.workspace = true

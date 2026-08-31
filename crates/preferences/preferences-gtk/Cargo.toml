@@ -1,0 +1,14 @@
+[package]
+name = "shrimply-preferences-gtk"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+adw.workspace = true
+async-channel.workspace = true
+gtk.workspace = true
+pango.workspace = true
+shrimply-blender = { path = "../../blender/blender-bridge" }
+shrimply-inspector-ui = { path = "../../ui/inspector-ui" }
+shrimply-preferences-core = { path = "../preferences-core" }
+shrimply-ui-foundation = { path = "../../ui/ui-foundation" }

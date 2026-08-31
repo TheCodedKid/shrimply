@@ -1,0 +1,9 @@
+[package]
+name = "shrimply-preferences-qt"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+cxx-qt-lib = { workspace = true, features = ["qt_full"] }
+shrimply-math-color = { path = "../../math/color" }
+shrimply-preferences-core = { path = "../preferences-core" }

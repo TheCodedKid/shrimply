@@ -1,7 +1,6 @@
 use super::store;
 use adw::prelude::*;
 use gtk::{gio, glib};
-use shrimply_server_client::ServerStatus;
 use shrimply_ui_foundation::tr;
 use shrimply_ui_foundation::ui::I18nAlertDialogExt;
 use shrimply_ui_foundation::ui::I18nWidgetExt;
@@ -9,6 +8,7 @@ use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::thread;
+use store::ServerStatus;
 
 const GIB_BYTES: f64 = 1024.0 * 1024.0 * 1024.0;
 const DEVICE_LABEL_MAX_WIDTH_CHARS: i32 = 60;
@@ -271,8 +271,7 @@ pub fn page(
         let current_revision = selected_revision.get();
         let (sender, receiver) = async_channel::bounded(1);
         thread::spawn(move || {
-            let _ =
-                sender.send_blocking(shrimply_server_client::set_compute_device(&url, &device_id));
+            let _ = sender.send_blocking(store::select_compute_device(&url, &device_id));
         });
         let rows = selected_rows.clone();
         let revision = selected_revision.clone();
@@ -500,7 +499,7 @@ fn show_server_editor(
                 status.set_text(tr!("").as_ref());
                 return;
             }
-            let normalized = match normalize_server_url(&value) {
+            let normalized = match store::normalize_server_url(&value) {
                 Ok(url) => url,
                 Err(error) => {
                     status.set_text(error);
@@ -556,7 +555,7 @@ fn check_editor_server(
 ) {
     let (sender, receiver) = async_channel::bounded(1);
     thread::spawn(move || {
-        let _ = sender.send_blocking(shrimply_server_client::server_status(&server_url));
+        let _ = sender.send_blocking(store::compute_server_status(&server_url));
     });
     glib::spawn_future_local(async move {
         let result = receiver.recv().await;
@@ -588,77 +587,37 @@ fn check_editor_server(
     });
 }
 
-fn normalize_server_url(value: &str) -> Result<String, &'static str> {
-    let value = value.trim().trim_end_matches('/');
-    let Some(rest) = value
-        .strip_prefix("http://")
-        .or_else(|| value.strip_prefix("https://"))
-    else {
-        return Err("Use an http:// or https:// server URL");
-    };
-    let host = rest.split(['/', '?', '#']).next().unwrap_or_default();
-    if host.is_empty() {
-        return Err("Server URL must include a host");
-    }
-    if host.starts_with(':') || value.chars().any(char::is_whitespace) {
-        return Err("Enter a valid server URL");
-    }
-    Ok(value.to_string())
-}
-
 fn add_server_url(servers: &ServerList, url: String) {
-    if !servers.urls.borrow().contains(&url) {
-        servers.urls.borrow_mut().push(url.clone());
-        persist_server_urls(servers);
-    }
-    select_server(&servers.selection, &url);
+    store::add_compute_server(&servers.selection.preferences, &url)
+        .expect("GTK only submits normalized compute server URLs");
+    let snapshot = store::snapshot(&servers.selection.preferences);
+    servers.urls.replace(snapshot.compute_server_urls);
+    select_server(&servers.selection, &snapshot.compute_server_url);
     rebuild_server_rows(servers);
 }
 
 fn edit_server_url(servers: &ServerList, old_url: &str, new_url: String) {
-    let was_selected = servers.selection.rows.selected_url.borrow().as_str() == old_url;
-    let mut urls = servers.urls.borrow_mut();
-    for url in &mut *urls {
-        if url == old_url {
-            *url = new_url.clone();
-        }
-    }
-    let mut unique = Vec::new();
-    urls.retain(|url| {
-        if unique.contains(url) {
-            false
-        } else {
-            unique.push(url.clone());
-            true
-        }
-    });
-    drop(urls);
-    persist_server_urls(servers);
-    if was_selected {
-        select_server(&servers.selection, &new_url);
-    }
+    store::edit_compute_server(&servers.selection.preferences, old_url, &new_url)
+        .expect("GTK only edits an existing server to a normalized URL");
+    let snapshot = store::snapshot(&servers.selection.preferences);
+    servers.urls.replace(snapshot.compute_server_urls);
+    select_server(&servers.selection, &snapshot.compute_server_url);
     rebuild_server_rows(servers);
 }
 
 fn delete_server_url(servers: &ServerList, deleted_url: &str) {
-    if servers.urls.borrow().len() <= 1 {
-        return;
-    }
-    let was_selected = servers.selection.rows.selected_url.borrow().as_str() == deleted_url;
-    servers.urls.borrow_mut().retain(|url| url != deleted_url);
-    persist_server_urls(servers);
-    if was_selected && let Some(url) = servers.urls.borrow().first().cloned() {
-        select_server(&servers.selection, &url);
-    }
+    store::remove_compute_server(&servers.selection.preferences, deleted_url);
+    let snapshot = store::snapshot(&servers.selection.preferences);
+    servers.urls.replace(snapshot.compute_server_urls);
+    select_server(&servers.selection, &snapshot.compute_server_url);
     rebuild_server_rows(servers);
 }
 
-fn persist_server_urls(servers: &ServerList) {
-    store::set_compute_server_urls(&servers.selection.preferences, &servers.urls.borrow());
-}
-
 fn select_server(selection: &ServerSelection, url: &str) {
-    store::set_compute_server_url(&selection.preferences, url);
+    assert!(
+        store::select_compute_server(&selection.preferences, url),
+        "GTK selected a compute server outside the shared preference list"
+    );
     selection.rows.selected_url.replace(url.to_string());
     let current_revision = selection.revision.get().wrapping_add(1);
     selection.revision.set(current_revision);
@@ -680,7 +639,7 @@ fn check_server_summary(servers: &ServerList, url: String, widgets: ServerRow) {
     let current_generation = servers.generation.clone();
     let (sender, receiver) = async_channel::bounded(1);
     thread::spawn(move || {
-        let _ = sender.send_blocking(shrimply_server_client::server_status(&url));
+        let _ = sender.send_blocking(store::compute_server_status(&url));
     });
     glib::spawn_future_local(async move {
         let result = receiver.recv().await;
@@ -767,7 +726,7 @@ fn check(url: String, rows: Rows, revision: Rc<Cell<u64>>, current_revision: u64
     rows.spinner.set_visible(true);
     let (sender, receiver) = async_channel::bounded(1);
     thread::spawn(move || {
-        let _ = sender.send_blocking(shrimply_server_client::server_status(&url));
+        let _ = sender.send_blocking(store::compute_server_status(&url));
     });
     glib::spawn_future_local(async move {
         let result = receiver.recv().await;

@@ -3,7 +3,9 @@ use cxx_qt_build::{CxxQtBuilder, QmlModule};
 fn main() {
     unsafe {
         CxxQtBuilder::new_qml_module(
-            QmlModule::new("dev.shrimply.editor").qml_file("qml/Main.qml"),
+            QmlModule::new("dev.shrimply.editor")
+                .qml_file("qml/Main.qml")
+                .qml_file("qml/PreferencesWindow.qml"),
         )
         .files(["src/backend.rs"])
         .cpp_files([

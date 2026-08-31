@@ -6,9 +6,8 @@ use shrimply_ui_foundation::ui::I18nFileFilterExt;
 mod header_menu;
 mod mcp;
 use shrimply_inspector_ui as inspector;
-use shrimply_state::player_state;
-mod preferences;
 use shrimply_preview_gtk as video_player;
+use shrimply_state::player_state;
 use shrimply_timeline_ui as timeline;
 use shrimply_ui_foundation::project_settings::ProjectSettingsSelector;
 

@@ -31,6 +31,8 @@ shrimply-otio = { path = "../../project/otio" }
 shrimply-kdenlive = { path = "../../project/kdenlive" }
 shrimply-preview-gtk = { path = "../../preview/preview-gtk" }
 shrimply-playback-performance = { path = "../../preview/playback-performance" }
+shrimply-preferences-core = { path = "../../preferences/preferences-core" }
+shrimply-preferences-gtk = { path = "../../preferences/preferences-gtk" }
 shrimply-property-transfer = { path = "../../property-transfer" }
 shrimply-project = { path = "../../project/project" }
 shrimply-server-client = { path = "../../server-client" }

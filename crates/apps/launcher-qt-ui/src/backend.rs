@@ -166,7 +166,7 @@ impl cxx_qt::Initialize for qobject::LauncherBackend {
 
 impl qobject::LauncherBackend {
     pub fn text(&self, key: &QString) -> QString {
-        QString::from(shrimply_i18n::text(&key.to_string()).as_ref())
+        shrimply_i18n_qt::text(&key.to_string())
     }
 
     pub fn recent_name(&self, index: i32) -> QString {
@@ -188,15 +188,8 @@ impl qobject::LauncherBackend {
     pub fn recent_last_edited(&self, index: i32) -> QString {
         index_of(index)
             .and_then(|index| self.core.recent_last_edited(index))
-            .map(|date| {
-                QString::from(shrimply_i18n::text_args(
-                    "Last edited %{date}",
-                    &[("date", date)],
-                ))
-            })
-            .unwrap_or_else(|| {
-                QString::from(shrimply_i18n::text("Last edited time unavailable").as_ref())
-            })
+            .map(|date| shrimply_i18n_qt::text_args("Last edited %{date}", &[("date", date)]))
+            .unwrap_or_else(|| shrimply_i18n_qt::text("Last edited time unavailable"))
     }
 
     pub fn preset_label(&self, index: i32) -> QString {
@@ -206,7 +199,7 @@ impl qobject::LauncherBackend {
                     .get(index)
                     .copied()
             })
-            .map(|label| QString::from(shrimply_i18n::text(label).as_ref()))
+            .map(shrimply_i18n_qt::text)
             .unwrap_or_default()
     }
 
@@ -222,8 +215,9 @@ impl qobject::LauncherBackend {
     }
 
     pub fn project_file_filter(&self) -> QString {
+        let label = shrimply_i18n_qt::text("Shrimply projects").to_string();
         QString::from(shrimply_cross_ui_core::launcher::project_file_name_filter(
-            shrimply_i18n::text("Shrimply projects").as_ref(),
+            &label,
         ))
     }
 
@@ -359,10 +353,8 @@ impl qobject::LauncherBackend {
     }
 
     fn emit_error(mut self: Pin<&mut Self>, heading: &str, body: &str) {
-        self.as_mut().show_error(
-            QString::from(shrimply_i18n::text(heading).as_ref()),
-            QString::from(body),
-        );
+        self.as_mut()
+            .show_error(shrimply_i18n_qt::text(heading), QString::from(body));
     }
 
     fn start_editor(mut self: Pin<&mut Self>, editor: Result<Child, String>) {

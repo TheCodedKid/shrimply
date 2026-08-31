@@ -5,7 +5,7 @@ pub mod export_feedback;
 pub mod file_picker;
 pub mod icons;
 pub mod i18n {
-    pub use shrimply_i18n::{init_system_locale, text, text_args};
+    pub use shrimply_i18n_gtk::{init_system_locale, text, text_args};
 }
 pub mod playback_shortcuts;
 pub mod project_open;

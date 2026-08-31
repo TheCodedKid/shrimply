@@ -1,4 +1,4 @@
 pub mod manim_status;
 pub mod player_state;
-pub mod preferences;
+pub use shrimply_preferences_core as preferences;
 pub mod preview_focus;

@@ -35,7 +35,7 @@ shrimply-blender = { path = "../../blender/blender-bridge" }
 shrimply-background = { path = "../../background" }
 shrimply-evaluation = { path = "../../evaluation" }
 shrimply-gpu-memory = { path = "../gpu-memory" }
-shrimply-i18n = { path = "../../ui/i18n" }
+shrimply-i18n-core = { path = "../../ui/i18n-core" }
 shrimply-visual-frame = { path = "../visual-frame" }
 shrimply-layered-image = { path = "../../layered-image/layered-image" }
 shrimply-loading-screen = { path = "../../preview/loading-screen" }

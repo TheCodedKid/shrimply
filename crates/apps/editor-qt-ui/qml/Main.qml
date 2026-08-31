@@ -88,30 +88,34 @@ ApplicationWindow {
         visible: backend.ready && !window.fullscreenPreview
 
         Menu {
-            title: qsTr("Project")
+            title: backend.translate("Project")
             popupType: Popup.Native
 
-            Action { text: qsTr("Save"); shortcut: StandardKey.Save; onTriggered: backend.save() }
-            Action { text: qsTr("Save As…"); shortcut: StandardKey.SaveAs }
+            Action { text: backend.translate("Save"); shortcut: StandardKey.Save; onTriggered: backend.save() }
+            Action { text: backend.translate("Save As…"); shortcut: StandardKey.SaveAs }
             MenuSeparator {}
-            Action { text: qsTr("Export…"); shortcut: "Ctrl+E" }
+            Action { text: backend.translate("Export…"); shortcut: "Ctrl+E" }
             MenuSeparator {}
-            Action { text: qsTr("Quit"); shortcut: StandardKey.Quit; onTriggered: Qt.quit() }
+            Action { text: backend.translate("Quit"); shortcut: StandardKey.Quit; onTriggered: Qt.quit() }
         }
 
         Menu {
-            title: qsTr("Edit")
+            title: backend.translate("Edit")
             popupType: Popup.Native
 
-            Action { text: qsTr("Undo"); shortcut: StandardKey.Undo; onTriggered: backend.undo() }
-            Action { text: qsTr("Redo"); shortcut: StandardKey.Redo; onTriggered: backend.redo() }
+            Action { text: backend.translate("Undo"); shortcut: StandardKey.Undo; onTriggered: backend.undo() }
+            Action { text: backend.translate("Redo"); shortcut: StandardKey.Redo; onTriggered: backend.redo() }
             MenuSeparator {}
-            Action { text: qsTr("Preferences…"); shortcut: StandardKey.Preferences }
+            Action {
+                text: backend.translate("Preferences…")
+                shortcut: StandardKey.Preferences
+                onTriggered: preferencesWindow.openPreferences()
+            }
         }
 
         Menu {
             id: viewMenu
-            title: qsTr("View")
+            title: backend.translate("View")
             popupType: Popup.Native
             onAboutToShow: {
                 inspectorMenuItem.checked = window.inspectorVisible
@@ -125,7 +129,7 @@ ApplicationWindow {
 
             MenuItem {
                 id: inspectorMenuItem
-                text: qsTr("Inspector")
+                text: backend.translate("Inspector")
                 checkable: true
                 checked: true
                 onClicked: {
@@ -141,7 +145,7 @@ ApplicationWindow {
             }
             MenuItem {
                 id: timelineMenuItem
-                text: qsTr("Timeline")
+                text: backend.translate("Timeline")
                 checkable: true
                 checked: true
                 onClicked: {
@@ -156,7 +160,7 @@ ApplicationWindow {
                 }
             }
             Action {
-                text: qsTr("Fullscreen Preview")
+                text: backend.translate("Fullscreen Preview")
                 shortcut: "F11"
                 checkable: true
                 Binding on checked { value: window.fullscreenPreview }
@@ -165,12 +169,18 @@ ApplicationWindow {
         }
 
         Menu {
-            title: qsTr("Help")
+            title: backend.translate("Help")
             popupType: Popup.Native
 
-            Action { text: qsTr("Keyboard Shortcuts") }
-            Action { text: qsTr("About Shrimply") }
+            Action { text: backend.translate("Keyboard Shortcuts") }
+            Action { text: backend.translate("About Shrimply") }
         }
+    }
+
+    PreferencesWindow {
+        id: preferencesWindow
+        backend: backend
+        owner: window
     }
 
     Pane {
@@ -187,7 +197,7 @@ ApplicationWindow {
             }
             Label {
                 Layout.alignment: Qt.AlignHCenter
-                text: qsTr("Loading project…")
+                text: backend.translate("Loading project…")
                 font.pointSize: 18
                 font.bold: true
             }
@@ -225,11 +235,11 @@ ApplicationWindow {
                     ColumnLayout {
                         anchors.fill: parent
 
-                        Label { text: qsTr("Inspector"); font.bold: true }
+                        Label { text: backend.translate("Inspector"); font.bold: true }
                         Item { Layout.fillHeight: true }
                         Label {
                             Layout.alignment: Qt.AlignCenter
-                            text: qsTr("Inspector is not available yet")
+                            text: backend.translate("Inspector is not available yet")
                             opacity: 0.65
                         }
                         Item { Layout.fillHeight: true }
@@ -265,7 +275,7 @@ ApplicationWindow {
                                     id: previewStatusButton
                                     Layout.alignment: Qt.AlignHCenter
                                     icon.name: "task-complete"
-                                    text: qsTr("Ready")
+                                    text: backend.translate("Ready")
                                     display: AbstractButton.IconOnly
                                     enabled: false
                                 }
@@ -278,7 +288,7 @@ ApplicationWindow {
                                     font.family: backend.fixedFontFamily
                                     font.pixelSize: previewToolColumn.statusTextPixelSize
                                     ToolTip.visible: fpsHover.hovered
-                                    ToolTip.text: qsTr("Frame rate")
+                                    ToolTip.text: backend.translate("Frame rate")
                                     HoverHandler { id: fpsHover }
                                 }
                                 Label {
@@ -290,22 +300,22 @@ ApplicationWindow {
                                     font.family: backend.fixedFontFamily
                                     font.pixelSize: previewToolColumn.statusTextPixelSize
                                     ToolTip.visible: speedHover.hovered
-                                    ToolTip.text: qsTr("Playback speed")
+                                    ToolTip.text: backend.translate("Playback speed")
                                     HoverHandler { id: speedHover }
                                 }
                                 ToolButton {
                                     icon.name: "show-guides"
-                                    text: qsTr("Guides")
+                                    text: backend.translate("Guides")
                                     display: AbstractButton.IconOnly
                                     checkable: true
                                     checked: previewLoader.item ? previewLoader.item.guidesVisible : false
                                     onClicked: if (previewLoader.item) previewLoader.item.guidesVisible = checked
                                 }
                                 ToolSeparator {}
-                                ToolButton { icon.name: "draw-freehand"; text: qsTr("Pen"); display: AbstractButton.IconOnly }
-                                ToolButton { icon.name: "fill-color"; text: qsTr("Fill"); display: AbstractButton.IconOnly }
-                                ToolButton { icon.name: "transform-move"; text: qsTr("Transform"); display: AbstractButton.IconOnly }
-                                ToolButton { icon.name: "draw-eraser"; text: qsTr("Eraser"); display: AbstractButton.IconOnly }
+                                ToolButton { icon.name: "draw-freehand"; text: backend.translate("Pen"); display: AbstractButton.IconOnly }
+                                ToolButton { icon.name: "fill-color"; text: backend.translate("Fill"); display: AbstractButton.IconOnly }
+                                ToolButton { icon.name: "transform-move"; text: backend.translate("Transform"); display: AbstractButton.IconOnly }
+                                ToolButton { icon.name: "draw-eraser"; text: backend.translate("Eraser"); display: AbstractButton.IconOnly }
                             }
                         }
 
@@ -350,7 +360,7 @@ ApplicationWindow {
                             }
                             ToolButton {
                                 icon.name: window.fullscreenPreview ? "view-restore" : "view-fullscreen"
-                                text: window.fullscreenPreview ? qsTr("Exit Fullscreen Preview") : qsTr("Fullscreen Preview")
+                                text: window.fullscreenPreview ? backend.translate("Exit Fullscreen Preview") : backend.translate("Fullscreen Preview")
                                 display: AbstractButton.IconOnly
                                 onClicked: window.setPreviewFullscreen(!window.fullscreenPreview)
                             }
@@ -378,7 +388,7 @@ ApplicationWindow {
                         anchors.horizontalCenter: parent.horizontalCenter
                         ToolButton {
                             icon.name: "snap"
-                            text: qsTr("Magnet")
+                            text: backend.translate("Magnet")
                             display: AbstractButton.IconOnly
                             checkable: true
                             Binding on checked { value: timelineLoader.item ? timelineLoader.item.magnetEnabled : false }
@@ -386,7 +396,7 @@ ApplicationWindow {
                         }
                         ToolButton {
                             icon.name: "view-grid"
-                            text: qsTr("Beat Grid")
+                            text: backend.translate("Beat Grid")
                             display: AbstractButton.IconOnly
                             checkable: true
                             Binding on checked { value: timelineLoader.item ? timelineLoader.item.beatGridEnabled : false }
@@ -395,7 +405,7 @@ ApplicationWindow {
                         ToolSeparator {}
                         ToolButton {
                             icon.name: "edit-select"
-                            text: qsTr("Pointer")
+                            text: backend.translate("Pointer")
                             display: AbstractButton.IconOnly
                             checkable: true
                             Binding on checked {
@@ -406,7 +416,7 @@ ApplicationWindow {
                         }
                         ToolButton {
                             icon.name: "edit-cut"
-                            text: qsTr("Cut")
+                            text: backend.translate("Cut")
                             display: AbstractButton.IconOnly
                             checkable: true
                             Binding on checked {
@@ -418,7 +428,7 @@ ApplicationWindow {
                         ToolSeparator {}
                         ToolButton {
                             icon.name: "timeline-mode-overwrite"
-                            text: qsTr("Overwrite/Insert")
+                            text: backend.translate("Overwrite/Insert")
                             display: AbstractButton.IconOnly
                             checkable: true
                             Binding on checked {
@@ -429,7 +439,7 @@ ApplicationWindow {
                         }
                         ToolButton {
                             icon.name: "dialog-cancel"
-                            text: qsTr("Block")
+                            text: backend.translate("Block")
                             display: AbstractButton.IconOnly
                             checkable: true
                             Binding on checked {
@@ -440,7 +450,7 @@ ApplicationWindow {
                         }
                         ToolButton {
                             icon.name: "selection-move-to-layer-above"
-                            text: qsTr("New Track")
+                            text: backend.translate("New Track")
                             display: AbstractButton.IconOnly
                             checkable: true
                             Binding on checked {
@@ -538,7 +548,7 @@ ApplicationWindow {
                 Label {
                     Layout.fillWidth: true
                     text: modelData.label + (controlItem.mixed
-                        ? qsTr(" — Mixed")
+                        ? backend.translate(" — Mixed")
                         : modelData.kind === 3
                             ? " — " + Number(Math.pow(2, controlItem.currentValue).toFixed(2)) + "×"
                             : " — " + Number(controlItem.currentValue.toFixed(1)) + " dB")
@@ -575,36 +585,36 @@ ApplicationWindow {
             timelineContextError.open()
         }
         function onDeleteTrackRequested(clipCount) {
-            timelineDeleteTrackDialog.text = qsTr("%1 clips are about to be deleted. Are you sure?").arg(clipCount)
+            timelineDeleteTrackDialog.text = backend.translate("%1 clips are about to be deleted. Are you sure?").arg(clipCount)
             timelineDeleteTrackDialog.open()
         }
     }
 
     FileDialog {
         id: timelineSaveFrameDialog
-        title: qsTr("Save Selected Frame")
+        title: backend.translate("Save Selected Frame")
         fileMode: FileDialog.SaveFile
-        nameFilters: [qsTr("PNG image (*.png)")]
+        nameFilters: [backend.translate("PNG image (*.png)")]
         onAccepted: timelineLoader.item.saveContextFrame(selectedFile)
     }
 
     MessageDialog {
         id: timelineContextError
-        title: qsTr("Timeline Action Failed")
+        title: backend.translate("Timeline Action Failed")
         buttons: MessageDialog.Ok
     }
 
     MessageDialog {
         id: timelineDeleteTrackDialog
-        title: qsTr("Delete Track?")
+        title: backend.translate("Delete Track?")
         buttons: MessageDialog.Yes | MessageDialog.Cancel
         onAccepted: timelineLoader.item.deleteContextFoldedTrack()
     }
 
     MessageDialog {
         id: kdenliveDialog
-        title: qsTr("Convert Kdenlive Project?")
-        text: qsTr("Shrimply supports only some Kdenlive features. Unsupported content may be changed or omitted.")
+        title: backend.translate("Convert Kdenlive Project?")
+        text: backend.translate("Shrimply supports only some Kdenlive features. Unsupported content may be changed or omitted.")
         buttons: MessageDialog.Ok | MessageDialog.Cancel
         onAccepted: backend.confirmKdenlive(true)
         onRejected: backend.confirmKdenlive(false)
@@ -612,7 +622,7 @@ ApplicationWindow {
 
     Dialog {
         id: otioDialog
-        title: qsTr("OTIO Project Settings")
+        title: backend.translate("OTIO Project Settings")
         modal: true
         anchors.centerIn: parent
         standardButtons: Dialog.Ok | Dialog.Cancel
@@ -621,21 +631,21 @@ ApplicationWindow {
 
         GridLayout {
             columns: 2
-            Label { text: qsTr("Width") }
+            Label { text: backend.translate("Width") }
             SpinBox { id: otioWidth; from: 1; to: 16384; value: 1920 }
-            Label { text: qsTr("Height") }
+            Label { text: backend.translate("Height") }
             SpinBox { id: otioHeight; from: 1; to: 16384; value: 1080 }
-            Label { text: qsTr("FPS numerator") }
+            Label { text: backend.translate("FPS numerator") }
             SpinBox { id: fpsNumerator; from: 1; to: 240000; value: 30 }
-            Label { text: qsTr("FPS denominator") }
+            Label { text: backend.translate("FPS denominator") }
             SpinBox { id: fpsDenominator; from: 1; to: 1001; value: 1 }
         }
     }
 
     MessageDialog {
         id: repairDialog
-        title: qsTr("Project Timing Needs Repair")
-        text: qsTr("Some clips are not aligned to the project frame grid. Fixing them will save a new project without changing the original.")
+        title: backend.translate("Project Timing Needs Repair")
+        text: backend.translate("Some clips are not aligned to the project frame grid. Fixing them will save a new project without changing the original.")
         buttons: MessageDialog.Ok | MessageDialog.Cancel
         onAccepted: backend.confirmRepair(true)
         onRejected: backend.confirmRepair(false)
@@ -645,7 +655,7 @@ ApplicationWindow {
         id: destinationDialog
         title: window.destinationTitle
         fileMode: FileDialog.SaveFile
-        nameFilters: [qsTr("Shrimply projects (*.shrimp)")]
+        nameFilters: [backend.translate("Shrimply projects (*.shrimp)")]
         currentFile: StandardPaths.writableLocation(StandardPaths.DocumentsLocation) + "/" + window.destinationName
         onAccepted: backend.chooseDestination(true, selectedFile)
         onRejected: backend.chooseDestination(false, "")
@@ -653,7 +663,7 @@ ApplicationWindow {
 
     MessageDialog {
         id: warningDialog
-        title: qsTr("OTIO imported with limitations")
+        title: backend.translate("OTIO imported with limitations")
         buttons: MessageDialog.Ok
         onAccepted: backend.acknowledgeWarnings()
     }
@@ -661,18 +671,31 @@ ApplicationWindow {
     Dialog {
         id: lockDialog
         property int pid: 0
-        title: qsTr("Project is in use")
+        title: backend.translate("Project is in use")
         modal: true
         anchors.centerIn: parent
-        standardButtons: Dialog.NoButton
 
-        ColumnLayout {
-            Label { text: qsTr("The project lock is held by another editor process (PID %1).").arg(lockDialog.pid) }
-            RowLayout {
-                Button { text: qsTr("Close"); onClicked: { lockDialog.close(); backend.resolveLock(0) } }
-                Button { text: qsTr("Stop Other Editor"); onClicked: { lockDialog.close(); backend.resolveLock(2) } }
-                Button { text: qsTr("Retry"); highlighted: true; onClicked: { lockDialog.close(); backend.resolveLock(1) } }
+        contentItem: Label {
+            text: backend.translate("The project lock is held by another editor process (PID %1).").arg(lockDialog.pid)
+            wrapMode: Text.Wrap
+        }
+        footer: DialogButtonBox {
+            Button {
+                text: backend.translate("Close")
+                DialogButtonBox.buttonRole: DialogButtonBox.RejectRole
             }
+            Button {
+                text: backend.translate("Stop Other Editor")
+                DialogButtonBox.buttonRole: DialogButtonBox.DestructiveRole
+            }
+            Button {
+                text: backend.translate("Retry")
+                highlighted: true
+                DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole
+            }
+            onRejected: { lockDialog.close(); backend.resolveLock(0) }
+            onDiscarded: { lockDialog.close(); backend.resolveLock(2) }
+            onAccepted: { lockDialog.close(); backend.resolveLock(1) }
         }
     }
 
@@ -684,7 +707,7 @@ ApplicationWindow {
 
     MessageDialog {
         id: audioErrorDialog
-        title: qsTr("Audio playback stopped")
+        title: backend.translate("Audio playback stopped")
         buttons: MessageDialog.Close
     }
 

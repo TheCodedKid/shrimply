@@ -5461,8 +5461,9 @@ dependencies = [
  "cxx-qt-lib",
  "ffmpeg-next",
  "shrimply-cross-ui-core",
- "shrimply-i18n",
+ "shrimply-i18n-qt",
  "shrimply-math-core",
+ "shrimply-preferences-qt",
  "shrimply-preview-qt",
  "shrimply-preview-runtime",
  "shrimply-project",
@@ -5496,6 +5497,8 @@ dependencies = [
  "shrimply-mcp",
  "shrimply-otio",
  "shrimply-playback-performance",
+ "shrimply-preferences-core",
+ "shrimply-preferences-gtk",
  "shrimply-preview-gtk",
  "shrimply-project",
  "shrimply-property-transfer",
@@ -5586,11 +5589,25 @@ dependencies = [
 ]
 
 [[package]]
-name = "shrimply-i18n"
+name = "shrimply-i18n-core"
 version = "0.1.0"
 dependencies = [
- "glib",
  "rust-i18n",
+]
+
+[[package]]
+name = "shrimply-i18n-gtk"
+version = "0.1.0"
+dependencies = [
+ "shrimply-i18n-core",
+]
+
+[[package]]
+name = "shrimply-i18n-qt"
+version = "0.1.0"
+dependencies = [
+ "cxx-qt-lib",
+ "shrimply-i18n-core",
 ]
 
 [[package]]
@@ -5714,7 +5731,7 @@ dependencies = [
  "cxx-qt-build",
  "cxx-qt-lib",
  "shrimply-cross-ui-core",
- "shrimply-i18n",
+ "shrimply-i18n-qt",
  "shrimply-support",
  "tracing",
 ]
@@ -6039,6 +6056,43 @@ dependencies = [
 ]
 
 [[package]]
+name = "shrimply-preferences-core"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "rusqlite",
+ "shrimply-blender",
+ "shrimply-math-color",
+ "shrimply-math-core",
+ "shrimply-project",
+ "shrimply-server-client",
+ "tracing",
+]
+
+[[package]]
+name = "shrimply-preferences-gtk"
+version = "0.1.0"
+dependencies = [
+ "async-channel",
+ "gtk4",
+ "libadwaita",
+ "pango",
+ "shrimply-blender",
+ "shrimply-inspector-ui",
+ "shrimply-preferences-core",
+ "shrimply-ui-foundation",
+]
+
+[[package]]
+name = "shrimply-preferences-qt"
+version = "0.1.0"
+dependencies = [
+ "cxx-qt-lib",
+ "shrimply-math-color",
+ "shrimply-preferences-core",
+]
+
+[[package]]
 name = "shrimply-preview-core"
 version = "0.1.0"
 dependencies = [
@@ -6327,11 +6381,9 @@ name = "shrimply-state"
 version = "0.1.0"
 dependencies = [
  "hashbrown 0.17.1",
- "libc",
- "rusqlite",
  "shrimply-benchmarking",
- "shrimply-math-color",
  "shrimply-math-core",
+ "shrimply-preferences-core",
  "shrimply-preview-core",
  "shrimply-project",
  "shrimply-support",
@@ -6531,7 +6583,7 @@ dependencies = [
  "libadwaita",
  "num-traits",
  "shrimply-cross-ui-core",
- "shrimply-i18n",
+ "shrimply-i18n-gtk",
  "shrimply-math-color",
  "shrimply-math-core",
  "shrimply-math-geometry",
@@ -6582,7 +6634,7 @@ dependencies = [
  "shrimply-core",
  "shrimply-evaluation",
  "shrimply-gpu-memory",
- "shrimply-i18n",
+ "shrimply-i18n-core",
  "shrimply-layered-image",
  "shrimply-loading-screen",
  "shrimply-manim-parser",

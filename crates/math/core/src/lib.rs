@@ -282,6 +282,12 @@ pub fn fraction_denominator(value: Fraction) -> i64 {
         .unwrap_or(1)
 }
 
+pub fn fraction_scaled_integer(value: Fraction, scale: i64) -> i64 {
+    assert!(scale > 0, "fraction integer scale must be positive");
+    let scaled = value * fraction_from_integer(scale);
+    fraction_numerator(scaled) / fraction_denominator(scaled).max(1)
+}
+
 pub fn fraction_round_nonnegative_u64(value: Fraction) -> u64 {
     let GenericFraction::Rational(Sign::Plus, ratio) = value else {
         return 0;

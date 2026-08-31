@@ -12,7 +12,7 @@ cxx.workspace = true
 cxx-qt.workspace = true
 cxx-qt-lib = { workspace = true, features = ["qt_full"] }
 shrimply-cross-ui-core = { path = "../../ui/cross-ui-core" }
-shrimply-i18n = { path = "../../ui/i18n" }
+shrimply-i18n-qt = { path = "../../ui/i18n-qt" }
 shrimply-support = { path = "../../support" }
 tracing.workspace = true
 

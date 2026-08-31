@@ -1,4 +1,3 @@
-use crate::preferences::{page as preferences_page, store as preferences_store};
 use crate::{export, player_state, project};
 use adw::prelude::*;
 use gtk::gio;
@@ -15,7 +14,7 @@ pub(crate) fn add(
     toasts: &adw::ToastOverlay,
     project: Rc<RefCell<project::Project>>,
     player_state: player_state::SharedPlayerState,
-    preferences: preferences_store::SharedPreferences,
+    preferences: shrimply_preferences_core::SharedPreferences,
 ) {
     let menu = gio::Menu::new();
     let project_menu = gio::Menu::new();
@@ -99,7 +98,9 @@ pub(crate) fn add(
     add_action(window, "preferences", {
         let window = window.clone();
         let preferences = preferences.clone();
-        move || preferences_page::show_preferences_dialog(&window, preferences.clone())
+        move || {
+            shrimply_preferences_gtk::page::show_preferences_dialog(&window, preferences.clone())
+        }
     });
     add_action(window, "about", {
         let window = window.clone();

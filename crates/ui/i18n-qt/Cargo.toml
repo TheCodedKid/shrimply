@@ -1,0 +1,8 @@
+[package]
+name = "shrimply-i18n-qt"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+cxx-qt-lib = { workspace = true, features = ["qt_full"] }
+shrimply-i18n-core = { path = "../i18n-core" }
