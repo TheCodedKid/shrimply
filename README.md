@@ -6,6 +6,9 @@
 
 > you're telling me a shrimp made this video?!
 
+<img width="1150" height="791" alt="image" src="https://github.com/user-attachments/assets/97bbadac-d930-46ae-9df8-033bd81ab6ce" />
+
+
 Shrimply is a free and open-source video editor for creating videos from start
 to finish, whether you are making a quick edit or something fancy.
 
