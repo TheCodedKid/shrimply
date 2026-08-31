@@ -78,6 +78,10 @@ pub mod qobject {
         fn open_project(self: Pin<&mut LauncherBackend>, url: &QUrl);
 
         #[qinvokable]
+        #[cxx_name = "chooseProject"]
+        fn choose_project(self: Pin<&mut LauncherBackend>);
+
+        #[qinvokable]
         #[cxx_name = "presetWidth"]
         fn preset_width(self: &LauncherBackend, index: i32) -> i32;
 
@@ -90,8 +94,8 @@ pub mod qobject {
         fn preset_frame_rate(self: &LauncherBackend, index: i32) -> i32;
 
         #[qinvokable]
-        #[cxx_name = "defaultProjectUrl"]
-        fn default_project_url(self: &LauncherBackend, name: &QString, directory: &QUrl) -> QUrl;
+        #[cxx_name = "chooseProjectDestination"]
+        fn choose_project_destination(self: &LauncherBackend, name: &QString) -> QUrl;
 
         #[qinvokable]
         #[cxx_name = "requestCreateProject"]
@@ -278,6 +282,17 @@ impl qobject::LauncherBackend {
         self.start_editor(editor);
     }
 
+    pub fn choose_project(mut self: Pin<&mut Self>) {
+        let selected = shrimply_qt_helpers::open_file_dialog(
+            &QUrl::default(),
+            &shrimply_i18n_qt::text("Open Project"),
+            &self.project_file_filter(),
+        );
+        if !selected.is_empty() {
+            self.as_mut().open_project(&selected);
+        }
+    }
+
     pub fn preset_width(&self, index: i32) -> i32 {
         index_of(index)
             .map(shrimply_cross_ui_core::launcher::preset_width)
@@ -299,12 +314,18 @@ impl qobject::LauncherBackend {
             .unwrap_or_default()
     }
 
-    pub fn default_project_url(&self, name: &QString, directory: &QUrl) -> QUrl {
-        let directory = local_path(directory).unwrap_or_else(|| PathBuf::from("."));
-        local_url(&shrimply_cross_ui_core::launcher::default_project_path(
+    pub fn choose_project_destination(&self, name: &QString) -> QUrl {
+        let directory = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+        let suggested = local_url(&shrimply_cross_ui_core::launcher::default_project_path(
             &directory,
             &name.to_string(),
-        ))
+        ));
+        shrimply_qt_helpers::save_file_dialog(
+            &suggested,
+            &shrimply_i18n_qt::text("Create Project"),
+            &self.project_file_filter(),
+            &QString::from("shrimp"),
+        )
     }
 
     pub fn request_create_project(

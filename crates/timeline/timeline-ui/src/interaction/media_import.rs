@@ -392,36 +392,11 @@ fn finish_track_import(
     selection_state: &SharedSelectionState,
     result: Result<(import::ImportResult, Time), String>,
 ) {
-    if let Err(error) = finish_track_import_core(player_state, selection_state, result) {
+    if let Err(error) = import::finish_track_import(player_state, selection_state, result) {
         show_error_dialog(area, "Could not import file", &error);
         return;
     }
     area.queue_render();
-}
-
-pub(crate) fn finish_track_import_core(
-    player_state: &SharedPlayerState,
-    selection_state: &SharedSelectionState,
-    result: Result<(import::ImportResult, Time), String>,
-) -> Result<(), String> {
-    let (result, duration) = result?;
-    let focused_item = result.selection.first().copied();
-    selection_state::set_selected_items(selection_state, result.selection, focused_item);
-    player_state::refresh_project(
-        player_state,
-        ProjectChange {
-            duration: Some(duration),
-            frame_rate: None,
-            audio: result.audio,
-            audio_beats: result.audio,
-            audio_waveforms: result.audio,
-            video: result.video,
-            live_preview: false,
-            captions: result.captions,
-            inspector: true,
-        },
-    );
-    Ok(())
 }
 
 #[allow(clippy::too_many_arguments)]

@@ -152,27 +152,6 @@ pub(crate) fn remap_item_group_id(
     })
 }
 
-pub(crate) fn insert_sorted<T: TimeSlice>(items: &mut Vec<T>, item: T) -> usize {
-    let start = item.start();
-    let end = item.end();
-    assert!(
-        start < end,
-        "cannot insert a timeline item with a non-positive duration"
-    );
-    let index =
-        items.partition_point(|existing| (existing.start(), existing.end()) <= (start, end));
-    assert!(
-        index == 0 || items[index - 1].end() <= start,
-        "cannot insert overlapping timeline items"
-    );
-    assert!(
-        index == items.len() || end <= items[index].start(),
-        "cannot insert overlapping timeline items"
-    );
-    items.insert(index, item);
-    index
-}
-
 pub(crate) fn paste_caption_items(
     project: &mut Project,
     clipboard: &TimelineClipboard,

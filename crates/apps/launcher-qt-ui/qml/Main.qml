@@ -1,7 +1,6 @@
 import QtCore
 import QtQuick
 import QtQuick.Controls
-import QtQuick.Dialogs
 import QtQuick.Layouts
 import dev.shrimply.launcher
 
@@ -82,7 +81,7 @@ ApplicationWindow {
                 Button {
                     Layout.fillWidth: true
                     text: backend.text("Open Project")
-                    onClicked: openDialog.open()
+                    onClicked: backend.chooseProject()
                 }
 
                 Item {
@@ -395,34 +394,19 @@ ApplicationWindow {
                 highlighted: true
                 enabled: projectName.text.trim().length > 0
                 onClicked: {
-                    saveDialog.selectedFile = backend.defaultProjectUrl(
-                        projectName.text.trim(), saveDialog.currentFolder)
                     createDialog.close()
-                    saveDialog.open()
+                    const selectedFile = backend.chooseProjectDestination(
+                        projectName.text.trim())
+                    if (selectedFile.toString().length > 0) {
+                        backend.requestCreateProject(
+                            projectName.text.trim(),
+                            widthInput.value,
+                            heightInput.value,
+                            frameRate.currentIndex,
+                            selectedFile)
+                    }
                 }
             }
         }
-    }
-
-    FileDialog {
-        id: openDialog
-        title: backend.text("Open Project")
-        fileMode: FileDialog.OpenFile
-        nameFilters: [backend.projectFileFilter()]
-        onAccepted: backend.openProject(selectedFile)
-    }
-
-    FileDialog {
-        id: saveDialog
-        title: backend.text("Create Project")
-        fileMode: FileDialog.SaveFile
-        defaultSuffix: "shrimp"
-        nameFilters: [backend.projectFileFilter()]
-        onAccepted: backend.requestCreateProject(
-            projectName.text.trim(),
-            widthInput.value,
-            heightInput.value,
-            frameRate.currentIndex,
-            selectedFile)
     }
 }

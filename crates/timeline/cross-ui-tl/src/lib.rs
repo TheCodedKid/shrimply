@@ -2,6 +2,7 @@ use shrimply_state::preferences::{self, PreferencesSnapshot, SharedPreferences};
 
 mod menu;
 pub use menu::*;
+pub mod import;
 mod track_add;
 pub use track_add::*;
 

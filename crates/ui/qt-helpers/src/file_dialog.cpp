@@ -11,7 +11,7 @@ namespace shrimply {
 
 std::unique_ptr<QGuiApplication> new_widget_application()
 {
-  QVector<QByteArray> arguments{ QByteArrayLiteral("shrimply-editor-qt") };
+  QVector<QByteArray> arguments{ QByteArrayLiteral("shrimply") };
   auto *argument_data = new rust::cxxqtlib1::ApplicationArgsData(arguments);
   auto application = std::make_unique<QApplication>(argument_data->size(),
                                                      argument_data->data());

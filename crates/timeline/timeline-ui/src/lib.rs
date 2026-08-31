@@ -396,11 +396,9 @@ impl ToolkitTimeline {
                 self.pending_track_import = Some(inspection);
                 Ok(())
             }
-            import::TrackImportStart::Complete(result) => interaction::finish_track_import_core(
-                &self.player_state,
-                &self.selection_state,
-                Ok(result),
-            ),
+            import::TrackImportStart::Complete(result) => {
+                import::finish_track_import(&self.player_state, &self.selection_state, Ok(result))
+            }
         }
     }
 
@@ -446,7 +444,7 @@ impl ToolkitTimeline {
             | shrimply_resource_pipeline::TryNext::Empty => return,
         };
         if let Err(error) =
-            interaction::finish_track_import_core(&self.player_state, &self.selection_state, result)
+            import::finish_track_import(&self.player_state, &self.selection_state, result)
         {
             self.track_import_error = Some(error);
         }

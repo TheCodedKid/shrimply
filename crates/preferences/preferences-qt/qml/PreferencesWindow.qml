@@ -362,7 +362,7 @@ ApplicationWindow {
                                 }
                                 Button {
                                     text: backend.translate("Clear")
-                                    enabled: blenderPath.text.length > 0
+                                    enabled: !root.blenderBusy && blenderPath.text.length > 0
                                     onClicked: { backend.clearPreferenceBlenderBinary(); blenderPath.clear() }
                                 }
                             }

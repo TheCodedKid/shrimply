@@ -1,48 +1,6 @@
 use super::*;
 use crate::timeline_operation::{SequenceTimeline, TimelineOperationContext};
 
-pub(crate) fn next_group_id(project: &Project) -> u64 {
-    let mut max_group_id = 0_u64;
-    for track in &project.video_tracks {
-        for item in &track.items {
-            if let Some(group_id) = item.group_id {
-                max_group_id = max_group_id.max(group_id);
-            }
-        }
-    }
-    for track in &project.audio_tracks {
-        for item in &track.items {
-            if let Some(group_id) = item.group_id {
-                max_group_id = max_group_id.max(group_id);
-            }
-        }
-    }
-    for track in &project.caption_tracks {
-        for item in &track.items {
-            if let Some(group_id) = item.group_id {
-                max_group_id = max_group_id.max(group_id);
-            }
-        }
-    }
-    for sequence in &project.folded_sequences {
-        for track in &sequence.video_tracks {
-            for item in &track.items {
-                if let Some(group_id) = item.group_id {
-                    max_group_id = max_group_id.max(group_id);
-                }
-            }
-        }
-        for track in &sequence.audio_tracks {
-            for item in &track.items {
-                if let Some(group_id) = item.group_id {
-                    max_group_id = max_group_id.max(group_id);
-                }
-            }
-        }
-    }
-    max_group_id.saturating_add(1)
-}
-
 pub(crate) fn item_group_id(project: &Project, key: ItemKey) -> Option<u64> {
     let address = crate::selection_state::item_address(project, key)?;
     item_address_group_id(project, &address)

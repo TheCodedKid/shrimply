@@ -16,6 +16,7 @@ pub(super) use shrimply_timeline::edit::{
     fitted_transition_durations, shifted_media_source_offset,
 };
 pub(super) use shrimply_timeline::{ItemKey, TrackKind};
+pub(super) use shrimply_timeline::{insert_sorted, next_group_id};
 use uuid::Uuid;
 
 use super::x_to_time;

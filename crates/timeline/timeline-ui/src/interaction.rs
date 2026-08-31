@@ -38,8 +38,7 @@ use context_actions::{
 };
 pub(super) use cursor::timeline_cursor;
 pub(super) use media_import::{
-    ask_remux_then_import_at, finish_track_import_core, import_path_at, open_track_import_dialog,
-    show_error_dialog,
+    ask_remux_then_import_at, import_path_at, open_track_import_dialog, show_error_dialog,
 };
 pub(crate) use pointer::select_item_in_context;
 pub(super) use pointer::{content_y, handle_timeline_input, set_timeline_selection};

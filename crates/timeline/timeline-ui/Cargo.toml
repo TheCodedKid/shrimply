@@ -11,9 +11,7 @@ ffmpeg-next.workspace = true
 glam.workspace = true
 gtk.workspace = true
 reqwest = { workspace = true, features = ["blocking"] }
-shrimply-3dgs = { path = "../../3d/3dgs" }
 shrimply-audio = { path = "../../audio/audio" }
-shrimply-blender = { path = "../../blender/blender-bridge" }
 shrimply-core = { path = "../../core" }
 shrimply-cross-ui-tl = { path = "../cross-ui-tl" }
 shrimply-cross-ui-theme = { path = "../../ui/cross-ui-theme" }
@@ -24,8 +22,6 @@ shrimply-math-core = { path = "../../math/core" }
 shrimply-property-transfer = { path = "../../property-transfer" }
 shrimply-project = { path = "../../project/project" }
 shrimply-playback-performance = { path = "../../preview/playback-performance" }
-shrimply-pdf = { path = "../../pdf" }
-shrimply-scene-3d = { path = "../../3d/scene-3d" }
 shrimply-resource-pipeline = { path = "../../resource-pipeline" }
 shrimply-server-client = { path = "../../server-client" }
 shrimply-state = { path = "../../state" }

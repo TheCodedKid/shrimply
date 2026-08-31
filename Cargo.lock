@@ -5438,10 +5438,22 @@ dependencies = [
 name = "shrimply-cross-ui-tl"
 version = "0.1.0"
 dependencies = [
+ "ffmpeg-next",
+ "glam 0.33.5",
+ "hashbrown 0.17.1",
+ "shrimply-3dgs",
+ "shrimply-blender",
  "shrimply-core",
+ "shrimply-math-core",
+ "shrimply-pdf",
  "shrimply-project",
+ "shrimply-resource-pipeline",
+ "shrimply-scene-3d",
  "shrimply-state",
  "shrimply-timeline",
+ "shrimply-video",
+ "shrimply-video-modifiers",
+ "uuid",
 ]
 
 [[package]]
@@ -5745,6 +5757,7 @@ dependencies = [
  "cxx-qt-lib",
  "shrimply-cross-ui-core",
  "shrimply-i18n-qt",
+ "shrimply-qt-helpers",
  "shrimply-support",
  "tracing",
 ]
@@ -6493,9 +6506,7 @@ dependencies = [
  "hashbrown 0.17.1",
  "libadwaita",
  "reqwest",
- "shrimply-3dgs",
  "shrimply-audio",
- "shrimply-blender",
  "shrimply-core",
  "shrimply-cross-ui-theme",
  "shrimply-cross-ui-tl",
@@ -6503,12 +6514,10 @@ dependencies = [
  "shrimply-math-color",
  "shrimply-math-core",
  "shrimply-math-media",
- "shrimply-pdf",
  "shrimply-playback-performance",
  "shrimply-project",
  "shrimply-property-transfer",
  "shrimply-resource-pipeline",
- "shrimply-scene-3d",
  "shrimply-server-client",
  "shrimply-skia-adw-ui",
  "shrimply-state",

@@ -9,16 +9,18 @@ use glam::{UVec2, Vec2};
 use shrimply_math_core::Fraction;
 use shrimply_resource_pipeline::{JobContext, Pipeline, Processor, Subscription};
 
-use crate::project::{
-    Asset, AssetSnapshot, AudioItem, AudioTrack, CanvasSize, CaptionItem, LayerVisibility,
-    LayeredImageItem, Project, RepeatStrategy, ResolvedTransform, Time, Transform, VideoItem,
-    VideoItemContent, VideoTrack, VisualModifier, default_playback_speed,
-};
-use crate::timeline_search;
 use shrimply_core::timeline_value::*;
+use shrimply_project::project::{
+    Asset, AssetSnapshot, AudioItem, CanvasSize, CaptionItem, LayerVisibility, LayeredImageItem,
+    Project, RepeatStrategy, ResolvedTransform, Time, Transform, VideoItem, VideoItemContent,
+    VisualModifier, default_playback_speed,
+};
+use shrimply_project::timeline_search;
+use shrimply_state::player_state::{self, ProjectChange, SharedPlayerState};
+use shrimply_timeline::selection_state::{self, SharedSelectionState};
 use shrimply_video_modifiers::{ModifierEffect, scene_3d::Scene3dModifierEffect};
 
-use super::items::{self, ItemKey, TrackKind};
+use shrimply_timeline::{ItemKey, TrackKind, insert_sorted, next_group_id};
 
 type VideoSizes = Vec<UVec2>;
 type VideoSizeCache = Mutex<HashMap<AssetSnapshot, VideoSizes>>;
@@ -33,7 +35,7 @@ const MEDIA_INSPECTION_THREADS: usize = 2;
 const MEDIA_INSPECTION_QUEUE: usize = 64;
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub(super) struct InspectionKey {
+pub struct InspectionKey {
     path: PathBuf,
     canvas_width: u32,
     canvas_height: u32,
@@ -98,7 +100,7 @@ pub enum FileKind {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(super) enum VisualMediaKind {
+pub enum VisualMediaKind {
     Video,
     Image,
     Gif,
@@ -118,32 +120,20 @@ pub struct MediaInfo {
     pub duration: Time,
     pub video_streams: usize,
     pub audio_streams: usize,
-    pub(super) visual_kind: Option<VisualMediaKind>,
-    pub(super) video_sizes: VideoSizes,
-    pub(super) video_fps: Option<Fraction>,
-    pub(super) layered_image_layers: Vec<LayerVisibility>,
-}
-
-#[derive(Clone)]
-pub struct ImportPreview {
-    pub(super) start: Time,
-    pub(super) end: Time,
-    pub(super) video_streams: usize,
-    pub(super) audio_streams: usize,
-    pub(super) video_base: usize,
-    pub(super) audio_base: usize,
-    pub(super) virtual_tracks: Vec<(TrackKind, usize)>,
-    pub(super) collision_mode: items::DragCollisionMode,
+    pub visual_kind: Option<VisualMediaKind>,
+    pub video_sizes: VideoSizes,
+    pub video_fps: Option<Fraction>,
+    pub layered_image_layers: Vec<LayerVisibility>,
 }
 
 pub struct ImportResult {
-    pub(super) selection: Vec<ItemKey>,
-    pub(super) video: bool,
-    pub(super) audio: bool,
-    pub(super) captions: bool,
+    pub selection: Vec<ItemKey>,
+    pub video: bool,
+    pub audio: bool,
+    pub captions: bool,
 }
 
-pub(super) fn request_inspection(
+pub fn request_inspection(
     path: PathBuf,
     canvas_size: CanvasSize,
     default_visual_duration: Time,
@@ -233,7 +223,7 @@ pub fn file_kind(path: &Path) -> Option<FileKind> {
     }
 }
 
-pub(super) fn direct_media_kind(kind: FileKind) -> bool {
+pub fn direct_media_kind(kind: FileKind) -> bool {
     matches!(
         kind,
         FileKind::Mp4
@@ -251,23 +241,23 @@ pub(super) fn direct_media_kind(kind: FileKind) -> bool {
     )
 }
 
-pub(crate) enum TrackImportStart {
+pub enum TrackImportStart {
     Inspect(TrackImportInspection),
     Complete((ImportResult, Time)),
 }
 
-pub(crate) struct TrackImportInspection {
-    pub(crate) subscription: Subscription<InspectionKey, (), MediaInfo>,
-    pub(crate) context: TrackImportContext,
+pub struct TrackImportInspection {
+    pub subscription: Subscription<InspectionKey, (), MediaInfo>,
+    pub context: TrackImportContext,
 }
 
-pub(crate) struct TrackImportContext {
+pub struct TrackImportContext {
     kind: TrackKind,
     track_indices: Vec<usize>,
     start: Time,
 }
 
-pub(crate) fn start_track_import(
+pub fn start_track_import(
     project: &mut Project,
     path: PathBuf,
     kind: TrackKind,
@@ -301,11 +291,11 @@ pub(crate) fn start_track_import(
         return Err("VTT files can only be imported to caption tracks".to_string());
     }
     let result = apply_vtt_to_tracks(project, &path, &track_indices, start)?;
-    crate::project::commit_edit(project, "import-vtt");
+    shrimply_project::project::commit_edit(project, "import-vtt");
     Ok(TrackImportStart::Complete((result, project.duration())))
 }
 
-pub(crate) fn finish_track_import_inspection(
+pub fn finish_track_import_inspection(
     project: &mut Project,
     context: TrackImportContext,
     info: &MediaInfo,
@@ -318,8 +308,33 @@ pub(crate) fn finish_track_import_inspection(
         &context.track_indices,
         context.start,
     )?;
-    crate::project::commit_edit(project, "import-media-to-tracks");
+    shrimply_project::project::commit_edit(project, "import-media-to-tracks");
     Ok((result, project.duration()))
+}
+
+pub fn finish_track_import(
+    player_state: &SharedPlayerState,
+    selection_state: &SharedSelectionState,
+    result: Result<(ImportResult, Time), String>,
+) -> Result<(), String> {
+    let (result, duration) = result?;
+    let focused_item = result.selection.first().copied();
+    selection_state::set_selected_items(selection_state, result.selection, focused_item);
+    player_state::refresh_project(
+        player_state,
+        ProjectChange {
+            duration: Some(duration),
+            frame_rate: None,
+            audio: result.audio,
+            audio_beats: result.audio,
+            audio_waveforms: result.audio,
+            video: result.video,
+            live_preview: false,
+            captions: result.captions,
+            inspector: true,
+        },
+    );
+    Ok(())
 }
 
 pub fn inspect(
@@ -664,193 +679,6 @@ fn size_px(value: f32) -> Option<u32> {
     (value.is_finite() && value > 0.0).then(|| value.ceil() as u32)
 }
 
-pub(super) fn preview(
-    project: &Project,
-    duration: Time,
-    video_streams: usize,
-    audio_streams: usize,
-    start: Time,
-    target: items::NewItemTarget,
-    collision_mode: items::DragCollisionMode,
-) -> ImportPreview {
-    let step = project.frame_step();
-    let start = start.max(Time::ZERO).snapped(step);
-    let end = start
-        .saturating_add(duration)
-        .snapped(step)
-        .max(start.saturating_add(step));
-    let collision_mode = match target {
-        items::NewItemTarget::Automatic => items::DragCollisionMode::NewTrack,
-        items::NewItemTarget::AtY(_) => collision_mode,
-    };
-    let group = |kind, stream_count| items::NewItemGroup {
-        kind,
-        footprint: (0..stream_count)
-            .map(|track_offset| items::TrackFootprintItem {
-                track_offset,
-                start,
-                end,
-            })
-            .collect(),
-    };
-    let place = |items| items::place_new_items(project, items, target, collision_mode);
-    let video_items = group(TrackKind::Video, video_streams);
-    let audio_items = group(TrackKind::Audio, audio_streams);
-    let video = place(&video_items);
-    let audio = if video_streams > 0 && audio_streams > 0 {
-        items::place_new_items_at_base(project, &audio_items, video.base, collision_mode)
-    } else {
-        place(&audio_items)
-    };
-    let mut virtual_tracks: Vec<_> = video
-        .new_tracks
-        .map(|index| (TrackKind::Video, index))
-        .collect();
-    virtual_tracks.extend(audio.new_tracks.map(|index| (TrackKind::Audio, index)));
-
-    ImportPreview {
-        start,
-        end,
-        video_streams,
-        audio_streams,
-        video_base: video.base,
-        audio_base: audio.base,
-        virtual_tracks,
-        collision_mode,
-    }
-}
-
-pub fn apply(project: &mut Project, info: &MediaInfo, preview: &ImportPreview) -> ImportResult {
-    for (kind, index) in &preview.virtual_tracks {
-        match kind {
-            TrackKind::Caption => {}
-            TrackKind::Video if *index <= project.video_tracks.len() => {
-                project.video_tracks.insert(*index, VideoTrack::default());
-            }
-            TrackKind::Audio if *index <= project.audio_tracks.len() => {
-                project.audio_tracks.insert(*index, AudioTrack::default());
-            }
-            _ => {}
-        }
-    }
-
-    let mut selection = Vec::new();
-    let group_id = Some(items::next_group_id(project));
-    for stream_index in 0..preview.video_streams {
-        let track_index = preview.video_base + stream_index;
-        let source_size = info
-            .video_sizes
-            .get(stream_index)
-            .copied()
-            .filter(|size| size.x > 0 && size.y > 0);
-        let transform = if matches!(
-            info.visual_kind,
-            Some(VisualMediaKind::Obj | VisualMediaKind::Gaussian)
-        ) {
-            Transform::from_resolved(ResolvedTransform::IDENTITY)
-        } else {
-            source_size
-                .map(|size| Transform::natural_size(project.canvas_size, size.x, size.y))
-                .unwrap_or_else(|| Transform::fill(project.canvas_size))
-        };
-        let source_size = source_size.unwrap_or_default();
-        let item = VideoItem {
-            id: uuid::Uuid::new_v4(),
-            start: preview.start,
-            end: preview.end,
-            time_offset: Time::ZERO,
-            source_duration: info.duration,
-            playback_speed: default_playback_speed(),
-            playback_fps: shrimply_project::project::native_playback_fps(),
-            repeat_strategy: repeat_strategy_for_import(info),
-            stabilize_video: false,
-            stabilization_method: Default::default(),
-            stabilization_crop_ratio:
-                shrimply_project::project::default_video_stabilization_crop_ratio(),
-            stabilization_first_derivative_weight:
-                shrimply_project::project::default_video_stabilization_first_derivative_weight(),
-            stabilization_second_derivative_weight:
-                shrimply_project::project::default_video_stabilization_second_derivative_weight(),
-            stabilization_third_derivative_weight:
-                shrimply_project::project::default_video_stabilization_third_derivative_weight(),
-            mesh_flow_rows: shrimply_project::project::default_mesh_flow_rows(),
-            mesh_flow_columns: shrimply_project::project::default_mesh_flow_columns(),
-            mesh_flow_smoothing_radius:
-                shrimply_project::project::default_mesh_flow_smoothing_radius(),
-            mesh_flow_iterations: shrimply_project::project::default_mesh_flow_iterations(),
-            mesh_flow_adaptive_weights: Default::default(),
-            animation_time_offset: Time::ZERO,
-            motion_blur: Default::default(),
-            transform: transform.clone(),
-            modifiers: modifiers_for_import(info),
-            sample_method: TimelineValue::new_const(
-                if matches!(info.visual_kind, Some(VisualMediaKind::LayeredImage)) {
-                    shrimply_core::VideoSampleMethod::Nearest
-                } else {
-                    Default::default()
-                },
-            ),
-            skia_drawing_strategy: Default::default(),
-            compositing: Default::default(),
-            visibility: TimelineValue::new_const(TimelineBool::True),
-            alpha_mask_video: None,
-            transitions: Default::default(),
-            svg_color_overrides: Vec::new(),
-            source_width: source_size.x,
-            source_height: source_size.y,
-            default_transform: Some(transform),
-            content: video_content_for_import(info),
-            video_generation: None,
-            group_id,
-            render_canvas_size: None,
-            track_id: stream_index as u32,
-            file: info.source.clone(),
-        };
-        let Some(track) = project.video_tracks.get_mut(track_index) else {
-            continue;
-        };
-        if preview.collision_mode == items::DragCollisionMode::Overwrite {
-            items::overwrite_items(&mut track.items, preview.start, preview.end);
-        }
-        let item_index = items::insert_sorted(&mut track.items, item);
-        selection.push(ItemKey {
-            kind: TrackKind::Video,
-            track_index,
-            item_index,
-        });
-    }
-
-    for stream_index in 0..preview.audio_streams {
-        let track_index = preview.audio_base + stream_index;
-        let item = AudioItem::builder(preview.start, preview.end)
-            .source_duration(info.duration)
-            .repeat_strategy(repeat_strategy_for_import(info))
-            .group_id(group_id)
-            .track_id(stream_index as u32)
-            .file(info.source.clone())
-            .build();
-        let Some(track) = project.audio_tracks.get_mut(track_index) else {
-            continue;
-        };
-        if preview.collision_mode == items::DragCollisionMode::Overwrite {
-            items::overwrite_items(&mut track.items, preview.start, preview.end);
-        }
-        let item_index = items::insert_sorted(&mut track.items, item);
-        selection.push(ItemKey {
-            kind: TrackKind::Audio,
-            track_index,
-            item_index,
-        });
-    }
-
-    ImportResult {
-        selection,
-        video: preview.video_streams > 0,
-        audio: preview.audio_streams > 0,
-        captions: false,
-    }
-}
-
 pub fn apply_media_to_tracks(
     project: &mut Project,
     info: &MediaInfo,
@@ -909,7 +737,7 @@ pub fn apply_vtt_to_tracks(
     }
 
     let mut selection = Vec::new();
-    let group_id = (track_indices.len() > 1).then(|| items::next_group_id(project));
+    let group_id = (track_indices.len() > 1).then(|| next_group_id(project));
     for &track_index in track_indices {
         let Some(track) = project.caption_tracks.get_mut(track_index) else {
             continue;
@@ -922,7 +750,7 @@ pub fn apply_vtt_to_tracks(
                 .max(item_start.saturating_add(step));
             let mut item = CaptionItem::new(item_start, item_end, cue.text.clone());
             item.group_id = group_id;
-            let item_index = items::insert_sorted(&mut track.items, item);
+            let item_index = insert_sorted(&mut track.items, item);
             selection.push(ItemKey {
                 kind: TrackKind::Caption,
                 track_index,
@@ -982,7 +810,7 @@ fn apply_video_to_tracks(
     }
 
     let mut selection = Vec::new();
-    let group_id = (track_indices.len() > 1).then(|| items::next_group_id(project));
+    let group_id = (track_indices.len() > 1).then(|| next_group_id(project));
     for (stream_index, &track_index) in track_indices.iter().enumerate() {
         let source_size = info
             .video_sizes
@@ -1055,7 +883,7 @@ fn apply_video_to_tracks(
         let Some(track) = project.video_tracks.get_mut(track_index) else {
             continue;
         };
-        let item_index = items::insert_sorted(&mut track.items, item);
+        let item_index = insert_sorted(&mut track.items, item);
         selection.push(ItemKey {
             kind: TrackKind::Video,
             track_index,
@@ -1099,7 +927,7 @@ fn apply_audio_to_tracks(
     }
 
     let mut selection = Vec::new();
-    let group_id = (track_indices.len() > 1).then(|| items::next_group_id(project));
+    let group_id = (track_indices.len() > 1).then(|| next_group_id(project));
     for (stream_index, &track_index) in track_indices.iter().enumerate() {
         let item = AudioItem::builder(start, end)
             .source_duration(info.duration)
@@ -1110,7 +938,7 @@ fn apply_audio_to_tracks(
         let Some(track) = project.audio_tracks.get_mut(track_index) else {
             continue;
         };
-        let item_index = items::insert_sorted(&mut track.items, item);
+        let item_index = insert_sorted(&mut track.items, item);
         selection.push(ItemKey {
             kind: TrackKind::Audio,
             track_index,
@@ -1126,7 +954,7 @@ fn apply_audio_to_tracks(
     })
 }
 
-fn video_content_for_import(info: &MediaInfo) -> VideoItemContent {
+pub fn video_content_for_import(info: &MediaInfo) -> VideoItemContent {
     match info.visual_kind.unwrap_or(VisualMediaKind::Video) {
         VisualMediaKind::Video => VideoItemContent::Media,
         VisualMediaKind::Image => VideoItemContent::Image,
@@ -1145,7 +973,7 @@ fn video_content_for_import(info: &MediaInfo) -> VideoItemContent {
     }
 }
 
-fn modifiers_for_import(info: &MediaInfo) -> Vec<VisualModifier> {
+pub fn modifiers_for_import(info: &MediaInfo) -> Vec<VisualModifier> {
     if info.visual_kind != Some(VisualMediaKind::Obj) {
         return Vec::new();
     }
@@ -1159,7 +987,7 @@ fn modifiers_for_import(info: &MediaInfo) -> Vec<VisualModifier> {
     .into()
 }
 
-fn repeat_strategy_for_import(info: &MediaInfo) -> RepeatStrategy {
+pub fn repeat_strategy_for_import(info: &MediaInfo) -> RepeatStrategy {
     if info.visual_kind == Some(VisualMediaKind::Gif) {
         RepeatStrategy::Repeat
     } else {
