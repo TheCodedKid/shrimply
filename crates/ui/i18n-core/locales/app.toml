@@ -11,6 +11,7 @@ ja = "シンプルな動画エディター"
 "ko" = "간단한 비디오 편집기"
 "ru" = "Простой видео редактор"
 pt = "Um editor de vídeo simples"
+tr = "Basit bir video düzenleyicisi"
 
 ["About Shrimply"]
 en = "About Shrimply"
@@ -23,6 +24,7 @@ ja = "Shrimply について"
 "ko" = "Shrimply 정보"
 "ru" = "О Shrimply"
 pt = "Sobre o Shrimply"
+tr = "Shrimply Hakkında"
 
 ["Add Server"]
 en = "Add Server"
@@ -35,6 +37,7 @@ ja = "サーバーを追加"
 "ko" = "서버 추가"
 "ru" = "Добавить сервер"
 pt = "Adicionar servidor"
+tr = "Sunucu Ekle"
 
 ["Available"]
 en = "Available"
@@ -47,6 +50,7 @@ ja = "利用可能"
 "ko" = "사용 가능"
 "ru" = "Доступный"
 pt = "Disponível"
+tr = "Mevcut"
 
 ["Background Color"]
 en = "Background Color"
@@ -59,6 +63,7 @@ ja = "背景色"
 "ko" = "배경색"
 "ru" = "Цвет фона"
 pt = "Cor de fundo"
+tr = "Arka Plan Rengi"
 
 ["Black"]
 en = "Black"
@@ -71,6 +76,7 @@ ja = "黒"
 "ko" = "검정"
 "ru" = "Черный"
 pt = "Preto"
+tr = "Siyah"
 
 ["Blender Binary"]
 en = "Blender Binary"
@@ -83,6 +89,7 @@ ja = "Blender 実行ファイル"
 "ko" = "Blender 실행 파일"
 "ru" = "Исполняемый файл Blender"
 pt = "Executável do Blender"
+tr = "Blender Yürütülebilir Dosyası"
 
 ["Blender"]
 en = "Blender"
@@ -95,6 +102,7 @@ ja = "Blender"
 "ko" = "Blender"
 "ru" = "Blender"
 pt = "Blender"
+tr = "Blender"
 
 ["Blue"]
 en = "Blue"
@@ -107,6 +115,7 @@ ja = "青"
 "ko" = "파랑"
 "ru" = "Голубой"
 pt = "Azul"
+tr = "Mavi"
 
 ["Brown"]
 en = "Brown"
@@ -119,6 +128,7 @@ ja = "茶"
 "ko" = "갈색"
 "ru" = "Коричневый"
 pt = "Marrom"
+tr = "Kahverengi"
 
 ["Built with help from"]
 en = "Built with help from"
@@ -131,6 +141,7 @@ ja = "協力"
 "ko" = "다음 분들의 도움으로 제작"
 "ru" = "Разработан с помощью"
 pt = "Desenvolvido com a ajuda de"
+tr = "Bu kişiler tarafından yardımla yapıldı:"
 
 ["Caption background color"]
 en = "Caption background color"
@@ -143,6 +154,7 @@ ja = "字幕の背景色"
 "ko" = "자막 배경색"
 "ru" = "Цвет фона субтитров"
 pt = "Cor de fundo da legenda"
+tr = "Alt yazı arka plan rengi"
 
 ["Captions"]
 en = "Captions"
@@ -155,6 +167,7 @@ ja = "字幕"
 "ko" = "자막"
 "ru" = "Субтитры"
 pt = "Legendas"
+tr = "Alt Yazılar"
 
 ["CUDA"]
 en = "CUDA"
@@ -167,6 +180,7 @@ ja = "CUDA"
 "ko" = "CUDA"
 "ru" = "CUDA"
 pt = "CUDA"
+tr = "CUDA"
 
 ["Checking server URL"]
 en = "Checking server URL"
@@ -179,6 +193,7 @@ ja = "サーバー URL を確認中"
 "ko" = "서버 URL 확인 중"
 "ru" = "Проверка URL сервера"
 pt = "Verificando URL do servidor"
+tr = "Sunucu URL'si kontrol ediliyor"
 
 ["Checking…"]
 en = "Checking…"
@@ -191,6 +206,7 @@ ja = "確認中…"
 "ko" = "확인 중…"
 "ru" = "Проверка..."
 pt = "Verificando…"
+tr = "Kontrol ediliyor…"
 
 ["Choose Blender Binary"]
 en = "Choose Blender Binary"
@@ -203,6 +219,7 @@ ja = "Blender 実行ファイルを選択"
 "ko" = "Blender 실행 파일 선택"
 "ru" = "Выберите исполняемый файл Blender"
 pt = "Escolher executável do Blender"
+tr = "Blender Yürütülebilir Dosyası Seçin"
 
 ["Clear Blender binary"]
 en = "Clear Blender binary"
@@ -215,6 +232,7 @@ ja = "Blender 実行ファイルの設定を消去"
 "ko" = "Blender 실행 파일 지우기"
 "ru" = "Очистить исполняемый файл Blender"
 pt = "Limpar executável do Blender"
+tr = "Blender Yürütülebilir Yolunu Kaldır"
 
 ["Clear History"]
 en = "Clear History"
@@ -227,6 +245,7 @@ ja = "履歴を消去"
 "ko" = "기록 지우기"
 "ru" = "Очистить историю"
 pt = "Limpar histórico"
+tr = "Geçmişi Kaldır"
 
 ["Click to type, drag horizontally to adjust"]
 en = "Click to type, drag horizontally to adjust"
@@ -239,6 +258,7 @@ ja = "クリックして入力、または横にドラッグして調整"
 "ko" = "클릭하여 입력하고 가로로 드래그하여 조정"
 "ru" = "Нажмите, чтобы ввести текст, или перетащите по горизонтали для изменения"
 pt = "Clique para digitar, arraste horizontalmente para ajustar"
+tr = "Yazmak için tıkla, ayarlamak için yatay şekilde sürükle"
 
 ["Compatibility Notice"]
 en = "Compatibility Notice"
@@ -251,6 +271,7 @@ ja = "互換性に関するお知らせ"
 "ko" = "호환성 안내"
 "ru" = "Уведомление о совместимости"
 pt = "Aviso de compatibilidade"
+tr = "Uyumluluk Notu"
 
 ["Abort"]
 en = "Abort"
@@ -263,6 +284,7 @@ ja = "中止"
 ko = "중단"
 ru = "Прервать"
 pt = "Abortar"
+tr = "Sonlandır"
 
 ["Convert"]
 en = "Convert"
@@ -275,6 +297,7 @@ ja = "変換"
 ko = "변환"
 ru = "Преобразовать"
 pt = "Converter"
+tr = "Dönüştür"
 
 ["Convert Kdenlive Project?"]
 en = "Convert Kdenlive Project?"
@@ -287,6 +310,7 @@ ja = "Kdenlive プロジェクトを変換しますか？"
 ko = "Kdenlive 프로젝트를 변환할까요?"
 ru = "Преобразовать проект Kdenlive?"
 pt = "Converter projeto do Kdenlive?"
+tr = "Kdenlive Projesi Dönüştürülsün Mü?"
 
 ["Fix"]
 en = "Fix"
@@ -299,6 +323,7 @@ ja = "修正"
 ko = "수정"
 ru = "Исправить"
 pt = "Corrigir"
+tr = "Düzelt"
 
 ["Project Timing Needs Repair"]
 en = "Project Timing Needs Repair"
@@ -311,6 +336,7 @@ ja = "プロジェクトのタイミングを修正する必要があります"
 ko = "프로젝트 타이밍을 수정해야 합니다"
 ru = "Тайминг проекта требует исправления"
 pt = "A temporização do projeto precisa de correção"
+tr = "Proje Zamanlamasında Düzeltme Gerekiyor"
 
 ["Save Fixed Project"]
 en = "Save Fixed Project"
@@ -323,6 +349,7 @@ ja = "修正したプロジェクトを保存"
 ko = "수정된 프로젝트 저장"
 ru = "Сохранить исправленный проект"
 pt = "Salvar projeto corrigido"
+tr = "Düzeltilmiş Projeyi Kaydet"
 
 ["Some clips are not aligned to the project frame grid. Fixing them will snap and minimally shift clip boundaries, then save a new project without changing the original."]
 en = "Some clips are not aligned to the project frame grid. Fixing them will snap and minimally shift clip boundaries, then save a new project without changing the original."
@@ -335,6 +362,7 @@ ja = "一部のクリップがプロジェクトのフレームグリッドに�
 ko = "일부 클립이 프로젝트 프레임 격자에 맞지 않습니다. 수정하면 클립 경계를 스냅하고 최소한으로 이동한 뒤 원본을 변경하지 않고 새 프로젝트로 저장합니다."
 ru = "Некоторые клипы не выровнены по сетке кадров проекта. Исправление привяжет и минимально сдвинет их границы, а затем сохранит новый проект без изменения исходного."
 pt = "Alguns clipes não estão alinhados à grade de quadros do projeto. A correção ajustará e deslocará minimamente os limites dos clipes e salvará um novo projeto sem alterar o original."
+tr = "Bazı klipler projenin kare ızgarasına hizalı değil. Onları düzeltmek, klip sınırlarını bir anlığına kaydırıp ardından orijinalini değiştirmeden yeni bir proje kaydedecektir."
 
 ["Compute"]
 en = "Compute"
@@ -347,6 +375,7 @@ ja = "コンピュート"
 "ko" = "연산"
 "ru" = "Вычисления"
 pt = "Computação"
+tr = "Hesapla"
 
 ["Confirm color"]
 en = "Confirm color"
@@ -359,6 +388,7 @@ ja = "色を確定"
 "ko" = "색상 확인"
 "ru" = "Подтвердить цвет"
 pt = "Confirmar cor"
+tr = "Rengi doğrula"
 
 ["Create Project"]
 en = "Create Project"
@@ -371,6 +401,7 @@ ja = "プロジェクトを作成"
 "ko" = "프로젝트 만들기"
 "ru" = "Создать проект"
 pt = "Criar projeto"
+tr = "Proje Oluştur"
 
 ["Cut selection"]
 en = "Cut selection"
@@ -383,6 +414,7 @@ ja = "選択範囲を切り取り"
 "ko" = "선택 영역 잘라내기"
 "ru" = "Вырезать выделенное"
 pt = "Cortar seleção"
+tr = "Seçimi kes"
 
 ["Dark Blue"]
 en = "Dark Blue"
@@ -395,6 +427,7 @@ ja = "濃い青"
 "ko" = "진한 파란색"
 "ru" = "Темно-голубой"
 pt = "Azul-escuro"
+tr = "Koyu Mavi"
 
 ["Dark Brown"]
 en = "Dark Brown"
@@ -407,6 +440,7 @@ ja = "濃い茶"
 "ko" = "진한 갈색"
 "ru" = "Темно-коричневый"
 pt = "Marrom-escuro"
+tr = "Koyu Kahverengi"
 
 ["Dark Gray 1"]
 en = "Dark Gray 1"
@@ -419,6 +453,7 @@ ja = "濃いグレー 1"
 "ko" = "진한 회색 1"
 "ru" = "Темно-серый 1"
 pt = "Cinza-escuro 1"
+tr = "Koyu Gri 1"
 
 ["Dark Gray 2"]
 en = "Dark Gray 2"
@@ -431,6 +466,7 @@ ja = "濃いグレー 2"
 "ko" = "진한 회색 2"
 "ru" = "Темно-серый 2"
 pt = "Cinza-escuro 2"
+tr = "Koyu Gri 2"
 
 ["Dark Gray 3"]
 en = "Dark Gray 3"
@@ -443,6 +479,7 @@ ja = "濃いグレー 3"
 "ko" = "진한 회색 3"
 "ru" = "Темно-серый 3"
 pt = "Cinza-escuro 3"
+tr = "Koyu Gri 3"
 
 ["Dark Gray 4"]
 en = "Dark Gray 4"
@@ -455,6 +492,7 @@ ja = "濃いグレー 4"
 "ko" = "진한 회색 4"
 "ru" = "Темно-серый 4"
 pt = "Cinza-escuro 4"
+tr = "Koyu Gri 4"
 
 ["Dark Green"]
 en = "Dark Green"
@@ -467,6 +505,7 @@ ja = "濃い緑"
 "ko" = "진한 초록"
 "ru" = "Темно-зеленый"
 pt = "Verde-escuro"
+tr = "Koyu Yeşil"
 
 ["Dark Orange"]
 en = "Dark Orange"
@@ -479,6 +518,7 @@ ja = "濃いオレンジ"
 "ko" = "진한 주황"
 "ru" = "Темно-оранжевый"
 pt = "Laranja-escuro"
+tr = "Koyu Turuncu"
 
 ["Dark Purple"]
 en = "Dark Purple"
@@ -491,6 +531,7 @@ ja = "濃い紫"
 "ko" = "진한 보라"
 "ru" = "Темно-фиолетовый"
 pt = "Roxo-escuro"
+tr = "Koyu Mor"
 
 ["Dark Red"]
 en = "Dark Red"
@@ -503,6 +544,7 @@ ja = "濃い赤"
 "ko" = "진한 빨간색"
 "ru" = "Темно-красный"
 pt = "Vermelho-escuro"
+tr = "Koyu Kırmızı"
 
 ["Dark Yellow"]
 en = "Dark Yellow"
@@ -515,6 +557,7 @@ ja = "濃い黄"
 "ko" = "진한 노란색"
 "ru" = "Темно-желтый"
 pt = "Amarelo-escuro"
+tr = "Koyu Sarı"
 
 ["Default Text Font"]
 en = "Default Text Font"
@@ -527,6 +570,7 @@ ja = "既定のテキストフォント"
 "ko" = "기본 텍스트 글꼴"
 "ru" = "Шрифт текста по умолчанию"
 pt = "Fonte de texto padrão"
+tr = "Varsayılan Metin Yazı Tipi"
 
 ["Default Visual Duration"]
 en = "Default Visual Duration"
@@ -539,6 +583,7 @@ ja = "ビジュアルの既定の長さ"
 "ko" = "기본 비주얼 클립 길이"
 "ru" = "Длительность визуального элемента по умолчанию"
 pt = "Duração visual padrão"
+tr = "Varsayılan Görsel Süre"
 
 ["Delete Server"]
 en = "Delete Server"
@@ -551,6 +596,7 @@ ja = "サーバーを削除"
 "ko" = "서버 삭제"
 "ru" = "Удалить сервер"
 pt = "Excluir servidor"
+tr = "Sunucuyu Sil"
 
 ["Delete selection"]
 en = "Delete selection"
@@ -563,6 +609,7 @@ ja = "選択範囲を削除"
 "ko" = "선택 영역 삭제"
 "ru" = "Удалить выделенное"
 pt = "Excluir seleção"
+tr = "Seçimi sil"
 
 ["Device"]
 en = "Device"
@@ -575,6 +622,7 @@ ja = "デバイス"
 "ko" = "장치"
 "ru" = "Устройство"
 pt = "Dispositivo"
+tr = "Cihaz"
 
 ["Distance in pixels for timeline, beat, and preview snapping"]
 en = "Distance in pixels for timeline, beat, and preview snapping"
@@ -587,6 +635,7 @@ ja = "タイムライン、ビート、プレビューのスナップ距離（�
 "ko" = "타임라인, 비트 및 미리보기 스냅 거리(픽셀)"
 "ru" = "Расстояние в пикселях для привязки таймлайна, битов и предпросмотра"
 pt = "Distância em pixels para encaixe na linha do tempo, batidas e pré-visualização"
+tr = "Zaman çizgelesi, vuruş ve önizleme hizalaması için piksel cinsinden mesafe"
 
 ["Drop shadow extent around the video frame in pixels"]
 en = "Drop shadow extent around the video frame in pixels"
@@ -599,6 +648,7 @@ ja = "動画フレーム周囲のドロップシャドウの大きさ（ピク�
 "ko" = "비디오 프레임 주변 그림자 범위(픽셀)"
 "ru" = "Размер тени вокруг кадра видео в пикселях"
 pt = "Extensão da sombra projetada ao redor do quadro de vídeo em pixels"
+tr = "Piksel cinsinden video çerçevesinin etrafındaki gölge genişliği"
 
 ["Edit Server"]
 en = "Edit Server"
@@ -611,6 +661,7 @@ ja = "サーバーを編集"
 "ko" = "서버 편집"
 "ru" = "Изменить сервер"
 pt = "Editar servidor"
+tr = "Sunucuyu Düzenle"
 
 ["External"]
 en = "External"
@@ -623,6 +674,7 @@ ja = "外部"
 "ko" = "외부"
 "ru" = "Внешний"
 pt = "Externo"
+tr = "Harici"
 
 ["Features"]
 en = "Features"
@@ -635,6 +687,7 @@ ja = "機能"
 "ko" = "기능"
 "ru" = "Возможности"
 pt = "Recursos"
+tr = "Özellikler"
 
 ["Fix typo: %{correction}"]
 en = "Fix typo: %{correction}"
@@ -647,6 +700,7 @@ ja = "入力ミスを修正: %{correction}"
 "ko" = "오타 수정: %{correction}"
 "ru" = "Исправить опечатку: %{correction}"
 pt = "Corrigir erro de digitação: %{correction}"
+tr = "Yazım hatasını düzelt: %{correction}"
 
 ["Font Size"]
 en = "Font Size"
@@ -659,6 +713,7 @@ ja = "フォントサイズ"
 "ko" = "글꼴 크기"
 "ru" = "Размер шрифта"
 pt = "Tamanho da fonte"
+tr = "Yazı Tipi Boyutu"
 
 ["General"]
 en = "General"
@@ -671,6 +726,7 @@ ja = "一般"
 "ko" = "일반"
 "ru" = "Общие"
 pt = "Geral"
+tr = "Genel"
 
 ["Green"]
 en = "Green"
@@ -683,6 +739,7 @@ ja = "緑"
 "ko" = "초록"
 "ru" = "Зеленый"
 pt = "Verde"
+tr = "Yeşil"
 
 ["Height"]
 en = "Height"
@@ -695,6 +752,7 @@ ja = "高さ"
 "ko" = "높이"
 "ru" = "Высота"
 pt = "Altura"
+tr = "Yükseklik"
 
 ["Hexadecimal color"]
 en = "Hexadecimal color"
@@ -707,6 +765,7 @@ ja = "16 進数カラー"
 "ko" = "16진수 색상"
 "ru" = "Шестнадцатеричный цвет"
 pt = "Cor hexadecimal"
+tr = "Onaltılık renk"
 
 ["History"]
 en = "History"
@@ -719,6 +778,7 @@ ja = "履歴"
 "ko" = "기록"
 "ru" = "История"
 pt = "Histórico"
+tr = "Geçmiş"
 
 ["GPU Host Memory Budget"]
 en = "GPU Host Memory Budget"
@@ -731,6 +791,7 @@ ja = "GPU ホストメモリ予算"
 "ko" = "GPU 호스트 메모리 예산"
 "ru" = "Бюджет системной памяти GPU"
 pt = "Limite de memória do host para GPU"
+tr = "Ana GPU Bellek Maliyeti"
 
 ["Import Kdenlive as Shrimply Project"]
 en = "Import Kdenlive as Shrimply Project"
@@ -743,6 +804,7 @@ ja = "Kdenlive を Shrimply プロジェクトとして読み込む"
 "ko" = "Kdenlive를 Shrimply 프로젝트로 가져오기"
 "ru" = "Импортировать Kdenlive как проект Shrimply"
 pt = "Importar Kdenlive como projeto do Shrimply"
+tr = "Kdenlive'ı Shrimply Projesi Olarak İçe Aktar"
 
 ["Import OTIO as Shrimply Project"]
 en = "Import OTIO as Shrimply Project"
@@ -755,6 +817,7 @@ ja = "OTIO を Shrimply プロジェクトとして読み込む"
 "ko" = "OTIO를 Shrimply 프로젝트로 가져오기"
 "ru" = "Импортировать OTIO как проект Shrimply"
 pt = "Importar OTIO como projeto do Shrimply"
+tr = "OTIO'yu Shrimply Projesi Olarak İçe Aktar"
 
 ["Import"]
 en = "Import"
@@ -767,6 +830,7 @@ ja = "読み込む"
 "ko" = "가져오기"
 "ru" = "Импорт"
 pt = "Importar"
+tr = "İçe Aktar"
 
 ["Inference Servers"]
 en = "Inference Servers"
@@ -779,6 +843,7 @@ ja = "推論サーバー"
 "ko" = "추론 서버"
 "ru" = "Серверы инференса"
 pt = "Servidores de inferência"
+tr = "Çıkarım Sunucuları"
 
 ["Jobs"]
 en = "Jobs"
@@ -791,6 +856,7 @@ ja = "ジョブ"
 "ko" = "작업"
 "ru" = "Задачи"
 pt = "Tarefas"
+tr = "İşler"
 
 ["Keyboard Shortcuts"]
 en = "Keyboard Shortcuts"
@@ -803,6 +869,7 @@ ja = "キーボードショートカット"
 "ko" = "키보드 단축키"
 "ru" = "Горячие клавиши"
 pt = "Atalhos de teclado"
+tr = "Klavye Kısayolları"
 
 ["Last edited %{date}"]
 en = "Last edited %{date}"
@@ -815,6 +882,7 @@ ja = "最終編集: %{date}"
 "ko" = "마지막 편집: %{date}"
 "ru" = "Последнее изменение: %{date}"
 pt = "Última edição em %{date}"
+tr = "En son %{date} tarihinde düzenlendi"
 
 ["Last Edited"]
 en = "Last Edited"
@@ -827,6 +895,7 @@ ja = "最終編集"
 "ko" = "마지막 편집"
 "ru" = "Последнее изменение"
 pt = "Última edição"
+tr = "En Son Düzenlenen"
 
 ["Last edited time unavailable"]
 en = "Last edited time unavailable"
@@ -839,6 +908,7 @@ ja = "最終編集日時を取得できません"
 "ko" = "마지막으로 수정한 시간을 확인할 수 없습니다."
 "ru" = "Время последнего изменения недоступно"
 pt = "Data da última edição indisponível"
+tr = "En son düzenleme zamanı mevcut değil"
 
 ["Learn more"]
 en = "Learn more"
@@ -851,6 +921,7 @@ ja = "詳細を見る"
 "ko" = "자세히 알아보기"
 "ru" = "Подробнее"
 pt = "Saiba mais"
+tr = "Daha çok öğren"
 
 ["Light Blue"]
 en = "Light Blue"
@@ -863,6 +934,7 @@ ja = "明るい青"
 "ko" = "연한 파랑"
 "ru" = "Светло-голубой"
 pt = "Azul-claro"
+tr = "Açık Mavi"
 
 ["Light Brown"]
 en = "Light Brown"
@@ -875,6 +947,7 @@ ja = "明るい茶"
 "ko" = "연한 갈색"
 "ru" = "Светло-коричневый"
 pt = "Marrom-claro"
+tr = "Açık Kahverengi"
 
 ["Light Gray 1"]
 en = "Light Gray 1"
@@ -887,6 +960,7 @@ ja = "明るいグレー 1"
 "ko" = "밝은 회색 1"
 "ru" = "Светло-серый 1"
 pt = "Cinza-claro 1"
+tr = "Açık Gri 1"
 
 ["Light Gray 2"]
 en = "Light Gray 2"
@@ -899,6 +973,7 @@ ja = "明るいグレー 2"
 "ko" = "밝은 회색 2"
 "ru" = "Светло-серый 2"
 pt = "Cinza-claro 2"
+tr = "Açık Gri 2"
 
 ["Light Gray 3"]
 en = "Light Gray 3"
@@ -911,6 +986,7 @@ ja = "明るいグレー 3"
 "ko" = "밝은 회색 3"
 "ru" = "Светло-серый 3"
 pt = "Cinza-claro 3"
+tr = "Açık Gri 3"
 
 ["Light Gray 4"]
 en = "Light Gray 4"
@@ -923,6 +999,7 @@ ja = "明るいグレー 4"
 "ko" = "밝은 회색 4"
 "ru" = "Светло-серый 4"
 pt = "Cinza-claro 4"
+tr = "Açık Gri 4"
 
 ["Light Green"]
 en = "Light Green"
@@ -935,6 +1012,7 @@ ja = "明るい緑"
 "ko" = "연한 초록"
 "ru" = "Светло-зеленый"
 pt = "Verde-claro"
+tr = "Açık Yeşil"
 
 ["Light Orange"]
 en = "Light Orange"
@@ -947,6 +1025,7 @@ ja = "明るいオレンジ"
 "ko" = "연한 주황"
 "ru" = "Светло-оранжевый"
 pt = "Laranja-claro"
+tr = "Açık Turuncu"
 
 ["Light Purple"]
 en = "Light Purple"
@@ -959,6 +1038,7 @@ ja = "明るい紫"
 "ko" = "연한 보라"
 "ru" = "Светло-фиолетовый"
 pt = "Roxo-claro"
+tr = "Açık Mor"
 
 ["Light Red"]
 en = "Light Red"
@@ -971,6 +1051,7 @@ ja = "明るい赤"
 "ko" = "연한 빨강"
 "ru" = "Светло-красный"
 pt = "Vermelho-claro"
+tr = "Açık Kırmızı"
 
 ["Light Yellow"]
 en = "Light Yellow"
@@ -983,6 +1064,7 @@ ja = "明るい黄"
 "ko" = "연한 노랑"
 "ru" = "Светло-желтый"
 pt = "Amarelo-claro"
+tr = "Açık Sarı"
 
 ["Loading project…"]
 en = "Loading project…"
@@ -995,6 +1077,7 @@ ja = "プロジェクトを読み込み中…"
 "ko" = "프로젝트 로드 중…"
 "ru" = "Загрузка проекта…"
 pt = "Carregando projeto…"
+tr = "Proje yükleniyor…"
 
 ["Lock ratio"]
 en = "Lock ratio"
@@ -1007,6 +1090,7 @@ ja = "縦横比を固定"
 "ko" = "가로세로 비율 고정"
 "ru" = "Зафиксировать пропорции"
 pt = "Bloquear proporção"
+tr = "Oranı kilitle"
 
 ["Maximum number of active video decoder sessions"]
 en = "Maximum number of active video decoder sessions"
@@ -1019,6 +1103,7 @@ ja = "有効な動画デコーダーセッションの最大数"
 "ko" = "최대 활성 비디오 디코더 세션 수"
 "ru" = "Максимальное количество активных сеансов видеодекодера"
 pt = "Número máximo de sessões ativas do decodificador de vídeo"
+tr = "En fazla aktif çözücü oturum sayısı"
 
 ["New Project"]
 en = "New Project"
@@ -1031,6 +1116,7 @@ ja = "新規プロジェクト"
 "ko" = "새 프로젝트"
 "ru" = "Новый проект"
 pt = "Novo projeto"
+tr = "Yeni Proje"
 
 ["No Matching Projects"]
 en = "No Matching Projects"
@@ -1043,6 +1129,7 @@ ja = "一致するプロジェクトはありません"
 "ko" = "일치하는 프로젝트가 없습니다."
 "ru" = "Нет подходящих проектов"
 pt = "Nenhum projeto correspondente"
+tr = "Eşleşen Proje Yok"
 
 ["No Recent Projects"]
 en = "No Recent Projects"
@@ -1055,6 +1142,7 @@ ja = "最近使ったプロジェクトはありません"
 "ko" = "최근 프로젝트가 없습니다"
 "ru" = "Нет недавних проектов"
 pt = "Nenhum projeto recente"
+tr = "Son Kullanılan Proje Yok"
 
 ["Not configured"]
 en = "Not configured"
@@ -1067,6 +1155,7 @@ ja = "未設定"
 "ko" = "구성되지 않음"
 "ru" = "Не настроено"
 pt = "Não configurado"
+tr = "Yapılandırılmadı"
 
 ["OTIO Project Settings"]
 en = "OTIO Project Settings"
@@ -1079,6 +1168,7 @@ ja = "OTIO プロジェクト設定"
 "ko" = "OTIO 프로젝트 설정"
 "ru" = "Настройки проекта OTIO"
 pt = "Configurações de projeto OTIO"
+tr = "OTIO Proje Ayarları"
 
 ["OTIO does not include the Kdenlive project profile."]
 en = "OTIO does not include the Kdenlive project profile."
@@ -1091,6 +1181,7 @@ ja = "OTIO には Kdenlive のプロジェクトプロファイルが含まれ�
 "ko" = "OTIO에는 Kdenlive 프로젝트 프로필이 포함되어 있지 않습니다."
 "ru" = "OTIO не включает профиль проекта Kdenlive."
 pt = "O OTIO não inclui o perfil do projeto do Kdenlive."
+tr = "OTIO, Kdenlive proje profilini içermez."
 
 ["OTIO imported with limitations"]
 en = "OTIO imported with limitations"
@@ -1103,6 +1194,7 @@ ja = "OTIO は一部制限付きで読み込まれました"
 "ko" = "OTIO를 일부 제한과 함께 가져왔습니다"
 "ru" = "OTIO импортирован с ограничениями"
 pt = "OTIO importado com limitações"
+tr = "OTIO kısıtlamalarla içe aktarıldı"
 
 ["Open Project"]
 en = "Open Project"
@@ -1115,6 +1207,7 @@ ja = "プロジェクトを開く"
 "ko" = "프로젝트 열기"
 "ru" = "Открыть проект"
 pt = "Abrir projeto"
+tr = "Proje Aç"
 
 ["Open Project…"]
 en = "Open Project…"
@@ -1127,6 +1220,7 @@ ja = "プロジェクトを開く…"
 "ko" = "프로젝트 열기…"
 "ru" = "Открыть проект…"
 pt = "Abrir projeto…"
+tr = "Proje Aç…"
 
 ["Open the GTK color picker"]
 en = "Open the GTK color picker"
@@ -1139,6 +1233,7 @@ ja = "GTK カラーピッカーを開く"
 "ko" = "GTK 색상 선택기 열기"
 "ru" = "Открыть выбор цвета GTK"
 pt = "Abrir o seletor de cores do GTK"
+tr = "GTK renk seçiciyi aç"
 
 ["Orange"]
 en = "Orange"
@@ -1151,6 +1246,7 @@ ja = "オレンジ"
 "ko" = "주황"
 "ru" = "Оранжевый"
 pt = "Laranja"
+tr = "Turuncu"
 
 ["Pick a color from the screen"]
 en = "Pick a color from the screen"
@@ -1163,6 +1259,7 @@ ja = "画面から色を選択"
 "ko" = "화면에서 색상 선택"
 "ru" = "Выбрать цвет с экрана"
 pt = "Selecionar uma cor da tela"
+tr = "Ekrandan bir renk seç"
 
 ["Play / Pause"]
 en = "Play / Pause"
@@ -1175,6 +1272,7 @@ ja = "再生 / 一時停止"
 "ko" = "재생/일시 정지"
 "ru" = "Воспроизведение / Пауза"
 pt = "Reproduzir / Pausar"
+tr = "Oynat / Duraklat"
 
 ["Preferences"]
 en = "Preferences"
@@ -1187,6 +1285,7 @@ ja = "設定"
 "ko" = "환경설정"
 "ru" = "Параметры"
 pt = "Preferências"
+tr = "Tercihler"
 
 ["Preview"]
 en = "Preview"
@@ -1199,6 +1298,7 @@ ja = "プレビュー"
 "ko" = "미리보기"
 "ru" = "Предпросмотр"
 pt = "Pré-visualização"
+tr = "Önizleme"
 
 ["Project Name"]
 en = "Project Name"
@@ -1211,6 +1311,7 @@ ja = "プロジェクト名"
 "ko" = "프로젝트 이름"
 "ru" = "Название проекта"
 pt = "Nome do projeto"
+tr = "Proje İsmi"
 
 ["Project Settings"]
 en = "Project Settings"
@@ -1223,6 +1324,7 @@ ja = "プロジェクト設定"
 "ko" = "프로젝트 설정"
 "ru" = "Настройки проекта"
 pt = "Configurações do projeto"
+tr = "Proje Ayarları"
 
 ["Project options"]
 en = "Project options"
@@ -1235,6 +1337,7 @@ ja = "プロジェクトオプション"
 "ko" = "프로젝트 옵션"
 "ru" = "Параметры проекта"
 pt = "Opções do projeto"
+tr = "Proje seçenekleri"
 
 ["Project saved to the new location"]
 en = "Project saved to the new location"
@@ -1247,6 +1350,7 @@ ja = "プロジェクトを新しい場所に保存しました"
 "ko" = "새 위치에 프로젝트가 저장되었습니다."
 "ru" = "Проект сохранен в новом расположении"
 pt = "Projeto salvo no novo local"
+tr = "Proje yeni konuma kaydedildi"
 
 ["Protocol"]
 en = "Protocol"
@@ -1259,6 +1363,7 @@ ja = "プロトコル"
 "ko" = "프로토콜"
 "ru" = "Протокол"
 pt = "Protocolo"
+tr = "Protokol"
 
 ["Purple"]
 en = "Purple"
@@ -1271,6 +1376,7 @@ ja = "紫"
 "ko" = "보라"
 "ru" = "Фиолетовый"
 pt = "Roxo"
+tr = "Mor"
 
 ["Reading and converting Kdenlive timeline…"]
 en = "Reading and converting Kdenlive timeline…"
@@ -1283,6 +1389,7 @@ ja = "Kdenlive タイムラインを読み込んで変換中…"
 "ko" = "Kdenlive 타임라인을 읽고 변환하는 중…"
 "ru" = "Чтение и преобразование таймлайна Kdenlive…"
 pt = "Lendo e convertendo linha do tempo do Kdenlive…"
+tr = "Kdenlive zaman çizelgesi okunup dönüştürülüyor…"
 
 ["Recent"]
 en = "Recent"
@@ -1295,6 +1402,7 @@ ja = "最近使った色"
 "ko" = "최근 항목"
 "ru" = "Недавние"
 pt = "Recentes"
+tr = "En Son"
 
 ["Red"]
 en = "Red"
@@ -1307,6 +1415,7 @@ ja = "赤"
 "ko" = "빨강"
 "ru" = "Красный"
 pt = "Vermelho"
+tr = "Kırmızı"
 
 ["Redo"]
 en = "Redo"
@@ -1319,6 +1428,7 @@ ja = "やり直す"
 "ko" = "다시 실행"
 "ru" = "Повторить"
 pt = "Refazer"
+tr = "İleri Al"
 
 ["Replace selected item properties"]
 en = "Replace selected item properties"
@@ -1331,6 +1441,7 @@ ja = "選択項目のプロパティを置き換え"
 "ko" = "선택한 항목 속성 바꾸기"
 "ru" = "Заменить свойства выбранного элемента"
 pt = "Substituir propriedades do item selecionado"
+tr = "Seçilen ögenin özelliklerini değiştir"
 
 ["Reserved memory"]
 en = "Reserved memory"
@@ -1343,6 +1454,7 @@ ja = "予約済みメモリ"
 "ko" = "예약된 메모리"
 "ru" = "Зарезервированная память"
 pt = "Memória reservada"
+tr = "Ayrılmış bellek"
 
 ["Retry"]
 en = "Retry"
@@ -1355,6 +1467,7 @@ ja = "再試行"
 "ko" = "다시 시도"
 "ru" = "Повторить попытку"
 pt = "Repetir"
+tr = "Tekrar dene"
 
 ["Ripple cut"]
 en = "Ripple cut"
@@ -1367,6 +1480,7 @@ ja = "リップルカット"
 "ko" = "리플 잘라내기"
 "ru" = "Разрез с уплотнением"
 pt = "Corte com ondulação"
+tr = "Ardışık kesim"
 
 ["Ripple trim selected clip to playhead"]
 en = "Ripple trim selected clip to playhead"
@@ -1379,6 +1493,7 @@ ja = "選択したクリップを再生ヘッドまでリップルトリム"
 "ko" = "선택한 클립을 재생 헤드까지 리플 트림"
 "ru" = "Подрезать выбранный клип до курсора с уплотнением"
 pt = "Aparar com ondulação o clipe selecionado até o indicador de reprodução"
+tr = "Seçilen klibi oynatma imlecine kadar ardışık kırp"
 
 ["Saturation and value"]
 en = "Saturation and value"
@@ -1391,6 +1506,7 @@ ja = "彩度と明度"
 "ko" = "채도 및 명도"
 "ru" = "Насыщенность и яркость"
 pt = "Saturação e valor"
+tr = "Doygunluk ve parlaklık"
 
 ["Save As"]
 en = "Save As"
@@ -1403,6 +1519,7 @@ ja = "名前を付けて保存"
 "ko" = "다른 이름으로 저장"
 "ru" = "Сохранить как"
 pt = "Salvar como"
+tr = "Farklı Kaydet"
 
 ["Save As…"]
 en = "Save As…"
@@ -1415,6 +1532,7 @@ ja = "名前を付けて保存…"
 "ko" = "다른 이름으로 저장…"
 "ru" = "Сохранить как…"
 pt = "Salvar como…"
+tr = "Farklı Kaydet…"
 
 ["Save Project As"]
 en = "Save Project As"
@@ -1427,6 +1545,7 @@ ja = "プロジェクトに名前を付けて保存"
 "ko" = "다른 이름으로 프로젝트 저장"
 "ru" = "Сохранить проект как"
 pt = "Salvar projeto como"
+tr = "Projeyi Farklı Kaydet"
 
 ["Save"]
 en = "Save"
@@ -1439,6 +1558,7 @@ ja = "保存"
 "ko" = "저장"
 "ru" = "Сохранить"
 pt = "Salvar"
+tr = "Kaydet"
 
 ["Search history"]
 en = "Search history"
@@ -1451,6 +1571,7 @@ ja = "履歴を検索"
 "ko" = "검색 기록"
 "ru" = "Поиск по истории"
 pt = "Pesquisar histórico"
+tr = "Arama geçmişi"
 
 ["Select color"]
 en = "Select color"
@@ -1463,6 +1584,7 @@ ja = "色を選択"
 "ko" = "색상 선택"
 "ru" = "Выбрать цвет"
 pt = "Selecionar cor"
+tr = "Renk seç"
 
 ["Selected Server"]
 en = "Selected Server"
@@ -1475,6 +1597,7 @@ ja = "選択中のサーバー"
 "ko" = "선택한 서버"
 "ru" = "Выбранный сервер"
 pt = "Servidor selecionado"
+tr = "Seçilen Sunucu"
 
 ["Server URL"]
 en = "Server URL"
@@ -1487,6 +1610,7 @@ ja = "サーバー URL"
 "ko" = "서버 URL"
 "ru" = "URL сервера"
 pt = "URL do servidor"
+tr = "Sunucu URL'si"
 
 ["Server does not support device selection"]
 en = "Server does not support device selection"
@@ -1499,6 +1623,7 @@ ja = "このサーバーはデバイス選択に対応していません"
 "ko" = "서버가 장치 선택을 지원하지 않습니다"
 "ru" = "Сервер не поддерживает выбор устройства"
 pt = "O servidor não suporta seleção de dispositivo"
+tr = "Sunucu cihaz seçimini desteklemiyor"
 
 ["Server menu"]
 en = "Server menu"
@@ -1511,6 +1636,7 @@ ja = "サーバーメニュー"
 "ko" = "서버 메뉴"
 "ru" = "Меню сервера"
 pt = "Menu do servidor"
+tr = "Sunucu menüsü"
 
 ["Shadow Size"]
 en = "Shadow Size"
@@ -1523,6 +1649,7 @@ ja = "影のサイズ"
 "ko" = "그림자 크기"
 "ru" = "Размер тени"
 pt = "Tamanho da sombra"
+tr = "Gölge Boyutu"
 
 ["Show Keyboard Shortcuts"]
 en = "Show Keyboard Shortcuts"
@@ -1535,6 +1662,7 @@ ja = "キーボードショートカットを表示"
 "ko" = "키보드 단축키 표시"
 "ru" = "Показать горячие клавиши"
 pt = "Mostrar atalhos de teclado"
+tr = "Klavye Kısayollarını Göster"
 
 ["Show in Files"]
 en = "Show in Files"
@@ -1547,6 +1675,7 @@ ja = "ファイルで表示"
 "ko" = "파일 관리자에서 보기"
 "ru" = "Показать в файлах"
 pt = "Mostrar em Arquivos"
+tr = "Dosyalar'da Göster"
 
 ["Shrimply projects"]
 en = "Shrimply projects"
@@ -1559,6 +1688,7 @@ ja = "Shrimply プロジェクト"
 "ko" = "Shrimply 프로젝트"
 "ru" = "Проекты Shrimply"
 pt = "Projetos do Shrimply"
+tr = "Shrimply projeleri"
 
 ["Shrimply supports only some Kdenlive features. Unsupported content may be changed or omitted."]
 en = "Shrimply supports only some Kdenlive features. Unsupported content may be changed or omitted."
@@ -1571,6 +1701,7 @@ ja = "Shrimply は Kdenlive の一部の機能のみ対応しています。未�
 "ko" = "Shrimply는 일부 Kdenlive 기능만 지원합니다. 지원되지 않는 콘텐츠는 변경되거나 생략될 수 있습니다."
 "ru" = "Shrimply поддерживает лишь некоторые функции Kdenlive. Неподдерживаемое содержимое может быть изменено или пропущено."
 pt = "O Shrimply suporta apenas alguns recursos do Kdenlive. O conteúdo não suportado pode ser alterado ou omitido."
+tr = "Shrimply sadece bazı Kdenlive özelliklerini destekler. Desteklenmeyen içerik değiştirilebilir veya çıkarılabilir."
 
 ["Snap Attraction Radius"]
 en = "Snap Attraction Radius"
@@ -1583,6 +1714,7 @@ ja = "スナップ吸着範囲"
 "ko" = "스냅 반경"
 "ru" = "Радиус притяжения привязки"
 pt = "Raio de atração do encaixe"
+tr = "Yapışma Çekim Yarıçapı"
 
 ["Space around the video frame in pixels"]
 en = "Space around the video frame in pixels"
@@ -1595,6 +1727,7 @@ ja = "動画フレーム周囲の余白（ピクセル）"
 "ko" = "비디오 프레임 주변 여백(픽셀)"
 "ru" = "Пространство вокруг кадра видео в пикселях"
 pt = "Espaço ao redor do quadro de vídeo em pixels"
+tr = "Piksel cinsinden video karesinin etrafındaki boşluk"
 
 ["Split all clips and select left"]
 en = "Split all clips and select left"
@@ -1607,6 +1740,7 @@ ja = "すべてのクリップを分割して左側を選択"
 "ko" = "모든 클립을 분할하고 왼쪽 부분 선택"
 "ru" = "Разделить все клипы и выбрать левую часть"
 pt = "Dividir todos os clipes e selecionar à esquerda"
+tr = "Tüm klipleri böl ve sol tarafı seç"
 
 ["Split all clips at playhead"]
 en = "Split all clips at playhead"
@@ -1619,6 +1753,7 @@ ja = "再生ヘッド位置ですべてのクリップを分割"
 "ko" = "재생헤드에서 모든 클립 분할"
 "ru" = "Разделить все клипы в позиции курсора"
 pt = "Dividir todos os clipes no indicador de reprodução"
+tr = "Oynatma imlecinde tüm klipleri böl"
 
 ["Maximum system RAM available for CUDA spill and reconstructible GPU resources"]
 en = "Maximum system RAM available for CUDA spill and reconstructible GPU resources"
@@ -1631,6 +1766,7 @@ ja = "CUDA の退避と再構築可能な GPU リソースに使用できるシ�
 "ko" = "CUDA 스필 및 재구성 가능한 GPU 리소스에 사용할 최대 시스템 RAM"
 "ru" = "Максимальный объем системной RAM, доступный для выгрузки CUDA и реконструируемых ресурсов GPU"
 pt = "RAM máxima do sistema disponível para transbordamento de CUDA e recursos reconstruíveis da GPU"
+tr = "CUDA taşması ve yeniden oluşturulabilir GPU kaynakları için kullanılabilir azami sistem RAM'i"
 
 ["Step playback"]
 en = "Step playback"
@@ -1643,6 +1779,7 @@ ja = "再生を一段階進める"
 "ko" = "프레임 단위 재생"
 "ru" = "Пошаговое воспроизведение"
 pt = "Reprodução quadro a quadro"
+tr = "Adım adım oynatma"
 
 ["Stop Other Editor"]
 en = "Stop Other Editor"
@@ -1655,6 +1792,7 @@ ja = "別のエディターを停止"
 "ko" = "다른 편집기 중지"
 "ru" = "Остановить другой редактор"
 pt = "Parar outro editor"
+tr = "Diğer Düzenleyiciyi Durdur"
 
 ["Temporal Decoder Pool Size"]
 en = "Temporal Decoder Pool Size"
@@ -1667,6 +1805,7 @@ ja = "時間デコーダープールのサイズ"
 "ko" = "비디오 디코더 풀 크기"
 "ru" = "Размер пула временных декодеров"
 pt = "Tamanho do pool de decodificadores temporais"
+tr = "Zamansal Çözücü Havuz Boyutu"
 
 ["Timeline"]
 en = "Timeline"
@@ -1679,6 +1818,7 @@ ja = "タイムライン"
 "ko" = "타임라인"
 "ru" = "Таймлайн"
 pt = "Linha do tempo"
+tr = "Zaman Çizelgesi"
 
 ["Toggle Inspector"]
 en = "Toggle Inspector"
@@ -1691,6 +1831,7 @@ ja = "インスペクターの表示を切り替え"
 "ko" = "인스펙터 전환"
 "ru" = "Показать/скрыть инспектор"
 pt = "Alternar inspetor"
+tr = "Denetleyiciyi Aç/Kapat"
 
 ["Toggle Timeline"]
 en = "Toggle Timeline"
@@ -1703,6 +1844,7 @@ ja = "タイムラインの表示を切り替え"
 "ko" = "타임라인 전환"
 "ru" = "Показать/скрыть таймлайн"
 pt = "Alternar linha do tempo"
+tr = "Zaman Çizelgesini Aç/Kapat"
 
 ["Toggle timeline zoom"]
 en = "Toggle timeline zoom"
@@ -1715,6 +1857,7 @@ ja = "タイムラインのズームを切り替え"
 "ko" = "타임라인 확대/축소 전환"
 "ru" = "Переключить масштаб таймлайна"
 pt = "Alternar zoom da linha do tempo"
+tr = "Zaman çizelgesi yakınlaştırmasını aç/kapat"
 
 ["Torch"]
 en = "Torch"
@@ -1727,6 +1870,7 @@ ja = "Torch"
 "ko" = "Torch"
 "ru" = "Torch"
 pt = "Torch"
+tr = "Torch"
 
 ["Unavailable"]
 en = "Unavailable"
@@ -1739,6 +1883,7 @@ ja = "利用不可"
 "ko" = "사용할 수 없음"
 "ru" = "Недоступно"
 pt = "Indisponível"
+tr = "Kullanılamıyor"
 
 ["Undo"]
 en = "Undo"
@@ -1751,6 +1896,7 @@ ja = "元に戻す"
 "ko" = "실행 취소"
 "ru" = "Отменить"
 pt = "Desfazer"
+tr = "Geri Al"
 
 ["Untitled Project"]
 en = "Untitled Project"
@@ -1763,6 +1909,7 @@ ja = "名称未設定のプロジェクト"
 "ko" = "제목 없는 프로젝트"
 "ru" = "Проект без названия"
 pt = "Projeto sem título"
+tr = "Başlıksız Proje"
 
 ["Use this server"]
 en = "Use this server"
@@ -1775,6 +1922,7 @@ ja = "このサーバーを使用"
 "ko" = "이 서버 사용"
 "ru" = "Использовать этот сервер"
 pt = "Usar este servidor"
+tr = "Bu sunucuyu kullan"
 
 ["Validating imported project…"]
 en = "Validating imported project…"
@@ -1787,6 +1935,7 @@ ja = "読み込んだプロジェクトを検証中…"
 "ko" = "가져온 프로젝트 검증 중…"
 "ru" = "Проверка импортированного проекта…"
 pt = "Validando projeto importado…"
+tr = "İçe aktarılmış proje doğrulanıyor…"
 
 ["Version %{version}"]
 en = "Version %{version}"
@@ -1799,6 +1948,7 @@ ja = "バージョン %{version}"
 "ko" = "버전 %{version}"
 "ru" = "Версия %{version}"
 pt = "Versão %{version}"
+tr = "Sürüm %{version}"
 
 ["Very Dark Blue"]
 en = "Very Dark Blue"
@@ -1811,6 +1961,7 @@ ja = "ごく濃い青"
 "ko" = "매우 진한 파란색"
 "ru" = "Очень темно-голубой"
 pt = "Azul muito escuro"
+tr = "Çok Koyu Mavi"
 
 ["Very Dark Brown"]
 en = "Very Dark Brown"
@@ -1823,6 +1974,7 @@ ja = "ごく濃い茶"
 "ko" = "아주 어두운 갈색"
 "ru" = "Очень темно-коричневый"
 pt = "Marrom muito escuro"
+tr = "Çok Koyu Kahverengi"
 
 ["Very Dark Green"]
 en = "Very Dark Green"
@@ -1835,6 +1987,7 @@ ja = "ごく濃い緑"
 "ko" = "매우 진한 녹색"
 "ru" = "Очень темно-зеленый"
 pt = "Verde muito escuro"
+tr = "Çok Koyu Yeşil"
 
 ["Very Dark Orange"]
 en = "Very Dark Orange"
@@ -1847,6 +2000,7 @@ ja = "ごく濃いオレンジ"
 "ko" = "매우 진한 오렌지색"
 "ru" = "Очень темно-оранжевый"
 pt = "Laranja muito escuro"
+tr = tr = "Çok Koyu Turuncu"
 
 ["Very Dark Purple"]
 en = "Very Dark Purple"
@@ -1859,6 +2013,7 @@ ja = "ごく濃い紫"
 "ko" = "매우 진한 보라색"
 "ru" = "Очень темно-фиолетовый"
 pt = "Roxo muito escuro"
+tr = "Çok Koyu Mor"
 
 ["Very Dark Red"]
 en = "Very Dark Red"
@@ -1871,6 +2026,7 @@ ja = "ごく濃い赤"
 "ko" = "매우 진한 빨간색"
 "ru" = "Очень темно-красный"
 pt = "Vermelho muito escuro"
+tr = "Çok Koyu Kırmızı"
 
 ["Very Dark Yellow"]
 en = "Very Dark Yellow"
@@ -1883,6 +2039,7 @@ ja = "ごく濃い黄"
 "ko" = "매우 진한 노란색"
 "ru" = "Очень темно-желтый"
 pt = "Amarelo muito escuro"
+tr = "Çok Koyu Sarı"
 
 ["Very Light Blue"]
 en = "Very Light Blue"
@@ -1895,6 +2052,7 @@ ja = "ごく明るい青"
 "ko" = "매우 연한 파랑"
 "ru" = "Очень светло-голубой"
 pt = "Azul muito claro"
+tr = "Çok Açık Mavi"
 
 ["Very Light Brown"]
 en = "Very Light Brown"
@@ -1907,6 +2065,7 @@ ja = "ごく明るい茶"
 "ko" = "아주 연한 갈색"
 "ru" = "Очень светло-коричневый"
 pt = "Marrom muito claro"
+tr = "Çok Açık Kahverengi"
 
 ["Very Light Green"]
 en = "Very Light Green"
@@ -1919,6 +2078,7 @@ ja = "ごく明るい緑"
 "ko" = "매우 연한 녹색"
 "ru" = "Очень светло-зеленый"
 pt = "Verde muito claro"
+tr = "Çok Açık Yeşil"
 
 ["Very Light Orange"]
 en = "Very Light Orange"
@@ -1931,6 +2091,7 @@ ja = "ごく明るいオレンジ"
 "ko" = "매우 밝은 오렌지색"
 "ru" = "Очень светло-оранжевый"
 pt = "Laranja muito claro"
+tr = "Çok Açık Turuncu"
 
 ["Very Light Purple"]
 en = "Very Light Purple"
@@ -1943,6 +2104,7 @@ ja = "ごく明るい紫"
 "ko" = "매우 연한 보라색"
 "ru" = "Очень светло-фиолетовый"
 pt = "Roxo muito claro"
+tr = "Çok Açık Mor"
 
 ["Very Light Red"]
 en = "Very Light Red"
@@ -1955,6 +2117,7 @@ ja = "ごく明るい赤"
 "ko" = "매우 연한 빨간색"
 "ru" = "Очень светло-красный"
 pt = "Vermelho muito claro"
+tr = "Çok Açık Kırmızı"
 
 ["Very Light Yellow"]
 en = "Very Light Yellow"
@@ -1967,6 +2130,7 @@ ja = "ごく明るい黄"
 "ko" = "매우 연한 노란색"
 "ru" = "Очень светло-желтый"
 pt = "Amarelo muito claro"
+tr = "Çok Açık Sarı"
 
 ["White"]
 en = "White"
@@ -1979,6 +2143,7 @@ ja = "白"
 "ko" = "흰색"
 "ru" = "Белый"
 pt = "Branco"
+tr = "Beyaz"
 
 ["Workers"]
 en = "Workers"
@@ -1991,6 +2156,7 @@ ja = "ワーカー"
 "ko" = "작업 스레드"
 "ru" = "Рабочие процессы"
 pt = "Processos de trabalho"
+tr = "İş Parçacıkları"
 
 ["Writing Shrimply project…"]
 en = "Writing Shrimply project…"
@@ -2003,6 +2169,7 @@ ja = "Shrimply プロジェクトを書き込み中…"
 "ko" = "Shrimply 프로젝트 작성 중…"
 "ru" = "Запись проекта Shrimply…"
 pt = "Gravando projeto do Shrimply…"
+tr = "Shrimply projesi yazılıyor…"
 
 ["Yellow"]
 en = "Yellow"
@@ -2015,6 +2182,7 @@ ja = "黄"
 "ko" = "노랑"
 "ru" = "Желтый"
 pt = "Amarelo"
+tr = "Sarı"
 
 ["%{project} — %{action}"]
 en = "%{project} — %{action}"
@@ -2027,6 +2195,7 @@ ja = "%{project} — %{action}"
 "ko" = "%{project} — %{action}"
 "ru" = "%{project} — %{action}"
 pt = "%{project} — %{action}"
+tr = "%{project} — %{action}"
 
 ["%{project} — Saving"]
 en = "%{project} — Saving"
@@ -2039,6 +2208,7 @@ ja = "%{project} — 保存中"
 "ko" = "%{project} — 저장 중"
 "ru" = "%{project} — Сохранение"
 pt = "%{project} — Salvando"
+tr = "%{project} — Kaydediliyor"
 
 ["%{project} — Unsaved"]
 en = "%{project} — Unsaved"
@@ -2051,6 +2221,7 @@ ja = "%{project} — 未保存"
 "ko" = "%{project} — 저장되지 않음"
 "ru" = "%{project} — Не сохранен"
 pt = "%{project} — Não salvo"
+tr = "%{project} — Kaydedilmemiş"
 
 ["%{project} — Unsaved — Save failed"]
 en = "%{project} — Unsaved — Save failed"
@@ -2063,6 +2234,7 @@ ja = "%{project} — 未保存 — 保存に失敗"
 "ko" = "%{project} — 저장되지 않음 — 저장 실패"
 "ru" = "%{project} — Не сохранен — Ошибка сохранения"
 pt = "%{project} — Não salvo — Falha ao salvar"
+tr = "%{project} — Kaydedilmemiş — Kayıt başarısız"
 
 ["%{runtime} · Available"]
 en = "%{runtime} · Available"
@@ -2075,6 +2247,7 @@ ja = "%{runtime} · 利用可能"
 "ko" = "%{runtime} · 사용 가능"
 "ru" = "%{runtime} · Доступно"
 pt = "%{runtime} · Disponível"
+tr = "%{runtime} · Mevcut"
 
 ["%{queued} queued · %{active} active"]
 en = "%{queued} queued · %{active} active"
@@ -2087,6 +2260,7 @@ ja = "待機中 %{queued} · 実行中 %{active}"
 "ko" = "대기 %{queued}개 · 실행 중 %{active}개"
 "ru" = "%{queued} в очереди · %{active} активных"
 pt = "%{queued} na fila · %{active} ativas"
+tr = "%{queued} kuyrukta · %{active} aktif"
 
 ["Project is in use"]
 en = "Project is in use"
@@ -2099,6 +2273,7 @@ ja = "プロジェクトは使用中です"
 "ko" = "프로젝트가 사용 중입니다."
 "ru" = "Проект используется"
 pt = "O projeto está em uso"
+tr = "Proje kullanımda"
 
 ["Shrimply"]
 en = "Shrimply"
@@ -2111,6 +2286,7 @@ ja = "Shrimply"
 "ko" = "Shrimply"
 "ru" = "Shrimply"
 pt = "Shrimply"
+tr = "Shrimply"
 
 ["—"]
 en = "—"
@@ -2123,6 +2299,7 @@ ja = "—"
 "ko" = "—"
 "ru" = "—"
 pt = "—"
+tr = "—"
 
 ["Bilinear"]
 en = "Bilinear"
@@ -2135,6 +2312,7 @@ ja = "バイリニア"
 "ko" = "이중 선형"
 "ru" = "Билинейная"
 pt = "Bilinear"
+tr = "Bilineer"
 
 ["Filter used when the preview is larger than the video"]
 en = "Filter used when the preview is larger than the video"
@@ -2147,6 +2325,7 @@ ja = "プレビューが動画より大きい場合に使用するフィルタ�
 "ko" = "미리보기가 비디오보다 클 때 사용하는 필터"
 "ru" = "Фильтр, используемый, когда предпросмотр больше видео"
 pt = "Filtro usado quando a pré-visualização é maior que o vídeo"
+tr = "Önizleme videodan daha büyük olduğunda kullanılan filtre"
 
 ["Filter used when the preview is smaller than the video"]
 en = "Filter used when the preview is smaller than the video"
@@ -2159,6 +2338,7 @@ ja = "プレビューが動画より小さい場合に使用するフィルタ�
 "ko" = "미리보기가 비디오보다 작을 때 사용하는 필터"
 "ru" = "Фильтр, используемый, когда предпросмотр меньше видео"
 pt = "Filtro usado quando a pré-visualização é menor que o vídeo"
+tr = "Önizleme videodan daha küçük olduğunda kullanılan filtre"
 
 ["Nearest"]
 en = "Nearest"
@@ -2171,6 +2351,7 @@ ja = "最近傍"
 "ko" = "최근접"
 "ru" = "Ближайший"
 pt = "Mais próximo"
+tr = "En Yakın Komşu"
 
 ["Preview Downsample Method"]
 en = "Preview Downsample Method"
@@ -2183,6 +2364,7 @@ ja = "プレビューのダウンサンプリング方式"
 "ko" = "미리보기 다운샘플링 방식"
 "ru" = "Метод уменьшения предпросмотра"
 pt = "Método de redução da pré-visualização"
+tr = "Önizleme Alt Örnekleme Yöntemi"
 
 ["Preview Upsample Method"]
 en = "Preview Upsample Method"
@@ -2195,6 +2377,7 @@ ja = "プレビューのアップサンプリング方式"
 "ko" = "미리보기 업샘플링 방식"
 "ru" = "Метод увеличения предпросмотра"
 pt = "Método de ampliação da pré-visualização"
+tr = "Önizleme Üst Örnekleme Yöntemi"
 
 ["Trilinear"]
 en = "Trilinear"
@@ -2207,3 +2390,4 @@ ja = "トライリニア"
 "ko" = "삼중 선형"
 "ru" = "Трилинейная"
 pt = "Trilinear"
+tr = "Trilineer"

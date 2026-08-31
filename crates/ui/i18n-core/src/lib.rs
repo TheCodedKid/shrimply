@@ -4,18 +4,12 @@ use std::borrow::Cow;
 rust_i18n::i18n!("locales", fallback = "en");
 
 const DEFAULT_LOCALE: &str = "en";
-const SUPPORTED_LOCALES: [&str; 10] = [
-    "en", "es", "fr", "de", "ja", "zh-CN", "zh-TW", "ko", "pt", "ru",
+const SUPPORTED_LOCALES: [&str; 11] = [
+    "en", "es", "fr", "de", "ja", "zh-CN", "zh-TW", "ko", "pt", "ru", "tr",
 ];
 
 pub fn init_system_locale() {
-    let mut candidates = Vec::new();
-    for variable in ["LANGUAGE", "LC_ALL", "LC_MESSAGES", "LANG"] {
-        if let Ok(value) = std::env::var(variable) {
-            candidates.extend(value.split(':').map(str::to_string));
-        }
-    }
-    let locale = candidates
+    let locale = glib::language_names()
         .iter()
         .map(|locale| normalize_locale(locale))
         .find(|locale| SUPPORTED_LOCALES.contains(&locale.as_str()))
