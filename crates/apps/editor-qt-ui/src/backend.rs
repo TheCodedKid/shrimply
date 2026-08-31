@@ -13,6 +13,17 @@ const GIB_BYTES: f64 = 1024.0 * 1024.0 * 1024.0;
 #[cxx_qt::bridge]
 pub mod qobject {
     unsafe extern "C++" {
+        include!("native_file_dialog.h");
+        type QGuiApplication = cxx_qt_lib::QGuiApplication;
+        #[namespace = "shrimply"]
+        fn new_widget_application() -> UniquePtr<QGuiApplication>;
+        #[namespace = "shrimply"]
+        fn save_project_file_dialog(
+            suggested_url: &QUrl,
+            title: &QString,
+            filter: &QString,
+        ) -> QUrl;
+
         include!("gpu_surface.h");
         #[namespace = "shrimply"]
         fn force_opengl();
@@ -85,11 +96,8 @@ pub mod qobject {
         #[qinvokable]
         fn save(self: Pin<&mut EditorBackend>);
         #[qinvokable]
-        #[cxx_name = "saveAs"]
-        fn save_as(self: Pin<&mut EditorBackend>, url: &QUrl);
-        #[qinvokable]
-        #[cxx_name = "suggestedSaveAsUrl"]
-        fn suggested_save_as_url(self: Pin<&mut EditorBackend>) -> QUrl;
+        #[cxx_name = "showSaveAsDialog"]
+        fn show_save_as_dialog(self: Pin<&mut EditorBackend>);
         #[qinvokable]
         fn undo(self: Pin<&mut EditorBackend>);
         #[qinvokable]
@@ -397,12 +405,30 @@ impl qobject::EditorBackend {
             return;
         };
         if let Err(error) = session.save() {
+            tracing::error!(%error, "Qt project save failed");
             self.emit_error("Could not save project", &error);
         }
     }
 
-    pub fn save_as(self: Pin<&mut Self>, url: &QUrl) {
+    pub fn show_save_as_dialog(mut self: Pin<&mut Self>) {
+        let path = shrimply_cross_ui_core::editor::suggested_save_as_path();
+        let suggested_url = QUrl::from_local_file(&QString::from(path.to_string_lossy().as_ref()));
+        tracing::debug!(suggested = %path.display(), "opening Qt Save As dialog");
+        let url = qobject::save_project_file_dialog(
+            &suggested_url,
+            &shrimply_i18n_qt::text("Save Project As"),
+            &shrimply_i18n_qt::text("Shrimply projects (*.shrimp)"),
+        );
+        if url.is_empty() {
+            tracing::debug!("Qt Save As dialog canceled");
+            return;
+        }
+        self.as_mut().save_as_url(&url);
+    }
+
+    fn save_as_url(self: Pin<&mut Self>, url: &QUrl) {
         let Some(path) = local_path(url) else {
+            tracing::error!("Qt Save As returned a non-local destination");
             self.emit_error(
                 "Could not save project",
                 "The selected location does not have a local path.",
@@ -414,13 +440,9 @@ impl qobject::EditorBackend {
             return;
         };
         if let Err(error) = session.save_as(path) {
+            tracing::error!(%error, "Qt Save As failed");
             self.emit_error("Could not save project", &error);
         }
-    }
-
-    pub fn suggested_save_as_url(self: Pin<&mut Self>) -> QUrl {
-        let path = shrimply_cross_ui_core::editor::suggested_save_as_path();
-        QUrl::from_local_file(&QString::from(path.to_string_lossy().as_ref()))
     }
 
     pub fn undo(self: Pin<&mut Self>) {
