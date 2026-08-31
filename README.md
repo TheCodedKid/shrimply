@@ -4,7 +4,7 @@
 
 # Shrimply
 
-Shrimply brings your ideas to life.
+> you're telling me a shrimp made this video?!
 
 Shrimply is a free and open-source video editor for creating videos from start
 to finish, whether you are making a quick edit or something fancy.
