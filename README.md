@@ -12,7 +12,13 @@
 Shrimply is a free and open-source video editor for creating videos from start
 to finish, whether you are making a quick edit or something fancy.
 
-Shrimply is currently pre-alpha software.
+Shrimply is currently pre-alpha software, which means you should expect:
+- Slop
+- Undocumented footguns
+- Random performance regression
+- Irreversible project file breakage
+- Random crashes and resource leaks
+- Negative security
 
 For more information about Shrimply's features and workflows, visit the
 [documentation website](https://shrimply.pages.dev).
