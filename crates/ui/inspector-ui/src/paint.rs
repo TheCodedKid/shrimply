@@ -555,7 +555,10 @@ fn toggle_drawing_expression(context: &InspectorContext, enabled: bool) {
 }
 
 fn add_drawing_key_at(context: &InspectorContext, time: Time) {
-    let step = crate::keyframe_editor::project_frame_step(&context.project.borrow());
+    let step = crate::keyframe_editor::project_frame_step(
+        &context.project.borrow(),
+        context.selected_item.as_ref(),
+    );
     update_drawing(context, "add-paint-drawing-keyframe", true, move |value| {
         let TimelineBase::Keyframes(keyframes) = &mut value.base else {
             return false;
@@ -578,7 +581,10 @@ fn add_drawing_key_at(context: &InspectorContext, time: Time) {
 }
 
 fn delete_drawing_key_at(context: &InspectorContext, time: Time) {
-    let step = crate::keyframe_editor::project_frame_step(&context.project.borrow());
+    let step = crate::keyframe_editor::project_frame_step(
+        &context.project.borrow(),
+        context.selected_item.as_ref(),
+    );
     update_drawing(
         context,
         "delete-paint-drawing-keyframe",

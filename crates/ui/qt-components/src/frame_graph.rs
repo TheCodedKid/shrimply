@@ -112,6 +112,9 @@ pub mod qobject {
         #[cxx_name = "editGraphValue"]
         fn edit_graph_value(self: Pin<&mut FrameGraphItem>, value: f64);
         #[qinvokable]
+        #[cxx_name = "configureGraphValue"]
+        fn configure_graph_value(self: Pin<&mut FrameGraphItem>, value: f64);
+        #[qinvokable]
         #[cxx_name = "setInterpolation"]
         fn set_interpolation(self: Pin<&mut FrameGraphItem>, index: i32) -> bool;
         #[qinvokable]
@@ -315,6 +318,12 @@ impl qobject::FrameGraphItem {
     pub fn edit_graph_value(mut self: Pin<&mut Self>, value: f64) {
         let actions = self.rust().lock().state.set_value(value);
         self.as_mut().finish(actions);
+    }
+
+    pub fn configure_graph_value(mut self: Pin<&mut Self>, value: f64) {
+        self.rust().lock().state = FrameGraphState::sample_for_value(value);
+        self.as_mut().sync_status();
+        self.as_mut().request_update();
     }
 
     pub fn set_interpolation(mut self: Pin<&mut Self>, index: i32) -> bool {

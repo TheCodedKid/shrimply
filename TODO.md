@@ -4,6 +4,8 @@
 
 - [ ] Audit every component against an existing project implementation before declaring parity; do not infer behavior from screenshots or generic toolkit conventions.
 - [ ] Never author replacement SVG icons; copy the exact asset from Adwaita or `../breeze-icons` and record the source.
+  - [x] Qt graph Previous/Next/Add/Remove and screen-color icons are byte-for-byte copies of `/usr/share/icons/Adwaita/symbolic/actions/{go-previous,go-next,list-add,list-remove,color-select}-symbolic.svg`.
+  - [x] Qt lock/code/keyframe/folder action resources use existing project icon assets rather than locally drawn SVG paths.
 - [ ] Record and follow the concrete reference implementation for each behavior:
   - GTK component behavior and layout: the corresponding implementation in `crates/ui/gtk-components/src/ui/` moved from `ui-foundation`.
   - Inspector category tabs and property mode layout: `crates/ui/inspector-ui/src/list.rs` and the relevant `timeline_value` inspector.
@@ -23,17 +25,21 @@
   - [ ] Keep info/read-only display as its own component, separate from editable text inputs.
   - [ ] Use genuinely non-editable display widgets, not editable entries put into a read-only mode.
   - [ ] Present read-only values as borderless ActionRow-like information, not as text boxes.
+  - [x] Support an optional trailing icon action while keeping the value and action right-aligned as one reusable field.
 - [ ] Add inspector-style linked category tab components for GTK and Qt with matching page-switching behavior.
   - [ ] Do not substitute a generic `AdwViewSwitcher` or a generic Qt `TabBar`.
   - [ ] Put General, Info, and Log tabs at the top of both showcases.
 - [ ] Add a code editor component and showcase it on both toolkits.
-  - [ ] Keep it as a distinct component and API from the regular multiline text input.
-  - [ ] Use a native source view on GTK.
-  - [ ] Load a real GtkSourceView language definition and visibly syntax-highlight GTK code.
-  - [ ] Provide a monospace, no-wrap Qt editor with line numbers and tab insertion.
+  - [x] Keep it as a distinct component and API from the regular multiline text input.
+  - [x] Use a native source view on GTK.
+  - [x] Load a real GtkSourceView language definition and visibly syntax-highlight GTK code.
+  - [x] Provide a monospace, no-wrap Qt editor with line numbers and tab insertion.
+  - [x] Attach a native Qt `QSyntaxHighlighter` to the editable document for Rhai comments, strings, numbers, keywords, functions, booleans, and inspector variables.
 - [ ] Make Qt text typo checking visible and usable for both single-line and multiline inputs.
   - [ ] Keep typo detection and correction data in shared Rust logic.
   - [ ] Draw typo indicators at the correct UTF-16 ranges and expose correction feedback in Qt.
+  - [x] Preserve the selected typo for the full correction-menu lifecycle so correction rows cannot disappear after the popup takes hover.
+  - [x] Show the normal Undo/Redo/Cut/Copy/Paste/Delete/Select All menu for non-typo text and prepend corrections only when applicable.
 - [ ] Demonstrate controls with code/expression and keyframe toggles in addition to plain number inputs.
   - [ ] Wire the toggles like the real inspector: Keyframe reveals the graph and Expression reveals the separate code editor directly under the property.
   - [ ] Keep Keyframe and Expression toggles independent so both sections may be visible.
@@ -42,6 +48,27 @@
   - [ ] Use working previous, add/delete-at-playhead, and next icons in Qt rather than missing theme-image placeholders.
   - [ ] Start the demonstration with only the playhead key highlighted; do not silently preselect a second sample key.
   - [ ] Keep inspector keyframe/expression mode buttons flat by default.
+- [ ] Add reusable, functional Transform inspector cards and property rows to both component libraries, then demonstrate them in both showcases.
+  - [ ] Match the real inspector's expandable card, reset action, Position/Anchor/Scale/Shear/Rotation rows, and per-property Keyframe/Expression mode controls.
+  - [ ] Match the inspector's internal card geometry: 12 px horizontal/body-bottom insets, 4 px body-top inset, and 8 px between property blocks; remove only the unintended parent gap between the card and Add Modifier action.
+  - [ ] Keep the fake Transform as showcase composition; do not turn demo-specific Transform data or reset behavior into a monolithic library component.
+  - [ ] Split it into reusable library chunks: expandable card, property row with mode controls, keyframe section, expression editor/output section, and searchable modifier menu.
+  - [ ] Each showcase may compose and configure those chunks, but must not reimplement their expand/collapse, Keyframe/Expression visibility, editor/output, or menu behavior.
+  - [ ] Use the same graph-backed reusable property chunk for Position, Anchor, Scale, Shear, and Rotation; every row's Keyframe and Expression buttons must reveal a real frame graph and code editor/output section.
+  - [ ] Route every editable axis through the layered value controller: Position, Anchor, Scale, and Shear must edit their complete two-axis values rather than treating only X as graph-backed.
+  - [ ] Make the layered property abstraction generic over its value editor and injected keyframe/expression bodies, then route every inspector value kind that supports Keyframe/Expression (numbers, vectors, colors, booleans, steps, and text) through it; do not create type-specific copies of the row/mode lifecycle.
+  - [ ] Put layered edit routing in shared Rust: editing or dragging a value in Keyframe mode must update the key at the playhead and insert it when absent; with Keyframe mode disabled it must update the base value. GTK, Qt, and demos must call the same controller.
+  - [ ] Use the production timeline-value edit path from the reusable controller; remove the remaining per-type base/keyframe insertion copies from scalar, Vec2, Vec3, color, boolean, step, and text inspectors.
+  - [ ] Keep reset separate from user edits: resetting a demonstration must restore the configured base/model state without inserting a key at the playhead or emitting an unhandled base edit.
+  - [ ] Keep toolkit-neutral graph/editor state and math in shared Rust; do not copy the same non-presentation logic into GTK demo code and Qt demo QML.
+  - [ ] Preserve the real inspector's reveal lifecycle: opening and closing must animate, hidden keyframe/expression bodies must contribute no layout allocation, and only visible bodies may add the 6 px section gap.
+  - [ ] Add an “Add modifier” action that opens a real toolkit-native modifier menu/dropdown and logs the selected modifier; do not ship a non-functional placeholder.
+  - [x] Populate both demo menus from the production `ModifierEffect::catalog()` and `adapted_for(ModifierState)` lifecycle for the demonstrated pristine image, rather than maintaining a dummy modifier list or invented IDs.
+- [ ] Add reusable live-performance inspector components for GTK and Qt.
+  - [ ] Match `crates/ui/inspector-ui/src/benchmarking.rs`: expandable summary, live metric rows, sample statistics, copy action, clear action, and live updates.
+  - [ ] Use one clickable/highlighted header row for expansion; do not stack a second hover highlight on its icon actions or make the expanded metric body toggle the row.
+  - [ ] Collapse the Qt component to the header's height with no retained Loader/body allocation or blank vertical space.
+  - [ ] Demonstrate the component on both toolkits with updating sample metrics rather than static text.
 - [ ] Abstract and render the existing shared frame-graph as a live reusable component; do not replace it with a mock or static raster preview.
   - [ ] Deliver a reusable inspector keyframe-editor component with feature-for-feature parity, not a reduced graph-only showcase.
   - [ ] Put graph state, hit testing, selection, key dragging, playhead seeking, viewport pan/zoom, and keyboard commands in the toolkit-neutral Rust graph crate.
@@ -63,6 +90,8 @@
   - [ ] Replace the inspector's duplicate graph interaction controller with the shared Rust controller; keep project time mapping, persistent per-property view state, typed clipboard actions, and preferences as adapter inputs.
   - [ ] Make graph mutations request changes from the authoritative model and refresh from it; never rebuild raw segments with new UUIDs or forced interpolation modes.
   - [ ] Expose live graph/range/frame-step/playhead/snapping inputs and all mutation/playhead/interpolation outputs from both reusable wrappers; Qt must not discard graph actions or be sample-data-only.
+  - [ ] Initialize each demonstrated graph from that property's actual value/model; do not reuse one unrelated sample curve for every Transform property.
+  - [ ] Preserve the full typed value when a graph shows a projection such as Vec2 speed; editing either vector axis must not silently replace or ignore the other axis.
   - [ ] Match discrete step graph height, minimum zoom, and half-frame-cell drag positioning, and support speed/text interpolation context actions at release coordinates.
   - [ ] Match the active toolkit theme instead of rendering a light graph in a dark inspector.
   - [ ] Render the Qt graph through an OpenGL `QQuickFramebufferObject` using the shared Rust/Skia renderer.
@@ -72,15 +101,32 @@
 - [ ] Remove the persistent Qt number-drag tooltip that obscures neighboring inspector rows.
 - [ ] Add closeable header bars to the GTK and Qt showcase windows; keep these demo-only.
 - [ ] Bundle and display working locked/unlocked icons for Qt ratio controls.
-- [ ] Bring the Qt color picker to behavioral/layout parity with GTK.
-  - [ ] Open it as a proper top-level dialog window.
+  - [x] Give component and demo QRC files unique generated initializer names so one static resource bundle cannot discard the other's icons at link time.
+- [ ] Bring the Qt color picker to feature and layout parity with GTK while retaining native Qt window decoration and controls; do not copy Adwaita styling into Qt.
+  - [ ] Open it as a proper native Qt top-level dialog window, without a second in-client title/header.
   - [ ] Expose native screen-color picking.
+  - [ ] Put the screen-color eyedropper immediately to the left of the current-color preview.
   - [ ] Put the hue control vertically to the left of the color plane.
-  - [ ] Put transparency horizontally below the color plane.
-  - [ ] Show the current-color swatch and hexadecimal value together at the upper left.
-  - [ ] Retain palette, recent colors, hexadecimal entry, cancel, and confirm behavior.
+  - [x] Render the hue control with the same visible hue-gradient preview as GTK; do not substitute a plain native slider track.
+  - [ ] Put transparency horizontally below the color plane, constrain it to the color-plane width, and match GTK rather than stretching it across the dialog.
+    - [x] Match the GTK outer size, track size, and thumb geometry: 300 × 24 outer control, 280 × 16 track, and 10 px thumb radius.
+    - [ ] Clip the checkerboard/gradient track to the same 8 px-radius capsule as GTK; do not leave square track ends or a different checker phase.
+  - [x] Show the current-color swatch and hexadecimal value together at the upper left, with the checkerboard behind the swatch/color preview so transparency is visible there too.
+  - [x] Render the checkerboard behind the actual RGBA preview in the Qt scene graph without CPU image copies.
+  - [ ] Clip the preview/checkerboard to the GTK circular swatch shape; rounded overlay rectangles must not leave checkerboard visible in square corners.
+  - [ ] Match the GTK saturation/value plane mapping exactly: horizontal position is value and vertical position is inverse saturation; keep drawing, crosshair placement, and dragging consistent with that mapping.
+  - [ ] Reset a newly configured grayscale/black picker draft to GTK's hue-zero behavior instead of retaining hue from a previous picker session.
+  - [ ] Match screen-color selection alpha semantics: selecting an opaque screen color must produce alpha 1 like GTK rather than preserving the previous alpha.
+  - [ ] Match the GTK content geometry and action placement without replacing the native Qt window frame.
+    - [ ] Keep the 334 px selection pane at its content width and size the native client area so the complete 464 px palette and `Select` button are not clipped.
+  - [ ] Lay out the shared palette as nine color-family columns with five shades per column (`column = index / 5`, `row = index % 5`), with GTK-equivalent joined stacks, sizing, keyboard behavior, and selection accessibility.
+  - [ ] Retain palette, recent colors, and hexadecimal entry; use the native window close control and one native Qt `Select` button anchored to the dialog's bottom-right corner at every size, with no separate Cancel button.
+  - [ ] Do not show palette-name hover tooltips over the picker.
+  - [ ] Ensure `Select` commits the draft color, emits the selection callback when changed, persists the recent color, and closes the window.
 - [ ] Add `dev-components-gtk` and `dev-components-qt` Make aliases for launching the showcases.
+- [x] Keep showcase applications in dedicated `shrimply-gtk-components-demo` and `shrimply-qt-components-demo` crates while preserving the component library package names.
 - [ ] Keep the GTK Log page inside a bounded, vertically scrollable viewport.
 - [ ] Align GTK information rows into consistent label/value columns and include a native Show in Folder action demonstration.
 - [ ] Keep reusable behavior in Rust/shared core and restrict QML to presentation and interaction wiring.
 - [ ] Run `make components-check`, launch both showcases, run `make check`, and obtain a final parity review.
+  - [ ] Keep component/demo builds free of project warnings; suppress the known Clang `-Wsfinae-incomplete` diagnostic only at the Qt generated-C++ boundary where it originates in Qt 6.11 headers.

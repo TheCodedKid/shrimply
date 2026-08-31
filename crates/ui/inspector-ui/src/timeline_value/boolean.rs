@@ -550,14 +550,20 @@ fn update_value(
     let Some(time) = project.keyframe_time(&key, position) else {
         return;
     };
-    let frame_step = keyframe_editor::project_frame_step(&project);
+    let frame_step = keyframe_editor::project_frame_step(&project, Some(&key));
     let Some(value) = target.get_mut(&mut project, key.clone(), source_value) else {
         return;
     };
-    match &mut value.base {
-        TimelineBase::Const(value) => *value = next.into(),
-        TimelineBase::Keyframes(keys) => set_key(keys, time, frame_step, next.into()),
-    }
+    edit_discrete_value(
+        value,
+        time,
+        next.into(),
+        |left, right| keyframe_model::same_frame(left, right, frame_step),
+        DiscreteEditPolicy {
+            unchanged_is_noop: false,
+            sort_updated_keyframe: false,
+        },
+    );
     target.did_mutate(&mut project, key);
     shrimply_project::project::commit_edit(&project, "visual-bool");
     drop(project);
@@ -589,12 +595,8 @@ fn toggle_keyframes(
         return false;
     };
     let current = value.value_at(evaluation_time);
-    match (&mut value.base, enabled) {
-        (TimelineBase::Const(_), false) | (TimelineBase::Keyframes(_), true) => return false,
-        (base @ TimelineBase::Const(_), true) => {
-            *base = TimelineBase::Keyframes(vec![new_key(keyframe_time, current)])
-        }
-        (base @ TimelineBase::Keyframes(_), false) => *base = TimelineBase::Const(current),
+    if !set_keyframes_enabled(value, keyframe_time, current, enabled) {
+        return false;
     }
     target.did_mutate(&mut project, key);
     shrimply_project::project::commit_edit(&project, "visual-bool-keyframes");
@@ -622,22 +624,7 @@ fn set_expression_enabled(
     let Some(value) = target.get_mut(&mut project, key.clone(), source_value) else {
         return false;
     };
-    let changed = match &mut value.expression {
-        Some(expression) if expression.enabled != enabled => {
-            expression.enabled = enabled;
-            true
-        }
-        Some(_) => false,
-        None if enabled => {
-            value.expression = Some(TimelineExpression {
-                id: Uuid::new_v4(),
-                enabled: true,
-                source: "value".to_string(),
-            });
-            true
-        }
-        None => false,
-    };
+    let changed = shrimply_core::timeline_value::set_expression_enabled(value, enabled, "value");
     if !changed {
         return false;
     }
@@ -696,15 +683,24 @@ fn add_key(
     time: Time,
 ) {
     let mut project = project.borrow_mut();
-    let step = keyframe_editor::project_frame_step(&project);
+    let step = keyframe_editor::project_frame_step(&project, Some(&key));
     let Some(value) = target.get_mut(&mut project, key.clone(), source) else {
         return;
     };
     let current = value.value_at(time);
-    let TimelineBase::Keyframes(keys) = &mut value.base else {
+    if !matches!(&value.base, TimelineBase::Keyframes(_)) {
         return;
-    };
-    set_key(keys, time, step, current);
+    }
+    edit_discrete_value(
+        value,
+        time,
+        current,
+        |left, right| keyframe_model::same_frame(left, right, step),
+        DiscreteEditPolicy {
+            unchanged_is_noop: false,
+            sort_updated_keyframe: false,
+        },
+    );
     target.did_mutate(&mut project, key);
     shrimply_project::project::commit_edit(&project, "add-bool-keyframe");
     drop(project);
@@ -727,7 +723,7 @@ fn delete_key(
     time: Time,
 ) {
     let mut project = project.borrow_mut();
-    let step = keyframe_editor::project_frame_step(&project);
+    let step = keyframe_editor::project_frame_step(&project, Some(&key));
     let Some(value) = target.get_mut(&mut project, key.clone(), source) else {
         return;
     };
@@ -795,32 +791,6 @@ fn move_key(
             ..Default::default()
         }),
     );
-}
-
-fn set_key(
-    keys: &mut Vec<TimelineStepKeyframe<TimelineBool>>,
-    time: Time,
-    step: Time,
-    value: TimelineBool,
-) {
-    if let Some(key) = keys
-        .iter_mut()
-        .find(|key| keyframe_model::same_frame(key.time, time, step))
-    {
-        key.time = time;
-        key.value = value;
-    } else {
-        keys.push(new_key(time, value));
-        keys.sort_by_key(|key| key.time);
-    }
-}
-
-fn new_key(time: Time, value: TimelineBool) -> TimelineStepKeyframe<TimelineBool> {
-    TimelineStepKeyframe::<TimelineBool> {
-        id: Uuid::new_v4(),
-        time,
-        value,
-    }
 }
 
 fn bool_local_time(project: &Project, key: SelectedItem, position: Time) -> Option<Time> {

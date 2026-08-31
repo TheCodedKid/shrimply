@@ -10,7 +10,9 @@ Item {
     property color color: "#000000"
     property string title: "Select color"
     property bool withAlpha: true
+    property bool updatingCommittedColor: false
     signal selected(color color)
+    signal screenColorFailed(string message)
     implicitWidth: button.implicitWidth
     implicitHeight: button.implicitHeight
 
@@ -19,20 +21,24 @@ Item {
     ColorPickerBackend {
         id: backend
         onSelected: function(value) {
+            root.updatingCommittedColor = true
             root.color = value
+            root.updatingCommittedColor = false
             root.selected(value)
         }
-        onConfirmed: picker.close()
+        onScreenColorFailed: function(message) { root.screenColorFailed(message) }
     }
     Component.onCompleted: backend.configure(root.color, root.withAlpha)
-    onColorChanged: backend.configure(root.color, root.withAlpha)
+    onColorChanged: {
+        if (!root.updatingCommittedColor)
+            backend.configure(root.color, root.withAlpha)
+    }
     onWithAlphaChanged: backend.configure(root.color, root.withAlpha)
 
     Button {
         id: button
         anchors.fill: parent
         onClicked: {
-            backend.configure(root.color, root.withAlpha)
             picker.show()
             picker.requestActivate()
         }
@@ -43,12 +49,11 @@ Item {
                 id: buttonContent
                 anchors.centerIn: parent
                 spacing: 8
-                Rectangle {
+                TransparentColorPreview {
                     implicitWidth: 22
                     implicitHeight: 22
-                    radius: 4
+                    radius: 11
                     color: backend.color
-                    border.color: systemPalette.mid
                 }
                 Label { text: backend.hex; font.family: "monospace" }
             }
@@ -57,8 +62,8 @@ Item {
 
     Window {
         id: picker
-        width: 900
-        height: 560
+        width: 895
+        height: 480
         visible: false
         flags: Qt.Dialog
         modality: Qt.NonModal
@@ -69,68 +74,117 @@ Item {
 
         ColumnLayout {
             anchors.fill: parent
-            anchors.margins: 16
-            spacing: 12
-
-            RowLayout {
-                Layout.fillWidth: true
-                ToolButton {
-                    icon.source: "qrc:/qt/qml/dev/shrimply/components/icons/screen-color.svg"
-                    icon.color: palette.buttonText
-                    display: AbstractButton.IconOnly
-                    enabled: !backend.screenPicking
-                    ToolTip.visible: hovered
-                    ToolTip.text: ComponentTranslations.text("Pick screen color")
-                    onClicked: backend.pickScreenColor()
-                }
-                Button {
-                    flat: true
-                    implicitWidth: 42
-                    implicitHeight: 36
-                    padding: 4
-                    ToolTip.visible: hovered
-                    ToolTip.text: ComponentTranslations.text("Open the system color picker")
-                    onClicked: nativeDialog.open()
-                    contentItem: Rectangle {
-                        radius: 4
-                        color: backend.draft
-                        border.color: systemPalette.mid
-                    }
-                }
-                TextField {
-                    id: hex
-                    Layout.preferredWidth: 280
-                    text: backend.hex
-                    font.family: "monospace"
-                    onAccepted: if (!backend.applyHex(text)) selectAll()
-                    onActiveFocusChanged: if (!activeFocus && !backend.applyHex(text))
-                        text = backend.hex
-                }
-                Item { Layout.fillWidth: true }
-            }
+            anchors.topMargin: 18
+            anchors.bottomMargin: 18
+            anchors.leftMargin: 24
+            anchors.rightMargin: 24
+            spacing: 10
 
             RowLayout {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                spacing: 20
+                spacing: 24
 
                 ColumnLayout {
                     Layout.alignment: Qt.AlignTop
-                    spacing: 8
+                    Layout.preferredWidth: 334
+                    spacing: 10
 
                     RowLayout {
+                        Layout.fillWidth: true
                         spacing: 8
-                        Slider {
-                            id: hue
-                            Layout.preferredHeight: colorPlane.height
-                            orientation: Qt.Vertical
-                            from: 360
-                            to: 0
-                            value: backend.hue
+                        ToolButton {
+                            icon.source: "qrc:/qt/qml/dev/shrimply/components/icons/screen-color.svg"
+                            icon.color: palette.buttonText
+                            display: AbstractButton.IconOnly
+                            enabled: !backend.screenPicking
+                            Accessible.name: ComponentTranslations.text("Pick a color from the screen")
+                            onClicked: backend.pickScreenColor()
+                        }
+                        Button {
+                            flat: true
+                            implicitWidth: 34
+                            implicitHeight: 34
+                            padding: 6
                             ToolTip.visible: hovered
+                            ToolTip.text: ComponentTranslations.text("Open the system color picker")
+                            onClicked: nativeDialog.open()
+                            contentItem: TransparentColorPreview {
+                                implicitWidth: 22
+                                implicitHeight: 22
+                                radius: 11
+                                color: backend.draft
+                            }
+                        }
+                        TextField {
+                            id: hex
+                            Layout.fillWidth: true
+                            font.family: "monospace"
+                            onAccepted: if (!backend.applyHex(text)) selectAll()
+                            onActiveFocusChanged: if (!activeFocus) backend.applyHex(text)
+                            Binding {
+                                target: hex
+                                property: "text"
+                                value: backend.hex
+                                when: !hex.activeFocus
+                            }
+                        }
+                    }
+
+                    RowLayout {
+                        spacing: 10
+                        Item {
+                            id: hue
+                            readonly property real thumbRadius: 10
+                            readonly property real trackWidth: 16
+                            Layout.preferredHeight: colorPlane.height
+                            Layout.preferredWidth: 24
+                            Accessible.role: Accessible.Slider
+                            Accessible.name: ComponentTranslations.text("Hue")
+                            ToolTip.visible: hueHover.hovered
                             ToolTip.text: ComponentTranslations.text("Hue")
-                            onMoved: backend.setHsva(
-                                value, backend.saturation, backend.brightness, backend.alpha)
+
+                            Rectangle {
+                                x: (parent.width - width) / 2
+                                y: hue.thumbRadius
+                                width: hue.trackWidth
+                                height: parent.height - hue.thumbRadius * 2
+                                radius: width / 2
+                                antialiasing: true
+                                layer.enabled: true
+                                layer.samples: 4
+                                gradient: Gradient {
+                                    GradientStop { position: 0; color: "#ff0000" }
+                                    GradientStop { position: 1 / 6; color: "#ffff00" }
+                                    GradientStop { position: 2 / 6; color: "#00ff00" }
+                                    GradientStop { position: 3 / 6; color: "#00ffff" }
+                                    GradientStop { position: 4 / 6; color: "#0000ff" }
+                                    GradientStop { position: 5 / 6; color: "#ff00ff" }
+                                    GradientStop { position: 1; color: "#ff0000" }
+                                }
+                            }
+                            ColorSliderThumb {
+                                x: (parent.width - width) / 2
+                                y: hue.thumbRadius + backend.hue / 360
+                                   * (parent.height - hue.thumbRadius * 2) - height / 2
+                                radius: hue.thumbRadius
+                            }
+                            HoverHandler { id: hueHover }
+                            MouseArea {
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                onPressed: function(mouse) { update(mouse.y) }
+                                onPositionChanged: function(mouse) {
+                                    if (pressed)
+                                        update(mouse.y)
+                                }
+                                function update(y) {
+                                    backend.setHsva(Math.max(0, Math.min(1,
+                                        (y - hue.thumbRadius)
+                                        / (height - hue.thumbRadius * 2))) * 360,
+                                        backend.saturation, backend.brightness, backend.alpha)
+                                }
+                            }
                         }
 
                         Rectangle {
@@ -138,92 +192,104 @@ Item {
                             Layout.preferredWidth: 300
                             Layout.preferredHeight: 300
                             color: Qt.hsva(backend.hue / 360, 1, 1, 1)
-                            Rectangle {
-                                anchors.fill: parent
-                                gradient: Gradient {
-                                    orientation: Gradient.Horizontal
-                                    GradientStop { position: 0; color: "white" }
-                                    GradientStop { position: 1; color: "transparent" }
-                                }
-                            }
+                            antialiasing: true
+                            Accessible.name: ComponentTranslations.text("Saturation and value")
                             Rectangle {
                                 anchors.fill: parent
                                 gradient: Gradient {
                                     GradientStop { position: 0; color: "transparent" }
-                                    GradientStop { position: 1; color: "black" }
+                                    GradientStop { position: 1; color: "white" }
                                 }
                             }
                             Rectangle {
-                                x: backend.saturation * parent.width - width / 2
-                                y: (1 - backend.brightness) * parent.height - height / 2
-                                width: 14
-                                height: 14
-                                radius: 7
-                                color: "transparent"
-                                border.width: 2
-                                border.color: "white"
+                                anchors.fill: parent
+                                gradient: Gradient {
+                                    orientation: Gradient.Horizontal
+                                    GradientStop { position: 0; color: "black" }
+                                    GradientStop { position: 1; color: "transparent" }
+                                }
+                            }
+                            Rectangle {
+                                x: Math.max(0, Math.min(parent.width - 1,
+                                    backend.brightness * (parent.width - 1)))
+                                width: 1
+                                height: parent.height
+                                color: "white"
+                            }
+                            Rectangle {
+                                y: Math.max(0, Math.min(parent.height - 1,
+                                    (1 - backend.saturation) * (parent.height - 1)))
+                                width: parent.width
+                                height: 1
+                                color: "white"
                             }
                             MouseArea {
                                 anchors.fill: parent
+                                cursorShape: Qt.CrossCursor
                                 onPressed: function(mouse) { update(mouse) }
                                 onPositionChanged: function(mouse) { if (pressed) update(mouse) }
                                 function update(mouse) {
                                     backend.setHsva(backend.hue,
-                                        Math.max(0, Math.min(1, mouse.x / width)),
-                                        1 - Math.max(0, Math.min(1, mouse.y / height)),
+                                        1 - Math.max(0, Math.min(1,
+                                            mouse.y / (height - 1))),
+                                        Math.max(0, Math.min(1,
+                                            mouse.x / (width - 1))),
                                         backend.alpha)
                                 }
                             }
                         }
                     }
 
-                    RowLayout {
+                    Item {
                         visible: root.withAlpha
-                        Item { Layout.preferredWidth: hue.width }
-                        Label { text: ComponentTranslations.text("Alpha") }
+                        Layout.preferredWidth: colorPlane.width
+                        Layout.preferredHeight: visible ? 24 : 0
+                        Layout.leftMargin: 34
+
                         Slider {
                             id: alpha
-                            Layout.fillWidth: true
+                            readonly property real thumbRadius: 10
+                            anchors.fill: parent
+                            leftPadding: 0
+                            rightPadding: 0
+                            topPadding: 0
+                            bottomPadding: 0
                             from: 0
                             to: 1
                             value: backend.alpha
-                            background: Item {
-                                x: alpha.leftPadding
-                                y: alpha.topPadding + alpha.availableHeight / 2 - height / 2
-                                implicitWidth: 200
-                                implicitHeight: 10
-                                width: alpha.availableWidth
-                                height: implicitHeight
-                                clip: true
-                                Checkerboard { anchors.fill: parent }
-                                Rectangle {
-                                    anchors.fill: parent
-                                    gradient: Gradient {
-                                        orientation: Gradient.Horizontal
-                                        GradientStop {
-                                            position: 0
-                                            color: Qt.rgba(
-                                                backend.draft.r,
-                                                backend.draft.g,
-                                                backend.draft.b,
-                                                0)
-                                        }
-                                        GradientStop {
-                                            position: 1
-                                            color: Qt.rgba(
-                                                backend.draft.r,
-                                                backend.draft.g,
-                                                backend.draft.b,
-                                                1)
-                                        }
+                            Accessible.name: ComponentTranslations.text("Alpha")
+                            background: TransparentColorPreview {
+                                x: alpha.thumbRadius
+                                y: (alpha.height - height) / 2
+                                width: alpha.width - alpha.thumbRadius * 2
+                                height: 16
+                                radius: 8
+                                checkerboard: true
+                                checkerOriginX: alpha.thumbRadius
+                                checkerOriginY: 4
+                                fillGradient: Gradient {
+                                    orientation: Gradient.Horizontal
+                                    GradientStop {
+                                        position: 0
+                                        color: Qt.rgba(backend.draft.r,
+                                            backend.draft.g, backend.draft.b, 0)
+                                    }
+                                    GradientStop {
+                                        position: 1
+                                        color: Qt.rgba(backend.draft.r,
+                                            backend.draft.g, backend.draft.b, 1)
                                     }
                                 }
                             }
-                            onMoved: backend.setHsva(
-                                backend.hue, backend.saturation, backend.brightness, value)
+                            handle: ColorSliderThumb {
+                                x: alpha.position * (alpha.width - width)
+                                y: (alpha.height - height) / 2
+                                radius: alpha.thumbRadius
+                            }
+                            onMoved: backend.setHsva(backend.hue, backend.saturation,
+                                backend.brightness, value)
                         }
                     }
-
                 }
 
                 Rectangle {
@@ -235,42 +301,41 @@ Item {
                 ColumnLayout {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    Label { text: ComponentTranslations.text("Palette") }
+                    spacing: 6
+
                     GridLayout {
                         columns: 9
+                        rows: 5
+                        rowSpacing: 2
+                        columnSpacing: 4
                         Repeater {
                             model: backend.paletteCount
-                            Rectangle {
+                            PaletteSwatch {
                                 required property int index
-                                implicitWidth: 38
-                                implicitHeight: 32
-                                radius: 4
+                                Layout.column: Math.floor(index / 5)
+                                Layout.row: index % 5
                                 color: backend.paletteColor(index)
-                                border.width: color === backend.draft ? 3 : 1
-                                border.color: color === backend.draft
-                                    ? systemPalette.highlight : systemPalette.mid
-                                ToolTip.visible: swatchHover.hovered
-                                ToolTip.text: backend.paletteLabel(index)
-                                HoverHandler { id: swatchHover }
-                                TapHandler { onTapped: backend.chooseColor(parent.color) }
+                                label: backend.paletteLabel(index)
+                                selected: color === backend.draft
+                                familyPosition: index % 5
+                                onActivated: backend.chooseColor(color)
                             }
                         }
                     }
+
                     Label {
-                        visible: backend.recentCount > 0
                         text: ComponentTranslations.text("Recent")
                     }
                     RowLayout {
+                        spacing: 6
                         Repeater {
                             model: backend.recentCount
-                            Rectangle {
+                            PaletteSwatch {
                                 required property int index
-                                implicitWidth: 40
-                                implicitHeight: 30
-                                radius: 4
                                 color: backend.recentColor(index)
-                                border.color: systemPalette.mid
-                                TapHandler { onTapped: backend.chooseColor(parent.color) }
+                                label: backend.recentLabel(index)
+                                selected: color === backend.draft
+                                onActivated: backend.chooseColor(color)
                             }
                         }
                     }
@@ -278,17 +343,13 @@ Item {
                 }
             }
 
-            RowLayout {
-                Layout.fillWidth: true
-                Item { Layout.fillWidth: true }
-                Button {
-                    text: ComponentTranslations.text("Cancel")
-                    onClicked: picker.close()
-                }
-                Button {
-                    text: ComponentTranslations.text("Select")
-                    highlighted: true
-                    onClicked: backend.confirm()
+            Button {
+                Layout.alignment: Qt.AlignRight
+                text: ComponentTranslations.text("Select")
+                highlighted: true
+                onClicked: {
+                    backend.confirm()
+                    picker.close()
                 }
             }
         }
@@ -296,6 +357,7 @@ Item {
 
     ColorDialog {
         id: nativeDialog
+        parentWindow: picker
         title: ComponentTranslations.text(root.title)
         selectedColor: backend.draft
         options: root.withAlpha ? ColorDialog.ShowAlphaChannel : ColorDialog.NoOption

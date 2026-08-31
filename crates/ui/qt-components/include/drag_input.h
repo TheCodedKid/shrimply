@@ -48,6 +48,7 @@ private:
 };
 
 class TypoSyntaxHighlighter;
+class CodeSyntaxHighlighter;
 
 class TypoHighlighter : public QObject {
     Q_OBJECT
@@ -72,6 +73,26 @@ private:
     QPointer<QQuickTextDocument> document_;
     QString ranges_;
     std::unique_ptr<TypoSyntaxHighlighter> highlighter_;
+};
+
+class CodeHighlighter : public QObject {
+    Q_OBJECT
+    Q_PROPERTY(QQuickTextDocument *document READ document WRITE setDocument NOTIFY documentChanged)
+
+public:
+    explicit CodeHighlighter(QObject *parent = nullptr);
+    ~CodeHighlighter() override;
+    QQuickTextDocument *document() const;
+    void setDocument(QQuickTextDocument *document);
+
+signals:
+    void documentChanged();
+
+private:
+    void rebuild();
+
+    QPointer<QQuickTextDocument> document_;
+    std::unique_ptr<CodeSyntaxHighlighter> highlighter_;
 };
 
 } // namespace shrimply

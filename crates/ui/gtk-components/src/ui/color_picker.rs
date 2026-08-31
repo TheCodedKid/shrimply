@@ -195,19 +195,7 @@ fn show_window(
     let select_color: Rc<dyn Fn(Color<u8>)> = {
         let draft = draft.clone();
         let update_hsva = update_hsva.clone();
-        Rc::new(move |color| {
-            let [hue, saturation, value, alpha] = color.to_hsva();
-            update_hsva(Hsva {
-                hue: if saturation <= f32::EPSILON || value <= f32::EPSILON {
-                    draft.get().hue
-                } else {
-                    hue
-                },
-                saturation,
-                value,
-                alpha,
-            });
-        })
+        Rc::new(move |color| update_hsva(draft.get().update_color(color)))
     };
 
     preview.connect_rgba_notify({

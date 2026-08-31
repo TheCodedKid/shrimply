@@ -9,6 +9,7 @@ FocusScope {
     readonly property real graphValue: graph.graphValue
 
     function editValue(value) { graph.editGraphValue(value) }
+    function configureValue(value) { graph.configureGraphValue(value) }
 
     implicitWidth: 640
     implicitHeight: controls.implicitHeight + graph.implicitHeight

@@ -1,10 +1,10 @@
 use hashbrown::HashMap;
-use std::cell::Cell;
 use std::cell::RefCell;
 use std::rc::Rc;
 
 use gtk::prelude::*;
 use shrimply_gtk_components::tr;
+use shrimply_gtk_components::ui::InspectorCard;
 use shrimply_project::project::ItemAddress;
 
 use super::InspectorContext;
@@ -20,10 +20,6 @@ pub(super) struct InspectorCategory {
     pub(super) label: &'static str,
     pub(super) icon: &'static str,
     pub(super) items: Vec<InspectorListItem>,
-}
-
-thread_local! {
-    static EXPANDER_CSS_INSTALLED: Cell<bool> = const { Cell::new(false) };
 }
 
 pub(super) fn render_categories(
@@ -119,97 +115,37 @@ fn render_list(items: Vec<InspectorListItem>, context: &InspectorContext) -> gtk
                         "transform" | "text" | "caption-text" | "tts"
                     ));
 
-                let row = gtk::Box::new(gtk::Orientation::Vertical, 0);
-                row.add_css_class("card");
-                add_preview_focus(&row, item.key(), item.preview_target(), context);
-                let header = gtk::Box::new(gtk::Orientation::Horizontal, 4);
-                header.set_margin_top(6);
-                header.set_margin_bottom(6);
-                header.set_margin_start(8);
-                header.set_margin_end(8);
-                install_expander_css(&header.display());
-                let expander_icon = gtk::Image::from_icon_name("pan-end-symbolic");
-                expander_icon.add_css_class("inspector-expander-icon");
-                if expanded {
-                    expander_icon.add_css_class("expanded");
-                }
-                let expander = gtk::Button::builder()
-                    .child(&expander_icon)
-                    .tooltip_text(tr!(if expanded { "Collapse" } else { "Expand" }).as_ref())
-                    .css_classes(["flat"])
-                    .build();
-                header.append(&expander);
-                header.append(
-                    &gtk::Label::builder()
-                        .label(tr!(item.title()).as_ref())
-                        .halign(gtk::Align::Start)
-                        .hexpand(true)
-                        .css_classes(["heading"])
-                        .build(),
-                );
-
-                if let Some(toggle) = item.toggle() {
-                    add_toggle(&header, toggle);
-                }
-                if let Some(toggle) = item.button_toggle() {
-                    add_button_toggle(&header, toggle);
-                }
-
+                let expanded_rows = context.expanded_rows.clone();
+                let target = context.expansion_target.clone();
+                let key = item.key().to_string();
                 let reset = item.reset(context);
-                add_action(
-                    &header,
-                    &HeaderAction {
-                        icon: "edit-undo-symbolic",
-                        tooltip: "Reset",
-                        sensitive: true,
-                        activate: reset,
-                    },
-                );
-                for action in item.actions() {
-                    add_action(&header, action);
-                }
-
-                let controls = gtk::Box::new(gtk::Orientation::Vertical, 8);
-                controls.set_margin_top(4);
-                controls.set_margin_bottom(12);
-                controls.set_margin_start(12);
-                controls.set_margin_end(12);
-                for control in item.controls(context) {
-                    controls.append(&control);
-                }
-                let revealer = gtk::Revealer::builder()
-                    .child(&controls)
-                    .reveal_child(expanded)
-                    .transition_type(gtk::RevealerTransitionType::SlideDown)
-                    .transition_duration(180)
-                    .build();
-                expander.connect_clicked({
-                    let revealer = revealer.clone();
-                    let expander_icon = expander_icon.clone();
-                    let expanded_rows = context.expanded_rows.clone();
-                    let target = context.expansion_target.clone();
-                    let key = item.key().to_string();
-                    move |button| {
-                        let expanded = !revealer.reveals_child();
-                        revealer.set_reveal_child(expanded);
-                        if expanded {
-                            expander_icon.add_css_class("expanded");
-                        } else {
-                            expander_icon.remove_css_class("expanded");
-                        }
-                        button.set_tooltip_text(Some(
-                            tr!(if expanded { "Collapse" } else { "Expand" }).as_ref(),
-                        ));
+                let card = InspectorCard::with_expansion(
+                    tr!(item.title()).as_ref(),
+                    expanded,
+                    move || reset(),
+                    move |expanded| {
                         if let Some(target) = &target {
                             expanded_rows
                                 .borrow_mut()
                                 .insert((target.clone(), key.clone()), expanded);
                         }
-                    }
-                });
-                row.append(&header);
-                row.append(&revealer);
-                list.append(&row);
+                    },
+                );
+                add_preview_focus(card.root(), item.key(), item.preview_target(), context);
+
+                if let Some(toggle) = item.toggle() {
+                    card.append_before_reset(&toggle_widget(toggle));
+                }
+                if let Some(toggle) = item.button_toggle() {
+                    card.append_before_reset(&button_toggle_widget(toggle));
+                }
+                for action in item.actions() {
+                    card.append_after_reset(&action_widget(action));
+                }
+                for control in item.controls(context) {
+                    card.append(&control);
+                }
+                list.append(card.widget());
             }
             InspectorListItem::Flat(widget) => list.append(&widget),
         }
@@ -312,7 +248,7 @@ fn sync_preview_focus_class(
     }
 }
 
-fn add_toggle(header: &gtk::Box, toggle: &HeaderToggle) {
+fn toggle_widget(toggle: &HeaderToggle) -> gtk::Switch {
     let switch = gtk::Switch::builder()
         .active(toggle.active)
         .tooltip_text(tr!(toggle.tooltip).as_ref())
@@ -320,10 +256,10 @@ fn add_toggle(header: &gtk::Box, toggle: &HeaderToggle) {
         .build();
     let activate = toggle.activate.clone();
     switch.connect_active_notify(move |switch| activate(switch.is_active()));
-    header.append(&switch);
+    switch
 }
 
-fn add_button_toggle(header: &gtk::Box, toggle: &HeaderButtonToggle) {
+fn button_toggle_widget(toggle: &HeaderButtonToggle) -> gtk::ToggleButton {
     let button = gtk::ToggleButton::builder()
         .icon_name(toggle.icon)
         .active(toggle.active)
@@ -333,33 +269,10 @@ fn add_button_toggle(header: &gtk::Box, toggle: &HeaderButtonToggle) {
         .build();
     let activate = toggle.activate.clone();
     button.connect_toggled(move |button| activate(button.is_active()));
-    header.append(&button);
+    button
 }
 
-fn install_expander_css(display: &gtk::gdk::Display) {
-    EXPANDER_CSS_INSTALLED.with(|installed| {
-        if installed.replace(true) {
-            return;
-        }
-        let provider = gtk::CssProvider::new();
-        provider.load_from_string(
-            ".inspector-expander-icon { \
-                 -gtk-icon-transform: rotate(0deg); \
-                 transition: 180ms ease; \
-             } \
-             .inspector-expander-icon.expanded { \
-                 -gtk-icon-transform: rotate(90deg); \
-             }",
-        );
-        gtk::style_context_add_provider_for_display(
-            display,
-            &provider,
-            gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
-        );
-    });
-}
-
-fn add_action(header: &gtk::Box, action: &HeaderAction) {
+fn action_widget(action: &HeaderAction) -> gtk::Button {
     let button = gtk::Button::builder()
         .icon_name(action.icon)
         .tooltip_text(tr!(action.tooltip).as_ref())
@@ -369,5 +282,5 @@ fn add_action(header: &gtk::Box, action: &HeaderAction) {
         .build();
     let activate = action.activate.clone();
     button.connect_clicked(move |_| activate());
-    header.append(&button);
+    button
 }

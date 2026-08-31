@@ -15,8 +15,9 @@ use crate::player_state::{self, ProjectChange, SharedPlayerState};
 use crate::{InspectorContext, keyframe_model};
 
 use super::{
-    Interpolation, TextInterpolation, TimelineBase, TimelineExpression, TimelineKeyframe,
-    TimelineTextKeyframe, TimelineValue, TimelineValueType, layered, text_edit_count,
+    DiscreteEditPolicy, Interpolation, TextInterpolation, TimelineBase, TimelineKeyframe,
+    TimelineTextKeyframe, TimelineValue, edit_discrete_value, layered, set_expression_enabled,
+    set_keyframes_enabled, text_edit_count,
 };
 
 pub(crate) fn text_control(
@@ -371,18 +372,20 @@ fn update_value(
     let Some(time) = project.keyframe_time(&key, position) else {
         return false;
     };
-    let step = keyframe_editor::project_frame_step(&project);
+    let step = keyframe_editor::project_frame_step(&project, Some(&key));
     let Some(value) = text_value_mut(&mut project, key.clone()) else {
         return false;
     };
-    let changed = match &mut value.base {
-        TimelineBase::Const(value) if *value != next => {
-            *value = next;
-            true
-        }
-        TimelineBase::Keyframes(keyframes) => set_key(keyframes, time, step, next),
-        TimelineBase::Const(_) => false,
-    };
+    let changed = edit_discrete_value(
+        value,
+        time,
+        next,
+        |left, right| keyframe_model::same_frame(left, right, step),
+        DiscreteEditPolicy {
+            unchanged_is_noop: true,
+            sort_updated_keyframe: true,
+        },
+    );
     drop(project);
     if changed {
         refresh(player, false);
@@ -408,12 +411,8 @@ fn toggle_keyframes(
         return false;
     };
     let current = value.value_at(evaluation_time);
-    match (&mut value.base, enabled) {
-        (TimelineBase::Const(_), false) | (TimelineBase::Keyframes(_), true) => return false,
-        (base @ TimelineBase::Const(_), true) => {
-            *base = TimelineBase::Keyframes(vec![String::keyframe(keyframe_time, current)]);
-        }
-        (base @ TimelineBase::Keyframes(_), false) => *base = TimelineBase::Const(current),
+    if !set_keyframes_enabled(value, keyframe_time, current, enabled) {
+        return false;
     }
     shrimply_project::project::commit_edit(&project, "text-keyframes");
     drop(project);
@@ -431,22 +430,7 @@ fn toggle_expression(
     let Some(value) = text_value_mut(&mut project, key.clone()) else {
         return false;
     };
-    let changed = match &mut value.expression {
-        Some(expression) if expression.enabled != enabled => {
-            expression.enabled = enabled;
-            true
-        }
-        Some(_) => false,
-        None if enabled => {
-            value.expression = Some(TimelineExpression {
-                id: Uuid::new_v4(),
-                enabled: true,
-                source: "value".to_string(),
-            });
-            true
-        }
-        None => false,
-    };
+    let changed = set_expression_enabled(value, enabled, "value");
     if !changed {
         return false;
     }
@@ -484,13 +468,22 @@ fn add_key(
     time: Time,
 ) {
     let mut project = project.borrow_mut();
-    let step = keyframe_editor::project_frame_step(&project);
+    let step = keyframe_editor::project_frame_step(&project, Some(&key));
     let Some(value) = text_value_mut(&mut project, key.clone()) else {
         return;
     };
     let current = value.value_at(time);
-    if let TimelineBase::Keyframes(keyframes) = &mut value.base {
-        set_key(keyframes, time, step, current);
+    if matches!(&value.base, TimelineBase::Keyframes(_)) {
+        edit_discrete_value(
+            value,
+            time,
+            current,
+            |left, right| keyframe_model::same_frame(left, right, step),
+            DiscreteEditPolicy {
+                unchanged_is_noop: true,
+                sort_updated_keyframe: true,
+            },
+        );
     }
     shrimply_project::project::commit_edit(&project, "add-text-keyframe");
     drop(project);
@@ -504,7 +497,7 @@ fn delete_key(
     time: Time,
 ) {
     let mut project = project.borrow_mut();
-    let step = keyframe_editor::project_frame_step(&project);
+    let step = keyframe_editor::project_frame_step(&project, Some(&key));
     let Some(value) = text_value_mut(&mut project, key.clone()) else {
         return;
     };
@@ -591,29 +584,6 @@ fn set_text_interpolation(
     shrimply_project::project::commit_edit(&project, "text-change-interpolation");
     drop(project);
     refresh(player, false);
-}
-
-fn set_key(
-    keyframes: &mut Vec<TimelineTextKeyframe>,
-    time: Time,
-    step: Time,
-    value: String,
-) -> bool {
-    if let Some(keyframe) = keyframes
-        .iter_mut()
-        .find(|keyframe| keyframe_model::same_frame(keyframe.time, time, step))
-    {
-        if keyframe.time == time && keyframe.value == value {
-            return false;
-        }
-        keyframe.time = time;
-        keyframe.value = value;
-        keyframes.sort_by_key(|keyframe| keyframe.time);
-    } else {
-        keyframes.push(String::keyframe(time, value));
-        keyframes.sort_by_key(|keyframe| keyframe.time);
-    }
-    true
 }
 
 fn refresh(player: &SharedPlayerState, inspector: bool) {

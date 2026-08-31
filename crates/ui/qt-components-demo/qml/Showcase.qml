@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import QtCore
 import dev.shrimply.components
+import dev.shrimply.components.demo
 
 ApplicationWindow {
     id: window
@@ -13,6 +14,7 @@ ApplicationWindow {
     property string events: ""
 
     readonly property url homeUrl: StandardPaths.writableLocation(StandardPaths.HomeLocation)
+    readonly property string homePath: homeUrl.toString().slice(7)
 
     function log(message) {
         events = message + "\n" + events
@@ -77,76 +79,155 @@ ApplicationWindow {
                     onSelected: function(value) { window.log("selected " + value) }
                 }
             }
-            ControlRow {
-                label: "Number modes"
-                RowLayout {
-                    NumberPicker {
-                        id: numberModeValue
-                        Layout.fillWidth: true
-                        value: graphEditor.graphValue
-                        digits: 2
-                        onEdited: function(value) { graphEditor.editValue(value) }
-                    }
-                        ToolButton {
-                        id: keyframeMode
-                        checkable: true
-                        checked: true
-                        icon.source: "qrc:/qt/qml/dev/shrimply/components/icons/keyframe.svg"
-                        icon.color: palette.buttonText
-                        display: AbstractButton.IconOnly
-                        ToolTip.visible: hovered
-                        ToolTip.text: "Keyframes"
-                        onToggled: {
-                            window.log("keyframes " + checked)
-                        }
-                    }
-                    ToolButton {
-                        id: expressionMode
-                        checkable: true
-                        checked: true
-                        icon.source: "qrc:/qt/qml/dev/shrimply/components/icons/code.svg"
-                        icon.color: palette.buttonText
-                        display: AbstractButton.IconOnly
-                        ToolTip.visible: hovered
-                        ToolTip.text: "Expression"
-                        onToggled: {
-                            window.log("expression " + checked)
-                        }
-                    }
-                }
-            }
-            FrameGraph {
-                id: graphEditor
-                visible: keyframeMode.checked
-                Layout.fillWidth: true
-                Layout.preferredHeight: visible ? implicitHeight : 0
-                onTogglePlayback: window.log("toggle playback")
-            }
-            Connections {
-                target: graphEditor
-                function onGraphValueChanged() {
-                    numberModeValue.value = graphEditor.graphValue
-                }
-            }
             ColumnLayout {
-                visible: expressionMode.checked
                 Layout.fillWidth: true
-                Layout.preferredHeight: visible ? 220 : 0
-                spacing: 6
-                CodeEditor {
+                spacing: 0
+                InspectorCard {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 180
-                    value: "value * 2.0"
-                    onEdited: function(value) {
-                        expressionOutput.text = "Output · expression updated (" + value.length + " chars)"
-                        window.log("expression edited (" + value.length + " chars)")
+                    title: "Transform"
+                    expanded: true
+                    onResetRequested: {
+                        positionRow.resetPair(960, 540)
+                        anchorRow.resetPair(960, 540)
+                        scaleRow.resetPair(1, 1)
+                        shearRow.resetPair(0, 0)
+                        rotationRow.resetValue(0)
+                        window.log("transform reset")
+                    }
+
+                    InspectorGraphProperty {
+                        id: positionRow
+                        label: "Position"
+                        initialGraphValue: 960
+                        initialSecondValue: 540
+                        keyframes: true
+                        expression: true
+                        expressionValue: DemoLogic.expressionSource
+                        expressionOutput: DemoLogic.expressionOutput(expressionValue)
+                        onGraphPlaybackToggled: window.log("toggle playback")
+                        onExpressionEdited: function(value) {
+                            expressionOutput = DemoLogic.expressionOutput(value)
+                            window.log("expression edited (" + value.length + " chars)")
+                        }
+                        Number2Picker {
+                            id: positionEditor
+                            first: positionRow.firstValue
+                            second: positionRow.secondValue
+                            firstPrefix: "X"
+                            secondPrefix: "Y"
+                            unitName: "px"
+                            digits: 0
+                            onFirstEdited: function(value) {
+                                positionRow.editPair(value, second, 0)
+                            }
+                            onSecondEdited: function(value) {
+                                positionRow.editPair(first, value, 1)
+                            }
+                        }
+                    }
+                    InspectorGraphProperty {
+                        id: anchorRow
+                        label: "Anchor"
+                        initialGraphValue: 960
+                        initialSecondValue: 540
+                        expressionValue: DemoLogic.expressionSource
+                        expressionOutput: DemoLogic.expressionOutput(expressionValue)
+                        onExpressionEdited: function(value) { expressionOutput = DemoLogic.expressionOutput(value) }
+                        Number2Picker {
+                            id: anchorEditor
+                            first: anchorRow.firstValue
+                            second: anchorRow.secondValue
+                            firstPrefix: "X"
+                            secondPrefix: "Y"
+                            unitName: "px"
+                            digits: 0
+                            onFirstEdited: function(value) {
+                                anchorRow.editPair(value, second, 0)
+                            }
+                            onSecondEdited: function(value) {
+                                anchorRow.editPair(first, value, 1)
+                            }
+                        }
+                    }
+                    InspectorGraphProperty {
+                        id: scaleRow
+                        label: "Scale"
+                        initialGraphValue: 1
+                        initialSecondValue: 1
+                        expressionValue: DemoLogic.expressionSource
+                        expressionOutput: DemoLogic.expressionOutput(expressionValue)
+                        onExpressionEdited: function(value) { expressionOutput = DemoLogic.expressionOutput(value) }
+                        Number2Picker {
+                            id: scaleEditor
+                            first: scaleRow.firstValue
+                            second: scaleRow.secondValue
+                            firstPrefix: "X"
+                            secondPrefix: "Y"
+                            unitName: "x"
+                            digits: 2
+                            minimum: 0
+                            enableLock: true
+                            onFirstEdited: function(value) {
+                                scaleRow.editPair(value, second, 0)
+                            }
+                            onSecondEdited: function(value) {
+                                scaleRow.editPair(first, value, 1)
+                            }
+                        }
+                    }
+                    InspectorGraphProperty {
+                        id: shearRow
+                        label: "Shear"
+                        initialGraphValue: 0
+                        initialSecondValue: 0
+                        expressionValue: DemoLogic.expressionSource
+                        expressionOutput: DemoLogic.expressionOutput(expressionValue)
+                        onExpressionEdited: function(value) { expressionOutput = DemoLogic.expressionOutput(value) }
+                        Number2Picker {
+                            id: shearEditor
+                            first: shearRow.firstValue
+                            second: shearRow.secondValue
+                            firstPrefix: "X"
+                            secondPrefix: "Y"
+                            digits: 2
+                            onFirstEdited: function(value) {
+                                shearRow.editPair(value, second, 0)
+                            }
+                            onSecondEdited: function(value) {
+                                shearRow.editPair(first, value, 1)
+                            }
+                        }
+                    }
+                    InspectorGraphProperty {
+                        id: rotationRow
+                        label: "Rotation"
+                        initialGraphValue: 0
+                        expressionValue: DemoLogic.expressionSource
+                        expressionOutput: DemoLogic.expressionOutput(expressionValue)
+                        onGraphValueChanged: rotationEditor.value = graphValue
+                        onBaseValueEdited: graphValue = value
+                        onExpressionEdited: function(value) { expressionOutput = DemoLogic.expressionOutput(value) }
+                        NumberPicker {
+                            id: rotationEditor
+                            value: rotationRow.graphValue
+                            digits: 1
+                            dragStep: 0.1
+                            unitName: "°"
+                            prefixIconSource: "qrc:/qt/qml/dev/shrimply/components/icons/rotation.svg"
+                            prefixIconRotates: true
+                            onEdited: function(value) { rotationRow.editValue(value) }
+                        }
                     }
                 }
-                ReadOnlyField {
-                    id: expressionOutput
-                    Layout.fillWidth: true
-                    text: "Output · 84.0"
+                ModifierMenuButton {
+                    Layout.alignment: Qt.AlignHCenter
+                    values: DemoLogic.modifierValues
+                    labels: DemoLogic.modifierLabels
+                    onSelected: function(value) { window.log("add modifier " + value) }
                 }
+            }
+            LivePerformance {
+                Layout.fillWidth: true
             }
             SwitchRow { label: "Enabled"; tooltip: "Toggle this option"; active: true; onToggled: function(value) { window.log("switch " + value) } }
             ControlRow {
@@ -211,15 +292,13 @@ ApplicationWindow {
                 }
                 ControlRow {
                     label: "Home folder"
-                    RowLayout {
-                        ReadOnlyField {
-                            Layout.fillWidth: true
-                            text: window.homeUrl.toLocalFile
-                            horizontalAlignment: Text.AlignRight
-                            actionIconSource: "qrc:/qt/qml/dev/shrimply/components/demo/icons/folder-open.svg"
-                            actionText: "Show in Folder"
-                            onActionTriggered: Qt.openUrlExternally(window.homeUrl)
-                        }
+                    ReadOnlyField {
+                        text: window.homePath
+                        horizontalAlignment: Text.AlignRight
+                        actionIconSource: "qrc:/qt/qml/dev/shrimply/components/demo/icons/folder-open.svg"
+                        actionText: "Show in Folder"
+                        onActionTriggered: Qt.openUrlExternally(window.homeUrl)
+                    }
                 }
             }
         }

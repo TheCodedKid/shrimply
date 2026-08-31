@@ -3,7 +3,9 @@
 #include <QCursor>
 #include <QGuiApplication>
 #include <QMouseEvent>
+#include <QPalette>
 #include <QQuickWindow>
+#include <QSet>
 #include <QTextCharFormat>
 #include <QTextDocument>
 #include <QtGui/qguiapplication_platform.h>
@@ -65,9 +67,156 @@ private:
     QList<QPair<int, int>> ranges_;
 };
 
+class CodeSyntaxHighlighter final : public QSyntaxHighlighter {
+public:
+    explicit CodeSyntaxHighlighter(QTextDocument *document)
+        : QSyntaxHighlighter(static_cast<QObject *>(nullptr)) {
+        setDocument(document);
+    }
+
+protected:
+    void highlightBlock(const QString &text) override {
+        const QPalette palette = qGuiApp->palette();
+        QTextCharFormat comment;
+        comment.setForeground(palette.color(QPalette::PlaceholderText));
+        QTextCharFormat string;
+        string.setForeground(palette.color(QPalette::LinkVisited));
+        QTextCharFormat keyword;
+        keyword.setForeground(palette.color(QPalette::Link));
+        keyword.setFontWeight(QFont::DemiBold);
+        QTextCharFormat function;
+        function.setForeground(palette.color(QPalette::Highlight));
+        QTextCharFormat variable;
+        variable.setForeground(palette.color(QPalette::Highlight));
+        QTextCharFormat number;
+        number.setForeground(palette.color(QPalette::LinkVisited));
+
+        qsizetype offset = 0;
+        if (previousBlockState() == 1) {
+            const qsizetype end = text.indexOf("*/");
+            if (end < 0) {
+                setFormat(0, text.size(), comment);
+                setCurrentBlockState(1);
+                return;
+            }
+            setFormat(0, end + 2, comment);
+            offset = end + 2;
+        }
+
+        while (offset < text.size()) {
+            if (text.sliced(offset).startsWith("//")) {
+                setFormat(offset, text.size() - offset, comment);
+                break;
+            }
+            if (text.sliced(offset).startsWith("/*")) {
+                const qsizetype end = text.indexOf("*/", offset + 2);
+                if (end < 0) {
+                    setFormat(offset, text.size() - offset, comment);
+                    setCurrentBlockState(1);
+                    break;
+                }
+                setFormat(offset, end + 2 - offset, comment);
+                offset = end + 2;
+                continue;
+            }
+
+            const QChar character = text.at(offset);
+            if (character == '"' || character == '\'' || character == '`') {
+                const QChar quote = character;
+                qsizetype end = offset + 1;
+                bool escaped = false;
+                while (end < text.size()) {
+                    const QChar current = text.at(end++);
+                    if (!escaped && current == quote) {
+                        break;
+                    }
+                    escaped = !escaped && current == '\\';
+                    if (current != '\\') {
+                        escaped = false;
+                    }
+                }
+                setFormat(offset, end - offset, string);
+                offset = end;
+                continue;
+            }
+
+            if (character.isDigit()
+                && (offset == 0
+                    || (!text.at(offset - 1).isLetterOrNumber()
+                        && text.at(offset - 1) != '_'))) {
+                qsizetype end = offset + 1;
+                while (end < text.size()
+                       && (text.at(end).isDigit() || text.at(end) == '.')) {
+                    ++end;
+                }
+                if (end < text.size() && (text.at(end) == 'e' || text.at(end) == 'E')) {
+                    ++end;
+                    if (end < text.size() && (text.at(end) == '+' || text.at(end) == '-')) {
+                        ++end;
+                    }
+                    while (end < text.size() && text.at(end).isDigit()) {
+                        ++end;
+                    }
+                }
+                setFormat(offset, end - offset, number);
+                offset = end;
+                continue;
+            }
+
+            if (character.isLetter() || character == '_') {
+                qsizetype end = offset + 1;
+                while (end < text.size()
+                       && (text.at(end).isLetterOrNumber() || text.at(end) == '_')) {
+                    ++end;
+                }
+                const QString word = text.sliced(offset, end - offset);
+                if (keywords().contains(word)) {
+                    setFormat(offset, end - offset, keyword);
+                } else if (functions().contains(word)) {
+                    setFormat(offset, end - offset, function);
+                } else if (variables().contains(word)) {
+                    setFormat(offset, end - offset, variable);
+                }
+                offset = end;
+                continue;
+            }
+            ++offset;
+        }
+    }
+
+private:
+    static const QSet<QString> &keywords() {
+        static const QSet<QString> words = {
+            "break", "const", "continue", "else", "export", "false", "fn",
+            "for", "if", "in", "let", "loop", "return", "true", "while",
+        };
+        return words;
+    }
+
+    static const QSet<QString> &functions() {
+        static const QSet<QString> words = {
+            "Fraction", "abs", "clamp", "cos", "int", "lerp", "gray", "graya",
+            "hsv", "hsva", "oklab", "oklaba", "pow", "random", "rgb", "rgba",
+            "shake", "sin", "sqrt", "tan", "vol",
+        };
+        return words;
+    }
+
+    static const QSet<QString> &variables() {
+        static const QSet<QString> words = {
+            "canvas_height", "canvas_width", "duration", "fps", "local_t",
+            "media_height", "media_width", "seed", "source_height", "source_width",
+            "time", "value", "t", "a", "b", "g", "r", "x", "y", "z",
+        };
+        return words;
+    }
+};
+
 void register_drag_input() {
     qmlRegisterType<DragInput>("dev.shrimply.components", 1, 0, "DragInput");
     qmlRegisterType<TypoHighlighter>("dev.shrimply.components", 1, 0, "TypoHighlighter");
+    qmlRegisterType<CodeHighlighter>("dev.shrimply.components.native", 1, 0,
+                                     "CodeHighlighter");
 }
 
 DragInput::DragInput(QQuickItem *parent) : QQuickItem(parent) {
@@ -199,6 +348,30 @@ void TypoHighlighter::rebuild() {
     if (document_ && document_->textDocument()) {
         highlighter_ = std::make_unique<TypoSyntaxHighlighter>(document_->textDocument());
         highlighter_->setRanges(ranges_);
+    }
+}
+
+CodeHighlighter::CodeHighlighter(QObject *parent) : QObject(parent) {}
+
+CodeHighlighter::~CodeHighlighter() = default;
+
+QQuickTextDocument *CodeHighlighter::document() const {
+    return document_.data();
+}
+
+void CodeHighlighter::setDocument(QQuickTextDocument *document) {
+    if (document_ == document) {
+        return;
+    }
+    document_ = document;
+    rebuild();
+    emit documentChanged();
+}
+
+void CodeHighlighter::rebuild() {
+    highlighter_.reset();
+    if (document_ && document_->textDocument()) {
+        highlighter_ = std::make_unique<CodeSyntaxHighlighter>(document_->textDocument());
     }
 }
 

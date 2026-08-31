@@ -6,6 +6,9 @@ edition = "2024"
 [dependencies]
 adw.workspace = true
 gtk.workspace = true
+shrimply-benchmarking = { path = "../../benchmarking" }
+shrimply-component-core = { path = "../component-core" }
+shrimply-components-demo-core = { path = "../components-demo-core" }
 shrimply-cross-ui-theme = { path = "../cross-ui-theme" }
 shrimply-gtk-components = { path = "../gtk-components" }
 shrimply-keyframe-graph-ui = { path = "../../timeline/keyframe-graph-ui" }

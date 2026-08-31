@@ -11,8 +11,13 @@ use shrimply_transform_3d::{
 };
 use uuid::Uuid;
 
+mod edit;
 mod math;
 
+pub use edit::{
+    CurveEditPolicy, CurveKeyframeInsert, DiscreteEditPolicy, edit_curve_value,
+    edit_discrete_value, insert_curve_keyframe, set_expression_enabled, set_keyframes_enabled,
+};
 use math::{scalar_value_at, text_value_at};
 pub use math::{text_edit_count, vector_value_at};
 pub use shrimply_interpolation::Interpolation;

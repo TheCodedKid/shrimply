@@ -183,8 +183,10 @@ struct GraphOverscroll {
 
 use shrimply_skia_adw_ui::Edge as GraphOverscrollEdge;
 
-pub(crate) fn project_frame_step(project: &Project) -> Time {
-    project.frame_step()
+pub(crate) fn project_frame_step(project: &Project, item: Option<&ItemAddress>) -> Time {
+    item.and_then(|item| project.keyframe_step(item))
+        .filter(|step| *step > Time::ZERO)
+        .unwrap_or_else(|| project.frame_step())
 }
 
 pub(crate) fn project_frame_keyframe_time(
@@ -208,15 +210,7 @@ pub(crate) fn build(
     view_state_scope: impl Into<String>,
     actions: KeyframeEditorActions,
 ) -> BuiltKeyframeEditor {
-    let frame_step = {
-        let project = context.project.borrow();
-        context
-            .selected_item
-            .as_ref()
-            .and_then(|item| project.keyframe_step(item))
-            .filter(|step| *step > Time::ZERO)
-            .unwrap_or_else(|| project.frame_step())
-    };
+    let frame_step = project_frame_step(&context.project.borrow(), context.selected_item.as_ref());
     let graph_view = context.keyframe_graph_view_state(view_state_scope);
     let project = context.project.clone();
     let selected_item = context.selected_item.clone();

@@ -236,22 +236,27 @@ impl FrameGraphState {
     }
 
     pub fn sample() -> Self {
+        Self::sample_for_value(0.5)
+    }
+
+    pub fn sample_for_value(value: f64) -> Self {
+        let spread = value.abs().max(1.0) * 0.25;
         let points = vec![
             KeyframePoint {
                 time: Time::from_fraction(1, 2),
-                value: 0.2,
+                value,
             },
             KeyframePoint {
                 time: Time::from_fraction(3, 2),
-                value: 0.8,
+                value: value + spread,
             },
             KeyframePoint {
                 time: Time::from_fraction(5, 2),
-                value: 0.35,
+                value: value - spread,
             },
             KeyframePoint {
                 time: Time::from_fraction(7, 2),
-                value: 0.7,
+                value,
             },
         ];
         let graph = raw_graph(points);
@@ -326,23 +331,27 @@ impl FrameGraphState {
     }
 
     pub fn replace_graph(&mut self, graph: KeyframeGraph) {
-        self.view.minimum_seconds_per_pixel = matches!(graph, KeyframeGraph::Step { .. }).then(|| {
-            self.frame_step.as_secs_f64()
-                / shrimply_discrete_keyframe_graph_ui::MAX_FRAME_WIDTH
-        });
+        self.view.minimum_seconds_per_pixel =
+            matches!(graph, KeyframeGraph::Step { .. }).then(|| {
+                self.frame_step.as_secs_f64() / shrimply_discrete_keyframe_graph_ui::MAX_FRAME_WIDTH
+            });
         self.graph = graph;
         self.retain_valid_selection();
     }
 
     pub fn set_value(&mut self, value: f64) -> Vec<FrameGraphAction> {
-        let Some(time) = self
-            .focused_key
-            .or_else(|| key_at(&self.graph.key_times(), self.playhead))
-        else {
-            return Vec::new();
+        if let Some(time) = key_at(&self.graph.key_times(), self.playhead) {
+            update_graph_point(&mut self.graph, time, time, value);
+            return vec![FrameGraphAction::KeysChanged(graph_key_points(&self.graph))];
+        }
+        let point = KeyframePoint {
+            time: self.playhead,
+            value,
         };
-        update_graph_point(&mut self.graph, time, time, value);
-        vec![FrameGraphAction::KeysChanged(graph_key_points(&self.graph))]
+        insert_graph_key(&mut self.graph, point);
+        self.selected_keys = vec![point.time];
+        self.focused_key = Some(point.time);
+        vec![FrameGraphAction::KeyAdded(point)]
     }
 
     pub fn pointer_moved(&mut self, x: f64, y: f64) {
@@ -492,8 +501,8 @@ impl FrameGraphState {
                 Vec::new()
             }
             DragTarget::Pan => {
-                let target = drag.start_scroll_seconds
-                    - self.view.seconds_per_pixel * (x - drag.start_x);
+                let target =
+                    drag.start_scroll_seconds - self.view.seconds_per_pixel * (x - drag.start_x);
                 self.set_scroll(width, target);
                 Vec::new()
             }
@@ -841,8 +850,7 @@ impl FrameGraphState {
         let visible = graph_plot_width(width) * self.view.seconds_per_pixel;
         let maximum = self.item_range.1.as_secs_f64() - visible;
         let tolerance = self.view.seconds_per_pixel / 2.0;
-        (delta < 0.0
-            && self.view.scroll_seconds <= self.item_range.0.as_secs_f64() + tolerance)
+        (delta < 0.0 && self.view.scroll_seconds <= self.item_range.0.as_secs_f64() + tolerance)
             || (delta > 0.0 && self.view.scroll_seconds >= maximum - tolerance)
     }
 
@@ -970,11 +978,7 @@ impl FrameGraphState {
                                 .as_ref()
                                 .is_none_or(|(current, _, _)| distance < *current)
                             {
-                                closest = Some((
-                                    distance,
-                                    segment.owner_id,
-                                    segment.interpolation,
-                                ));
+                                closest = Some((distance, segment.owner_id, segment.interpolation));
                             }
                         }
                         previous = Some(point);
@@ -1009,11 +1013,7 @@ impl FrameGraphState {
                                 .as_ref()
                                 .is_none_or(|(current, _, _)| distance < *current)
                             {
-                                closest = Some((
-                                    distance,
-                                    segment.owner_id,
-                                    segment.interpolation,
-                                ));
+                                closest = Some((distance, segment.owner_id, segment.interpolation));
                             }
                         }
                         previous = Some(point);
@@ -1046,8 +1046,7 @@ fn minimum_scale(duration: f64) -> f64 {
 fn time_at_x(x: f64, width: f64, domain: GraphDomain) -> Time {
     let progress = ((x - GRAPH_PAD) / graph_plot_width(width)).clamp(0.0, 1.0);
     Time::from_seconds_f64(
-        domain.0.as_secs_f64()
-            + (domain.1.as_secs_f64() - domain.0.as_secs_f64()) * progress,
+        domain.0.as_secs_f64() + (domain.1.as_secs_f64() - domain.0.as_secs_f64()) * progress,
     )
 }
 

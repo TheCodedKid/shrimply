@@ -1647,7 +1647,7 @@ fn update_integer(
     let Some(time) = project.keyframe_time(&key, position) else {
         return;
     };
-    let step = crate::keyframe_editor::project_frame_step(&project);
+    let step = crate::keyframe_editor::project_frame_step(&project, Some(&key));
     let Some(value) = background_integer_mut(&mut project, &key, value_id) else {
         return;
     };

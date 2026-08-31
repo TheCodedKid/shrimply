@@ -6,13 +6,23 @@ fn main() {
             "qml/ColorPicker.qml",
             "qml/Checkerboard.qml",
             "qml/CodeEditor.qml",
+            "qml/CollapsibleSection.qml",
+            "qml/ColorSliderThumb.qml",
             "qml/ControlRow.qml",
             "qml/Dropdown.qml",
+            "qml/ExpressionEditor.qml",
             "qml/FrameGraph.qml",
+            "qml/InspectorCard.qml",
+            "qml/InspectorGraphProperty.qml",
+            "qml/InspectorProperty.qml",
+            "qml/InspectorPropertyRow.qml",
+            "qml/LivePerformance.qml",
             "qml/MultilineTextInput.qml",
+            "qml/ModifierMenuButton.qml",
             "qml/NumberPicker.qml",
             "qml/Number2Picker.qml",
             "qml/Number3Picker.qml",
+            "qml/PaletteSwatch.qml",
             "qml/PlaybackShortcuts.qml",
             "qml/ProgressButton.qml",
             "qml/ProjectSettingsSelector.qml",
@@ -22,11 +32,15 @@ fn main() {
             "qml/SplitButton.qml",
             "qml/SwitchRow.qml",
             "qml/Tabs.qml",
+            "qml/TextContextMenu.qml",
+            "qml/TransparentColorPreview.qml",
             "qml/TypoUnderline.qml",
         ]))
         .files(["src/backend.rs", "src/frame_graph.rs"])
-        .qrc("qml/assets.qrc")
+        .qrc("qml/component_assets.qrc")
         .cpp_files([
+            "include/color_settings.h",
+            "src/color_settings.cpp",
             "include/drag_input.h",
             "src/drag_input.cpp",
             "include/frame_graph.h",
@@ -37,6 +51,7 @@ fn main() {
         .qt_module("OpenGL")
         .cc_builder(|build| {
             build.include("include");
+            build.flag_if_supported("-Wno-sfinae-incomplete");
         })
         .build();
     }

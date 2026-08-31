@@ -13,6 +13,7 @@ Item {
     property int digits: 2
     property string prefix: ""
     property string prefixIconName: ""
+    property url prefixIconSource
     property bool prefixIconRotates: false
     property real prefixIconRotationOffsetDegrees: 0
     property string suffix: ""
@@ -53,12 +54,24 @@ Item {
 
         contentItem: RowLayout {
             spacing: 4
-            Image {
-                visible: root.prefixIconName.length > 0
-                source: root.prefixIconName.length > 0 ? "image://theme/" + root.prefixIconName : ""
-                sourceSize.width: 16
-                sourceSize.height: 16
-                rotation: root.prefixIconRotates ? root.value + root.prefixIconRotationOffsetDegrees : 0
+            Loader {
+                active: root.prefixIconSource.toString().length > 0 || root.prefixIconName.length > 0
+                Layout.preferredWidth: 16
+                Layout.preferredHeight: 16
+                sourceComponent: ToolButton {
+                    icon.source: root.prefixIconSource.toString().length > 0
+                        ? root.prefixIconSource
+                        : "image://theme/" + root.prefixIconName
+                    icon.color: palette.buttonText
+                    display: AbstractButton.IconOnly
+                    enabled: false
+                    opacity: 1
+                    padding: 0
+                    background: null
+                    rotation: root.prefixIconRotates
+                        ? root.value + root.prefixIconRotationOffsetDegrees
+                        : 0
+                }
             }
             Label { visible: root.prefix.length > 0; text: root.prefix; opacity: 0.72 }
             Label {

@@ -1,9 +1,5 @@
-use gtk::prelude::*;
 use shrimply_core::timeline_value::{TimelineBase, TimelineValue, TimelineValueType};
-use shrimply_gtk_components::tr;
-use shrimply_gtk_components::ui::I18nWidgetExt;
-
-use super::LABEL_WIDTH_CHARS;
+use shrimply_gtk_components::ui::InspectorPropertyRow;
 
 pub(crate) fn control<T: TimelineValueType>(
     label: &str,
@@ -52,64 +48,22 @@ fn build<T: TimelineValueType>(
     on_expression_changed: impl Fn(bool) + 'static,
     wide: bool,
 ) -> gtk::Widget {
-    let root = gtk::Box::new(gtk::Orientation::Vertical, 6);
-    root.set_hexpand(true);
-
-    let row = gtk::Box::new(gtk::Orientation::Horizontal, 6);
-    row.set_hexpand(true);
-    let label = gtk::Label::builder()
-        .label(tr!(label).as_ref())
-        .halign(gtk::Align::Start)
-        .valign(gtk::Align::Center)
-        .width_chars(LABEL_WIDTH_CHARS)
-        .xalign(0.0)
-        .css_classes(["dim-label"])
-        .build();
-    row.append(&label);
-    label.set_hexpand(wide);
-    if !wide {
-        editor.set_hexpand(true);
-        row.append(&editor);
-    }
-
-    let keyframes = toggle(
-        "stopwatch-symbolic",
-        "Keyframes",
-        matches!(value.base, TimelineBase::Keyframes(_)),
-    );
-    row.append(&keyframes);
-    let expression = toggle(
-        "code-symbolic",
-        "Expression",
+    let row = if wide {
+        InspectorPropertyRow::new_wide(label, &editor)
+    } else {
+        InspectorPropertyRow::new(label, &editor)
+    };
+    row.set_keyframes_active(matches!(value.base, TimelineBase::Keyframes(_)));
+    row.set_expression_active(
         value
             .expression
             .as_ref()
             .is_some_and(|expression| expression.enabled),
     );
-    row.append(&expression);
-    root.append(&row);
-    if wide {
-        editor.set_hexpand(true);
-        root.append(&editor);
-    }
-
     for widget in body {
-        root.append(&widget);
+        row.append_body(&widget);
     }
-
-    keyframes.connect_toggled(move |button| on_keyframes_changed(button.is_active()));
-    expression.connect_toggled(move |button| on_expression_changed(button.is_active()));
-
-    root.upcast()
-}
-
-fn toggle(icon: &str, tooltip: &str, active: bool) -> gtk::ToggleButton {
-    let button = gtk::ToggleButton::new();
-    button.set_icon_name(icon);
-    button.set_tooltip_i18n(tooltip);
-    button.set_valign(gtk::Align::Center);
-    button.set_size_request(32, 32);
-    button.set_active(active);
-    button.add_css_class("flat");
-    button
+    row.connect_keyframes_changed(on_keyframes_changed);
+    row.connect_expression_changed(on_expression_changed);
+    row.widget().clone()
 }

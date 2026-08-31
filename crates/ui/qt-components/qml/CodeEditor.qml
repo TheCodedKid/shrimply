@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import dev.shrimply.components.native 1.0
 
 ScrollView {
     id: root
@@ -25,6 +26,10 @@ ScrollView {
             const spaces = " ".repeat(root.tabWidth)
             insert(cursorPosition, spaces)
             event.accepted = true
+        }
+
+        CodeHighlighter {
+            document: editor.textDocument
         }
 
         Rectangle {

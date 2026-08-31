@@ -648,14 +648,13 @@ fn set_keyframes_enabled(
         return false;
     };
     let current = current_base_value(number, evaluation_time);
-    match (&mut number.base, enabled) {
-        (TimelineBase::Const(_), false) | (TimelineBase::Keyframes(_), true) => return false,
-        (base @ TimelineBase::Const(_), true) => {
-            *base = TimelineBase::Keyframes(vec![new_keyframe(keyframe_time, current)]);
-        }
-        (base @ TimelineBase::Keyframes(_), false) => {
-            *base = TimelineBase::Const(current);
-        }
+    if !shrimply_core::timeline_value::set_keyframes_enabled(
+        number,
+        keyframe_time,
+        current,
+        enabled,
+    ) {
+        return false;
     }
     target.access.mark_mutated(&mut project, key);
     shrimply_project::project::commit_edit(&project, target.commit_name);
@@ -675,25 +674,7 @@ fn set_expression_enabled(
     let Some(number) = target.access.get_mut(&mut project, key.clone()) else {
         return false;
     };
-    let changed = match &mut number.expression {
-        Some(expression) => {
-            if expression.enabled == enabled {
-                false
-            } else {
-                expression.enabled = enabled;
-                true
-            }
-        }
-        None if enabled => {
-            number.expression = Some(TimelineExpression {
-                id: uuid::Uuid::new_v4(),
-                enabled: true,
-                source: "value".to_string(),
-            });
-            true
-        }
-        None => false,
-    };
+    let changed = shrimply_core::timeline_value::set_expression_enabled(number, enabled, "value");
     if !changed {
         return false;
     }
@@ -743,10 +724,19 @@ fn add_keyframe_at_time(
         return false;
     };
     let value = current_base_value(number, time);
-    let TimelineBase::Keyframes(keyframes) = &mut number.base else {
+    if !matches!(&number.base, TimelineBase::Keyframes(_)) {
         return false;
-    };
-    upsert_keyframe(keyframes, new_keyframe(time, value));
+    }
+    edit_curve_value(
+        number,
+        time,
+        value,
+        |_, _| false,
+        CurveEditPolicy {
+            unchanged_keyframe_is_noop: false,
+            insert: CurveKeyframeInsert::InheritPreviousInterpolation,
+        },
+    );
     target.access.mark_mutated(&mut project, key);
     shrimply_project::project::commit_edit(&project, target.commit_name);
     drop(project);
@@ -879,65 +869,14 @@ fn set_number_value(value: &mut TimelineValue<f32>, local_time: Time, next: f32)
     if !next.is_finite() {
         return false;
     }
-    match &mut value.base {
-        TimelineBase::Const(current) => {
-            if (*current - next).abs() <= 0.000001 {
-                return false;
-            }
-            *current = next;
-            true
-        }
-        TimelineBase::Keyframes(keyframes) => {
-            if let Some(keyframe) = keyframes
-                .iter_mut()
-                .find(|keyframe| keyframe.time.approx_eq(local_time))
-            {
-                let changed =
-                    keyframe.time != local_time || (keyframe.value - next).abs() > 0.000001;
-                if !changed {
-                    return false;
-                }
-                keyframe.time = local_time;
-                keyframe.value = next;
-                keyframes.sort_by_key(|keyframe| keyframe.time);
-            } else {
-                upsert_keyframe(keyframes, new_keyframe(local_time, next));
-            }
-            true
-        }
-    }
-}
-
-fn new_keyframe(time: Time, value: f32) -> TimelineScalarKeyframe<f32> {
-    TimelineScalarKeyframe::<f32> {
-        id: uuid::Uuid::new_v4(),
-        time,
+    edit_curve_value(
         value,
-        interpolation_to_next: Interpolation::default(),
-    }
-}
-
-fn upsert_keyframe(
-    keyframes: &mut Vec<TimelineScalarKeyframe<f32>>,
-    mut next: TimelineScalarKeyframe<f32>,
-) {
-    if let Some(index) = keyframes
-        .iter()
-        .position(|keyframe| keyframe.time.approx_eq(next.time))
-    {
-        keyframes[index].time = next.time;
-        keyframes[index].value = next.value;
-        keyframes.sort_by_key(|keyframe| keyframe.time);
-    } else {
-        if let Some(previous) = keyframes
-            .iter()
-            .rev()
-            .find(|keyframe| keyframe.time < next.time)
-            && keyframes.iter().any(|keyframe| keyframe.time > next.time)
-        {
-            next.interpolation_to_next = previous.interpolation_to_next;
-        }
-        keyframes.push(next);
-        keyframes.sort_by_key(|keyframe| keyframe.time);
-    }
+        local_time,
+        next,
+        |current, next| (*current - *next).abs() <= 0.000_001,
+        CurveEditPolicy {
+            unchanged_keyframe_is_noop: true,
+            insert: CurveKeyframeInsert::InheritPreviousInterpolation,
+        },
+    )
 }

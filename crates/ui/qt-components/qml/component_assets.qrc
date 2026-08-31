@@ -9,5 +9,12 @@
     <file alias="add.svg">icons/add.svg</file>
     <file alias="remove.svg">icons/remove.svg</file>
     <file alias="screen-color.svg">icons/screen-color.svg</file>
+    <file alias="object-select.svg">icons/object-select.svg</file>
+    <file alias="disclosure.svg">icons/disclosure.svg</file>
+    <file alias="reset.svg">icons/reset.svg</file>
+    <file alias="add-modifier.svg">icons/add-modifier.svg</file>
+    <file alias="copy.svg">icons/copy.svg</file>
+    <file alias="clear.svg">icons/clear.svg</file>
+    <file alias="rotation.svg">../../../../assets/icons/arrow3-up-symbolic.svg</file>
   </qresource>
 </RCC>

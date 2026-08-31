@@ -5,6 +5,14 @@ fn main() -> ExitCode {
     shrimply_support::diagnostics::init();
     shrimply_qt_components::i18n::init_system_locale();
     shrimply_qt_components::init();
+    std::thread::spawn(|| {
+        loop {
+            let measurement = shrimply_benchmarking::measure("Demo / Background refresh");
+            shrimply_benchmarking::increment("Demo / Refresh count");
+            drop(measurement);
+            std::thread::sleep(std::time::Duration::from_millis(500));
+        }
+    });
 
     let mut app = shrimply_qt_helpers::new_widget_application();
     let Some(mut app) = app.as_mut() else {
@@ -21,8 +29,7 @@ fn main() -> ExitCode {
         eprintln!("could not create QML engine");
         return ExitCode::FAILURE;
     };
-    cxx_qt::init_crate!(shrimply_qt_components_demo);
-    cxx_qt::init_qml_module!("dev.shrimply.components.demo");
+    shrimply_qt_components_demo::init();
     let failed = engine.as_mut().on_object_creation_failed(|_, url| {
         eprintln!("could not load Qt component showcase: {url}");
         std::process::exit(1);

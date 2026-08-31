@@ -447,7 +447,7 @@ fn integer_control(
         let Some(time) = project_ref.keyframe_time(&key, position) else {
             return;
         };
-        let step = crate::keyframe_editor::project_frame_step(&project_ref);
+        let step = crate::keyframe_editor::project_frame_step(&project_ref, Some(&key));
         let Some(shape) = selected_shape_mut(&mut project_ref, key.clone()) else {
             return;
         };

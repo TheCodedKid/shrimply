@@ -6,10 +6,10 @@ use std::{
 use crate::InspectedItem as SelectedItem;
 use gtk::prelude::Cast;
 use shrimply_core::timeline_value::{
-    TimelineBase, TimelineExpression, TimelineStep, TimelineStepKeyframe, TimelineValue,
+    DiscreteEditPolicy, TimelineBase, TimelineStep, TimelineValue, edit_discrete_value,
+    set_expression_enabled, set_keyframes_enabled,
 };
 use shrimply_project::project::{Project, Time};
-use uuid::Uuid;
 
 use crate::{
     InspectorContext,
@@ -300,14 +300,20 @@ fn update_value<T: TimelineStep>(
     let Some(time) = project.keyframe_time(&key, position) else {
         return;
     };
-    let step = keyframe_editor::project_frame_step(&project);
+    let step = keyframe_editor::project_frame_step(&project, Some(&key));
     let Some(value) = (target.get_mut)(&mut project, key.clone()) else {
         return;
     };
-    match &mut value.base {
-        TimelineBase::Const(value) => *value = next,
-        TimelineBase::Keyframes(keyframes) => set_key(keyframes, time, step, next),
-    }
+    edit_discrete_value(
+        value,
+        time,
+        next,
+        |left, right| keyframe_model::same_frame(left, right, step),
+        DiscreteEditPolicy {
+            unchanged_is_noop: false,
+            sort_updated_keyframe: false,
+        },
+    );
     target.did_mutate(&mut project, key);
     commit_and_refresh(
         project,
@@ -337,12 +343,8 @@ fn toggle_keyframes<T: TimelineStep>(
         return false;
     };
     let current = value.value_at(evaluation_time);
-    match (&mut value.base, enabled) {
-        (TimelineBase::Const(_), false) | (TimelineBase::Keyframes(_), true) => return false,
-        (base @ TimelineBase::Const(_), true) => {
-            *base = TimelineBase::Keyframes(vec![T::keyframe(keyframe_time, current)]);
-        }
-        (base @ TimelineBase::Keyframes(_), false) => *base = TimelineBase::Const(current),
+    if !set_keyframes_enabled(value, keyframe_time, current, enabled) {
+        return false;
     }
     target.did_mutate(&mut project, key);
     commit_and_refresh(project, player, target, true);
@@ -360,22 +362,7 @@ fn toggle_expression<T: TimelineStep>(
     let Some(value) = (target.get_mut)(&mut project, key.clone()) else {
         return false;
     };
-    let changed = match &mut value.expression {
-        Some(expression) if expression.enabled != enabled => {
-            expression.enabled = enabled;
-            true
-        }
-        Some(_) => false,
-        None if enabled => {
-            value.expression = Some(TimelineExpression {
-                id: Uuid::new_v4(),
-                enabled: true,
-                source: "value".to_string(),
-            });
-            true
-        }
-        None => false,
-    };
+    let changed = set_expression_enabled(value, enabled, "value");
     if changed {
         target.did_mutate(&mut project, key);
         commit_and_refresh(project, player, target, true);
@@ -412,13 +399,22 @@ fn add_key<T: TimelineStep>(
     time: Time,
 ) {
     let mut project = project.borrow_mut();
-    let frame_step = keyframe_editor::project_frame_step(&project);
+    let frame_step = keyframe_editor::project_frame_step(&project, Some(&key));
     let Some(value) = (target.get_mut)(&mut project, key.clone()) else {
         return;
     };
     let current = value.value_at(time);
-    if let TimelineBase::Keyframes(keyframes) = &mut value.base {
-        set_key(keyframes, time, frame_step, current);
+    if matches!(&value.base, TimelineBase::Keyframes(_)) {
+        edit_discrete_value(
+            value,
+            time,
+            current,
+            |left, right| keyframe_model::same_frame(left, right, frame_step),
+            DiscreteEditPolicy {
+                unchanged_is_noop: false,
+                sort_updated_keyframe: false,
+            },
+        );
         target.did_mutate(&mut project, key);
         commit_and_refresh(project, player, target, true);
     }
@@ -432,7 +428,7 @@ fn delete_key<T: TimelineStep>(
     time: Time,
 ) {
     let mut project = project.borrow_mut();
-    let frame_step = keyframe_editor::project_frame_step(&project);
+    let frame_step = keyframe_editor::project_frame_step(&project, Some(&key));
     let Some(value) = (target.get_mut)(&mut project, key.clone()) else {
         return;
     };
@@ -479,24 +475,6 @@ fn move_key<T: TimelineStep>(
         shrimply_project::project::commit_coalesced_edit(&project, target.commit_name);
         drop(project);
         player_state::refresh_project(player, keyframe_model::live_refresh(target.refresh));
-    }
-}
-
-fn set_key<T: TimelineStep>(
-    keyframes: &mut Vec<TimelineStepKeyframe<T>>,
-    time: Time,
-    frame_step: Time,
-    value: T,
-) {
-    if let Some(keyframe) = keyframes
-        .iter_mut()
-        .find(|keyframe| keyframe_model::same_frame(keyframe.time, time, frame_step))
-    {
-        keyframe.time = time;
-        keyframe.value = value;
-    } else {
-        keyframes.push(T::keyframe(time, value));
-        keyframes.sort_by_key(|keyframe| keyframe.time);
     }
 }
 

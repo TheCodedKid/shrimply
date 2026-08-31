@@ -7,7 +7,7 @@ ScrollView {
     property string value: ""
     property int minimumContentHeight: 96
     property int maximumLength: 0
-    property int activeTypo: -1
+    property int hoverTypo: -1
     signal edited(string value)
     signal committed(string value)
     implicitHeight: minimumContentHeight
@@ -49,11 +49,11 @@ ScrollView {
                 typoIndex: index
             }
         }
-        ToolTip.visible: root.activeTypo >= 0 && typoHover.hovered
-        ToolTip.text: backend.typoMessage(root.activeTypo)
+        ToolTip.visible: root.hoverTypo >= 0 && typoHover.hovered
+        ToolTip.text: backend.typoMessage(root.hoverTypo)
         HoverHandler {
             id: typoHover
-            onPointChanged: root.activeTypo = backend.typoAt(
+            onPointChanged: root.hoverTypo = backend.typoAt(
                 editor.positionAt(point.position.x, point.position.y))
         }
         onTextChanged: if (activeFocus) {
@@ -69,25 +69,16 @@ ScrollView {
         TapHandler {
             acceptedButtons: Qt.RightButton
             onTapped: function(eventPoint) {
-                root.activeTypo = backend.typoAt(
-                    editor.positionAt(eventPoint.position.x, eventPoint.position.y))
-                if (root.activeTypo >= 0)
-                    typoMenu.popup()
+                const position = editor.positionAt(
+                    eventPoint.position.x, eventPoint.position.y)
+                typoMenu.openAt(eventPoint.position.x, eventPoint.position.y,
+                    backend.typoAt(position))
             }
         }
-        Menu {
+        TextContextMenu {
             id: typoMenu
-            Instantiator {
-                model: 6
-                delegate: MenuItem {
-                    required property int index
-                    text: backend.typoCorrection(root.activeTypo, index)
-                    visible: text.length > 0
-                    onTriggered: editor.text = backend.applyCorrection(root.activeTypo, index)
-                }
-                onObjectAdded: function(index, object) { typoMenu.insertItem(index, object) }
-                onObjectRemoved: function(index, object) { typoMenu.removeItem(object) }
-            }
+            editor: editor
+            typoBackend: backend
         }
     }
 }

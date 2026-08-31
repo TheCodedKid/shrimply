@@ -24,6 +24,14 @@ impl Hsva {
     pub fn color(self) -> Color<u8> {
         Color::from_hsva(self.hue, self.saturation, self.value, self.alpha)
     }
+
+    pub fn update_color(self, color: Color<u8>) -> Self {
+        let mut next = Self::from_color(color);
+        if next.saturation <= f32::EPSILON || next.value <= f32::EPSILON {
+            next.hue = self.hue;
+        }
+        next
+    }
 }
 
 pub const PALETTE: [(&str, Color<u8>); 45] = [

@@ -1,11 +1,16 @@
 use adw::prelude::*;
+use shrimply_component_core::layered::LayeredPropertyController;
 use shrimply_gtk_components::playback_shortcuts::attach_space_play_toggle;
 use shrimply_gtk_components::ui::{
-    ColorPicker, FrameGraph, MultilineTextInput, Number2Picker, Number3Picker, NumberPicker,
-    ProgressButton, ProgressButtonState, ReadOnlyField, SingleLineTextInput, StringChoice, code_editor,
-    control_row, labeled_string_selector, read_only_field, split_button, switch_row, tabs,
+    ColorPicker, InspectorCard, MultilineTextInput, Number2Picker, Number3Picker, NumberPicker,
+    ProgressButton, ProgressButtonState, ReadOnlyField, SingleLineTextInput, StringChoice,
+    control_row, labeled_string_selector, live_performance, modifier_menu, read_only_field,
+    split_button, switch_row, tabs,
 };
 use shrimply_math_color::Color;
+use std::{cell::Cell, rc::Rc};
+
+mod transform_property;
 
 fn main() {
     shrimply_gtk_components::i18n::init_system_locale();
@@ -25,20 +30,26 @@ fn build_ui(app: &adw::Application) {
     general.set_margin_bottom(16);
     general.set_margin_start(16);
     general.set_margin_end(16);
+    gtk::glib::timeout_add_local(std::time::Duration::from_millis(500), || {
+        let measurement = shrimply_benchmarking::measure("Demo / UI refresh");
+        shrimply_benchmarking::increment("Demo / Refresh count");
+        drop(measurement);
+        gtk::glib::ControlFlow::Continue
+    });
 
     let events = gtk::TextView::builder()
         .editable(false)
         .monospace(true)
         .height_request(140)
         .build();
-    let log = {
+    let log: Rc<dyn Fn(String)> = Rc::new({
         let buffer = events.buffer();
         move |message: String| {
             let (start, end) = buffer.bounds();
             let previous = buffer.text(&start, &end, true);
             buffer.set_text(&format!("{message}\n{previous}"));
         }
-    };
+    });
 
     let number = NumberPicker::builder(12.5)
         .accepted_range(-100.0, 100.0)
@@ -133,79 +144,271 @@ fn build_ui(app: &adw::Application) {
     );
     general.append(selector.widget());
 
-    let graph = FrameGraph::with_actions(shrimply_keyframe_graph_ui::FrameGraphState::sample(), {
-        let log = log.clone();
-        move |_| log("keyframe action".to_string())
-    });
-    let number_modes = gtk::Box::new(gtk::Orientation::Horizontal, 6);
-    let graph_editor = graph.clone();
-    let number_mode_value = NumberPicker::builder(graph.state().borrow().status().value)
-        .digits(2)
-        .on_change(move |value| graph_editor.edit_value(value))
-        .build_with_handle();
-    graph.connect_status({
-        let value = number_mode_value.handle.clone();
-        move |status| value.set_f64(status.value)
-    });
-    number_modes.append(&number_mode_value.widget);
-    let keyframes = gtk::ToggleButton::builder()
-        .icon_name("stopwatch-symbolic")
-        .tooltip_text("Keyframes")
-        .css_classes(["flat"])
-        .active(true)
-        .build();
-    let expression = gtk::ToggleButton::builder()
-        .icon_name("code-symbolic")
-        .tooltip_text("Expression")
-        .css_classes(["flat"])
-        .active(true)
-        .build();
-    number_modes.append(&keyframes);
-    number_modes.append(&expression);
-    general.append(&control_row("Number modes", &number_modes));
+    let position_controller = LayeredPropertyController::default();
+    let position_graph = transform_property::graph("Position", 960.0, log.clone());
+    let position_value = Rc::new(Cell::new([960.0, 540.0]));
+    let position = Number2Picker::builder(960.0, 540.0)
+        .first_prefix("X")
+        .second_prefix("Y")
+        .unit_name("px")
+        .digits(0)
+        .on_first_change(transform_property::pair_edit_handler(
+            position_controller.clone(),
+            position_graph.clone(),
+            position_value.clone(),
+            0,
+        ))
+        .on_second_change(transform_property::pair_edit_handler(
+            position_controller.clone(),
+            position_graph.clone(),
+            position_value.clone(),
+            1,
+        ))
+        .build_with_handles();
+    let position_row = transform_property::property(
+        transform_property::PropertyConfig {
+            label: "Position",
+            initial_value: 960.0,
+            modes: (true, true),
+        },
+        &position.widget,
+        &position.first,
+        position_graph.clone(),
+        position_controller,
+        log.clone(),
+        {
+            let position_value = position_value.clone();
+            move |value| {
+                let mut pair = position_value.get();
+                pair[0] = value;
+                position_value.set(pair);
+            }
+        },
+    );
 
-    let mode_content = gtk::Box::new(gtk::Orientation::Vertical, 6);
-    let graph_revealer = gtk::Revealer::builder()
-        .child(graph.widget())
-        .reveal_child(true)
-        .build();
-    let expression_content = gtk::Box::new(gtk::Orientation::Vertical, 6);
-    let expression_output = read_only_field("Output · 84.0");
-    expression_content.append(&code_editor("value * 2.0", Some("rhai"), {
-        let expression_output = expression_output.clone();
+    let anchor_controller = LayeredPropertyController::default();
+    let anchor_graph = transform_property::graph("Anchor", 960.0, log.clone());
+    let anchor_value = Rc::new(Cell::new([960.0, 540.0]));
+    let anchor = Number2Picker::builder(960.0, 540.0)
+        .first_prefix("X")
+        .second_prefix("Y")
+        .unit_name("px")
+        .digits(0)
+        .on_first_change(transform_property::pair_edit_handler(
+            anchor_controller.clone(),
+            anchor_graph.clone(),
+            anchor_value.clone(),
+            0,
+        ))
+        .on_second_change(transform_property::pair_edit_handler(
+            anchor_controller.clone(),
+            anchor_graph.clone(),
+            anchor_value.clone(),
+            1,
+        ))
+        .build_with_handles();
+    let anchor_row = transform_property::property(
+        transform_property::PropertyConfig {
+            label: "Anchor",
+            initial_value: 960.0,
+            modes: (false, false),
+        },
+        &anchor.widget,
+        &anchor.first,
+        anchor_graph.clone(),
+        anchor_controller,
+        log.clone(),
+        {
+            let anchor_value = anchor_value.clone();
+            move |value| {
+                let mut pair = anchor_value.get();
+                pair[0] = value;
+                anchor_value.set(pair);
+            }
+        },
+    );
+
+    let scale_controller = LayeredPropertyController::default();
+    let scale_graph = transform_property::graph("Scale", 1.0, log.clone());
+    let scale_value = Rc::new(Cell::new([1.0, 1.0]));
+    let scale = Number2Picker::builder(1.0, 1.0)
+        .first_prefix("X")
+        .second_prefix("Y")
+        .unit_name("x")
+        .digits(2)
+        .minimum(0.0)
+        .enable_lock()
+        .on_first_change(transform_property::pair_edit_handler(
+            scale_controller.clone(),
+            scale_graph.clone(),
+            scale_value.clone(),
+            0,
+        ))
+        .on_second_change(transform_property::pair_edit_handler(
+            scale_controller.clone(),
+            scale_graph.clone(),
+            scale_value.clone(),
+            1,
+        ))
+        .build_with_handles();
+    let scale_row = transform_property::property(
+        transform_property::PropertyConfig {
+            label: "Scale",
+            initial_value: 1.0,
+            modes: (false, false),
+        },
+        &scale.widget,
+        &scale.first,
+        scale_graph.clone(),
+        scale_controller,
+        log.clone(),
+        {
+            let scale_value = scale_value.clone();
+            move |value| {
+                let mut pair = scale_value.get();
+                pair[0] = value;
+                scale_value.set(pair);
+            }
+        },
+    );
+
+    let shear_controller = LayeredPropertyController::default();
+    let shear_graph = transform_property::graph("Shear", 0.0, log.clone());
+    let shear_value = Rc::new(Cell::new([0.0, 0.0]));
+    let shear = Number2Picker::builder(0.0, 0.0)
+        .first_prefix("X")
+        .second_prefix("Y")
+        .digits(2)
+        .on_first_change(transform_property::pair_edit_handler(
+            shear_controller.clone(),
+            shear_graph.clone(),
+            shear_value.clone(),
+            0,
+        ))
+        .on_second_change(transform_property::pair_edit_handler(
+            shear_controller.clone(),
+            shear_graph.clone(),
+            shear_value.clone(),
+            1,
+        ))
+        .build_with_handles();
+    let shear_row = transform_property::property(
+        transform_property::PropertyConfig {
+            label: "Shear",
+            initial_value: 0.0,
+            modes: (false, false),
+        },
+        &shear.widget,
+        &shear.first,
+        shear_graph.clone(),
+        shear_controller,
+        log.clone(),
+        {
+            let shear_value = shear_value.clone();
+            move |value| {
+                let mut pair = shear_value.get();
+                pair[0] = value;
+                shear_value.set(pair);
+            }
+        },
+    );
+
+    let rotation_controller = LayeredPropertyController::default();
+    let rotation_graph = transform_property::graph("Rotation", 0.0, log.clone());
+    let rotation = NumberPicker::builder(0.0)
+        .drag_step(0.1)
+        .digits(1)
+        .unit_name("°")
+        .rotating_prefix_icon_name("arrow3-up-symbolic")
+        .on_change(transform_property::edit_handler(
+            rotation_controller.clone(),
+            rotation_graph.clone(),
+        ))
+        .build_with_handle();
+    let rotation_row = transform_property::property(
+        transform_property::PropertyConfig {
+            label: "Rotation",
+            initial_value: 0.0,
+            modes: (false, false),
+        },
+        &rotation.widget,
+        &rotation.handle,
+        rotation_graph.clone(),
+        rotation_controller,
+        log.clone(),
+        |_| {},
+    );
+    let transform = InspectorCard::new("Transform", true, {
+        let position_graph = position_graph.clone();
+        let anchor_graph = anchor_graph.clone();
+        let scale_graph = scale_graph.clone();
+        let shear_graph = shear_graph.clone();
+        let rotation_graph = rotation_graph.clone();
+        let position_first = position.first.clone();
+        let position_second = position.second.clone();
+        let anchor_first = anchor.first.clone();
+        let anchor_second = anchor.second.clone();
+        let scale_first = scale.first.clone();
+        let scale_second = scale.second.clone();
+        let shear_first = shear.first.clone();
+        let shear_second = shear.second.clone();
+        let rotation = rotation.handle.clone();
+        let position_value = position_value.clone();
+        let anchor_value = anchor_value.clone();
+        let scale_value = scale_value.clone();
+        let shear_value = shear_value.clone();
         let log = log.clone();
-        move |value| {
-            expression_output.set_label(&format!(
-                "Output · expression updated ({} chars)",
-                value.len()
-            ));
-            log(format!("expression edited ({} chars)", value.len()));
-        }
-    }));
-    expression_content.append(&expression_output);
-    let expression_revealer = gtk::Revealer::builder()
-        .child(&expression_content)
-        .reveal_child(true)
-        .build();
-    mode_content.append(&graph_revealer);
-    mode_content.append(&expression_revealer);
-    keyframes.connect_toggled({
-        let graph_revealer = graph_revealer.clone();
-        let log = log.clone();
-        move |button| {
-            graph_revealer.set_reveal_child(button.is_active());
-            log(format!("keyframes {}", button.is_active()));
+        move || {
+            position_graph.replace_state(
+                shrimply_keyframe_graph_ui::FrameGraphState::sample_for_value(960.0),
+            );
+            anchor_graph.replace_state(
+                shrimply_keyframe_graph_ui::FrameGraphState::sample_for_value(960.0),
+            );
+            scale_graph
+                .replace_state(shrimply_keyframe_graph_ui::FrameGraphState::sample_for_value(1.0));
+            shear_graph
+                .replace_state(shrimply_keyframe_graph_ui::FrameGraphState::sample_for_value(0.0));
+            rotation_graph
+                .replace_state(shrimply_keyframe_graph_ui::FrameGraphState::sample_for_value(0.0));
+            position_value.set([960.0, 540.0]);
+            anchor_value.set([960.0, 540.0]);
+            scale_value.set([1.0, 1.0]);
+            shear_value.set([0.0, 0.0]);
+            position_first.set_f64(960.0);
+            position_second.set_f64(540.0);
+            anchor_first.set_f64(960.0);
+            anchor_second.set_f64(540.0);
+            scale_first.set_f64(1.0);
+            scale_second.set_f64(1.0);
+            shear_first.set_f64(0.0);
+            shear_second.set_f64(0.0);
+            rotation.set_f64(0.0);
+            log("transform reset".to_string());
         }
     });
-    expression.connect_toggled({
-        let expression_revealer = expression_revealer.clone();
-        let log = log.clone();
-        move |button| {
-            expression_revealer.set_reveal_child(button.is_active());
-            log(format!("expression {}", button.is_active()));
-        }
-    });
-    general.append(&mode_content);
+    transform.append(position_row.widget());
+    transform.append(anchor_row.widget());
+    transform.append(scale_row.widget());
+    transform.append(shear_row.widget());
+    transform.append(rotation_row.widget());
+    let transform_group = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    transform_group.append(transform.widget());
+    transform_group.append(&modifier_menu(
+        shrimply_components_demo_core::modifier_names()
+            .into_iter()
+            .map(|name| StringChoice {
+                value: name.to_string(),
+                label: name.to_string(),
+            })
+            .collect(),
+        {
+            let log = log.clone();
+            move |value| log(format!("add modifier {value}"))
+        },
+    ));
+    general.append(&transform_group);
+    general.append(&live_performance());
     general.append(&switch_row("Enabled", Some("Toggle this option"), true, {
         let log = log.clone();
         move |value| log(format!("switch {value}"))
@@ -293,17 +496,17 @@ fn build_ui(app: &adw::Application) {
     let folder = ReadOnlyField::builder(home.display().to_string())
         .right_aligned()
         .action("folder-open-symbolic", "Show in Folder", {
-        let home = home.clone();
-        let log = log.clone();
-        move |button| {
-            if let Err(error) = shrimply_gtk_components::desktop_open::show_path_in_folder(
-                button.upcast_ref(),
-                home.clone(),
-            ) {
-                log(format!("show in folder failed: {error}"));
+            let home = home.clone();
+            let log = log.clone();
+            move |button| {
+                if let Err(error) = shrimply_gtk_components::desktop_open::show_path_in_folder(
+                    button.upcast_ref(),
+                    home.clone(),
+                ) {
+                    log(format!("show in folder failed: {error}"));
+                }
             }
-        }
-    })
+        })
         .build();
     info.append(&info_row("Home folder", &folder));
     let info_scroller = gtk::ScrolledWindow::builder()

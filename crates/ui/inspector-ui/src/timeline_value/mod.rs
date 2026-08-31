@@ -7,5 +7,3 @@ pub(crate) mod text;
 pub(crate) mod vector;
 
 pub(crate) use shrimply_core::timeline_value::*;
-
-pub(crate) const LABEL_WIDTH_CHARS: i32 = 13;

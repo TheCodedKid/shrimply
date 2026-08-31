@@ -6,7 +6,7 @@ TextField {
     id: root
     property string value: ""
     property int maximumLength: 0
-    property int activeTypo: -1
+    property int hoverTypo: -1
     signal edited(string value)
     signal committed(string value)
 
@@ -40,32 +40,22 @@ TextField {
             typoIndex: index
         }
     }
-    ToolTip.visible: root.activeTypo >= 0 && typoHover.hovered
-    ToolTip.text: backend.typoMessage(root.activeTypo)
+    ToolTip.visible: root.hoverTypo >= 0 && typoHover.hovered
+    ToolTip.text: backend.typoMessage(root.hoverTypo)
     HoverHandler {
         id: typoHover
-        onPointChanged: root.activeTypo = backend.typoAt(root.positionAt(point.position.x))
+        onPointChanged: root.hoverTypo = backend.typoAt(root.positionAt(point.position.x))
     }
     TapHandler {
         acceptedButtons: Qt.RightButton
         onTapped: function(eventPoint) {
-            root.activeTypo = backend.typoAt(root.positionAt(eventPoint.position.x))
-            if (root.activeTypo >= 0)
-                typoMenu.popup()
+            typoMenu.openAt(eventPoint.position.x, eventPoint.position.y,
+                backend.typoAt(root.positionAt(eventPoint.position.x)))
         }
     }
-    Menu {
+    TextContextMenu {
         id: typoMenu
-        Instantiator {
-            model: 6
-            delegate: MenuItem {
-                required property int index
-                text: backend.typoCorrection(root.activeTypo, index)
-                visible: text.length > 0
-                onTriggered: root.text = backend.applyCorrection(root.activeTypo, index)
-            }
-            onObjectAdded: function(index, object) { typoMenu.insertItem(index, object) }
-            onObjectRemoved: function(index, object) { typoMenu.removeItem(object) }
-        }
+        editor: root
+        typoBackend: backend
     }
 }

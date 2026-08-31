@@ -366,12 +366,9 @@ fn set_keyframes_enabled(
         return false;
     };
     let current = base_value(value, evaluation_time);
-    match (&mut value.base, enabled) {
-        (TimelineBase::Const(_), false) | (TimelineBase::Keyframes(_), true) => return false,
-        (base @ TimelineBase::Const(_), true) => {
-            *base = TimelineBase::Keyframes(vec![keyframe(keyframe_time, current)]);
-        }
-        (base @ TimelineBase::Keyframes(_), false) => *base = TimelineBase::Const(current),
+    if !shrimply_core::timeline_value::set_keyframes_enabled(value, keyframe_time, current, enabled)
+    {
+        return false;
     }
     target.access.mark_mutated(&mut project, key);
     shrimply_project::project::commit_edit(&project, target.commit_name);
@@ -391,22 +388,7 @@ fn set_expression_enabled(
     let Some(value) = target.access.get_mut(&mut project, key.clone()) else {
         return false;
     };
-    let changed = match &mut value.expression {
-        Some(expression) if expression.enabled != enabled => {
-            expression.enabled = enabled;
-            true
-        }
-        Some(_) => false,
-        None if enabled => {
-            value.expression = Some(TimelineExpression {
-                id: uuid::Uuid::new_v4(),
-                enabled: true,
-                source: "[x, y]".to_string(),
-            });
-            true
-        }
-        None => false,
-    };
+    let changed = shrimply_core::timeline_value::set_expression_enabled(value, enabled, "[x, y]");
     if !changed {
         return false;
     }
@@ -528,7 +510,11 @@ fn add_keyframe_at_time(
         keyframe.time = time;
         keyframes.sort_by_key(|keyframe| keyframe.time);
     } else {
-        insert_keyframe(keyframes, keyframe(time, next));
+        insert_curve_keyframe(
+            keyframes,
+            Vec2::keyframe(time, next),
+            CurveKeyframeInsert::InheritPreviousInterpolation,
+        );
     }
     target.access.mark_mutated(&mut project, key);
     shrimply_project::project::commit_edit(&project, target.commit_name);
@@ -821,49 +807,14 @@ fn update_expression_output(
 }
 
 fn set_value(value: &mut TimelineValue<glam::Vec2>, local_time: Time, next: Vec2) -> bool {
-    match &mut value.base {
-        TimelineBase::Const(current) if (*current - next).length_squared() <= 0.000001 => false,
-        TimelineBase::Const(current) => {
-            *current = next;
-            true
-        }
-        TimelineBase::Keyframes(keyframes) => {
-            if let Some(keyframe) = keyframes
-                .iter_mut()
-                .find(|keyframe| keyframe.time.approx_eq(local_time))
-            {
-                keyframe.time = local_time;
-                keyframe.value = next;
-                keyframes.sort_by_key(|keyframe| keyframe.time);
-            } else {
-                insert_keyframe(keyframes, keyframe(local_time, next));
-            }
-            true
-        }
-    }
-}
-
-fn keyframe(time: Time, value: Vec2) -> TimelineVectorKeyframe<glam::Vec2> {
-    TimelineVectorKeyframe::<glam::Vec2> {
-        id: uuid::Uuid::new_v4(),
-        time,
+    edit_curve_value(
         value,
-        interpolation_to_next: Default::default(),
-    }
-}
-
-fn insert_keyframe(
-    keyframes: &mut Vec<TimelineVectorKeyframe<glam::Vec2>>,
-    mut next: TimelineVectorKeyframe<glam::Vec2>,
-) {
-    if let Some(previous) = keyframes
-        .iter()
-        .rev()
-        .find(|keyframe| keyframe.time < next.time)
-        && keyframes.iter().any(|keyframe| keyframe.time > next.time)
-    {
-        next.interpolation_to_next = previous.interpolation_to_next;
-    }
-    keyframes.push(next);
-    keyframes.sort_by_key(|keyframe| keyframe.time);
+        local_time,
+        next,
+        |current, next| (*current - *next).length_squared() <= 0.000_001,
+        CurveEditPolicy {
+            unchanged_keyframe_is_noop: false,
+            insert: CurveKeyframeInsert::InheritPreviousInterpolation,
+        },
+    )
 }

@@ -214,33 +214,21 @@ fn update_color(
         return false;
     };
     let current = current_color(value, evaluation_time);
-    match &mut value.base {
-        TimelineBase::Const(v) => {
-            if *v == color {
-                return false;
-            }
-            *v = color;
-        }
-        TimelineBase::Keyframes(values) => {
-            if let Some(v) = values.iter_mut().find(|v| v.time.approx_eq(keyframe_time)) {
-                if v.time == keyframe_time && v.value == color {
-                    return false;
-                }
-                v.time = keyframe_time;
-                v.value = color;
-                values.sort_by_key(|v| v.time);
-            } else if current == color {
-                return false;
+    if !edit_curve_value(
+        value,
+        keyframe_time,
+        color,
+        PartialEq::eq,
+        CurveEditPolicy {
+            unchanged_keyframe_is_noop: true,
+            insert: if current == color {
+                CurveKeyframeInsert::Skip
             } else {
-                values.push(TimelineVectorKeyframe::<shrimply_core::Color<u8>> {
-                    id: Uuid::new_v4(),
-                    time: keyframe_time,
-                    value: color,
-                    interpolation_to_next: Default::default(),
-                });
-                values.sort_by_key(|v| v.time)
-            }
-        }
+                CurveKeyframeInsert::Default
+            },
+        },
+    ) {
+        return false;
     }
     target.access.mark_mutated(&mut project, key);
     shrimply_project::project::commit_coalesced_edit(&project, target.commit_name);
@@ -380,14 +368,11 @@ fn add_keyframe_at_time(
         keyframe.time = time;
         keyframes.sort_by_key(|keyframe| keyframe.time);
     } else {
-        let mut next = keyframe(time, next);
-        if let Some(previous) = keyframes.iter().rev().find(|keyframe| keyframe.time < time)
-            && keyframes.iter().any(|keyframe| keyframe.time > time)
-        {
-            next.interpolation_to_next = previous.interpolation_to_next;
-        }
-        keyframes.push(next);
-        keyframes.sort_by_key(|keyframe| keyframe.time);
+        insert_curve_keyframe(
+            keyframes,
+            keyframe(time, next),
+            CurveKeyframeInsert::InheritPreviousInterpolation,
+        );
     }
     target.access.mark_mutated(&mut project, key);
     shrimply_project::project::commit_edit(&project, target.commit_name);
@@ -563,12 +548,8 @@ fn toggle_keyframes(
         return false;
     };
     let current = current_color(v, evaluation_time);
-    match (&mut v.base, enabled) {
-        (TimelineBase::Const(_), false) | (TimelineBase::Keyframes(_), true) => return false,
-        (base @ TimelineBase::Const(_), true) => {
-            *base = TimelineBase::Keyframes(vec![keyframe(keyframe_time, current)]);
-        }
-        (base @ TimelineBase::Keyframes(_), false) => *base = TimelineBase::Const(current),
+    if !set_keyframes_enabled(v, keyframe_time, current, enabled) {
+        return false;
     }
     t.access.mark_mutated(&mut p, k);
     shrimply_project::project::commit_edit(&p, t.commit_name);
@@ -587,22 +568,7 @@ fn toggle_expression(
     let Some(v) = t.access.get_mut(&mut p, k.clone()) else {
         return;
     };
-    let changed = match &mut v.expression {
-        Some(e) if e.enabled != enabled => {
-            e.enabled = enabled;
-            true
-        }
-        Some(_) => false,
-        None if enabled => {
-            v.expression = Some(TimelineExpression {
-                id: Uuid::new_v4(),
-                enabled: true,
-                source: "value".into(),
-            });
-            true
-        }
-        None => false,
-    };
+    let changed = set_expression_enabled(v, enabled, "value");
     if !changed {
         return;
     }

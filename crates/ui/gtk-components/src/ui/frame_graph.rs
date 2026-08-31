@@ -341,9 +341,14 @@ impl FrameGraph {
         self.area.queue_render();
     }
 
+    pub fn replace_state(&self, state: FrameGraphState) {
+        *self.state.borrow_mut() = state;
+        (self.sync)();
+        self.area.queue_render();
+    }
+
     pub fn connect_status(&self, handler: impl Fn(FrameGraphStatus) + 'static) {
         let handler = Rc::new(handler) as StatusHandler;
-        handler(self.state.borrow().status());
         self.status_handlers.borrow_mut().push(handler);
     }
 }

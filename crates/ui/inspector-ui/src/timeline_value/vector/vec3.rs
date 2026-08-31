@@ -8,8 +8,9 @@ use crate::InspectedItem as SelectedItem;
 use glam::Vec3;
 use gtk::prelude::*;
 use shrimply_core::timeline_value::{
-    Interpolation, TimelineBase, TimelineExpression, TimelineValue, TimelineValueType,
-    TimelineVectorKeyframe,
+    CurveEditPolicy, CurveKeyframeInsert, Interpolation, TimelineBase, TimelineValue,
+    TimelineValueType, TimelineVectorKeyframe, edit_curve_value, insert_curve_keyframe,
+    set_keyframes_enabled,
 };
 use shrimply_evaluation::TransformExpressionCache;
 use shrimply_project::project::{Project, Time};
@@ -362,12 +363,8 @@ fn toggle_keyframes(
         return false;
     };
     let current = value.value_at(evaluation_time);
-    match (&mut value.base, enabled) {
-        (TimelineBase::Const(_), false) | (TimelineBase::Keyframes(_), true) => return false,
-        (base @ TimelineBase::Const(_), true) => {
-            *base = TimelineBase::Keyframes(vec![Vec3::keyframe(keyframe_time, current)]);
-        }
-        (base @ TimelineBase::Keyframes(_), false) => *base = TimelineBase::Const(current),
+    if !set_keyframes_enabled(value, keyframe_time, current, enabled) {
+        return false;
     }
     commit_refresh(project, player, true);
     true
@@ -384,22 +381,8 @@ fn toggle_expression(
     let Some(value) = target.value_mut(&mut project, key.clone()) else {
         return false;
     };
-    let changed = match &mut value.expression {
-        Some(expression) if expression.enabled != enabled => {
-            expression.enabled = enabled;
-            true
-        }
-        Some(_) => false,
-        None if enabled => {
-            value.expression = Some(TimelineExpression {
-                id: uuid::Uuid::new_v4(),
-                enabled: true,
-                source: "[x, y, z]".to_string(),
-            });
-            true
-        }
-        None => false,
-    };
+    let changed =
+        shrimply_core::timeline_value::set_expression_enabled(value, enabled, "[x, y, z]");
     if changed {
         commit_refresh(project, player, true);
     }
@@ -593,7 +576,7 @@ fn mutation(
     let player = player.clone();
     Rc::new(move |time| {
         let mut project = project.borrow_mut();
-        let frame_step = keyframe_editor::project_frame_step(&project);
+        let frame_step = keyframe_editor::project_frame_step(&project, Some(&key));
         let Some(value) = target.value_mut(&mut project, key.clone()) else {
             return;
         };
@@ -612,7 +595,11 @@ fn add_key(value: &mut TimelineValue<Vec3>, time: Time, _: Time) {
             keyframe.time = time;
             keyframes.sort_by_key(|keyframe| keyframe.time);
         } else {
-            insert_keyframe(keyframes, Vec3::keyframe(time, current));
+            insert_curve_keyframe(
+                keyframes,
+                Vec3::keyframe(time, current),
+                CurveKeyframeInsert::InheritPreviousInterpolation,
+            );
         }
     }
 }
@@ -709,42 +696,16 @@ fn keyframes_mut(
 }
 
 fn set_value(value: &mut TimelineValue<Vec3>, time: Time, next: Vec3) -> bool {
-    match &mut value.base {
-        TimelineBase::Const(current) if current.abs_diff_eq(next, 0.000_001) => false,
-        TimelineBase::Const(current) => {
-            *current = next;
-            true
-        }
-        TimelineBase::Keyframes(keyframes) => {
-            if let Some(keyframe) = keyframes
-                .iter_mut()
-                .find(|value| value.time.approx_eq(time))
-            {
-                keyframe.time = time;
-                keyframe.value = next;
-                keyframes.sort_by_key(|keyframe| keyframe.time);
-            } else {
-                insert_keyframe(keyframes, Vec3::keyframe(time, next));
-            }
-            true
-        }
-    }
-}
-
-fn insert_keyframe(
-    keyframes: &mut Vec<TimelineVectorKeyframe<Vec3>>,
-    mut next: TimelineVectorKeyframe<Vec3>,
-) {
-    if let Some(previous) = keyframes
-        .iter()
-        .rev()
-        .find(|keyframe| keyframe.time < next.time)
-        && keyframes.iter().any(|keyframe| keyframe.time > next.time)
-    {
-        next.interpolation_to_next = previous.interpolation_to_next;
-    }
-    keyframes.push(next);
-    keyframes.sort_by_key(|keyframe| keyframe.time);
+    edit_curve_value(
+        value,
+        time,
+        next,
+        |current, next| current.abs_diff_eq(*next, 0.000_001),
+        CurveEditPolicy {
+            unchanged_keyframe_is_noop: false,
+            insert: CurveKeyframeInsert::InheritPreviousInterpolation,
+        },
+    )
 }
 
 fn local_time(context: &InspectorContext, key: SelectedItem) -> Option<Time> {

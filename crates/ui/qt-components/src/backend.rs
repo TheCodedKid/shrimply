@@ -1,7 +1,7 @@
 use core::pin::Pin;
 use cxx_qt::{CxxQtType, Threading};
 use cxx_qt_lib::{QColor, QString, QStringList};
-use shrimply_component_core::{color, number, project_settings, selector, text};
+use shrimply_component_core::{color, layered, number, project_settings, selector, text};
 use shrimply_math_color::Color;
 use shrimply_math_core::{
     Fraction, fraction_as_f64, fraction_denominator, fraction_from_f64, fraction_numerator,
@@ -10,7 +10,7 @@ use shrimply_project_core::{COMMON_FRAME_RATES, PROJECT_PRESETS};
 use std::cell::RefCell;
 
 thread_local! {
-    static RECENT_COLORS: RefCell<Vec<Color<u8>>> = const { RefCell::new(Vec::new()) };
+    static RECENT_COLORS: RefCell<Vec<Color<u8>>> = RefCell::new(load_recent_colors());
 }
 
 #[cxx_qt::bridge]
@@ -30,6 +30,12 @@ pub mod qobject {
         type QString = cxx_qt_lib::QString;
         include!("cxx-qt-lib/qstringlist.h");
         type QStringList = cxx_qt_lib::QStringList;
+
+        include!("color_settings.h");
+        #[namespace = "shrimply"]
+        fn load_recent_colors() -> QStringList;
+        #[namespace = "shrimply"]
+        fn save_recent_colors(colors: &QStringList);
     }
 
     extern "RustQt" {
@@ -149,6 +155,9 @@ pub mod qobject {
         #[cxx_name = "recentColor"]
         fn recent_color(self: &ColorPickerBackend, index: i32) -> QColor;
         #[qinvokable]
+        #[cxx_name = "recentLabel"]
+        fn recent_label(self: &ColorPickerBackend, index: i32) -> QString;
+        #[qinvokable]
         #[cxx_name = "chooseColor"]
         fn choose_color(self: Pin<&mut ColorPickerBackend>, color: &QColor);
         #[qinvokable]
@@ -159,8 +168,6 @@ pub mod qobject {
 
         #[qsignal]
         fn selected(self: Pin<&mut ColorPickerBackend>, color: QColor);
-        #[qsignal]
-        fn confirmed(self: Pin<&mut ColorPickerBackend>);
         #[qsignal]
         #[cxx_name = "screenColorFailed"]
         fn screen_color_failed(self: Pin<&mut ColorPickerBackend>, message: QString);
@@ -194,6 +201,9 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "typoCorrection"]
         fn typo_correction(self: &TextInputBackend, typo: i32, correction: i32) -> QString;
+        #[qinvokable]
+        #[cxx_name = "typoCorrectionCount"]
+        fn typo_correction_count(self: &TextInputBackend, typo: i32) -> i32;
         #[qinvokable]
         #[cxx_name = "applyCorrection"]
         fn apply_correction(
@@ -272,6 +282,57 @@ pub mod qobject {
 
         #[qobject]
         #[qml_element]
+        #[qproperty(QStringList, titles)]
+        #[qproperty(QStringList, subtitles)]
+        type LivePerformanceBackend = super::LivePerformanceBackendRust;
+
+        #[qinvokable]
+        fn refresh(self: Pin<&mut LivePerformanceBackend>);
+        #[qinvokable]
+        fn clear(self: Pin<&mut LivePerformanceBackend>);
+        #[qinvokable]
+        #[cxx_name = "reportJson"]
+        fn report_json(self: &LivePerformanceBackend) -> QString;
+
+        #[qobject]
+        #[qml_element]
+        type LayeredPropertyBackend = super::LayeredPropertyBackendRust;
+
+        #[qinvokable]
+        #[cxx_name = "setModes"]
+        fn set_modes(self: Pin<&mut LayeredPropertyBackend>, keyframes: bool, expression: bool);
+        #[qinvokable]
+        #[cxx_name = "editValue"]
+        fn edit_layered_value(self: Pin<&mut LayeredPropertyBackend>, value: f64);
+        #[qinvokable]
+        #[cxx_name = "editPair"]
+        fn edit_layered_pair(
+            self: Pin<&mut LayeredPropertyBackend>,
+            first: f64,
+            second: f64,
+            component: i32,
+        );
+
+        #[qsignal]
+        #[cxx_name = "baseEdited"]
+        fn base_edited(self: Pin<&mut LayeredPropertyBackend>, value: f64);
+        #[qsignal]
+        #[cxx_name = "keyframeEdited"]
+        fn keyframe_edited(self: Pin<&mut LayeredPropertyBackend>, value: f64);
+        #[qsignal]
+        #[cxx_name = "basePairEdited"]
+        fn base_pair_edited(self: Pin<&mut LayeredPropertyBackend>, first: f64, second: f64);
+        #[qsignal]
+        #[cxx_name = "keyframePairEdited"]
+        fn keyframe_pair_edited(
+            self: Pin<&mut LayeredPropertyBackend>,
+            first: f64,
+            second: f64,
+            graph_value: f64,
+        );
+
+        #[qobject]
+        #[qml_element]
         #[qml_singleton]
         type ComponentTranslations = super::ComponentTranslationsRust;
 
@@ -286,6 +347,8 @@ pub mod qobject {
     impl cxx_qt::Initialize for TextInputBackend {}
     impl cxx_qt::Initialize for SelectorBackend {}
     impl cxx_qt::Initialize for ProjectSettingsBackend {}
+    impl cxx_qt::Initialize for LivePerformanceBackend {}
+    impl cxx_qt::Initialize for LayeredPropertyBackend {}
     impl cxx_qt::Initialize for ComponentTranslations {}
 }
 
@@ -624,7 +687,7 @@ impl qobject::ColorPickerBackend {
         let recent_count = RECENT_COLORS.with_borrow(|colors| colors.len() as i32);
         self.as_mut().set_recent_count(recent_count);
         self.as_mut().set_color(qcolor(value));
-        self.as_mut().publish_color(value);
+        self.as_mut().publish_hsva(color::Hsva::from_color(value));
     }
 
     pub fn set_hsva(
@@ -635,7 +698,7 @@ impl qobject::ColorPickerBackend {
         alpha: f32,
     ) {
         let hsva = color::Hsva {
-            hue: hue.rem_euclid(360.0),
+            hue: hue.clamp(0.0, 360.0),
             saturation: saturation.clamp(0.0, 1.0),
             value: brightness.clamp(0.0, 1.0),
             alpha: if *self.with_alpha() {
@@ -676,6 +739,16 @@ impl qobject::ColorPickerBackend {
         })
     }
 
+    pub fn recent_label(&self, index: i32) -> QString {
+        RECENT_COLORS.with_borrow(|colors| {
+            index_of(index)
+                .and_then(|index| colors.get(index))
+                .map_or_else(QString::default, |value| {
+                    QString::from(color::color_hex(*value, true))
+                })
+        })
+    }
+
     pub fn choose_color(mut self: Pin<&mut Self>, value: &QColor) {
         let mut value = color_from_qcolor(value);
         if !self.with_alpha() {
@@ -696,21 +769,14 @@ impl qobject::ColorPickerBackend {
                 backend.as_mut().set_screen_picking(false);
                 match result {
                     Ok([red, green, blue]) => {
-                        let alpha = if *backend.with_alpha() {
-                            *backend.alpha()
-                        } else {
-                            1.0
-                        };
                         backend.as_mut().publish_color(Color::from_srgba([
                             red as f32,
                             green as f32,
                             blue as f32,
-                            alpha,
+                            1.0,
                         ]));
                     }
-                    Err(error) => backend
-                        .as_mut()
-                        .screen_color_failed(QString::from(error)),
+                    Err(error) => backend.as_mut().screen_color_failed(QString::from(error)),
                 }
             });
         });
@@ -718,8 +784,11 @@ impl qobject::ColorPickerBackend {
 
     pub fn confirm(mut self: Pin<&mut Self>) {
         let value = self.rust().hsva.color();
-        RECENT_COLORS.with_borrow_mut(|colors| color::remember_color(colors, value));
-        let count = RECENT_COLORS.with_borrow(|colors| colors.len() as i32);
+        let count = RECENT_COLORS.with_borrow_mut(|colors| {
+            color::remember_color(colors, value);
+            save_recent_colors(colors);
+            colors.len() as i32
+        });
         self.as_mut().set_recent_count(count);
         let selected = qcolor(value);
         let changed = color_from_qcolor(self.color()) != value;
@@ -727,11 +796,11 @@ impl qobject::ColorPickerBackend {
         if changed {
             self.as_mut().selected(selected);
         }
-        self.as_mut().confirmed();
     }
 
-    fn publish_color(self: Pin<&mut Self>, value: Color<u8>) {
-        self.publish_hsva(color::Hsva::from_color(value));
+    fn publish_color(mut self: Pin<&mut Self>, value: Color<u8>) {
+        let hsva = self.rust().hsva.update_color(value);
+        self.as_mut().publish_hsva(hsva);
     }
 
     fn publish_hsva(mut self: Pin<&mut Self>, hsva: color::Hsva) {
@@ -746,6 +815,22 @@ impl qobject::ColorPickerBackend {
         self.as_mut()
             .set_hex(QString::from(color::color_hex(value, with_alpha)));
     }
+}
+
+fn load_recent_colors() -> Vec<Color<u8>> {
+    qobject::load_recent_colors()
+        .iter()
+        .filter_map(|value| color::parse_hex(&value.to_string(), true))
+        .take(color::RECENT_LIMIT)
+        .collect()
+}
+
+fn save_recent_colors(colors: &[Color<u8>]) {
+    let values = colors
+        .iter()
+        .map(|value| QString::from(color::color_hex(*value, true)))
+        .collect::<QStringList>();
+    qobject::save_recent_colors(&values);
 }
 
 #[derive(Default)]
@@ -829,6 +914,12 @@ impl qobject::TextInputBackend {
         self.mark(typo)
             .and_then(|mark| index_of(correction).and_then(|index| mark.corrections.get(index)))
             .map_or_else(QString::default, QString::from)
+    }
+
+    pub fn typo_correction_count(&self, typo: i32) -> i32 {
+        self.mark(typo)
+            .and_then(|mark| i32::try_from(mark.corrections.len()).ok())
+            .unwrap_or_default()
     }
 
     pub fn typo_start(&self, index: i32) -> i32 {
@@ -1002,6 +1093,83 @@ impl Default for ProjectSettingsBackendRust {
 
 impl cxx_qt::Initialize for qobject::ProjectSettingsBackend {
     fn initialize(self: Pin<&mut Self>) {}
+}
+
+#[derive(Default)]
+pub struct LivePerformanceBackendRust {
+    titles: QStringList,
+    subtitles: QStringList,
+}
+
+#[derive(Default)]
+pub struct LayeredPropertyBackendRust {
+    controller: layered::LayeredPropertyController,
+}
+
+impl cxx_qt::Initialize for qobject::LayeredPropertyBackend {
+    fn initialize(self: Pin<&mut Self>) {}
+}
+
+impl qobject::LayeredPropertyBackend {
+    pub fn set_modes(self: Pin<&mut Self>, keyframes: bool, expression: bool) {
+        self.rust().controller.set_keyframes(keyframes);
+        self.rust().controller.set_expression(expression);
+    }
+
+    pub fn edit_layered_value(mut self: Pin<&mut Self>, value: f64) {
+        match self.rust().controller.edit(value) {
+            layered::LayeredEdit::Base(value) => self.as_mut().base_edited(value),
+            layered::LayeredEdit::Keyframe(value) => self.as_mut().keyframe_edited(value),
+        }
+    }
+
+    pub fn edit_layered_pair(mut self: Pin<&mut Self>, first: f64, second: f64, component: i32) {
+        let component = usize::try_from(component).expect("non-negative layered value component");
+        match self
+            .rust()
+            .controller
+            .edit_component([first, second], component)
+        {
+            layered::LayeredEdit::Base(([first, second], _)) => {
+                self.as_mut().base_pair_edited(first, second);
+            }
+            layered::LayeredEdit::Keyframe(([first, second], graph_value)) => {
+                self.as_mut()
+                    .keyframe_pair_edited(first, second, graph_value);
+            }
+        }
+    }
+}
+
+impl cxx_qt::Initialize for qobject::LivePerformanceBackend {
+    fn initialize(mut self: Pin<&mut Self>) {
+        self.as_mut().refresh();
+    }
+}
+
+impl qobject::LivePerformanceBackend {
+    pub fn refresh(mut self: Pin<&mut Self>) {
+        let rows = shrimply_component_core::performance::rows();
+        self.as_mut().set_titles(
+            rows.iter()
+                .map(|row| QString::from(&row.title))
+                .collect::<QStringList>(),
+        );
+        self.as_mut().set_subtitles(
+            rows.iter()
+                .map(|row| QString::from(&row.subtitle))
+                .collect::<QStringList>(),
+        );
+    }
+
+    pub fn clear(mut self: Pin<&mut Self>) {
+        shrimply_component_core::performance::clear();
+        self.as_mut().refresh();
+    }
+
+    pub fn report_json(&self) -> QString {
+        QString::from(shrimply_component_core::performance::report_json())
+    }
 }
 
 impl qobject::ProjectSettingsBackend {
