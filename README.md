@@ -25,6 +25,7 @@ writing code:
 - Report and investigate [issues](https://github.com/soirihiroka/shrimply/issues)
 - Improve the documentation
 - Translate Shrimply's interface
+- Creating art assets (I am looking for someone to redesign the logo and some icons!)
 - Test editing workflows and project importers
 - Help other users
 
