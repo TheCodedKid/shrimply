@@ -498,6 +498,42 @@ ApplicationWindow {
     }
 
     Menu {
+        id: timelineTrackAddMenu
+        popupType: Popup.Window
+
+        Instantiator {
+            model: timelineLoader.item ? timelineLoader.item.trackAddMenuItems : []
+            delegate: DelegateChooser {
+                role: "kind"
+                DelegateChoice {
+                    roleValue: 1
+                    delegate: MenuItem {
+                        required property var modelData
+                        text: backend.translate(modelData.label)
+                        icon.source: "qrc:/qt/qml/dev/shrimply/editor/track-add-icons/" + modelData.icon + ".svg"
+                        icon.color: highlighted ? palette.highlightedText : palette.buttonText
+                        onTriggered: timelineLoader.item.activateTrackAddMenuItem(modelData.index)
+                    }
+                }
+                DelegateChoice {
+                    roleValue: 2
+                    delegate: MenuSeparator {}
+                }
+            }
+            onObjectAdded: (index, object) => timelineTrackAddMenu.insertItem(index, object)
+            onObjectRemoved: (index, object) => timelineTrackAddMenu.takeItem(index)
+        }
+    }
+
+    Item {
+        id: timelineTrackAddAnchor
+        parent: timelineLoader.item
+        width: 26
+        height: 26
+        visible: false
+    }
+
+    Menu {
         id: timelineContextMenu
         popupType: Popup.Window
 
@@ -590,6 +626,12 @@ ApplicationWindow {
             timelineContextAnchor.y = y
             timelineContextMenu.popup(timelineContextAnchor, 0, 0)
         }
+        function onTrackAddMenuRequested(x, y) {
+            timelineTrackAddAnchor.x = x
+            timelineTrackAddAnchor.y = y
+            timelineTrackAddMenu.popup(timelineTrackAddAnchor, 0, 0)
+        }
+        function onTrackImportRequested() { timelineTrackImportDialog.open() }
         function onSaveFrameRequested() {
             timelineSaveFrameDialog.open()
         }
@@ -601,6 +643,13 @@ ApplicationWindow {
             timelineDeleteTrackDialog.text = backend.translate("%1 clips are about to be deleted. Are you sure?").arg(clipCount)
             timelineDeleteTrackDialog.open()
         }
+    }
+
+    FileDialog {
+        id: timelineTrackImportDialog
+        title: backend.translate("Import to Track")
+        fileMode: FileDialog.OpenFile
+        onAccepted: timelineLoader.item.importTrackFile(selectedFile)
     }
 
     FileDialog {

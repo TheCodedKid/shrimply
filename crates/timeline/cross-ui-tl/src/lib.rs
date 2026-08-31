@@ -2,6 +2,84 @@ use shrimply_state::preferences::{self, PreferencesSnapshot, SharedPreferences};
 
 mod menu;
 pub use menu::*;
+mod track_add;
+pub use track_add::*;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum TrackAddAction {
+    Import,
+    Text,
+    Shape,
+    Paint,
+    Background,
+    Scene3d,
+    VideoGeneration,
+    TextToSpeech,
+    AudioGenerator,
+}
+
+impl TrackAddAction {
+    pub const fn label(self, kind: shrimply_timeline::TrackKind) -> &'static str {
+        match self {
+            Self::Import if matches!(kind, shrimply_timeline::TrackKind::Caption) => {
+                "Import Captions…"
+            }
+            Self::Import => "Import Media…",
+            Self::Text => "Text",
+            Self::Shape => "Shape",
+            Self::Paint => "Paint",
+            Self::Background => "Background",
+            Self::Scene3d => "3D Scene",
+            Self::VideoGeneration => "Video Generation",
+            Self::TextToSpeech => "Text to Speech",
+            Self::AudioGenerator => "Audio Generator",
+        }
+    }
+
+    pub const fn icon(self) -> &'static str {
+        match self {
+            Self::Import => "document-open-symbolic",
+            Self::Text => "draw-text-symbolic",
+            Self::Shape => "shapes-large-symbolic",
+            Self::Paint => "applications-graphics-symbolic",
+            Self::Background => "preferences-desktop-wallpaper-symbolic",
+            Self::Scene3d => "3d-object-symbolic",
+            Self::VideoGeneration => "video-generation-symbolic",
+            Self::TextToSpeech => "font-x-generic-symbolic",
+            Self::AudioGenerator => "sound-symbolic",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum TrackAddMenuEntry {
+    Action(TrackAddAction),
+    Separator,
+}
+
+pub const fn track_add_menu(kind: shrimply_timeline::TrackKind) -> &'static [TrackAddMenuEntry] {
+    use TrackAddAction::*;
+    use TrackAddMenuEntry::*;
+    match kind {
+        shrimply_timeline::TrackKind::Caption => &[Action(Import)],
+        shrimply_timeline::TrackKind::Video => &[
+            Action(Import),
+            Separator,
+            Action(Text),
+            Action(Shape),
+            Action(Paint),
+            Action(Background),
+            Action(Scene3d),
+            Action(VideoGeneration),
+        ],
+        shrimply_timeline::TrackKind::Audio => &[
+            Action(Import),
+            Separator,
+            Action(TextToSpeech),
+            Action(AudioGenerator),
+        ],
+    }
+}
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 #[repr(u8)]

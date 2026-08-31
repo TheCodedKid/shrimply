@@ -1,7 +1,7 @@
 pub use shrimply_cross_ui_tl::{
     ContextMenu, ContextMenuAction, ContextMenuControl, ContextMenuEntry, ContextMenuItem,
-    ContextMenuRequest, CursorTool, DragCollisionMode, TIMELINE_CLIPBOARD_MARKER,
-    VideoFrameSelection,
+    ContextMenuRequest, CursorTool, DragCollisionMode, TIMELINE_CLIPBOARD_MARKER, TrackAddAction,
+    TrackAddMenuEntry, VideoFrameSelection,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -9,6 +9,30 @@ pub enum MenuEntry {
     Separator,
     Action(ContextMenuItem),
     Control(ContextMenuControl),
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct TrackAddMenuModel {
+    entries: Vec<TrackAddMenuEntry>,
+}
+
+impl TrackAddMenuModel {
+    pub fn new(kind: shrimply_timeline::TrackKind) -> Self {
+        Self {
+            entries: shrimply_cross_ui_tl::track_add_menu(kind).to_vec(),
+        }
+    }
+
+    pub fn entries(&self) -> &[TrackAddMenuEntry] {
+        &self.entries
+    }
+
+    pub fn action(&self, index: usize) -> Option<TrackAddAction> {
+        match self.entries.get(index) {
+            Some(TrackAddMenuEntry::Action(action)) => Some(*action),
+            Some(TrackAddMenuEntry::Separator) | None => None,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]

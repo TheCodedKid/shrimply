@@ -402,14 +402,20 @@ fn finish_track_import(
     selection_state: &SharedSelectionState,
     result: Result<(import::ImportResult, Time), String>,
 ) {
-    let (result, duration) = match result {
-        Ok(result) => result,
-        Err(error) => {
-            show_error_dialog(area, "Could not import file", &error);
-            return;
-        }
-    };
+    if let Err(error) = finish_track_import_core(project, player_state, selection_state, result) {
+        show_error_dialog(area, "Could not import file", &error);
+        return;
+    }
+    area.queue_render();
+}
 
+pub(crate) fn finish_track_import_core(
+    project: &Rc<RefCell<Project>>,
+    player_state: &SharedPlayerState,
+    selection_state: &SharedSelectionState,
+    result: Result<(import::ImportResult, Time), String>,
+) -> Result<(), String> {
+    let (result, duration) = result?;
     let project = project.borrow();
     let focused_item = result.selection.first().copied();
     set_timeline_selection(&project, selection_state, result.selection, focused_item);
@@ -427,7 +433,7 @@ fn finish_track_import(
             inspector: true,
         },
     );
-    area.queue_render();
+    Ok(())
 }
 
 #[allow(clippy::too_many_arguments)]

@@ -48,7 +48,8 @@ use shrimply_cross_ui_theme as theme;
 pub use shrimply_cross_ui_tl::{
     ContextItemKind, ContextMenu, ContextMenuAction, ContextMenuControl, ContextMenuEntry,
     ContextMenuItem, ContextMenuRequest, CursorTool, DragCollisionMode, FoldedItemMenuContext,
-    ItemMenuContext, TimelineTools, ToolState, TrackMenuContext, VideoFrameSelection,
+    ItemMenuContext, TimelineTools, ToolState, TrackAddAction, TrackAddMenuEntry, TrackMenuContext,
+    VideoFrameSelection, track_add_menu,
 };
 use shrimply_timeline::{TrackGap, TrackKey};
 
@@ -86,8 +87,6 @@ use drawing::{
 use frame::timeline_ui;
 use geometry::*;
 use recording::{
-    create_audio_generator_item_at_playhead, create_generated_item_at_playhead,
-    create_tts_item_at_playhead, create_video_generation_item_at_playhead,
     ensure_recording_duration, finish_audio_recording, handle_audio_recording,
     handle_video_recording, live_recording_draw,
 };
@@ -175,6 +174,21 @@ pub struct RenderedVideoFrame {
     pub pixels: Vec<u8>,
 }
 
+#[derive(Clone, Copy, Debug)]
+pub struct TrackAddMenuPresentation {
+    pub kind: TrackKind,
+    pub x: f32,
+    pub y: f32,
+}
+
+struct PendingTrackImport {
+    subscription:
+        shrimply_resource_pipeline::Subscription<import::InspectionKey, (), import::MediaInfo>,
+    kind: TrackKind,
+    track_indices: Vec<usize>,
+    start: Time,
+}
+
 pub struct ToolkitTimeline {
     project: Rc<RefCell<Project>>,
     player_state: SharedPlayerState,
@@ -187,6 +201,10 @@ pub struct ToolkitTimeline {
     context_item: Option<crate::project::ItemAddress>,
     context_file_path: Option<PathBuf>,
     context_new_track_at_top: Option<bool>,
+    track_add_request: Option<TrackAddMenuRequest>,
+    track_add_presentation: Option<TrackAddMenuPresentation>,
+    pending_track_import: Option<PendingTrackImport>,
+    track_import_error: Option<String>,
     runtime: Rc<RefCell<TimelineRuntime>>,
     waveform: Option<setup::WaveformSubscription>,
     beats: Option<setup::BeatSubscription>,
@@ -241,6 +259,10 @@ impl ToolkitTimeline {
             context_item: None,
             context_file_path: None,
             context_new_track_at_top: None,
+            track_add_request: None,
+            track_add_presentation: None,
+            pending_track_import: None,
+            track_import_error: None,
             runtime,
             waveform: Some(waveform),
             beats: Some(beats),
@@ -257,6 +279,7 @@ impl ToolkitTimeline {
         pixels_per_point: f32,
         accent_color: Color,
     ) -> Result<(), String> {
+        self.poll_track_import();
         let logical_width = f64::from(width) / f64::from(pixels_per_point);
         let logical_height = f64::from(height) / f64::from(pixels_per_point);
         self.pointer_lock_bounds = Some(Rect::from_min_max(
@@ -290,7 +313,9 @@ impl ToolkitTimeline {
         runtime.renderer.end_frame()?;
         let pending_track_toggle = runtime.pending_track_toggle.take();
         let pending_sequence_toggle = runtime.pending_sequence_toggle.take();
+        let pending_track_add_menu = runtime.pending_track_add_menu.take();
         let pending_pause_playback = std::mem::take(&mut runtime.pending_pause_playback);
+        let view = runtime.view;
         drop(runtime);
         if pending_pause_playback {
             player_state::set_playing(&self.player_state, false);
@@ -301,7 +326,172 @@ impl ToolkitTimeline {
         if let Some(path) = pending_sequence_toggle {
             self.toggle_sequence(path);
         }
+        if let Some(request) = pending_track_add_menu {
+            let row = items::row_for_track(
+                &self.project.borrow(),
+                request.key.kind,
+                request.key.track_index,
+            )
+            .expect("add menu track must exist");
+            self.track_add_presentation = Some(TrackAddMenuPresentation {
+                kind: request.key.kind,
+                x: TRACK_LABEL_ADD_X as f32,
+                y: track_label_button_y(row_screen_y(row, view)) as f32,
+            });
+            self.track_add_request = Some(request);
+        }
         Ok(())
+    }
+
+    pub fn take_track_add_menu(&mut self) -> Option<TrackAddMenuPresentation> {
+        self.track_add_presentation.take()
+    }
+
+    pub fn activate_track_add_action(&mut self, action: TrackAddAction) -> bool {
+        let Some(request) = self.track_add_request.as_ref() else {
+            return false;
+        };
+        let runtime = self.runtime.borrow();
+        let default_text_font_family = runtime.default_text_font_family.clone();
+        let settings = shrimply_cross_ui_tl::TrackAddSettings {
+            default_visual_duration: runtime.default_visual_duration,
+            default_text_font_family: &default_text_font_family,
+        };
+        drop(runtime);
+        shrimply_cross_ui_tl::activate_track_add(
+            &self.project,
+            &self.player_state,
+            &self.selection_state,
+            request.key,
+            action,
+            settings,
+        ) != shrimply_cross_ui_tl::TrackAddOutcome::Unchanged
+    }
+
+    pub fn import_track_file(&mut self, path: PathBuf) -> Result<(), String> {
+        let request = self
+            .track_add_request
+            .as_ref()
+            .ok_or_else(|| "track add menu is no longer active".to_string())?;
+        if request.import_targets.is_empty() {
+            return Err("no import tracks were selected".to_string());
+        }
+        let kind = request.import_targets[0].kind;
+        if !request
+            .import_targets
+            .iter()
+            .all(|target| target.kind == kind)
+        {
+            return Err("selected tracks must have the same type".to_string());
+        }
+        let track_indices = request
+            .import_targets
+            .iter()
+            .map(|target| target.track_index)
+            .collect::<Vec<_>>();
+        let file_kind =
+            import::file_kind(&path).ok_or_else(|| "unsupported file type".to_string())?;
+        let start = player_state::snapshot(&self.player_state).position;
+
+        if import::direct_media_kind(file_kind) && kind != TrackKind::Caption {
+            let project = self.project.borrow();
+            let runtime = self.runtime.borrow();
+            self.pending_track_import = Some(PendingTrackImport {
+                subscription: import::request_inspection(
+                    path,
+                    project.canvas_size,
+                    runtime.default_visual_duration,
+                ),
+                kind,
+                track_indices,
+                start,
+            });
+            return Ok(());
+        }
+
+        let result = if file_kind == import::FileKind::Vtt {
+            if kind != TrackKind::Caption {
+                Err("VTT files can only be imported to caption tracks".to_string())
+            } else {
+                let mut project = self.project.borrow_mut();
+                let result =
+                    import::apply_vtt_to_tracks(&mut project, &path, &track_indices, start);
+                if result.is_ok() {
+                    crate::project::commit_edit(&project, "import-vtt");
+                }
+                result.map(|result| (result, project.duration()))
+            }
+        } else if kind == TrackKind::Caption {
+            Err("only VTT files can be imported to caption tracks".to_string())
+        } else {
+            Err("MKV and WebM need to be remuxed before track import".to_string())
+        };
+        interaction::finish_track_import_core(
+            &self.project,
+            &self.player_state,
+            &self.selection_state,
+            result,
+        )
+    }
+
+    pub fn take_track_import_error(&mut self) -> Option<String> {
+        self.track_import_error.take()
+    }
+
+    fn poll_track_import(&mut self) {
+        let event = match self.pending_track_import.as_mut() {
+            Some(pending) => pending.subscription.try_next(),
+            None => return,
+        };
+        let result = match event {
+            shrimply_resource_pipeline::TryNext::Event(
+                shrimply_resource_pipeline::Event::Finished(info),
+            ) => {
+                let pending = self
+                    .pending_track_import
+                    .take()
+                    .expect("finished track import must exist");
+                info.snapshot.ensure_current().and_then(|()| {
+                    let mut project = self.project.borrow_mut();
+                    let result = import::apply_media_to_tracks(
+                        &mut project,
+                        &info,
+                        pending.kind,
+                        &pending.track_indices,
+                        pending.start,
+                    );
+                    if result.is_ok() {
+                        crate::project::commit_edit(&project, "import-media-to-tracks");
+                    }
+                    result.map(|result| (result, project.duration()))
+                })
+            }
+            shrimply_resource_pipeline::TryNext::Event(
+                shrimply_resource_pipeline::Event::Failed(error),
+            ) => {
+                self.pending_track_import = None;
+                Err(error.to_string())
+            }
+            shrimply_resource_pipeline::TryNext::Event(
+                shrimply_resource_pipeline::Event::Cancelled,
+            )
+            | shrimply_resource_pipeline::TryNext::Closed => {
+                self.pending_track_import = None;
+                return;
+            }
+            shrimply_resource_pipeline::TryNext::Event(
+                shrimply_resource_pipeline::Event::Progress(_),
+            )
+            | shrimply_resource_pipeline::TryNext::Empty => return,
+        };
+        if let Err(error) = interaction::finish_track_import_core(
+            &self.project,
+            &self.player_state,
+            &self.selection_state,
+            result,
+        ) {
+            self.track_import_error = Some(error);
+        }
     }
 
     fn poll_pointer_lock(&mut self) {

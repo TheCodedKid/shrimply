@@ -211,15 +211,6 @@ pub(super) struct TrackAddMenuRequest {
     pub(super) import_targets: Vec<TrackKey>,
 }
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub(crate) enum GeneratedItemKind {
-    Text,
-    Shape,
-    Paint,
-    Background,
-    Scene3d,
-}
-
 pub(super) struct ActiveAudioRecording {
     pub(super) key: TrackKey,
     pub(super) start: Time,

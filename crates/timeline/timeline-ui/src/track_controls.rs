@@ -286,40 +286,20 @@ pub(super) fn show_track_add_menu(
         .position(gtk::PositionType::Bottom)
         .build();
     let menu = gtk::Box::new(gtk::Orientation::Vertical, 0);
-    append_add_menu_item_i18n(
-        &menu,
-        &popover,
-        if key.kind == TrackKind::Caption {
-            "Import Captions…"
-        } else {
-            "Import Media…"
-        },
-        "document-open-symbolic",
-        {
-            let context = context.clone();
-            move || {
-                interaction::open_track_import_dialog(
-                    &context.area,
-                    &context.project,
-                    &context.player_state,
-                    &context.selection_state,
-                    &context.runtime,
-                    import_targets.clone(),
-                )
-            }
-        },
-    );
-
-    match key.kind {
-        TrackKind::Video => {
+    for entry in track_add_menu(key.kind) {
+        let TrackAddMenuEntry::Action(action) = entry else {
             menu.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
-            add_video_items_to_menu(&menu, &popover, &context, key);
-        }
-        TrackKind::Audio => {
-            menu.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
-            add_audio_items_to_menu(&menu, &popover, &context, key);
-        }
-        TrackKind::Caption => {}
+            continue;
+        };
+        let context = context.clone();
+        let import_targets = import_targets.clone();
+        append_add_menu_item_i18n(
+            &menu,
+            &popover,
+            action.label(key.kind),
+            action.icon(),
+            move || activate_track_add_action(&context, key, &import_targets, *action),
+        );
     }
     popover.set_child(Some(&menu));
 
@@ -346,101 +326,41 @@ pub(super) fn show_track_add_menu(
     runtime.borrow_mut().active_context_menu = Some(popover);
 }
 
-fn add_video_items_to_menu(
-    menu: &gtk::Box,
-    popover: &gtk::Popover,
+fn activate_track_add_action(
     context: &TrackAddContext,
     key: TrackKey,
+    import_targets: &[TrackKey],
+    action: TrackAddAction,
 ) {
-    for (label, icon, kind) in [
-        ("Text", "draw-text-symbolic", GeneratedItemKind::Text),
-        ("Shape", "shapes-large-symbolic", GeneratedItemKind::Shape),
-        (
-            "Paint",
-            "applications-graphics-symbolic",
-            GeneratedItemKind::Paint,
-        ),
-        (
-            "Background",
-            "preferences-desktop-wallpaper-symbolic",
-            GeneratedItemKind::Background,
-        ),
-        ("3D Scene", "3d-object-symbolic", GeneratedItemKind::Scene3d),
-    ] {
-        append_add_menu_item_i18n(menu, popover, label, icon, {
-            let context = context.clone();
-            move || {
-                create_generated_item_at_playhead(
-                    &context.area,
-                    &context.project,
-                    &context.player_state,
-                    &context.selection_state,
-                    &context.runtime,
-                    key,
-                    kind,
-                )
-            }
-        });
+    if action == TrackAddAction::Import {
+        interaction::open_track_import_dialog(
+            &context.area,
+            &context.project,
+            &context.player_state,
+            &context.selection_state,
+            &context.runtime,
+            import_targets.to_vec(),
+        );
+        return;
     }
-    append_add_menu_item_i18n(
-        menu,
-        popover,
-        "Video Generation",
-        "video-generation-symbolic",
-        {
-            let context = context.clone();
-            move || {
-                create_video_generation_item_at_playhead(
-                    &context.area,
-                    &context.project,
-                    &context.player_state,
-                    &context.selection_state,
-                    &context.runtime,
-                    key,
-                )
-            }
-        },
-    );
-}
-
-fn add_audio_items_to_menu(
-    menu: &gtk::Box,
-    popover: &gtk::Popover,
-    context: &TrackAddContext,
-    key: TrackKey,
-) {
-    append_add_menu_item_i18n(
-        menu,
-        popover,
-        "Text to Speech",
-        "font-x-generic-symbolic",
-        {
-            let context = context.clone();
-            move || {
-                create_tts_item_at_playhead(
-                    &context.area,
-                    &context.project,
-                    &context.player_state,
-                    &context.selection_state,
-                    &context.runtime,
-                    key,
-                )
-            }
-        },
-    );
-    append_add_menu_item_i18n(menu, popover, "Audio Generator", "sound-symbolic", {
-        let context = context.clone();
-        move || {
-            create_audio_generator_item_at_playhead(
-                &context.area,
-                &context.project,
-                &context.player_state,
-                &context.selection_state,
-                &context.runtime,
-                key,
-            )
-        }
-    });
+    let runtime = context.runtime.borrow();
+    let default_text_font_family = runtime.default_text_font_family.clone();
+    let settings = shrimply_cross_ui_tl::TrackAddSettings {
+        default_visual_duration: runtime.default_visual_duration,
+        default_text_font_family: &default_text_font_family,
+    };
+    drop(runtime);
+    if shrimply_cross_ui_tl::activate_track_add(
+        &context.project,
+        &context.player_state,
+        &context.selection_state,
+        key,
+        action,
+        settings,
+    ) == shrimply_cross_ui_tl::TrackAddOutcome::Changed
+    {
+        context.area.queue_render();
+    }
 }
 
 fn append_add_menu_item_i18n(

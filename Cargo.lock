@@ -5438,8 +5438,10 @@ dependencies = [
 name = "shrimply-cross-ui-tl"
 version = "0.1.0"
 dependencies = [
+ "shrimply-core",
  "shrimply-project",
  "shrimply-state",
+ "shrimply-timeline",
 ]
 
 [[package]]
@@ -6164,6 +6166,7 @@ dependencies = [
  "shrimply-project",
  "shrimply-skia-adw-ui",
  "shrimply-state",
+ "shrimply-timeline",
  "shrimply-timeline-qt",
  "shrimply-timeline-ui",
  "shrimply-video",
@@ -6458,6 +6461,7 @@ name = "shrimply-timeline-qt"
 version = "0.1.0"
 dependencies = [
  "shrimply-cross-ui-tl",
+ "shrimply-timeline",
 ]
 
 [[package]]

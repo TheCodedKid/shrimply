@@ -21,6 +21,7 @@ class TimelineSurface : public QQuickFramebufferObject {
     Q_PROPERTY(bool blockMode READ blockMode NOTIFY dragCollisionModeChanged)
     Q_PROPERTY(bool newTrackMode READ newTrackMode NOTIFY dragCollisionModeChanged)
     Q_PROPERTY(QVariantList contextMenuItems READ contextMenuItems NOTIFY contextMenuItemsChanged)
+    Q_PROPERTY(QVariantList trackAddMenuItems READ trackAddMenuItems NOTIFY trackAddMenuItemsChanged)
 
 public:
     explicit TimelineSurface(QQuickItem *parent = nullptr);
@@ -38,7 +39,10 @@ public:
     Q_INVOKABLE void selectBlockMode();
     Q_INVOKABLE void selectNewTrackMode();
     QVariantList contextMenuItems() const;
+    QVariantList trackAddMenuItems() const;
     Q_INVOKABLE void activateContextMenuItem(int index);
+    Q_INVOKABLE void activateTrackAddMenuItem(int index);
+    Q_INVOKABLE void importTrackFile(const QUrl &url);
     Q_INVOKABLE void setContextMenuControl(int index, qreal value);
     Q_INVOKABLE void saveContextFrame(const QUrl &url);
     Q_INVOKABLE void deleteContextFoldedTrack();
@@ -50,9 +54,16 @@ signals:
     void dragCollisionModeChanged();
     void contextMenuItemsChanged();
     void contextMenuRequested(qreal x, qreal y);
+    void trackAddMenuItemsChanged();
+    void trackAddMenuRequested(qreal x, qreal y);
+    void trackImportRequested();
     void saveFrameRequested();
     void contextActionFailed(const QString &message);
     void deleteTrackRequested(int clipCount);
+
+public slots:
+    void presentTrackAddMenu();
+    void presentTimelineError();
 
 protected:
     void hoverMoveEvent(QHoverEvent *event) override;

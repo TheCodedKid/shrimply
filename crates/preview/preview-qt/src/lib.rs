@@ -30,10 +30,17 @@ use shrimply_timeline_ui::{
     RenderedVideoFrame, ToolkitAudioMeter, ToolkitPointerButton, ToolkitTimeline,
 };
 use std::ffi::c_void;
+use std::path::PathBuf;
 
 struct Surfaces {
     timeline: ToolkitTimeline,
     timeline_menu: shrimply_timeline_qt::MenuModel,
+    track_add_menu: shrimply_timeline_qt::TrackAddMenuModel,
+    track_add_kind: shrimply_timeline::TrackKind,
+    track_add_x: f32,
+    track_add_y: f32,
+    track_add_pending: bool,
+    timeline_error_pending: bool,
     context_frame: Option<RenderedVideoFrame>,
     context_open_path: String,
     context_delete_clip_count: usize,
@@ -71,6 +78,12 @@ pub fn install(session: &EditorSession) -> Result<(), String> {
         *surfaces = Some(Surfaces {
             timeline,
             timeline_menu: shrimply_timeline_qt::MenuModel::default(),
+            track_add_menu: shrimply_timeline_qt::TrackAddMenuModel::default(),
+            track_add_kind: shrimply_timeline::TrackKind::Video,
+            track_add_x: 0.0,
+            track_add_y: 0.0,
+            track_add_pending: false,
+            timeline_error_pending: false,
             context_frame: None,
             context_open_path: String::new(),
             context_delete_clip_count: 0,
@@ -172,12 +185,165 @@ pub extern "C" fn shrimply_qt_render_timeline(
         let Some(surfaces) = surfaces.as_mut() else {
             return missing("timeline");
         };
-        render(
+        let result =
             surfaces
                 .timeline
-                .render(width, height, scale, Color::new(red, green, blue, alpha)),
-            "timeline",
-        )
+                .render(width, height, scale, Color::new(red, green, blue, alpha));
+        if result.is_ok()
+            && let Some(presentation) = surfaces.timeline.take_track_add_menu()
+        {
+            surfaces.track_add_menu =
+                shrimply_timeline_qt::TrackAddMenuModel::new(presentation.kind);
+            surfaces.track_add_kind = presentation.kind;
+            surfaces.track_add_x = presentation.x;
+            surfaces.track_add_y = presentation.y;
+            surfaces.track_add_pending = true;
+        }
+        if let Some(error) = surfaces.timeline.take_track_import_error() {
+            surfaces.context_action_error = error;
+            surfaces.timeline_error_pending = true;
+        }
+        render(result, "timeline")
+    })
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn shrimply_qt_timeline_take_error() -> bool {
+    SURFACES.with_borrow_mut(|surfaces| {
+        let Some(surfaces) = surfaces.as_mut() else {
+            return false;
+        };
+        std::mem::take(&mut surfaces.timeline_error_pending)
+    })
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn shrimply_qt_timeline_take_track_add_menu() -> bool {
+    SURFACES.with_borrow_mut(|surfaces| {
+        let Some(surfaces) = surfaces.as_mut() else {
+            return false;
+        };
+        std::mem::take(&mut surfaces.track_add_pending)
+    })
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn shrimply_qt_timeline_track_add_menu_x() -> f32 {
+    SURFACES.with_borrow(|surfaces| {
+        surfaces
+            .as_ref()
+            .map_or(0.0, |surfaces| surfaces.track_add_x)
+    })
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn shrimply_qt_timeline_track_add_menu_y() -> f32 {
+    SURFACES.with_borrow(|surfaces| {
+        surfaces
+            .as_ref()
+            .map_or(0.0, |surfaces| surfaces.track_add_y)
+    })
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn shrimply_qt_timeline_track_add_menu_count() -> usize {
+    SURFACES.with_borrow(|surfaces| {
+        surfaces
+            .as_ref()
+            .map_or(0, |surfaces| surfaces.track_add_menu.entries().len())
+    })
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn shrimply_qt_timeline_track_add_menu_kind(index: usize) -> u8 {
+    SURFACES.with_borrow(|surfaces| {
+        surfaces
+            .as_ref()
+            .and_then(|surfaces| surfaces.track_add_menu.entries().get(index))
+            .map_or(0, |entry| match entry {
+                shrimply_timeline_qt::TrackAddMenuEntry::Action(_) => 1,
+                shrimply_timeline_qt::TrackAddMenuEntry::Separator => 2,
+            })
+    })
+}
+
+fn write_track_add_text(index: usize, output: *mut u8, capacity: usize, icon: bool) -> usize {
+    let text = SURFACES.with_borrow(|surfaces| {
+        let Some(surfaces) = surfaces.as_ref() else {
+            return "";
+        };
+        match surfaces.track_add_menu.entries().get(index) {
+            Some(shrimply_timeline_qt::TrackAddMenuEntry::Action(action)) if icon => action.icon(),
+            Some(shrimply_timeline_qt::TrackAddMenuEntry::Action(action)) => {
+                action.label(surfaces.track_add_kind)
+            }
+            Some(shrimply_timeline_qt::TrackAddMenuEntry::Separator) | None => "",
+        }
+    });
+    let bytes = text.as_bytes();
+    if capacity > 0 {
+        let length = bytes.len().min(capacity - 1);
+        unsafe {
+            std::ptr::copy_nonoverlapping(bytes.as_ptr(), output, length);
+            output.add(length).write(0);
+        }
+    }
+    bytes.len()
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn shrimply_qt_timeline_track_add_menu_label(
+    index: usize,
+    output: *mut u8,
+    capacity: usize,
+) -> usize {
+    write_track_add_text(index, output, capacity, false)
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn shrimply_qt_timeline_track_add_menu_icon(
+    index: usize,
+    output: *mut u8,
+    capacity: usize,
+) -> usize {
+    write_track_add_text(index, output, capacity, true)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn shrimply_qt_timeline_activate_track_add_menu_item(index: usize) -> bool {
+    SURFACES.with_borrow_mut(|surfaces| {
+        let Some(surfaces) = surfaces.as_mut() else {
+            return false;
+        };
+        let Some(action) = surfaces.track_add_menu.action(index) else {
+            return false;
+        };
+        surfaces.timeline.activate_track_add_action(action)
+            && action == shrimply_timeline_qt::TrackAddAction::Import
+    })
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn shrimply_qt_timeline_import_track_file(
+    path: *const u8,
+    length: usize,
+) -> bool {
+    let path = unsafe { std::slice::from_raw_parts(path, length) };
+    let path = String::from_utf8_lossy(path);
+    SURFACES.with_borrow_mut(|surfaces| {
+        let Some(surfaces) = surfaces.as_mut() else {
+            return false;
+        };
+        match surfaces
+            .timeline
+            .import_track_file(PathBuf::from(path.as_ref()))
+        {
+            Ok(()) => true,
+            Err(error) => {
+                surfaces.context_action_error = error;
+                false
+            }
+        }
     })
 }
 

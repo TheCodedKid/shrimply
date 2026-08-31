@@ -11,6 +11,7 @@
 #include <QIcon>
 #include <QImage>
 #include <QMouseEvent>
+#include <QPointer>
 #include <QOpenGLFramebufferObject>
 #include <QOpenGLFramebufferObjectFormat>
 #include <QPalette>
@@ -68,6 +69,21 @@ extern "C" void shrimply_qt_timeline_pointer_press(std::uint8_t button, float x,
 extern "C" void shrimply_qt_timeline_pointer_release(std::uint8_t button, float x, float y,
                                                        bool control, bool shift);
 extern "C" void shrimply_qt_timeline_scroll(float dx, float dy, bool control, bool shift);
+extern "C" bool shrimply_qt_timeline_take_track_add_menu();
+extern "C" bool shrimply_qt_timeline_take_error();
+extern "C" float shrimply_qt_timeline_track_add_menu_x();
+extern "C" float shrimply_qt_timeline_track_add_menu_y();
+extern "C" std::size_t shrimply_qt_timeline_track_add_menu_count();
+extern "C" std::uint8_t shrimply_qt_timeline_track_add_menu_kind(std::size_t index);
+extern "C" std::size_t shrimply_qt_timeline_track_add_menu_label(std::size_t index,
+                                                                   std::uint8_t *output,
+                                                                   std::size_t capacity);
+extern "C" std::size_t shrimply_qt_timeline_track_add_menu_icon(std::size_t index,
+                                                                  std::uint8_t *output,
+                                                                  std::size_t capacity);
+extern "C" bool shrimply_qt_timeline_activate_track_add_menu_item(std::size_t index);
+extern "C" bool shrimply_qt_timeline_import_track_file(const std::uint8_t *path,
+                                                          std::size_t length);
 extern "C" std::size_t shrimply_qt_timeline_prepare_context_menu(float x, float y);
 extern "C" std::size_t shrimply_qt_timeline_context_menu_label(std::size_t index,
                                                                  std::uint8_t *output,
@@ -202,6 +218,7 @@ public:
     }
 
     void synchronize(QQuickFramebufferObject *item) override {
+        surface_ = static_cast<shrimply::TimelineSurface *>(item);
         scale_ = item->window() ? item->window()->effectiveDevicePixelRatio() : 1.0f;
     }
 
@@ -217,11 +234,34 @@ public:
                 dark_palette())) {
             qFatal("Shrimply could not render the timeline with OpenGL");
         }
+        if (shrimply_qt_timeline_take_track_add_menu()) {
+            const QPointer<shrimply::TimelineSurface> surface = surface_;
+            QMetaObject::invokeMethod(
+                surface_,
+                [surface]() {
+                    if (surface) {
+                        surface->presentTrackAddMenu();
+                    }
+                },
+                Qt::QueuedConnection);
+        }
+        if (shrimply_qt_timeline_take_error()) {
+            const QPointer<shrimply::TimelineSurface> surface = surface_;
+            QMetaObject::invokeMethod(
+                surface_,
+                [surface]() {
+                    if (surface) {
+                        surface->presentTimelineError();
+                    }
+                },
+                Qt::QueuedConnection);
+        }
         QQuickOpenGLUtils::resetOpenGLState();
         update();
     }
 
 private:
+    QPointer<shrimply::TimelineSurface> surface_;
     float scale_ = 1.0f;
 };
 
@@ -455,6 +495,57 @@ QVariantList TimelineSurface::contextMenuItems() const {
         items.append(item);
     }
     return items;
+}
+
+QVariantList TimelineSurface::trackAddMenuItems() const {
+    QVariantList items;
+    const std::size_t count = shrimply_qt_timeline_track_add_menu_count();
+    for (std::size_t index = 0; index < count; ++index) {
+        QVariantMap item;
+        item.insert(QStringLiteral("index"), static_cast<qulonglong>(index));
+        item.insert(QStringLiteral("kind"), shrimply_qt_timeline_track_add_menu_kind(index));
+        std::uint8_t label[256];
+        shrimply_qt_timeline_track_add_menu_label(index, label, sizeof(label));
+        item.insert(QStringLiteral("label"),
+                    QString::fromUtf8(reinterpret_cast<const char *>(label)));
+        std::uint8_t icon[256];
+        shrimply_qt_timeline_track_add_menu_icon(index, icon, sizeof(icon));
+        item.insert(QStringLiteral("icon"),
+                    QString::fromUtf8(reinterpret_cast<const char *>(icon)));
+        items.append(item);
+    }
+    return items;
+}
+
+void TimelineSurface::presentTrackAddMenu() {
+    emit trackAddMenuItemsChanged();
+    emit trackAddMenuRequested(shrimply_qt_timeline_track_add_menu_x(),
+                               shrimply_qt_timeline_track_add_menu_y());
+}
+
+void TimelineSurface::presentTimelineError() {
+    emit contextActionFailed(context_action_error());
+}
+
+void TimelineSurface::activateTrackAddMenuItem(int index) {
+    if (index < 0 || index >= trackAddMenuItems().size()) {
+        return;
+    }
+    if (shrimply_qt_timeline_activate_track_add_menu_item(static_cast<std::size_t>(index))) {
+        emit trackImportRequested();
+    }
+    update();
+}
+
+void TimelineSurface::importTrackFile(const QUrl &url) {
+    const QByteArray path = url.toLocalFile().toUtf8();
+    if (path.isEmpty() ||
+        !shrimply_qt_timeline_import_track_file(
+            reinterpret_cast<const std::uint8_t *>(path.constData()),
+            static_cast<std::size_t>(path.size()))) {
+        emit contextActionFailed(context_action_error());
+    }
+    update();
 }
 
 void TimelineSurface::setContextMenuControl(int index, qreal value) {

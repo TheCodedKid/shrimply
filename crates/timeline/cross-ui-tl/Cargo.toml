@@ -4,5 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+shrimply-core = { path = "../../core" }
 shrimply-project = { path = "../../project/project" }
 shrimply-state = { path = "../../state" }
+shrimply-timeline = { path = "../timeline" }
