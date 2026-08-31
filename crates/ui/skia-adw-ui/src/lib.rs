@@ -7,10 +7,14 @@ use skia_safe::{
 };
 
 pub mod button;
+pub mod canvas;
 pub mod cursor;
 pub mod font_grid;
+pub mod gl_loader;
 pub mod icon;
 pub mod math;
+pub mod skia_font;
+pub mod skia_system_font;
 pub mod slider;
 pub mod spinner;
 pub mod theme;

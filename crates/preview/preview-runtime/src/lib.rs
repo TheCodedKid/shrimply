@@ -1,0 +1,75 @@
+use std::cell::{Cell, RefCell};
+use std::rc::Rc;
+use std::sync::Arc;
+use std::time::{Duration, Instant};
+
+pub use shrimply_audio as audio;
+pub use shrimply_math_color::Color;
+pub use shrimply_project::{caption, project, time_format};
+pub use shrimply_skia_adw_ui::gl_loader;
+pub use shrimply_state::player_state;
+pub use shrimply_video as video;
+
+use player_state::SharedPlayerState;
+use preferences::store as preferences_store;
+use project::{Project, Time};
+use shrimply_playback_performance as playback_performance;
+use video::compositor::{
+    self, CompositeAccuracy, RenderResourceConfig, VideoCommand, VideoCommandSender, VideoEvent,
+};
+
+pub mod captions;
+mod cuda_gl;
+pub mod geometry;
+pub mod guides;
+mod media;
+pub mod renderer;
+
+pub use media::{PreviewMedia, PreviewMediaUpdate, StepDirection};
+
+pub mod preferences {
+    pub use shrimply_state::preferences as store;
+}
+
+pub mod timeline {
+    pub use shrimply_skia_adw_ui::canvas as renderer;
+}
+
+pub fn background_color(window_color: Color, fullscreen: bool) -> Color {
+    if fullscreen {
+        Color::BLACK
+    } else {
+        window_color
+    }
+}
+
+pub fn playback_time_label(position: Time, duration: Time) -> String {
+    format!(
+        "{} / {}",
+        time_format::playback_time(position),
+        time_format::playback_time(duration)
+    )
+}
+
+pub fn playback_speed_label(speed: shrimply_math_core::Fraction) -> String {
+    use shrimply_math_core::{fraction_denominator, fraction_numerator};
+    if fraction_denominator(speed) == 1 {
+        format!("x{}", fraction_numerator(speed))
+    } else {
+        format!(
+            "x{}/{}",
+            fraction_numerator(speed),
+            fraction_denominator(speed)
+        )
+    }
+}
+
+pub fn rendered_frame_rate_label(render_elapsed: Duration) -> Option<String> {
+    use shrimply_math_core::{fraction_round_nonnegative_u64, frame_rate_from_duration};
+    const MAX_DISPLAYED_FRAME_RATE: u64 = 999;
+    frame_rate_from_duration(render_elapsed).map(|frame_rate| {
+        fraction_round_nonnegative_u64(frame_rate)
+            .min(MAX_DISPLAYED_FRAME_RATE)
+            .to_string()
+    })
+}

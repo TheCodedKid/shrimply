@@ -16,8 +16,28 @@ ApplicationWindow {
     title: backend.projectTitle
     property bool inspectorVisible: true
     property bool timelineVisible: true
+    property bool fullscreenPreview: false
+    property int visibilityBeforeFullscreen: Window.Windowed
     property string destinationTitle
     property string destinationName
+
+    function setPreviewFullscreen(fullscreen) {
+        if (fullscreen === fullscreenPreview)
+            return
+        if (fullscreen) {
+            visibilityBeforeFullscreen = visibility === Window.FullScreen ? Window.Windowed : visibility
+            fullscreenPreview = true
+            visibility = Window.FullScreen
+        } else {
+            fullscreenPreview = false
+            visibility = visibilityBeforeFullscreen
+        }
+    }
+
+    onVisibilityChanged: {
+        if (fullscreenPreview && visibility !== Window.FullScreen)
+            fullscreenPreview = false
+    }
 
     EditorBackend {
         id: backend
@@ -64,7 +84,7 @@ ApplicationWindow {
     }
 
     menuBar: MenuBar {
-        visible: backend.ready
+        visible: backend.ready && !window.fullscreenPreview
 
         Menu {
             title: qsTr("Project")
@@ -134,7 +154,13 @@ ApplicationWindow {
                     })
                 }
             }
-            Action { text: qsTr("Fullscreen Preview"); shortcut: "F11" }
+            Action {
+                text: qsTr("Fullscreen Preview")
+                shortcut: "F11"
+                checkable: true
+                Binding on checked { value: window.fullscreenPreview }
+                onTriggered: window.setPreviewFullscreen(!window.fullscreenPreview)
+            }
         }
 
         Menu {
@@ -191,7 +217,7 @@ ApplicationWindow {
 
                 Pane {
                     id: inspectorPane
-                    visible: window.inspectorVisible
+                    visible: window.inspectorVisible && !window.fullscreenPreview
                     SplitView.preferredWidth: 320
                     SplitView.minimumWidth: 260
 
@@ -220,36 +246,60 @@ ApplicationWindow {
                         spacing: 0
 
                         ToolBar {
+                            id: previewToolbar
+                            visible: !window.fullscreenPreview
+
                             Layout.fillHeight: true
                             Layout.preferredWidth: 44
 
                             ColumnLayout {
+                                id: previewToolColumn
+
+                                readonly property int statusTextPixelSize: Math.round(Qt.application.font.pixelSize * 0.75)
+
                                 anchors.top: parent.top
-                                anchors.horizontalCenter: parent.horizontalCenter
-                                ToolButton { icon.name: "task-complete"; text: qsTr("Ready"); display: AbstractButton.IconOnly; enabled: false }
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                ToolButton {
+                                    id: previewStatusButton
+                                    Layout.alignment: Qt.AlignHCenter
+                                    icon.name: "task-complete"
+                                    text: qsTr("Ready")
+                                    display: AbstractButton.IconOnly
+                                    enabled: false
+                                }
                                 Label {
-                                    Layout.preferredWidth: 44
-                                    Layout.preferredHeight: 34
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: previewStatusButton.implicitHeight
                                     horizontalAlignment: Text.AlignHCenter
                                     verticalAlignment: Text.AlignVCenter
                                     text: backend.frameRateLabel
                                     font.family: backend.fixedFontFamily
+                                    font.pixelSize: previewToolColumn.statusTextPixelSize
                                     ToolTip.visible: fpsHover.hovered
                                     ToolTip.text: qsTr("Frame rate")
                                     HoverHandler { id: fpsHover }
                                 }
                                 Label {
-                                    Layout.preferredWidth: 44
-                                    Layout.preferredHeight: 34
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: previewStatusButton.implicitHeight
                                     horizontalAlignment: Text.AlignHCenter
                                     verticalAlignment: Text.AlignVCenter
                                     text: backend.playbackSpeedLabel
                                     font.family: backend.fixedFontFamily
+                                    font.pixelSize: previewToolColumn.statusTextPixelSize
                                     ToolTip.visible: speedHover.hovered
                                     ToolTip.text: qsTr("Playback speed")
                                     HoverHandler { id: speedHover }
                                 }
-                                ToolButton { icon.name: "show-guides"; text: qsTr("Guides"); display: AbstractButton.IconOnly }
+                                ToolButton {
+                                    icon.name: "show-guides"
+                                    text: qsTr("Guides")
+                                    display: AbstractButton.IconOnly
+                                    checkable: true
+                                    checked: previewLoader.item ? previewLoader.item.guidesVisible : false
+                                    onClicked: if (previewLoader.item) previewLoader.item.guidesVisible = checked
+                                }
                                 ToolSeparator {}
                                 ToolButton { icon.name: "draw-freehand"; text: qsTr("Pen"); display: AbstractButton.IconOnly }
                                 ToolButton { icon.name: "fill-color"; text: qsTr("Fill"); display: AbstractButton.IconOnly }
@@ -259,11 +309,15 @@ ApplicationWindow {
                         }
 
                         Loader {
+                            id: previewLoader
                             Layout.fillWidth: true
                             Layout.fillHeight: true
                             active: backend.ready
                             sourceComponent: Component {
-                                PreviewSurface { anchors.fill: parent }
+                                PreviewSurface {
+                                    anchors.fill: parent
+                                    fullscreenPreview: window.fullscreenPreview
+                                }
                             }
                         }
                     }
@@ -293,7 +347,12 @@ ApplicationWindow {
                                 text: backend.timeLabel
                                 font.family: backend.fixedFontFamily
                             }
-                            ToolButton { icon.name: "view-fullscreen"; text: qsTr("Fullscreen Preview"); display: AbstractButton.IconOnly }
+                            ToolButton {
+                                icon.name: window.fullscreenPreview ? "view-restore" : "view-fullscreen"
+                                text: window.fullscreenPreview ? qsTr("Exit Fullscreen Preview") : qsTr("Fullscreen Preview")
+                                display: AbstractButton.IconOnly
+                                onClicked: window.setPreviewFullscreen(!window.fullscreenPreview)
+                            }
                         }
                     }
                 }
@@ -301,7 +360,7 @@ ApplicationWindow {
 
             RowLayout {
                 id: timelinePane
-                visible: window.timelineVisible
+                visible: window.timelineVisible && !window.fullscreenPreview
                 SplitView.fillWidth: true
                 SplitView.preferredHeight: 410
                 SplitView.minimumHeight: 180
@@ -431,4 +490,9 @@ ApplicationWindow {
     Shortcut { sequence: "Space"; enabled: backend.ready; onActivated: backend.togglePlaying() }
     Shortcut { sequence: "Left"; enabled: backend.ready; onActivated: backend.stepFrame(-1) }
     Shortcut { sequence: "Right"; enabled: backend.ready; onActivated: backend.stepFrame(1) }
+    Shortcut {
+        sequence: "Escape"
+        enabled: window.fullscreenPreview
+        onActivated: window.setPreviewFullscreen(false)
+    }
 }

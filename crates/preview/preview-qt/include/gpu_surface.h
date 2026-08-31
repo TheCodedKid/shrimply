@@ -32,10 +32,31 @@ private:
 
 class PreviewSurface : public QQuickFramebufferObject {
     Q_OBJECT
+    Q_PROPERTY(bool guidesVisible READ guidesVisible WRITE setGuidesVisible NOTIFY guidesVisibleChanged)
+    Q_PROPERTY(bool fullscreenPreview READ fullscreenPreview WRITE setFullscreenPreview NOTIFY fullscreenPreviewChanged)
 
 public:
     explicit PreviewSurface(QQuickItem *parent = nullptr);
     Renderer *createRenderer() const override;
+    bool guidesVisible() const;
+    void setGuidesVisible(bool visible);
+    bool fullscreenPreview() const;
+    void setFullscreenPreview(bool fullscreen);
+
+signals:
+    void guidesVisibleChanged();
+    void fullscreenPreviewChanged();
+
+protected:
+    void hoverMoveEvent(QHoverEvent *event) override;
+    void hoverLeaveEvent(QHoverEvent *event) override;
+    void mousePressEvent(QMouseEvent *event) override;
+    void mouseMoveEvent(QMouseEvent *event) override;
+    void mouseReleaseEvent(QMouseEvent *event) override;
+    void mouseUngrabEvent() override;
+
+private:
+    bool fullscreen_preview_ = false;
 };
 
 class AudioMeterSurface : public QQuickFramebufferObject {

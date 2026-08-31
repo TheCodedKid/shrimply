@@ -1,6 +1,4 @@
 mod backend;
-mod surfaces;
-mod system_cursor;
 
 use cxx_qt_lib::{QGuiApplication, QQmlApplicationEngine, QString, QUrl};
 use std::process::ExitCode;

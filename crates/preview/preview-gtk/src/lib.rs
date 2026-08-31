@@ -4,21 +4,18 @@ use shrimply_ui_foundation::ui::I18nMenuExt;
 use shrimply_ui_foundation::ui::I18nWidgetExt;
 use std::cell::{Cell, RefCell};
 
-mod cuda_gl;
 mod fullscreen;
-mod media;
 mod preview_surface;
-use media::{PreviewMedia, StepDirection};
+use shrimply_preview_runtime::{PreviewMedia, StepDirection};
+pub use shrimply_preview_runtime::{
+    playback_speed_label, playback_time_label, rendered_frame_rate_label,
+};
 
 pub use shrimply_audio as audio;
 pub use shrimply_core::timeline_value;
 pub use shrimply_evaluation as transform_eval;
 pub use shrimply_math_color::Color;
 pub use shrimply_math_core::Fraction;
-use shrimply_math_core::{
-    fraction_denominator, fraction_numerator, fraction_round_nonnegative_u64,
-    frame_rate_from_duration,
-};
 pub use shrimply_project::{caption, project, time_format};
 pub use shrimply_render_core::math;
 pub use shrimply_state::player_state;
@@ -28,34 +25,6 @@ pub use shrimply_ui_foundation::{gl_loader, playback_shortcuts};
 pub use shrimply_video as video;
 pub use shrimply_video_modifiers as modifiers;
 
-pub fn playback_time_label(position: project::Time, duration: project::Time) -> String {
-    format!(
-        "{} / {}",
-        time_format::playback_time(position),
-        time_format::playback_time(duration)
-    )
-}
-
-pub fn playback_speed_label(speed: Fraction) -> String {
-    if fraction_denominator(speed) == 1 {
-        format!("x{}", fraction_numerator(speed))
-    } else {
-        format!(
-            "x{}/{}",
-            fraction_numerator(speed),
-            fraction_denominator(speed)
-        )
-    }
-}
-
-pub fn rendered_frame_rate_label(render_elapsed: Duration) -> Option<String> {
-    frame_rate_from_duration(render_elapsed).map(|frame_rate| {
-        fraction_round_nonnegative_u64(frame_rate)
-            .min(MAX_DISPLAYED_FRAME_RATE)
-            .to_string()
-    })
-}
-
 pub mod preferences {
     pub use shrimply_state::preferences as store;
 }
@@ -64,7 +33,6 @@ pub mod timeline {
     pub use shrimply_ui_foundation::canvas as renderer;
 }
 use std::rc::Rc;
-use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use crate::audio::AudioPlayer;
@@ -75,9 +43,7 @@ use crate::preview_surface::PreviewController;
 use crate::project::{Project, Time, scaled_time_delta};
 use crate::selection_state::SharedSelectionState;
 use crate::timeline::renderer::{Vec2, vec2};
-use crate::video::compositor::{
-    self, CompositeAccuracy, RenderResourceConfig, VideoCommand, VideoCommandSender, VideoEvent,
-};
+use crate::video::compositor::VideoEvent;
 use adw::prelude::AdwDialogExt;
 use gtk::prelude::*;
 use gtk::{gdk, gio, glib};
@@ -89,12 +55,8 @@ const LOADING_SPINNER_SIZE: i32 = 16;
 const LOADING_SPINNER_DELAY: Duration = Duration::from_nanos(1_000_000_000 / 24);
 const PREVIEW_FULLSCREEN_ICON: &str = "arrows-pointing-outward-symbolic";
 const PREVIEW_TOOLBAR_ICON_SIZE: i32 = 20;
-const MAX_DISPLAYED_FRAME_RATE: u64 = 999;
 const DEFAULT_PAINT_ERASER_SCALE: f32 = 2.0;
 type PaintPaletteStructure = Rc<RefCell<Option<(uuid::Uuid, Vec<uuid::Uuid>)>>>;
-
-mod toolkit;
-pub use toolkit::ToolkitPreview;
 
 trait PaintSurfaceState {
     fn set_paint_mode(&self, mode: PaintMode);

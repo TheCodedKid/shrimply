@@ -7,6 +7,7 @@ edition = "2024"
 hashbrown.workspace = true
 async-channel.workspace = true
 cached.workspace = true
+glow.workspace = true
 shrimply-math-color = { path = "../../math/color", features = ["skia"] }
 shrimply-math-geometry = { path = "../../math/geometry", features = ["skia"] }
 skia-safe = { workspace = true, features = ["gl", "vulkan", "textlayout", "svg"] }

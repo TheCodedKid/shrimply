@@ -25,9 +25,7 @@ use crate::transform_eval::{FrameAudioAnalysis, TransformExpressionCache, Visual
 use crate::video::compositor::{CompositeAccuracy, VideoCommand, VideoCommandSender};
 use crate::video::gpu::CompositedVideoFrame;
 
-#[path = "preview_surface/captions.rs"]
-mod captions;
-use captions::{CaptionAppearance, draw_captions};
+use shrimply_preview_runtime::captions::{self, CaptionAppearance, draw_captions};
 #[path = "preview_surface/dispatch.rs"]
 mod dispatch;
 use dispatch::{
@@ -38,17 +36,12 @@ mod cursor;
 use cursor::name as cursor_name;
 #[path = "preview_surface/geometry.rs"]
 mod geometry;
-#[path = "preview_surface/guides.rs"]
-mod guides;
-use geometry::{surface_viewport, video_content_rect};
-#[path = "preview_surface/renderer.rs"]
-mod renderer;
-use renderer::{Appearance, VideoRenderer};
-#[path = "preview_surface/toolkit.rs"]
-mod toolkit;
-pub(crate) use toolkit::ToolkitPreviewRenderer;
-
-const FULLSCREEN_BACKGROUND_COLOR: Color = Color::BLACK;
+#[path = "preview_surface/gtk_guides.rs"]
+mod gtk_guides;
+use geometry::surface_viewport;
+use shrimply_preview_runtime::geometry::preview_viewport;
+use shrimply_preview_runtime::guides;
+use shrimply_preview_runtime::renderer::{Appearance, VideoRenderer};
 
 #[derive(Clone)]
 pub struct VideoSurface {
@@ -131,21 +124,6 @@ fn set_base_exclusion(
     ] {
         if let Err(error) = controller.video_tx.send(command) {
             tracing::error!(%error, "could not update the preview base frame");
-        }
-    }
-}
-
-impl VideoSurfaceState {
-    fn padding_px(&self) -> u32 {
-        let padding = if self.fullscreen {
-            0
-        } else {
-            self.preview_padding_px
-        };
-        if self.guides_visible {
-            padding.max(guides::MIN_PADDING_PX)
-        } else {
-            padding
         }
     }
 }
@@ -712,18 +690,11 @@ fn prepare_target(
         sequence_position,
         preparation.audio_analysis,
     );
-    let canvas_size = GlamVec2::new(
-        project.canvas_size.width.max(1) as f32,
-        project.canvas_size.height.max(1) as f32,
-    );
-    let content_rect = video_content_rect(
-        preparation.surface.x,
-        preparation.surface.y,
-        project.canvas_size.width,
-        project.canvas_size.height,
+    let viewport = preview_viewport(
+        preparation.surface,
+        project.canvas_size,
         preparation.padding_px,
     );
-    let viewport = PreviewViewport::new(canvas_size, content_rect);
     let mut source_sizes = source_sizes(project);
     if let crate::project::VideoItemContent::Text(text) = &item.content {
         source_sizes.insert(
@@ -978,20 +949,14 @@ fn attach_render(
             }
         }
         let padding_px = state.padding_px();
-        let content_rect = video_content_rect(
-            surface.x,
-            surface.y,
-            project.canvas_size.width,
-            project.canvas_size.height,
-            padding_px,
+        let viewport = guides::viewport(
+            surface,
+            project.canvas_size,
+            state.preview_padding_px,
+            state.guides_visible,
+            state.fullscreen,
         );
-        let viewport = PreviewViewport::new(
-            GlamVec2::new(
-                project.canvas_size.width.max(1) as f32,
-                project.canvas_size.height.max(1) as f32,
-            ),
-            content_rect,
-        );
+        let content_rect = viewport.content_rect;
         let stale_provider = controller.context_invalidated
             || controller.provider.as_ref().is_some_and(|prepared| {
                 prepared.project_revision != player.revision
@@ -1002,11 +967,10 @@ fn attach_render(
             controller.provider = None;
             controller.context_invalidated = false;
         }
-        let background_color = if state.fullscreen {
-            FULLSCREEN_BACKGROUND_COLOR
-        } else {
-            geometry::theme_window_color(area)
-        };
+        let background_color = shrimply_preview_runtime::background_color(
+            geometry::theme_window_color(area),
+            state.fullscreen,
+        );
         let selection_color = Color::BLUE5;
         let guides = state
             .guides_visible
@@ -1068,16 +1032,11 @@ fn attach_render(
                             .zip(caption_split_hover)
                             .map(|(address, point)| (address, point, selection_color)),
                     );
-                    let canvas_size = GlamVec2::new(
-                        project.canvas_size.width.max(1) as f32,
-                        project.canvas_size.height.max(1) as f32,
-                    );
                     if let Some(guides) = &guides {
                         guides::draw(
                             timeline_painter,
                             guides,
-                            canvas_size,
-                            content_rect,
+                            viewport,
                             surface_rect,
                             selection_color,
                         );
@@ -1153,20 +1112,7 @@ fn ensure_provider(surface: &ProviderDispatch<'_>) -> bool {
     {
         let project = surface.project.borrow();
         let state = surface.state.borrow();
-        let surface_size = IVec2::new(surface.area.width().max(1), surface.area.height().max(1));
-        let viewport = PreviewViewport::new(
-            GlamVec2::new(
-                project.canvas_size.width.max(1) as f32,
-                project.canvas_size.height.max(1) as f32,
-            ),
-            video_content_rect(
-                surface_size.x,
-                surface_size.y,
-                project.canvas_size.width,
-                project.canvas_size.height,
-                state.padding_px(),
-            ),
-        );
+        let viewport = geometry::surface_viewport(surface.area, &project, &state);
         let mut controller = surface.controller.borrow_mut();
         let stale = controller.context_invalidated
             || controller.provider.as_ref().is_some_and(|prepared| {
@@ -1436,7 +1382,7 @@ fn attach_input(
     let sequence_button = Rc::new(Cell::new(0));
     let sequence_origin = Rc::new(Cell::new(None::<PointerSample>));
     let sequence_moved = Rc::new(Cell::new(false));
-    let guide_drag = Rc::new(Cell::new(None::<guides::GuideDrag>));
+    let guide_input = Rc::new(RefCell::new(guides::GuideInput::default()));
     let ruler_hover = Cell::new(false);
     let caption_hover = Cell::new(false);
 
@@ -1448,6 +1394,7 @@ fn attach_input(
     let motion_focus = preview_focus.clone();
     let motion_state = state.clone();
     let motion_controller = controller.clone();
+    let motion_guides = guide_input.clone();
     motion.connect_motion(move |source, x, y| {
         let position = GlamVec2::new(x as f32, y as f32);
         if motion_controller.borrow().sequence != PointerSequence::Idle {
@@ -1461,9 +1408,14 @@ fn attach_input(
             }
             return;
         }
-        if let Some(cursor) =
-            guides::hover_cursor(&motion_area, &motion_project, &motion_state, position)
-        {
+        let guide_cursor = gtk_guides::move_to(
+            &motion_guides,
+            &motion_area,
+            &motion_project,
+            &motion_state,
+            position,
+        );
+        if guide_cursor != guides::GuideCursor::Default {
             if motion_state
                 .borrow_mut()
                 .caption_split_hover
@@ -1474,7 +1426,7 @@ fn attach_input(
             }
             caption_hover.set(false);
             ruler_hover.set(true);
-            motion_area.set_cursor_from_name(Some(cursor));
+            motion_area.set_cursor_from_name(guide_cursor.name());
             return;
         }
         if ruler_hover.replace(false) {
@@ -1522,6 +1474,7 @@ fn attach_input(
     let leave_focus = preview_focus.clone();
     let leave_state = state.clone();
     let leave_controller = controller.clone();
+    let leave_guides = guide_input.clone();
     motion.connect_leave(move |_| {
         if leave_state
             .borrow_mut()
@@ -1534,6 +1487,7 @@ fn attach_input(
         if leave_controller.borrow().sequence != PointerSequence::Idle {
             return;
         }
+        leave_guides.borrow_mut().pointer_leave();
         dispatch_pointer(
             ProviderDispatch {
                 area: &leave_area,
@@ -1563,7 +1517,7 @@ fn attach_input(
     let begin_button = sequence_button.clone();
     let begin_origin = sequence_origin.clone();
     let begin_moved = sequence_moved.clone();
-    let begin_guide = guide_drag.clone();
+    let begin_guides = guide_input.clone();
     pointer.connect_down(move |source, x, y| {
         begin_area.grab_focus();
         let button = source.current_button();
@@ -1571,17 +1525,20 @@ fn attach_input(
         let input = pointer_input(source, GlamVec2::new(x as f32, y as f32), button);
         begin_origin.set(Some(input.sample));
         begin_moved.set(false);
-        if button == 1
-            && let Some(guide) = guides::begin_drag(
+        if button == 1 {
+            let began_guide = gtk_guides::press(
+                &begin_guides,
                 &begin_area,
                 &begin_project,
                 &begin_state,
-                &begin_controller,
                 input.sample.position,
-            )
-        {
-            begin_guide.set(Some(guide));
-            return;
+            );
+            if began_guide {
+                begin_controller.borrow_mut().sequence = PointerSequence::Guide;
+                begin_area.set_cursor_from_name(begin_guides.borrow().cursor().name());
+                begin_area.queue_render();
+                return;
+            }
         }
         if button == 1
             && split_caption_at_pointer(
@@ -1618,7 +1575,7 @@ fn attach_input(
     let update_button = sequence_button.clone();
     let update_origin = sequence_origin.clone();
     let update_moved = sequence_moved.clone();
-    let update_guide = guide_drag.clone();
+    let update_guides = guide_input.clone();
     pointer.connect_motion(move |source, x, y| {
         let input = pointer_input(
             source,
@@ -1638,14 +1595,16 @@ fn attach_input(
             return;
         }
         update_moved.set(true);
-        if let Some(guide) = update_guide.get() {
-            guides::update_drag(
+        if update_guides.borrow().active() {
+            let cursor = gtk_guides::move_to(
+                &update_guides,
                 &update_area,
                 &update_project,
                 &update_state,
-                guide,
                 input.sample.position,
             );
+            update_area.set_cursor_from_name(cursor.name());
+            update_area.queue_render();
             return;
         }
         dispatch_pointer(
@@ -1674,7 +1633,7 @@ fn attach_input(
     let end_button = sequence_button.clone();
     let end_origin = sequence_origin.clone();
     let end_moved = sequence_moved.clone();
-    let end_guide = guide_drag.clone();
+    let end_guides = guide_input.clone();
     pointer.connect_up(move |source, x, y| {
         let input = pointer_input(source, GlamVec2::new(x as f32, y as f32), end_button.get());
         let mut samples = pointer_backlog(source);
@@ -1688,15 +1647,14 @@ fn attach_input(
         }) {
             end_moved.set(true);
         }
-        if let Some(guide) = end_guide.take() {
-            guides::finish_drag(
+        if end_guides.borrow().active() {
+            gtk_guides::finish(
+                &end_guides,
                 &end_area,
                 &end_project,
                 &end_state,
                 &end_controller,
-                guide,
                 input.sample.position,
-                end_moved.get(),
             );
             end_button.set(0);
             end_origin.set(None);
@@ -1747,10 +1705,14 @@ fn attach_input(
     let cancel_button = sequence_button.clone();
     let cancel_origin = sequence_origin.clone();
     let cancel_moved = sequence_moved.clone();
-    let cancel_guide = guide_drag;
+    let cancel_guides = guide_input;
     pointer.connect_cancel(move |_, _| {
-        if let Some(guide) = cancel_guide.take() {
-            guides::cancel_drag(&cancel_area, &cancel_project, &cancel_controller, guide);
+        if gtk_guides::cancel(
+            &cancel_guides,
+            &cancel_area,
+            &cancel_project,
+            &cancel_controller,
+        ) {
             cancel_button.set(0);
             cancel_origin.set(None);
             cancel_moved.set(false);

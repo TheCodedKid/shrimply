@@ -24,7 +24,7 @@ use shrimply_mcp::protocol::{
     ReloadManimSourceRequest, ReloadManimSourceResponse, ScopeRef, SetManimClipRequest,
     TranscribeAudioRequest, TtsInputValue, ViewFrameResponse,
 };
-use shrimply_preview_ui::video::compositor::{EXPORT_ASSETS_LOADING, VideoExportRenderer};
+use shrimply_preview_gtk::video::compositor::{EXPORT_ASSETS_LOADING, VideoExportRenderer};
 use shrimply_project::project::{
     AudioSource, ItemAddress, ManimParameter, ManimParameterControl, ManimParameterValue, Project,
     SequenceScopeId, TrackRef, VideoItemContent, caption_languages, fraction_denominator,

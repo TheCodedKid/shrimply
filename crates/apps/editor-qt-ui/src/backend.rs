@@ -10,7 +10,7 @@ use std::path::PathBuf;
 #[cxx_qt::bridge]
 pub mod qobject {
     unsafe extern "C++" {
-        include!("shrimply-editor-qt-ui/include/gpu_surface.h");
+        include!("gpu_surface.h");
         #[namespace = "shrimply"]
         fn force_opengl();
         #[namespace = "shrimply"]
@@ -275,7 +275,7 @@ impl qobject::EditorBackend {
         let current = frame_index(snapshot.position, snapshot.frame_rate).unwrap_or(0);
         let target = current.saturating_add(i64::from(delta)).max(0);
         if let Some(position) = time_from_signed_frame(target, snapshot.frame_rate) {
-            crate::surfaces::mark_preview_step(delta);
+            shrimply_preview_qt::mark_preview_step(delta);
             player_state::seek_time(&session.player_state, position);
         }
     }
@@ -362,7 +362,7 @@ impl qobject::EditorBackend {
                 ffmpeg_next::util::log::set_level(ffmpeg_next::util::log::Level::Error);
                 let session = EditorSession::new(*project)
                     .unwrap_or_else(|error| panic!("could not initialize Qt editor: {error}"));
-                crate::surfaces::install(&session).unwrap_or_else(|error| {
+                shrimply_preview_qt::install(&session).unwrap_or_else(|error| {
                     panic!("could not initialize Qt GPU surfaces: {error}")
                 });
                 self.as_mut()
@@ -387,12 +387,12 @@ impl qobject::EditorBackend {
         let duration_frame = frame_count(snapshot.duration, snapshot.frame_rate)
             .and_then(|frame| i64::try_from(frame).ok())
             .unwrap_or(i64::MAX);
-        let time_label = QString::from(shrimply_preview_ui::playback_time_label(
+        let time_label = QString::from(shrimply_preview_runtime::playback_time_label(
             snapshot.position,
             snapshot.duration,
         ));
-        let frame_rate_label = QString::from(crate::surfaces::preview_frame_rate_label());
-        let playback_speed_label = QString::from(shrimply_preview_ui::playback_speed_label(
+        let frame_rate_label = QString::from(shrimply_preview_qt::preview_frame_rate_label());
+        let playback_speed_label = QString::from(shrimply_preview_runtime::playback_speed_label(
             snapshot.playback_speed,
         ));
         self.as_mut().set_playing(playing);

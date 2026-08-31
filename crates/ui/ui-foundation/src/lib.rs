@@ -1,9 +1,8 @@
-pub mod canvas;
+pub use shrimply_skia_adw_ui::{canvas, gl_loader, skia_font, skia_system_font};
 pub mod cursor;
 pub mod desktop_open;
 pub mod export_feedback;
 pub mod file_picker;
-pub mod gl_loader;
 pub mod icons;
 pub mod i18n {
     pub use shrimply_i18n::{init_system_locale, text, text_args};
@@ -12,8 +11,6 @@ pub mod playback_shortcuts;
 pub mod project_open;
 pub mod project_settings;
 pub mod resource_pipeline;
-pub mod skia_font;
-pub mod skia_system_font;
 pub mod toast;
 pub mod ui;
 

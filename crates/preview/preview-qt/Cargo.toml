@@ -1,0 +1,19 @@
+[package]
+name = "shrimply-preview-qt"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+glam.workspace = true
+shrimply-audio = { path = "../../audio/audio" }
+shrimply-cross-ui-core = { path = "../../ui/cross-ui-core" }
+shrimply-math-color = { path = "../../math/color" }
+shrimply-playback-performance = { path = "../playback-performance" }
+shrimply-preview-core = { path = "../preview-core" }
+shrimply-preview-runtime = { path = "../preview-runtime" }
+shrimply-project = { path = "../../project/project" }
+shrimply-skia-adw-ui = { path = "../../ui/skia-adw-ui" }
+shrimply-state = { path = "../../state" }
+shrimply-timeline-ui = { path = "../../timeline/timeline-ui" }
+shrimply-video = { path = "../../video/rendering" }
+tracing.workspace = true

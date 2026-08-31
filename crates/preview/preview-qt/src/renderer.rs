@@ -1,7 +1,24 @@
 use super::*;
+use glam::IVec2;
 
 pub(crate) struct ToolkitPreviewRenderer {
     renderer: VideoRenderer,
+}
+
+pub(crate) fn toolkit_guide_viewport(
+    project: &Project,
+    preferences: &preferences_store::PreferencesSnapshot,
+    width: f32,
+    height: f32,
+    fullscreen: bool,
+) -> PreviewViewport {
+    guides::viewport(
+        IVec2::new(width as i32, height as i32),
+        project.canvas_size,
+        preferences.preview_padding_px,
+        preferences.preview_guides_visible,
+        fullscreen,
+    )
 }
 
 impl ToolkitPreviewRenderer {
@@ -21,14 +38,16 @@ impl ToolkitPreviewRenderer {
         pixels_per_point: f32,
         background_color: Color,
         preferences: &preferences_store::PreferencesSnapshot,
+        fullscreen: bool,
     ) -> Result<(), String> {
-        let content_rect = video_content_rect(
-            surface.x,
-            surface.y,
-            project.canvas_size.width,
-            project.canvas_size.height,
+        let viewport = guides::viewport(
+            surface,
+            project.canvas_size,
             preferences.preview_padding_px,
+            preferences.preview_guides_visible,
+            fullscreen,
         );
+        let content_rect = viewport.content_rect;
         self.renderer.render(
             surface,
             pixels_per_point,
@@ -59,11 +78,7 @@ impl ToolkitPreviewRenderer {
                     guides::draw(
                         painter,
                         project.preview_guides.as_ref(),
-                        GlamVec2::new(
-                            project.canvas_size.width.max(1) as f32,
-                            project.canvas_size.height.max(1) as f32,
-                        ),
-                        content_rect,
+                        viewport,
                         surface_rect,
                         Color::BLUE5,
                     );

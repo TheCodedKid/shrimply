@@ -1,18 +1,148 @@
 use super::*;
 use crate::project::PreviewGuides;
-use crate::timeline::renderer::{Align2, FontId, Stroke, TimelinePainter, Vec2};
+use crate::timeline::renderer::{Align2, FontId, Rect, Stroke, TimelinePainter, Vec2, vec2};
+use glam::{IVec2, Vec2 as GlamVec2};
 use shrimply_preview_core::PreviewViewport;
+use shrimply_project::project::CanvasSize;
 
 const RULER_SIZE_PX: f32 = 24.0;
-pub(super) const MIN_PADDING_PX: u32 = RULER_SIZE_PX as u32;
+pub const MIN_PADDING_PX: u32 = RULER_SIZE_PX as u32;
 const GUIDE_HIT_RADIUS_PX: f32 = 5.0;
 const RULER_DIVISIONS: usize = 20;
 const MAJOR_TICK_INTERVAL: usize = 5;
+
+pub fn padding_px(preview_padding_px: u32, visible: bool, fullscreen: bool) -> u32 {
+    let preview_padding_px = if fullscreen { 0 } else { preview_padding_px };
+    if visible {
+        preview_padding_px.max(MIN_PADDING_PX)
+    } else {
+        preview_padding_px
+    }
+}
+
+pub fn viewport(
+    surface: IVec2,
+    canvas: CanvasSize,
+    preview_padding_px: u32,
+    visible: bool,
+    fullscreen: bool,
+) -> PreviewViewport {
+    crate::geometry::preview_viewport(
+        surface,
+        canvas,
+        padding_px(preview_padding_px, visible, fullscreen),
+    )
+}
 
 #[derive(Clone, Copy)]
 pub(super) enum GuideDrag {
     Vertical { index: usize, original: Option<f32> },
     Horizontal { index: usize, original: Option<f32> },
+}
+
+#[derive(Clone, Copy, Default, Eq, PartialEq)]
+#[repr(u8)]
+pub enum GuideCursor {
+    #[default]
+    Default,
+    ResizeHorizontal,
+    ResizeVertical,
+}
+
+impl GuideCursor {
+    pub const fn name(self) -> Option<&'static str> {
+        match self {
+            Self::Default => None,
+            Self::ResizeHorizontal => Some("ew-resize"),
+            Self::ResizeVertical => Some("ns-resize"),
+        }
+    }
+}
+
+#[derive(Default)]
+pub struct GuideInput {
+    drag: Option<GuideDrag>,
+    origin: Option<GlamVec2>,
+    moved: bool,
+    cursor: GuideCursor,
+}
+
+impl GuideInput {
+    pub fn pointer_move(
+        &mut self,
+        guides: &mut PreviewGuides,
+        viewport: PreviewViewport,
+        visible: bool,
+        position: GlamVec2,
+    ) {
+        if let Some(drag) = self.drag {
+            self.moved |= self.origin.is_some_and(|origin| origin != position);
+            drag.update(guides, viewport, position);
+            return;
+        }
+        self.cursor = hover_cursor(guides, viewport, visible, position);
+    }
+
+    pub fn pointer_press(
+        &mut self,
+        guides: &mut PreviewGuides,
+        viewport: PreviewViewport,
+        visible: bool,
+        position: GlamVec2,
+    ) -> bool {
+        if !visible || self.drag.is_some() {
+            return false;
+        }
+        let Some(drag) = GuideDrag::begin(guides, viewport, position) else {
+            return false;
+        };
+        self.drag = Some(drag);
+        self.origin = Some(position);
+        self.moved = false;
+        self.cursor = drag.cursor();
+        true
+    }
+
+    pub fn pointer_release(
+        &mut self,
+        guides: &mut PreviewGuides,
+        viewport: PreviewViewport,
+        position: GlamVec2,
+    ) -> Option<bool> {
+        let drag = self.drag.take()?;
+        let changed = drag.finish(guides, viewport, position, self.moved);
+        self.reset();
+        Some(changed)
+    }
+
+    pub fn pointer_cancel(&mut self, guides: &mut PreviewGuides) -> bool {
+        let Some(drag) = self.drag.take() else {
+            return false;
+        };
+        drag.cancel(guides);
+        self.reset();
+        true
+    }
+
+    pub fn pointer_leave(&mut self) {
+        if self.drag.is_none() {
+            self.cursor = GuideCursor::Default;
+        }
+    }
+
+    pub const fn active(&self) -> bool {
+        self.drag.is_some()
+    }
+
+    pub const fn cursor(&self) -> GuideCursor {
+        self.cursor
+    }
+
+    fn reset(&mut self) {
+        self.origin = None;
+        self.moved = false;
+        self.cursor = GuideCursor::Default;
+    }
 }
 
 impl GuideDrag {
@@ -87,10 +217,34 @@ impl GuideDrag {
         }
     }
 
-    pub(super) const fn cursor(self) -> &'static str {
+    pub(super) const fn cursor(self) -> GuideCursor {
         match self {
-            Self::Vertical { .. } => "ew-resize",
-            Self::Horizontal { .. } => "ns-resize",
+            Self::Vertical { .. } => GuideCursor::ResizeHorizontal,
+            Self::Horizontal { .. } => GuideCursor::ResizeVertical,
+        }
+    }
+
+    pub(super) fn finish(
+        self,
+        guides: &mut PreviewGuides,
+        viewport: PreviewViewport,
+        position: GlamVec2,
+        moved: bool,
+    ) -> bool {
+        if self.returned_to_edge(position) {
+            if self.is_new() {
+                self.cancel(guides);
+                false
+            } else {
+                self.remove(guides);
+                true
+            }
+        } else if moved {
+            self.update(guides, viewport, position);
+            true
+        } else {
+            self.cancel(guides);
+            false
         }
     }
 
@@ -109,7 +263,7 @@ impl GuideDrag {
         }
     }
 
-    fn existing(
+    pub(super) fn existing(
         guides: &PreviewGuides,
         viewport: PreviewViewport,
         position: GlamVec2,
@@ -148,89 +302,6 @@ impl GuideDrag {
     }
 }
 
-pub(super) fn begin_drag(
-    area: &gtk::GLArea,
-    project: &Rc<RefCell<Project>>,
-    state: &Rc<RefCell<VideoSurfaceState>>,
-    controller: &Rc<RefCell<PreviewControllerState>>,
-    position: GlamVec2,
-) -> Option<GuideDrag> {
-    if !state.borrow().guides_visible {
-        return None;
-    }
-    let mut project = project.borrow_mut();
-    let viewport = surface_viewport(area, &project, &state.borrow());
-    let drag = GuideDrag::begin(&mut project.preview_guides, viewport, position)?;
-    controller.borrow_mut().sequence = PointerSequence::Guide;
-    area.set_cursor_from_name(Some(drag.cursor()));
-    area.queue_render();
-    Some(drag)
-}
-
-pub(super) fn update_drag(
-    area: &gtk::GLArea,
-    project: &Rc<RefCell<Project>>,
-    state: &Rc<RefCell<VideoSurfaceState>>,
-    drag: GuideDrag,
-    position: GlamVec2,
-) {
-    let mut project = project.borrow_mut();
-    let viewport = surface_viewport(area, &project, &state.borrow());
-    drag.update(&mut project.preview_guides, viewport, position);
-    drop(project);
-    area.queue_render();
-}
-
-pub(super) fn finish_drag(
-    area: &gtk::GLArea,
-    project: &Rc<RefCell<Project>>,
-    state: &Rc<RefCell<VideoSurfaceState>>,
-    controller: &Rc<RefCell<PreviewControllerState>>,
-    drag: GuideDrag,
-    position: GlamVec2,
-    moved: bool,
-) {
-    let mut project_state = project.borrow_mut();
-    let changed = if drag.returned_to_edge(position) {
-        if drag.is_new() {
-            drag.cancel(&mut project_state.preview_guides);
-            false
-        } else {
-            drag.remove(&mut project_state.preview_guides);
-            true
-        }
-    } else if moved {
-        let viewport = surface_viewport(area, &project_state, &state.borrow());
-        drag.update(&mut project_state.preview_guides, viewport, position);
-        true
-    } else {
-        drag.cancel(&mut project_state.preview_guides);
-        false
-    };
-    if changed {
-        drop(project_state);
-        crate::project::commit_edit(&project.borrow(), "preview-guide");
-    }
-    let mut controller = controller.borrow_mut();
-    controller.sequence = PointerSequence::Idle;
-    controller.context_invalidated = changed;
-    drop(controller);
-    area.set_cursor_from_name(None);
-    area.queue_render();
-}
-
-pub(super) fn cancel_drag(
-    area: &gtk::GLArea,
-    project: &Rc<RefCell<Project>>,
-    controller: &Rc<RefCell<PreviewControllerState>>,
-    drag: GuideDrag,
-) {
-    drag.cancel(&mut project.borrow_mut().preview_guides);
-    controller.borrow_mut().sequence = PointerSequence::Idle;
-    area.set_cursor_from_name(None);
-    area.queue_render();
-}
-
 #[derive(Clone, Copy)]
 enum GuideAxis {
     Vertical,
@@ -247,39 +318,35 @@ fn ruler_axis(position: GlamVec2) -> Option<GuideAxis> {
     }
 }
 
-pub(super) fn ruler_cursor(position: GlamVec2) -> Option<&'static str> {
+pub(super) fn ruler_cursor(position: GlamVec2) -> Option<GuideCursor> {
     match ruler_axis(position)? {
-        GuideAxis::Vertical => Some("ew-resize"),
-        GuideAxis::Horizontal => Some("ns-resize"),
+        GuideAxis::Vertical => Some(GuideCursor::ResizeHorizontal),
+        GuideAxis::Horizontal => Some(GuideCursor::ResizeVertical),
     }
 }
 
-pub(super) fn hover_cursor(
-    area: &gtk::GLArea,
-    project: &Rc<RefCell<Project>>,
-    state: &Rc<RefCell<VideoSurfaceState>>,
+fn hover_cursor(
+    guides: &PreviewGuides,
+    viewport: PreviewViewport,
+    visible: bool,
     position: GlamVec2,
-) -> Option<&'static str> {
-    if !state.borrow().guides_visible {
-        return None;
+) -> GuideCursor {
+    if !visible {
+        return GuideCursor::Default;
     }
     if let Some(cursor) = ruler_cursor(position) {
-        return Some(cursor);
+        return cursor;
     }
-    let project = project.borrow();
-    let viewport = surface_viewport(area, &project, &state.borrow());
-    GuideDrag::existing(&project.preview_guides, viewport, position).map(GuideDrag::cursor)
+    GuideDrag::existing(guides, viewport, position).map_or(GuideCursor::Default, GuideDrag::cursor)
 }
 
-pub(super) fn draw(
+pub fn draw(
     painter: &TimelinePainter,
     guides: &PreviewGuides,
-    canvas_size: GlamVec2,
-    content_rect: Rect,
+    viewport: PreviewViewport,
     surface_rect: Rect,
     color: Color,
 ) {
-    let viewport = PreviewViewport::new(canvas_size, content_rect);
     for guide in &guides.vertical {
         let x = viewport
             .canvas_point_to_screen(GlamVec2::new(*guide, 0.0))
@@ -302,15 +369,11 @@ pub(super) fn draw(
             color,
         );
     }
-    draw_rulers(painter, viewport, content_rect, surface_rect);
+    draw_rulers(painter, viewport, surface_rect);
 }
 
-fn draw_rulers(
-    painter: &TimelinePainter,
-    viewport: PreviewViewport,
-    content_rect: Rect,
-    surface_rect: Rect,
-) {
+fn draw_rulers(painter: &TimelinePainter, viewport: PreviewViewport, surface_rect: Rect) {
+    let content_rect = viewport.content_rect;
     let background = shrimply_skia_adw_ui::theme::current().sidebar_bg;
     let foreground = shrimply_skia_adw_ui::theme::current().sidebar_fg;
     painter.rect_filled(
@@ -404,6 +467,10 @@ fn draw_rulers(
             );
         }
     }
+}
+
+pub fn commit_edit(project: &Project) {
+    crate::project::commit_edit(project, "preview-guide");
 }
 
 fn line(painter: &TimelinePainter, start: Vec2, end: Vec2, color: Color) {

@@ -1,0 +1,23 @@
+[package]
+name = "shrimply-preview-runtime"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+cuda-core.workspace = true
+glam.workspace = true
+glow.workspace = true
+libc.workspace = true
+shrimply-audio = { path = "../../audio/audio" }
+shrimply-gpu-memory = { path = "../../video/gpu-memory" }
+shrimply-math-color = { path = "../../math/color", features = ["skia"] }
+shrimply-math-core = { path = "../../math/core" }
+shrimply-playback-performance = { path = "../playback-performance" }
+shrimply-project = { path = "../../project/project" }
+shrimply-preview-core = { path = "../preview-core" }
+shrimply-skia-adw-ui = { path = "../../ui/skia-adw-ui" }
+shrimply-state = { path = "../../state" }
+shrimply-video = { path = "../../video/rendering" }
+skia-safe = { workspace = true, features = ["textlayout"] }
+tracing.workspace = true
+uuid = { workspace = true, features = ["v4"] }

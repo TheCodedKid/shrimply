@@ -9,7 +9,7 @@ use crate::timeline::renderer::{Rect, TimelinePainter, TimelineRenderer};
 use crate::video::gpu::{CompositedFrameStorageKey, CompositedVideoFrame};
 
 #[derive(Clone, Copy)]
-pub(super) struct Appearance {
+pub struct Appearance {
     pub content_rect: Rect,
     pub shadow_size_px: u32,
     pub background_color: Color,
@@ -17,7 +17,7 @@ pub(super) struct Appearance {
     pub downsample_method: PreviewDownsampleMethod,
 }
 
-pub(super) struct VideoRenderer {
+pub struct VideoRenderer {
     gl: glow::Context,
     program: glow::NativeProgram,
     vao: glow::NativeVertexArray,

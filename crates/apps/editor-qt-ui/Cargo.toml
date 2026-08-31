@@ -14,14 +14,12 @@ cxx-qt-lib = { workspace = true, features = ["qt_full"] }
 ffmpeg-next.workspace = true
 shrimply-cross-ui-core = { path = "../../ui/cross-ui-core" }
 shrimply-i18n = { path = "../../ui/i18n" }
-shrimply-math-color = { path = "../../math/color" }
 shrimply-math-core = { path = "../../math/core" }
-shrimply-preview-ui = { path = "../../preview/preview-ui" }
+shrimply-preview-qt = { path = "../../preview/preview-qt" }
+shrimply-preview-runtime = { path = "../../preview/preview-runtime" }
 shrimply-project = { path = "../../project/project" }
-shrimply-skia-adw-ui = { path = "../../ui/skia-adw-ui" }
 shrimply-state = { path = "../../state" }
 shrimply-support = { path = "../../support" }
-shrimply-timeline-ui = { path = "../../timeline/timeline-ui" }
 tracing.workspace = true
 
 [build-dependencies]

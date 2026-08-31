@@ -6,11 +6,14 @@ fn main() {
             QmlModule::new("dev.shrimply.editor").qml_file("qml/Main.qml"),
         )
         .files(["src/backend.rs"])
-        .cpp_files(["include/gpu_surface.h", "src/gpu_surface.cpp"])
+        .cpp_files([
+            "../../preview/preview-qt/include/gpu_surface.h",
+            "../../preview/preview-qt/src/gpu_surface.cpp",
+        ])
         .qt_module("Quick")
         .qt_module("OpenGL")
         .cc_builder(|build| {
-            build.include("include");
+            build.include("../../preview/preview-qt/include");
         })
         .build();
     }

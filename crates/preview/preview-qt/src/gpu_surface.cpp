@@ -24,7 +24,8 @@ extern "C" bool shrimply_qt_render_timeline(std::uint32_t width, std::uint32_t h
                                              float blue, float alpha, bool dark);
 extern "C" bool shrimply_qt_render_preview(std::uint32_t width, std::uint32_t height,
                                             float scale, float red, float green,
-                                            float blue, float alpha, bool dark);
+                                            float blue, float alpha, bool dark,
+                                            bool fullscreen);
 extern "C" bool shrimply_qt_render_audio_meter(std::uint32_t width, std::uint32_t height,
                                                 float scale, bool dark);
 extern "C" void shrimply_qt_timeline_pointer_move(float x, float y, bool control, bool shift);
@@ -38,6 +39,14 @@ extern "C" void shrimply_qt_timeline_scroll(float dx, float dy, bool control, bo
 extern "C" bool shrimply_qt_timeline_begin_pointer_lock(void *display, void *surface,
                                                           void *seat);
 extern "C" void shrimply_qt_timeline_end_pointer_lock(bool control, bool shift);
+extern "C" void shrimply_qt_preview_pointer_move(float width, float height, float x, float y);
+extern "C" std::uint8_t shrimply_qt_preview_pointer_cursor();
+extern "C" void shrimply_qt_preview_pointer_leave();
+extern "C" bool shrimply_qt_preview_pointer_press(float width, float height, float x, float y);
+extern "C" void shrimply_qt_preview_pointer_release(float width, float height, float x, float y);
+extern "C" void shrimply_qt_preview_pointer_cancel();
+extern "C" bool shrimply_qt_preview_guides_visible();
+extern "C" void shrimply_qt_preview_set_guides_visible(bool visible);
 
 namespace {
 
@@ -89,6 +98,7 @@ public:
 
     void synchronize(QQuickFramebufferObject *item) override {
         scale_ = item->window() ? item->window()->effectiveDevicePixelRatio() : 1.0f;
+        fullscreen_ = static_cast<shrimply::PreviewSurface *>(item)->fullscreenPreview();
     }
 
     void render() override {
@@ -98,7 +108,7 @@ public:
                 static_cast<std::uint32_t>(size.width()),
                 static_cast<std::uint32_t>(size.height()), scale_,
                 background.redF(), background.greenF(), background.blueF(),
-                background.alphaF(), dark_palette())) {
+                background.alphaF(), dark_palette(), fullscreen_)) {
             qFatal("Shrimply could not render the preview with OpenGL");
         }
         QQuickOpenGLUtils::resetOpenGLState();
@@ -107,6 +117,7 @@ public:
 
 private:
     float scale_ = 1.0f;
+    bool fullscreen_ = false;
 };
 
 class AudioMeterRenderer final : public QQuickFramebufferObject::Renderer {
@@ -153,6 +164,19 @@ void update_timeline_cursor(QQuickItem *item) {
         break;
     case 4:
         item->setCursor(QCursor(Qt::CrossCursor));
+        break;
+    default:
+        item->unsetCursor();
+    }
+}
+
+void update_preview_cursor(QQuickItem *item) {
+    switch (shrimply_qt_preview_pointer_cursor()) {
+    case 1:
+        item->setCursor(QCursor(Qt::SizeHorCursor));
+        break;
+    case 2:
+        item->setCursor(QCursor(Qt::SizeVerCursor));
         break;
     default:
         item->unsetCursor();
@@ -292,10 +316,95 @@ void TimelineSurface::wheelEvent(QWheelEvent *event) {
 
 PreviewSurface::PreviewSurface(QQuickItem *parent) : QQuickFramebufferObject(parent) {
     setMirrorVertically(true);
+    setAcceptedMouseButtons(Qt::LeftButton);
+    setAcceptHoverEvents(true);
 }
 
 QQuickFramebufferObject::Renderer *PreviewSurface::createRenderer() const {
     return new PreviewRenderer();
+}
+
+bool PreviewSurface::guidesVisible() const {
+    return shrimply_qt_preview_guides_visible();
+}
+
+void PreviewSurface::setGuidesVisible(bool visible) {
+    if (guidesVisible() == visible) {
+        return;
+    }
+    shrimply_qt_preview_set_guides_visible(visible);
+    emit guidesVisibleChanged();
+    update();
+}
+
+bool PreviewSurface::fullscreenPreview() const {
+    return fullscreen_preview_;
+}
+
+void PreviewSurface::setFullscreenPreview(bool fullscreen) {
+    if (fullscreen_preview_ == fullscreen) {
+        return;
+    }
+    fullscreen_preview_ = fullscreen;
+    emit fullscreenPreviewChanged();
+    update();
+}
+
+void PreviewSurface::hoverMoveEvent(QHoverEvent *event) {
+    shrimply_qt_preview_pointer_move(width(), height(), event->position().x(),
+                                     event->position().y());
+    update_preview_cursor(this);
+    event->accept();
+    update();
+}
+
+void PreviewSurface::hoverLeaveEvent(QHoverEvent *event) {
+    shrimply_qt_preview_pointer_leave();
+    update_preview_cursor(this);
+    event->accept();
+    update();
+}
+
+void PreviewSurface::mousePressEvent(QMouseEvent *event) {
+    if (event->button() != Qt::LeftButton ||
+        !shrimply_qt_preview_pointer_press(width(), height(), event->position().x(),
+                                           event->position().y())) {
+        event->ignore();
+        return;
+    }
+    forceActiveFocus(Qt::MouseFocusReason);
+    setKeepMouseGrab(true);
+    update_preview_cursor(this);
+    event->accept();
+    update();
+}
+
+void PreviewSurface::mouseMoveEvent(QMouseEvent *event) {
+    shrimply_qt_preview_pointer_move(width(), height(), event->position().x(),
+                                     event->position().y());
+    update_preview_cursor(this);
+    event->accept();
+    update();
+}
+
+void PreviewSurface::mouseReleaseEvent(QMouseEvent *event) {
+    if (event->button() != Qt::LeftButton) {
+        event->ignore();
+        return;
+    }
+    shrimply_qt_preview_pointer_release(width(), height(), event->position().x(),
+                                        event->position().y());
+    setKeepMouseGrab(false);
+    update_preview_cursor(this);
+    event->accept();
+    update();
+}
+
+void PreviewSurface::mouseUngrabEvent() {
+    shrimply_qt_preview_pointer_cancel();
+    setKeepMouseGrab(false);
+    update_preview_cursor(this);
+    update();
 }
 
 AudioMeterSurface::AudioMeterSurface(QQuickItem *parent) : QQuickFramebufferObject(parent) {

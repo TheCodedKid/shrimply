@@ -6,21 +6,21 @@ const SETTLED_RENDER_RETRY_DELAY: Duration = Duration::from_millis(100);
 const LOCAL_SCRUB_WINDOW_SECONDS: i64 = 3;
 type SettledRender = (Instant, u64, Time, CompositeAccuracy);
 
-pub(crate) struct PreviewMediaUpdate {
-    pub(crate) visual: Option<VideoEvent>,
-    pub(crate) render_loading: Option<bool>,
-    pub(crate) render_elapsed: Option<Duration>,
-    pub(crate) running: bool,
+pub struct PreviewMediaUpdate {
+    pub visual: Option<VideoEvent>,
+    pub render_loading: Option<bool>,
+    pub render_elapsed: Option<Duration>,
+    pub running: bool,
 }
 
 #[derive(Clone, Copy)]
-pub(crate) enum StepDirection {
+pub enum StepDirection {
     Backward,
     Forward,
 }
 
 #[derive(Clone)]
-pub(crate) struct PreviewMedia {
+pub struct PreviewMedia {
     video_tx: VideoCommandSender,
     video_rx: Rc<RefCell<Receiver<VideoEvent>>>,
     project: Rc<RefCell<Project>>,
@@ -34,7 +34,7 @@ pub(crate) struct PreviewMedia {
 }
 
 impl PreviewMedia {
-    pub(crate) fn new(
+    pub fn new(
         project: Rc<RefCell<Project>>,
         player_state: SharedPlayerState,
         playback_performance: playback_performance::SharedCollector,
@@ -115,19 +115,19 @@ impl PreviewMedia {
         media
     }
 
-    pub(crate) fn sender(&self) -> VideoCommandSender {
+    pub fn sender(&self) -> VideoCommandSender {
         self.video_tx.clone()
     }
 
-    pub(crate) fn step_direction(&self) -> Rc<Cell<Option<StepDirection>>> {
+    pub fn step_direction(&self) -> Rc<Cell<Option<StepDirection>>> {
         self.step_direction.clone()
     }
 
-    pub(crate) fn mark_step(&self, direction: StepDirection) {
+    pub fn mark_step(&self, direction: StepDirection) {
         self.step_direction.set(Some(direction));
     }
 
-    pub(crate) fn poll(&self) -> PreviewMediaUpdate {
+    pub fn poll(&self) -> PreviewMediaUpdate {
         self.poll_deferred_renders();
         let mut update = PreviewMediaUpdate {
             visual: None,
@@ -238,7 +238,7 @@ impl PreviewMedia {
         update
     }
 
-    pub(crate) fn stop(&self) {
+    pub fn stop(&self) {
         if !self.stopped.replace(true) {
             send(&self.video_tx, VideoCommand::Stop);
         }

@@ -5454,14 +5454,12 @@ dependencies = [
  "ffmpeg-next",
  "shrimply-cross-ui-core",
  "shrimply-i18n",
- "shrimply-math-color",
  "shrimply-math-core",
- "shrimply-preview-ui",
+ "shrimply-preview-qt",
+ "shrimply-preview-runtime",
  "shrimply-project",
- "shrimply-skia-adw-ui",
  "shrimply-state",
  "shrimply-support",
- "shrimply-timeline-ui",
  "tracing",
 ]
 
@@ -5490,7 +5488,7 @@ dependencies = [
  "shrimply-mcp",
  "shrimply-otio",
  "shrimply-playback-performance",
- "shrimply-preview-ui",
+ "shrimply-preview-gtk",
  "shrimply-project",
  "shrimply-property-transfer",
  "shrimply-server-client",
@@ -6046,17 +6044,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "shrimply-preview-skia"
-version = "0.1.0"
-dependencies = [
- "glam 0.33.5",
- "shrimply-math-color",
- "shrimply-math-geometry",
- "skia-safe",
-]
-
-[[package]]
-name = "shrimply-preview-ui"
+name = "shrimply-preview-gtk"
 version = "0.1.0"
 dependencies = [
  "cuda-core",
@@ -6075,6 +6063,7 @@ dependencies = [
  "shrimply-paint-edit",
  "shrimply-playback-performance",
  "shrimply-preview-core",
+ "shrimply-preview-runtime",
  "shrimply-project",
  "shrimply-render-core",
  "shrimply-skia-adw-ui",
@@ -6086,6 +6075,58 @@ dependencies = [
  "skia-safe",
  "tracing",
  "uuid",
+]
+
+[[package]]
+name = "shrimply-preview-qt"
+version = "0.1.0"
+dependencies = [
+ "glam 0.33.5",
+ "shrimply-audio",
+ "shrimply-cross-ui-core",
+ "shrimply-math-color",
+ "shrimply-playback-performance",
+ "shrimply-preview-core",
+ "shrimply-preview-runtime",
+ "shrimply-project",
+ "shrimply-skia-adw-ui",
+ "shrimply-state",
+ "shrimply-timeline-ui",
+ "shrimply-video",
+ "tracing",
+]
+
+[[package]]
+name = "shrimply-preview-runtime"
+version = "0.1.0"
+dependencies = [
+ "cuda-core",
+ "glam 0.33.5",
+ "glow",
+ "libc",
+ "shrimply-audio",
+ "shrimply-gpu-memory",
+ "shrimply-math-color",
+ "shrimply-math-core",
+ "shrimply-playback-performance",
+ "shrimply-preview-core",
+ "shrimply-project",
+ "shrimply-skia-adw-ui",
+ "shrimply-state",
+ "shrimply-video",
+ "skia-safe",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "shrimply-preview-skia"
+version = "0.1.0"
+dependencies = [
+ "glam 0.33.5",
+ "shrimply-math-color",
+ "shrimply-math-geometry",
+ "skia-safe",
 ]
 
 [[package]]
@@ -6258,6 +6299,7 @@ version = "0.1.0"
 dependencies = [
  "async-channel",
  "cached",
+ "glow",
  "hashbrown 0.17.1",
  "shrimply-math-color",
  "shrimply-math-geometry",

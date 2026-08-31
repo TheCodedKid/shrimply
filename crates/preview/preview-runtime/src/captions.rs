@@ -52,7 +52,7 @@ struct CaptionSplit {
 }
 
 #[derive(Clone, Copy)]
-pub(super) struct CaptionAppearance {
+pub struct CaptionAppearance {
     pub preview_rect: Rect,
     pub font_size: f32,
     pub background_color: Color<u8>,
@@ -115,7 +115,7 @@ fn caption_paragraph(
     paragraph
 }
 
-pub(super) fn draw_captions(
+pub fn draw_captions(
     painter: &TimelinePainter,
     project: &Project,
     position: Time,
@@ -164,7 +164,7 @@ pub(super) fn draw_captions(
     }
 }
 
-pub(super) fn split_at_position(
+pub fn split_at_position(
     project: &Project,
     address: &ItemAddress,
     position: Time,
