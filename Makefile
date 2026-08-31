@@ -80,9 +80,13 @@ FEDORA_PACKAGES := \
 	rust \
 	cargo \
 	boost-devel \
+	clang \
+	clang-devel \
 	cmake \
 	gcc-c++ \
+	lld \
 	ninja-build \
+	opencv-devel \
 	openssl-devel \
 	pkgconf-pkg-config \
 	gobject-introspection-devel \
