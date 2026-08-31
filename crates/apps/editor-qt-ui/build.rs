@@ -5,9 +5,11 @@ fn main() {
         CxxQtBuilder::new_qml_module(
             QmlModule::new("dev.shrimply.editor")
                 .qml_file("qml/Main.qml")
+                .qml_file("qml/AboutWindow.qml")
                 .qml_file("qml/PreferencesWindow.qml"),
         )
         .files(["src/backend.rs"])
+        .qrc("qml/assets.qrc")
         .cpp_files([
             "../../preview/preview-qt/include/gpu_surface.h",
             "../../preview/preview-qt/src/gpu_surface.cpp",

@@ -173,8 +173,17 @@ ApplicationWindow {
             popupType: Popup.Native
 
             Action { text: backend.translate("Keyboard Shortcuts") }
-            Action { text: backend.translate("About Shrimply") }
+            Action {
+                text: backend.translate("About Shrimply")
+                onTriggered: aboutWindow.openAbout()
+            }
         }
+    }
+
+    AboutWindow {
+        id: aboutWindow
+        backend: backend
+        owner: window
     }
 
     PreferencesWindow {

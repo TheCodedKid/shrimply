@@ -1,0 +1,5 @@
+<RCC>
+  <qresource prefix="/qt/qml/dev/shrimply/editor">
+    <file alias="shrimply.svg">../../../../assets/icons/dev.shrimply.Shrimply.svg</file>
+  </qresource>
+</RCC>

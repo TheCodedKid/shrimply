@@ -91,6 +91,12 @@ pub mod qobject {
         #[qinvokable]
         fn translate(self: Pin<&mut EditorBackend>, text: &QString) -> QString;
         #[qinvokable]
+        #[cxx_name = "applicationVersion"]
+        fn application_version(self: Pin<&mut EditorBackend>) -> QString;
+        #[qinvokable]
+        #[cxx_name = "licenseText"]
+        fn license_text(self: Pin<&mut EditorBackend>) -> QString;
+        #[qinvokable]
         #[cxx_name = "preferenceValue"]
         fn preference_value(self: Pin<&mut EditorBackend>, key: &QString) -> QString;
         #[qinvokable]
@@ -391,6 +397,14 @@ impl qobject::EditorBackend {
 
     pub fn translate(self: Pin<&mut Self>, text: &QString) -> QString {
         shrimply_i18n_qt::text(&text.to_string())
+    }
+
+    pub fn application_version(self: Pin<&mut Self>) -> QString {
+        QString::from(env!("CARGO_PKG_VERSION"))
+    }
+
+    pub fn license_text(self: Pin<&mut Self>) -> QString {
+        QString::from(include_str!("../../../../LICENSE"))
     }
 
     pub fn preference_value(self: Pin<&mut Self>, key: &QString) -> QString {
