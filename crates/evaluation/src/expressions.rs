@@ -58,7 +58,7 @@ struct EngineInput {
 impl ExpressionStateReset {
     fn set(eval: &TransformEvaluation) -> Self {
         let state = ExpressionState {
-            time: eval.local_time.seconds,
+            time: eval.expression_time.seconds,
             item_id: eval.item_id.as_u128(),
             item_start: eval.item_start,
             item_end: eval.item_end,
@@ -937,7 +937,7 @@ fn set_evaluation_globals(
     z: Option<f32>,
 ) {
     let seed = (eval.seed & 0xffff_ffff) as INT;
-    let time = eval.local_time.seconds;
+    let time = eval.expression_time.seconds;
     scope.set_value("time", time);
     scope.set_value("t", time);
     scope.set_value("local_t", time);

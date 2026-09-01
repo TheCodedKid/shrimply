@@ -18,13 +18,14 @@ use shrimply_project::project::{
     CanvasSize, PaintDrawing, PaintFillOptions, PaintStrokeEndOptions, PaintStrokeOptions,
     PaintTextureOptions, Project, ResolvedPaintFillOptions, ResolvedPaintStrokeEndOptions,
     ResolvedPaintStrokeOptions, ResolvedPaintTextureOptions, ResolvedTransform, Time, Transform,
-    VideoItem, generated_item_keyframe_span, generated_item_time,
+    VideoItem, generated_item_animation_time, generated_item_keyframe_span, generated_item_time,
 };
 
 #[derive(Clone)]
 pub struct VisualEvaluation {
     pub(crate) item_id: Uuid,
     pub(crate) local_time: Time,
+    pub(crate) expression_time: Time,
     pub(crate) duration: Time,
     pub(crate) item_start: Time,
     pub(crate) item_end: Time,
@@ -64,7 +65,7 @@ impl VisualEvaluation {
         audio: &FrameAudioAnalysis,
     ) -> Self {
         let local_time = generated_item_time(item, position).unwrap_or(Time::ZERO);
-        Self::for_item_local_time_with_audio(project, item, local_time, audio)
+        Self::for_item_at_local_time_with_audio(project, item, position, local_time, audio)
     }
 
     pub fn for_item_local_time(project: &Project, item: &VideoItem, local_time: Time) -> Self {
@@ -91,13 +92,40 @@ impl VisualEvaluation {
         local_time: Time,
         audio: &FrameAudioAnalysis,
     ) -> Self {
-        let local_nanos = local_time.as_nanos_i128() as u64;
+        Self::with_times(project, item, local_time, local_time, audio)
+    }
+
+    pub fn for_item_at_local_time_with_audio(
+        project: &Project,
+        item: &VideoItem,
+        position: Time,
+        local_time: Time,
+        audio: &FrameAudioAnalysis,
+    ) -> Self {
+        Self::with_times(
+            project,
+            item,
+            local_time,
+            generated_item_animation_time(item, position),
+            audio,
+        )
+    }
+
+    fn with_times(
+        project: &Project,
+        item: &VideoItem,
+        local_time: Time,
+        expression_time: Time,
+        audio: &FrameAudioAnalysis,
+    ) -> Self {
+        let expression_nanos = expression_time.as_nanos_i128() as u64;
         let duration = generated_item_keyframe_span(item)
             .map(|(start, end)| end.saturating_sub(start))
             .unwrap_or_else(|| item.end.saturating_sub(item.start));
         Self {
             item_id: item.id,
             local_time,
+            expression_time,
             duration,
             item_start: item.start,
             item_end: item.end,
@@ -111,7 +139,7 @@ impl VisualEvaluation {
             source_height: item.source_height,
             volume_mixer: audio.volume.clone(),
             mouth_mixer: audio.mouth.clone(),
-            seed: local_nanos ^ item.id.as_u128() as u64,
+            seed: expression_nanos ^ item.id.as_u128() as u64,
             item_seed: item.id.as_u128() as u64,
         }
     }
@@ -123,6 +151,7 @@ impl VisualEvaluation {
     pub fn at_local_time(&self, local_time: Time) -> Self {
         let mut evaluation = self.clone();
         evaluation.local_time = local_time;
+        evaluation.expression_time = local_time;
         evaluation.seed = local_time.as_nanos_i128() as u64 ^ evaluation.item_id.as_u128() as u64;
         evaluation
     }
@@ -135,14 +164,46 @@ pub fn resolve<T: TimelineExpressionValue>(
     eval: &TransformEvaluation,
     cache: &mut TransformExpressionCache,
 ) -> T {
-    let base = value.value_at(eval.local_time);
+    resolve_with_error(value, eval, cache).value
+}
+
+pub struct ExpressionOutcome<T> {
+    pub value: T,
+    pub error: Option<String>,
+}
+
+pub fn resolve_with_error<T: TimelineExpressionValue>(
+    value: &TimelineValue<T>,
+    eval: &TransformEvaluation,
+    cache: &mut TransformExpressionCache,
+) -> ExpressionOutcome<T> {
+    let base = resolve_base(value, eval);
     let Some(expression) = &value.expression else {
-        return base;
+        return ExpressionOutcome {
+            value: base,
+            error: None,
+        };
     };
     if !expression.enabled || expression.source.trim().is_empty() {
-        return base;
+        return ExpressionOutcome {
+            value: base,
+            error: None,
+        };
     }
-    evaluate_expression(cache, eval, value.id, &expression.source, &base).unwrap_or(base)
+    match cache.eval_timeline_value_result(eval, value.id, &expression.source, &base) {
+        Ok(value) => ExpressionOutcome { value, error: None },
+        Err(error) => ExpressionOutcome {
+            value: base,
+            error: Some(error),
+        },
+    }
+}
+
+pub fn resolve_base<T: TimelineExpressionValue>(
+    value: &TimelineValue<T>,
+    eval: &TransformEvaluation,
+) -> T {
+    value.value_at(eval.local_time)
 }
 
 pub fn resolve_paint_drawing(
@@ -501,11 +562,11 @@ pub fn resolve_base_transform(
     eval: &TransformEvaluation,
 ) -> ResolvedTransform {
     ResolvedTransform {
-        position: resolve_vec2_base(&transform.position, eval),
-        anchor: resolve_vec2_base(&transform.anchor, eval),
-        scale: resolve_vec2_base(&transform.scale, eval),
-        shear: resolve_vec2_base(&transform.shear, eval),
-        rotation_degrees: resolve_scalar_base(&transform.rotation_degrees, eval),
+        position: resolve_base(&transform.position, eval),
+        anchor: resolve_base(&transform.anchor, eval),
+        scale: resolve_base(&transform.scale, eval),
+        shear: resolve_base(&transform.shear, eval),
+        rotation_degrees: resolve_base(&transform.rotation_degrees, eval),
     }
 }
 
@@ -539,10 +600,6 @@ pub fn resolve_text(
     cache: &mut TransformExpressionCache,
 ) -> String {
     resolve(value, eval, cache)
-}
-
-pub fn resolve_scalar_base(value: &TimelineValue<f32>, eval: &TransformEvaluation) -> f32 {
-    value.value_at(eval.local_time)
 }
 
 pub fn resolve_bool(
@@ -618,8 +675,4 @@ fn resolve_paint_stroke_end(
         taper: resolve(&end.taper, eval, cache),
         taper_distance: resolve_scalar(&end.taper_distance, eval, cache),
     }
-}
-
-pub fn resolve_vec2_base(value: &TimelineValue<glam::Vec2>, eval: &TransformEvaluation) -> Vec2 {
-    value.value_at(eval.local_time)
 }

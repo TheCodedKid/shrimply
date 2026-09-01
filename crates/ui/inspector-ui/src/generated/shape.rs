@@ -482,11 +482,11 @@ fn integer_control(
     let player_for_expression = context.player_state.clone();
     let keyframes_key = key.clone();
     let expression_key = key;
-    crate::timeline_value::layered::control(
+    crate::timeline_value::layered_control(
         label,
         value,
         editor.upcast(),
-        Vec::new(),
+        crate::timeline_value::LayeredSections::default(),
         move |enabled| {
             let Some(key) = keyframes_key.clone() else {
                 return;

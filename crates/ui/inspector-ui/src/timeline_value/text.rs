@@ -1,8 +1,6 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use gtk::prelude::*;
-use shrimply_evaluation::{FrameAudioAnalysis, TransformExpressionCache, VisualEvaluation};
 use shrimply_gtk_components::ui::MultilineTextInput;
 use shrimply_project::project::{Project, TextItem, Time, VideoItemContent};
 use uuid::Uuid;
@@ -15,8 +13,9 @@ use crate::player_state::{self, ProjectChange, SharedPlayerState};
 use crate::{InspectorContext, keyframe_model};
 
 use super::{
-    DiscreteEditPolicy, Interpolation, TextInterpolation, TimelineBase, TimelineKeyframe,
-    TimelineTextKeyframe, TimelineValue, edit_discrete_value, layered, set_expression_enabled,
+    DiscreteEditPolicy, ExpressionOutput, Interpolation, LayeredSections, TextInterpolation,
+    TimelineBase, TimelineKeyframe, TimelineTextKeyframe, TimelineValue, edit_discrete_value,
+    evaluate_expression, expression_section, layered_wide_control, set_expression_enabled,
     set_keyframes_enabled, text_edit_count,
 };
 
@@ -29,11 +28,11 @@ pub(crate) fn text_control(
         let input = MultilineTextInput::builder(value.fallback())
             .min_content_height(86)
             .build();
-        return layered::wide_control(
+        return layered_wide_control(
             label,
             value,
             input.widget().clone(),
-            Vec::new(),
+            LayeredSections::default(),
             |_| {},
             |_| {},
         );
@@ -52,7 +51,7 @@ pub(crate) fn text_control(
         })
         .build();
 
-    let mut body = Vec::new();
+    let mut sections = LayeredSections::default();
     if matches!(value.base, TimelineBase::Keyframes(_)) {
         let built = keyframe_editor::build(
             context,
@@ -70,14 +69,14 @@ pub(crate) fn text_control(
             &built,
             move || text_value(&graph_project.borrow(), graph_key.clone()).map(text_graph),
         );
-        body.push(built.widget);
+        sections.set_keyframe(built.widget);
     }
     if value
         .expression
         .as_ref()
         .is_some_and(|expression| expression.enabled)
     {
-        body.push(expression_editor(context, key.clone()));
+        sections.push_expression(expression_editor(context, key.clone()));
     }
 
     connect_text_refresh(context, key.clone(), input.set_text_handler());
@@ -90,11 +89,11 @@ pub(crate) fn text_control(
     let expression_refresh = context.refresh.clone();
     let keyframe_key = key.clone();
     let expression_key = key;
-    layered::wide_control(
+    layered_wide_control(
         label,
         value,
         input.widget().clone(),
-        body,
+        sections,
         move |enabled| {
             if toggle_keyframes(&project, &player, keyframe_key.clone(), enabled) {
                 refresh();
@@ -147,103 +146,30 @@ fn expression_editor(context: &InspectorContext, key: SelectedItem) -> gtk::Widg
         .and_then(|value| value.expression_source().map(str::to_string));
     let project = context.project.clone();
     let player = context.player_state.clone();
-    let volume = context.volume.clone();
-    let feedback = gtk::Label::builder()
-        .xalign(0.0)
-        .wrap(true)
-        .selectable(true)
-        .build();
-    feedback.add_css_class("caption");
-    let cache = Rc::new(RefCell::new(TransformExpressionCache::default()));
-    let feedback_project = project.clone();
-    let feedback_player = player.clone();
-    let feedback_volume = volume.clone();
-    let feedback_label = feedback.clone();
-    let feedback_key = key.clone();
-    let refresh_feedback: Rc<dyn Fn()> = Rc::new(move || {
-        let snapshot = player_state::snapshot(&feedback_player);
-        let project = feedback_project.borrow();
-        let audio =
-            feedback_volume
-                .borrow_mut()
-                .sample(&project, snapshot.position, snapshot.revision);
-        feedback_label.set_label(&expression_feedback(
-            &project,
-            feedback_key.clone(),
-            snapshot.position,
-            &audio,
-            &mut cache.borrow_mut(),
-        ));
-    });
-    refresh_feedback();
-
-    let refresh_after_edit = refresh_feedback.clone();
-    let editor_key = key;
-    let editor = crate::rhai_editor::editor(
-        source,
-        crate::rhai_editor::ExpressionValue::Text,
-        move |source| {
-            update_expression(&project, &player, editor_key.clone(), source);
-            refresh_after_edit();
-        },
-    );
-    let alive = Rc::downgrade(&context.listener_scope);
-    let alive_for_prune = alive.clone();
-    player_state::connect_while_alive_named(
-        &context.player_state,
+    let editor_key = key.clone();
+    let output_key = key;
+    expression_section(
+        context,
         "inspector text expression feedback",
-        move || alive_for_prune.upgrade().is_some(),
-        move |event| {
-            if matches!(event, player_state::PlayerEvent::State(_)) && alive.upgrade().is_some() {
-                refresh_feedback();
-            }
+        move |refresh| {
+            crate::rhai_editor::editor(
+                source,
+                crate::rhai_editor::ExpressionValue::Text,
+                move |source| {
+                    update_expression(&project, &player, editor_key.clone(), source);
+                    refresh();
+                },
+            )
         },
-    );
-
-    let body = gtk::Box::new(gtk::Orientation::Vertical, 4);
-    body.append(&editor);
-    body.append(&feedback);
-    body.upcast()
-}
-
-fn expression_feedback(
-    project: &Project,
-    key: SelectedItem,
-    position: Time,
-    audio: &FrameAudioAnalysis,
-    cache: &mut TransformExpressionCache,
-) -> String {
-    let Some(evaluation_position) = project.timeline_time_to_sequence(&key.track(), position)
-    else {
-        return tr!("Expression output unavailable").into_owned();
-    };
-    let Some(item) = project.video_item(&key) else {
-        return tr!("Expression output unavailable").into_owned();
-    };
-    let Some(time) = local_time(project, key.clone(), position) else {
-        return tr!("Expression output unavailable").into_owned();
-    };
-    let Some(value) = text_value(project, key.clone()) else {
-        return tr!("Expression output unavailable").into_owned();
-    };
-    let base = value.value_at(time);
-    let Some(expression) = &value.expression else {
-        return shrimply_gtk_components::i18n::text_args("Output: %{output}", &[("output", base)]);
-    };
-    if let Some(error) = TransformExpressionCache::syntax_diagnostic(&expression.source) {
-        return format!("Syntax error: {}", error.message);
-    }
-    if expression.source.trim().is_empty() {
-        return shrimply_gtk_components::i18n::text_args("Output: %{output}", &[("output", base)]);
-    }
-    let evaluation =
-        VisualEvaluation::for_item_with_audio(project, item, evaluation_position, audio);
-    match cache.eval_timeline_value_result(&evaluation, value.id, &expression.source, &base) {
-        Ok(output) => {
-            shrimply_gtk_components::i18n::text_args("Output: %{output}", &[("output", output)])
-        }
-        Err(error) => format!("Evaluation error: {error}"),
-    }
+        move |project, position, audio, cache| {
+            let value = text_value(project, output_key.clone())?;
+            let outcome = evaluate_expression(project, &output_key, position, audio, cache, value)?;
+            Some(ExpressionOutput {
+                value: outcome.value,
+                error: outcome.error,
+            })
+        },
+    )
 }
 
 fn text_graph(value: &TimelineValue<String>) -> KeyframeGraph {
@@ -638,4 +564,3 @@ fn local_time(project: &Project, key: SelectedItem, position: Time) -> Option<Ti
 fn visible_area(project: &Project, key: SelectedItem) -> Option<(Time, Time)> {
     crate::video::visual_visible_area(project, key)
 }
-use shrimply_gtk_components::tr;

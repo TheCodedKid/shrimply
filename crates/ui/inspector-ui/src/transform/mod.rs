@@ -741,7 +741,8 @@ fn set_keyframes_enabled(
     let position = player_state::snapshot(player_state).position;
     let (current, local_time) = {
         let project_ref = project.borrow();
-        let Some(sequence_position) = project_ref.timeline_time_to_sequence(&key.track(), position)
+        let Some(sequence_position) =
+            crate::video::visual_sequence_time(&project_ref, &key, position)
         else {
             return false;
         };
@@ -833,7 +834,7 @@ fn evaluated_transform(
     position: Time,
     audio_analysis: &FrameAudioAnalysis,
 ) -> Option<ResolvedTransform> {
-    let position = project.timeline_time_to_sequence(&key.track(), position)?;
+    let position = crate::video::visual_sequence_time(project, &key, position)?;
     let item = project.video_item(&key)?;
     let mut cache = TransformExpressionCache::default();
     Some(transform_eval::resolve_item_transform_with_audio(
@@ -850,7 +851,7 @@ fn base_transform_at(
     key: SelectedItem,
     position: Time,
 ) -> Option<ResolvedTransform> {
-    let position = project.timeline_time_to_sequence(&key.track(), position)?;
+    let position = crate::video::visual_sequence_time(project, &key, position)?;
     let item = project.video_item(&key)?;
     Some(transform_eval::resolve_item_base_transform(
         project, item, position,
@@ -865,7 +866,7 @@ fn vec2_expression_result_at(
     audio_analysis: &FrameAudioAnalysis,
     cache: &Rc<RefCell<TransformExpressionCache>>,
 ) -> Option<Result<Vec2, String>> {
-    let position = project.timeline_time_to_sequence(&key.track(), position)?;
+    let position = crate::video::visual_sequence_time(project, &key, position)?;
     let item = project.video_item(&key)?;
     let value = vec2_field(&item.transform, field);
     let expression = value.expression.as_ref()?;
@@ -878,7 +879,7 @@ fn vec2_expression_result_at(
         position,
         audio_analysis,
     );
-    let base = transform_eval::resolve_vec2_base(value, &eval);
+    let base = transform_eval::resolve_base(value, &eval);
     Some(
         cache
             .borrow_mut()
@@ -894,7 +895,7 @@ fn scalar_expression_result_at(
     audio_analysis: &FrameAudioAnalysis,
     cache: &Rc<RefCell<TransformExpressionCache>>,
 ) -> Option<Result<f32, String>> {
-    let position = project.timeline_time_to_sequence(&key.track(), position)?;
+    let position = crate::video::visual_sequence_time(project, &key, position)?;
     let item = project.video_item(&key)?;
     let value = scalar_field(&item.transform, field);
     let expression = value.expression.as_ref()?;
@@ -907,7 +908,7 @@ fn scalar_expression_result_at(
         position,
         audio_analysis,
     );
-    let base = transform_eval::resolve_scalar_base(value, &eval);
+    let base = transform_eval::resolve_base(value, &eval);
     Some(
         cache
             .borrow_mut()
@@ -1083,7 +1084,7 @@ fn update_vec2_base_display(
     ));
     let value = {
         let project = project.borrow();
-        let Some(position) = project.timeline_time_to_sequence(&key.track(), position) else {
+        let Some(position) = crate::video::visual_sequence_time(&project, &key, position) else {
             return;
         };
         let Some(item) = project.video_item(&key) else {
@@ -1095,7 +1096,7 @@ fn update_vec2_base_display(
             return;
         };
         let eval = transform_eval::TransformEvaluation::for_item(&project, item, position);
-        transform_eval::resolve_vec2_base(vec2_field(&item.transform, field), &eval)
+        transform_eval::resolve_base(vec2_field(&item.transform, field), &eval)
     };
     let value = display_vec2_raw_value(field, value);
     if !value.x.is_finite() || !value.y.is_finite() {
@@ -1149,7 +1150,7 @@ fn update_scalar_base_display(
     ));
     let value = {
         let project = project.borrow();
-        let Some(position) = project.timeline_time_to_sequence(&key.track(), position) else {
+        let Some(position) = crate::video::visual_sequence_time(&project, &key, position) else {
             return;
         };
         let Some(item) = project.video_item(&key) else {
@@ -1161,7 +1162,7 @@ fn update_scalar_base_display(
             return;
         };
         let eval = transform_eval::TransformEvaluation::for_item(&project, item, position);
-        transform_eval::resolve_scalar_base(scalar_field(&item.transform, field), &eval)
+        transform_eval::resolve_base(scalar_field(&item.transform, field), &eval)
     };
     let value = display_scalar_raw_value(field, value);
     if !value.is_finite() {

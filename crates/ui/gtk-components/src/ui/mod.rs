@@ -31,7 +31,7 @@ pub use frame_graph::{FrameGraph, SharedFrameGraphState};
 pub use i18n::{I18nAlertDialogExt, I18nFileFilterExt, I18nMenuExt, I18nWidgetExt, menu_item_i18n};
 pub use inspector_card::InspectorCard;
 pub use inspector_graph_property::InspectorGraphProperty;
-pub use inspector_layered_property::InspectorLayeredProperty;
+pub use inspector_layered_property::{InspectorLayeredProperty, InspectorLayeredPropertyBuilder};
 pub use inspector_property_row::InspectorPropertyRow;
 pub use keyed_box::KeyedBox;
 pub use live_performance::live_performance;

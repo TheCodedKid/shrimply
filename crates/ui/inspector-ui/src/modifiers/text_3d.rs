@@ -16,7 +16,7 @@ use crate::{
     font_selector::font_selector_list,
     player_state::{self, ProjectChange},
     selector::{enum_selector, selector},
-    timeline_value::layered,
+    timeline_value::{LayeredSections, layered_wide_control},
 };
 
 use super::{ScalarOptions, color_row, integer_scalar_row, scalar_row, vec3_row, vec3_scale_row};
@@ -143,11 +143,11 @@ fn text_row(value: &Text3dModifier, id: Uuid, context: &InspectorContext) -> gtk
         let input = MultilineTextInput::builder(value.text.fallback())
             .min_content_height(86)
             .build();
-        return layered::wide_control(
+        return layered_wide_control(
             "Text",
             &value.text,
             input.widget().clone(),
-            Vec::new(),
+            LayeredSections::default(),
             |_| {},
             |_| {},
         );
@@ -164,7 +164,7 @@ fn text_row(value: &Text3dModifier, id: Uuid, context: &InspectorContext) -> gtk
             shrimply_project::project::commit_edit(&commit_project.borrow(), "edit-3d-text");
         })
         .build();
-    let mut body = Vec::new();
+    let mut sections = LayeredSections::default();
     if value
         .text
         .expression
@@ -173,7 +173,7 @@ fn text_row(value: &Text3dModifier, id: Uuid, context: &InspectorContext) -> gtk
     {
         let source = value.text.expression_source().map(str::to_string);
         let expression_context = context.detached();
-        body.push(crate::rhai_editor::editor(
+        sections.push_expression(crate::rhai_editor::editor(
             source,
             crate::rhai_editor::ExpressionValue::Text,
             move |source| update_text_expression(&expression_context, id, source),
@@ -183,11 +183,11 @@ fn text_row(value: &Text3dModifier, id: Uuid, context: &InspectorContext) -> gtk
     let expression_context = context.detached();
     let refresh = context.refresh.clone();
     let expression_refresh = context.refresh.clone();
-    layered::wide_control(
+    layered_wide_control(
         "Text",
         &value.text,
         input.widget().clone(),
-        body,
+        sections,
         move |enabled| {
             if toggle_text_keyframes(&keyframe_context, id, enabled) {
                 refresh();

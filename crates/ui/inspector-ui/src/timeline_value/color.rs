@@ -4,7 +4,7 @@ use std::rc::Rc;
 
 use num_traits::ToPrimitive;
 
-use super::layered;
+use super::{LayeredSections, layered_control};
 use crate::InspectedItem as SelectedItem;
 use crate::keyframe_editor::{self, KeyframeEditorActions, KeyframeGraph, SpeedSegment};
 use crate::player_state::{self, ProjectChange, SharedPlayerState};
@@ -110,7 +110,14 @@ pub(crate) fn color_control(
             .title(tr!(label).as_ref())
             .hexpand(true)
             .build();
-        return layered::control(label, value, button, Vec::new(), |_| {}, |_| {});
+        return layered_control(
+            label,
+            value,
+            button,
+            LayeredSections::default(),
+            |_| {},
+            |_| {},
+        );
     };
     let project = context.project.clone();
     let player_state = context.player_state.clone();
@@ -127,7 +134,7 @@ pub(crate) fn color_control(
         .build();
     let keyframes = matches!(value.base, TimelineBase::Keyframes(_));
     let expression = value.expression.as_ref().is_some_and(|v| v.enabled);
-    let mut body = Vec::new();
+    let mut sections = LayeredSections::default();
     if keyframes {
         let duration = {
             let project = context.project.borrow();
@@ -154,13 +161,13 @@ pub(crate) fn color_control(
                     .map(|value| color_speed_graph(value))
             },
         );
-        body.push(built.widget);
+        sections.set_keyframe(built.widget);
     }
     if expression {
         let project = context.project.clone();
         let player = context.player_state.clone();
         let expression_key = key.clone();
-        body.push(crate::rhai_editor::editor(
+        sections.push_expression(crate::rhai_editor::editor(
             value.expression_source().map(str::to_string),
             crate::rhai_editor::ExpressionValue::Color,
             move |source| {
@@ -176,11 +183,11 @@ pub(crate) fn color_control(
     let er = context.refresh.clone();
     let keyframe_key = key.clone();
     let expression_key = key;
-    layered::control(
+    layered_control(
         label,
         value,
         button,
-        body,
+        sections,
         move |enabled| {
             if toggle_keyframes(&kp, &kpl, keyframe_key.clone(), target, enabled) {
                 kr();

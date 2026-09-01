@@ -337,24 +337,24 @@ fn drawing_control(value: &TimelineValue<PaintDrawing>, context: &InspectorConte
         .xalign(0.0)
         .css_classes(["dim-label"])
         .build();
-    let mut body = Vec::new();
+    let mut sections = crate::timeline_value::LayeredSections::default();
     if matches!(&value.base, TimelineBase::Keyframes(_)) {
-        body.push(drawing_keyframe_graph(value, context));
+        sections.set_keyframe(drawing_keyframe_graph(value, context));
     }
     if value
         .expression
         .as_ref()
         .is_some_and(|expression| expression.enabled)
     {
-        body.push(drawing_expression_editor(value, context));
+        sections.push_expression(drawing_expression_editor(value, context));
     }
     let keyframe_context = context.detached();
     let expression_context = context.detached();
-    crate::timeline_value::layered::wide_control(
+    crate::timeline_value::layered_wide_control(
         "Drawing",
         value,
         summary.upcast(),
-        body,
+        sections,
         move |enabled| toggle_drawing_keyframes(&keyframe_context, enabled),
         move |enabled| toggle_drawing_expression(&expression_context, enabled),
     )

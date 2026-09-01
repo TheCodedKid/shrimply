@@ -1,17 +1,20 @@
-use shrimply_gtk_components::tr;
 use std::cell::RefCell;
 use std::rc::Rc;
 use uuid::Uuid;
 
 use glam::Vec2;
-use gtk::prelude::*;
 
 use crate::InspectedItem as SelectedItem;
 use crate::player_state::{self, ProjectChange, SharedPlayerState};
 use crate::timeline_value::*;
-use crate::transform_eval::{self, TransformExpressionCache};
+use crate::transform_eval;
 use crate::ui::Number2Picker;
-use crate::{InspectorContext, keyframe_model, timeline_value::layered};
+use crate::{
+    InspectorContext, keyframe_model,
+    timeline_value::{
+        ExpressionOutput, LayeredSections, evaluate_expression, expression_section, layered_control,
+    },
+};
 use shrimply_project::project::{Project, Time, VisualAlphaMaskTarget};
 
 use crate::keyframe_editor::{self, KeyframeEditorActions};
@@ -140,11 +143,11 @@ pub(crate) fn vec_control_with_lock(
     lock: bool,
 ) -> gtk::Widget {
     let Some(key) = context.selected_item.clone() else {
-        return layered::control(
+        return layered_control(
             label,
             value,
             picker(value.fallback(), context, target, spec, lock),
-            Vec::new(),
+            LayeredSections::default(),
             |_| {},
             |_| {},
         );
@@ -160,7 +163,7 @@ pub(crate) fn vec_control_with_lock(
         .expression
         .as_ref()
         .is_some_and(|expression| expression.enabled);
-    let mut body = Vec::new();
+    let mut sections = LayeredSections::default();
     if keyframes_enabled {
         let graph = super::speed_graph(value);
         let duration = {
@@ -187,11 +190,10 @@ pub(crate) fn vec_control_with_lock(
                     .map(super::speed_graph)
             },
         );
-        body.push(built.widget);
+        sections.set_keyframe(built.widget);
     }
     if expression_enabled {
-        body.push(expression_editor(context, key.clone(), target));
-        body.push(expression_output(context, key.clone(), target));
+        sections.push_expression(expression_editor(context, key.clone(), target, spec));
     }
     let keyframe_project = context.project.clone();
     let keyframe_player_state = context.player_state.clone();
@@ -201,11 +203,11 @@ pub(crate) fn vec_control_with_lock(
     let expression_refresh = context.refresh.clone();
     let keyframe_key = key.clone();
     let expression_key = key;
-    layered::control(
+    layered_control(
         label,
         value,
         picker(current, context, target, spec, lock),
-        body,
+        sections,
         move |enabled| {
             if set_keyframes_enabled(
                 &keyframe_project,
@@ -634,6 +636,7 @@ fn expression_editor(
     context: &InspectorContext,
     key: SelectedItem,
     target: VecTarget,
+    spec: VecSpec,
 ) -> gtk::Widget {
     let source = {
         let project = context.project.borrow();
@@ -644,11 +647,44 @@ fn expression_editor(
     };
     let project = context.project.clone();
     let player_state = context.player_state.clone();
-    crate::rhai_editor::editor(
-        source,
-        crate::rhai_editor::ExpressionValue::Vec2,
-        move |source| {
-            update_expression_source(&project, &player_state, key.clone(), target, source);
+    let editor_key = key.clone();
+    let output_key = key;
+    expression_section(
+        context,
+        "inspector vec expression output",
+        move |refresh| {
+            crate::rhai_editor::editor(
+                source,
+                crate::rhai_editor::ExpressionValue::Vec2,
+                move |source| {
+                    update_expression_source(
+                        &project,
+                        &player_state,
+                        editor_key.clone(),
+                        target,
+                        source,
+                    );
+                    refresh();
+                },
+            )
+        },
+        move |project, position, audio, cache| {
+            let value = target.access.get(project, output_key.clone())?;
+            let outcome = evaluate_expression(project, &output_key, position, audio, cache, value)?;
+            Some(ExpressionOutput {
+                value: format!(
+                    "{} {:.*}{}  {} {:.*}{}",
+                    spec.first_prefix,
+                    spec.digits,
+                    outcome.value.x,
+                    spec.unit_name,
+                    spec.second_prefix,
+                    spec.digits,
+                    outcome.value.y,
+                    spec.unit_name,
+                ),
+                error: outcome.error,
+            })
         },
     )
 }
@@ -677,128 +713,6 @@ fn update_expression_source(
     let mut refresh = target.refresh;
     refresh.inspector = false;
     player_state::refresh_project(player_state, refresh);
-}
-
-fn expression_output(
-    context: &InspectorContext,
-    key: SelectedItem,
-    target: VecTarget,
-) -> gtk::Widget {
-    let label = gtk::Label::new(None);
-    label.set_hexpand(true);
-    label.set_xalign(1.0);
-    label.set_selectable(true);
-    label.set_ellipsize(gtk::pango::EllipsizeMode::End);
-    label.add_css_class("numeric");
-    let row = gtk::Box::new(gtk::Orientation::Horizontal, 6);
-    row.set_hexpand(true);
-    let title = gtk::Label::new(Some(tr!("Output").as_ref()));
-    title.add_css_class("dim-label");
-    title.set_xalign(0.0);
-    row.append(&title);
-    row.append(&label);
-
-    let cache = Rc::new(RefCell::new(TransformExpressionCache::default()));
-    update_expression_output(
-        &context.project,
-        &context.player_state,
-        &context.volume,
-        key.clone(),
-        target,
-        &label,
-        &cache,
-    );
-    let project = context.project.clone();
-    let player_state = context.player_state.clone();
-    let volume = context.volume.clone();
-    let alive = Rc::downgrade(&context.listener_scope);
-    let label = label.downgrade();
-    player_state::connect_while_alive_named(
-        &context.player_state,
-        "inspector vec expression output",
-        move || alive.upgrade().is_some(),
-        move |event| {
-            let refresh = match event {
-                player_state::PlayerEvent::State(_) => true,
-                player_state::PlayerEvent::Project(change) => change.video || change.audio,
-            };
-            if !refresh {
-                return;
-            }
-            let Some(label) = label.upgrade() else {
-                return;
-            };
-            update_expression_output(
-                &project,
-                &player_state,
-                &volume,
-                key.clone(),
-                target,
-                &label,
-                &cache,
-            );
-        },
-    );
-    row.upcast()
-}
-
-fn update_expression_output(
-    project: &Rc<RefCell<Project>>,
-    player_state: &SharedPlayerState,
-    volume: &Rc<RefCell<shrimply_audio::streaming::FrameAudioSampler>>,
-    key: SelectedItem,
-    target: VecTarget,
-    label: &gtk::Label,
-    cache: &Rc<RefCell<TransformExpressionCache>>,
-) {
-    let snapshot = player_state::snapshot(player_state);
-    let position = snapshot.position;
-    let volume_mixer = volume
-        .borrow_mut()
-        .sample(&project.borrow(), position, snapshot.revision);
-    let project = project.borrow();
-    let Some(item) = project.video_item(&key) else {
-        return;
-    };
-    let Some(value) = target.access.get(&project, key.clone()) else {
-        return;
-    };
-    let Some(expression) = value.expression.as_ref() else {
-        return;
-    };
-    if !expression.enabled || expression.source.trim().is_empty() {
-        return;
-    }
-    let eval = transform_eval::TransformEvaluation::for_item_with_audio(
-        &project,
-        item,
-        position,
-        &volume_mixer,
-    );
-    let base = transform_eval::resolve_vec2_base(value, &eval);
-    match cache
-        .borrow_mut()
-        .eval_timeline_value_result(&eval, value.id, &expression.source, &base)
-    {
-        Ok(value) => {
-            label.remove_css_class("error");
-            label.set_tooltip_text(None);
-            label.set_text(&format!(
-                "X {:.0}{}  Y {:.0}{}",
-                value.x, "px", value.y, "px"
-            ));
-        }
-        Err(error) => {
-            label.add_css_class("error");
-            label.set_tooltip_text(Some(&error));
-            let message = error.lines().next().unwrap_or_default().trim();
-            if message.is_empty() {
-                label.set_text(tr!("Invalid expression").as_ref());
-            } else {
-                label.set_text(&format!("Invalid expression: {message}"));
-            }
-        }
-    }
 }
 
 fn set_value(value: &mut TimelineValue<glam::Vec2>, local_time: Time, next: Vec2) -> bool {

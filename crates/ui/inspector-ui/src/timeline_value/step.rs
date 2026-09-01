@@ -104,7 +104,7 @@ fn step_control_with_buttons<T: TimelineStep>(
     buttons: bool,
 ) -> gtk::Widget {
     let Some(key) = context.selected_item.clone() else {
-        return super::layered::control(
+        return super::layered_control(
             label,
             value,
             if buttons {
@@ -112,7 +112,7 @@ fn step_control_with_buttons<T: TimelineStep>(
             } else {
                 step_editor(value.fallback(), |_| {})
             },
-            Vec::new(),
+            super::LayeredSections::default(),
             |_| {},
             |_| {},
         );
@@ -134,7 +134,7 @@ fn step_control_with_buttons<T: TimelineStep>(
         step_editor(value.value_at(time), move |next| update(next))
     };
 
-    let mut body = Vec::new();
+    let mut sections = super::LayeredSections::default();
     if let TimelineBase::Keyframes(_) = &value.base {
         let built = keyframe_editor::build(
             context,
@@ -153,7 +153,7 @@ fn step_control_with_buttons<T: TimelineStep>(
             &built,
             move || (graph_target.get)(&project.borrow(), graph_key.clone()).map(step_graph),
         );
-        body.push(built.widget);
+        sections.set_keyframe(built.widget);
     }
     if value
         .expression
@@ -164,7 +164,7 @@ fn step_control_with_buttons<T: TimelineStep>(
         let player = context.player_state.clone();
         let expression_target = target.clone();
         let expression_key = key.clone();
-        body.push(crate::rhai_editor::editor(
+        sections.push_expression(crate::rhai_editor::editor(
             value.expression_source().map(str::to_string),
             crate::rhai_editor::ExpressionValue::Step,
             move |source| {
@@ -188,11 +188,11 @@ fn step_control_with_buttons<T: TimelineStep>(
     let expression_target = target.clone();
     let keyframe_key = key.clone();
     let expression_key = key;
-    super::layered::control(
+    super::layered_control(
         label,
         value,
         editor,
-        body,
+        sections,
         move |enabled| {
             if toggle_keyframes(&project, &player, keyframe_key.clone(), &target, enabled) {
                 refresh();

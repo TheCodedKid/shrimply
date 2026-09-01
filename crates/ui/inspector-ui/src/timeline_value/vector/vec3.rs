@@ -1,4 +1,3 @@
-use shrimply_gtk_components::tr;
 use std::{
     cell::{RefCell, RefMut},
     rc::Rc,
@@ -6,13 +5,11 @@ use std::{
 
 use crate::InspectedItem as SelectedItem;
 use glam::Vec3;
-use gtk::prelude::*;
 use shrimply_core::timeline_value::{
     CurveEditPolicy, CurveKeyframeInsert, Interpolation, TimelineBase, TimelineValue,
     TimelineValueType, TimelineVectorKeyframe, edit_curve_value, insert_curve_keyframe,
     set_keyframes_enabled,
 };
-use shrimply_evaluation::TransformExpressionCache;
 use shrimply_project::project::{Project, Time};
 use uuid::Uuid;
 
@@ -21,6 +18,7 @@ use crate::{
     keyframe_editor::{self, KeyframeEditorActions},
     keyframe_model,
     player_state::{self, ProjectChange, SharedPlayerState},
+    timeline_value::{ExpressionOutput, LayeredSections, evaluate_expression, expression_section},
     ui::{Number3Picker, NumberPickerHandle},
 };
 
@@ -141,18 +139,18 @@ pub(crate) fn control(
     target: Vec3Target,
 ) -> gtk::Widget {
     let Some(key) = context.selected_item.clone() else {
-        return crate::timeline_value::layered::control(
+        return crate::timeline_value::layered_control(
             label,
             value,
             picker(value.fallback(), context, target),
-            Vec::new(),
+            LayeredSections::default(),
             |_| {},
             |_| {},
         );
     };
     let time = local_time(context, key.clone()).unwrap_or(Time::ZERO);
     let current = value.value_at(time);
-    let mut body = Vec::new();
+    let mut sections = LayeredSections::default();
     if matches!(value.base, TimelineBase::Keyframes(_)) {
         let built = keyframe_editor::build(
             context,
@@ -174,11 +172,10 @@ pub(crate) fn control(
                     .map(super::speed_graph)
             },
         );
-        body.push(built.widget);
+        sections.set_keyframe(built.widget);
     }
     if value.expression.as_ref().is_some_and(|value| value.enabled) {
-        body.push(expression_editor(context, key.clone(), target));
-        body.push(expression_output(context, key.clone(), target));
+        sections.push_expression(expression_editor(context, key.clone(), target));
     }
 
     let keyframe_project = context.project.clone();
@@ -189,11 +186,11 @@ pub(crate) fn control(
     let expression_refresh = context.refresh.clone();
     let keyframe_key = key.clone();
     let expression_key = key;
-    crate::timeline_value::layered::control(
+    crate::timeline_value::layered_control(
         label,
         value,
         picker(current, context, target),
-        body,
+        sections,
         move |enabled| {
             if toggle_keyframes(
                 &keyframe_project,
@@ -398,111 +395,55 @@ fn expression_editor(
         .and_then(|value| value.expression_source().map(str::to_string));
     let project = context.project.clone();
     let player = context.player_state.clone();
-    crate::rhai_editor::editor(
-        source,
-        crate::rhai_editor::ExpressionValue::Vec3,
-        move |source| {
-            let mut project = project.borrow_mut();
-            let Some(expression) = target
-                .value_mut(&mut project, key.clone())
-                .and_then(|value| value.expression.as_mut())
-            else {
-                return;
-            };
-            if expression.source == source {
-                return;
-            }
-            expression.source = source;
-            shrimply_project::project::commit_coalesced_edit(
-                &project,
-                "edit-scene-3d-vec3-expression",
-            );
-            drop(project);
-            player_state::refresh_project(
-                &player,
-                ProjectChange {
-                    video: true,
-                    ..Default::default()
+    let editor_key = key.clone();
+    let output_key = key;
+    expression_section(
+        context,
+        "inspector vec3 expression output",
+        move |refresh| {
+            crate::rhai_editor::editor(
+                source,
+                crate::rhai_editor::ExpressionValue::Vec3,
+                move |source| {
+                    let mut project = project.borrow_mut();
+                    let Some(expression) = target
+                        .value_mut(&mut project, editor_key.clone())
+                        .and_then(|value| value.expression.as_mut())
+                    else {
+                        return;
+                    };
+                    if expression.source == source {
+                        return;
+                    }
+                    expression.source = source;
+                    shrimply_project::project::commit_coalesced_edit(
+                        &project,
+                        "edit-scene-3d-vec3-expression",
+                    );
+                    drop(project);
+                    player_state::refresh_project(
+                        &player,
+                        ProjectChange {
+                            video: true,
+                            ..Default::default()
+                        },
+                    );
+                    refresh();
                 },
-            );
+            )
+        },
+        move |project, position, audio, cache| {
+            let value = target.value(project, output_key.clone())?;
+            let outcome = evaluate_expression(project, &output_key, position, audio, cache, value)?;
+            Some(ExpressionOutput {
+                value: format!(
+                    "X {:.2}  Y {:.2}  Z {:.2}",
+                    outcome.value.x, outcome.value.y, outcome.value.z,
+                ),
+                error: outcome.error,
+            })
         },
     )
-}
-
-fn expression_output(
-    context: &InspectorContext,
-    key: SelectedItem,
-    target: Vec3Target,
-) -> gtk::Widget {
-    let label = gtk::Label::builder()
-        .hexpand(true)
-        .xalign(1.0)
-        .selectable(true)
-        .css_classes(["numeric"])
-        .build();
-    let row = gtk::Box::new(gtk::Orientation::Horizontal, 6);
-    let title = gtk::Label::new(Some(tr!("Output").as_ref()));
-    title.add_css_class("dim-label");
-    row.append(&title);
-    row.append(&label);
-    let project = context.project.clone();
-    let player = context.player_state.clone();
-    let volume = context.volume.clone();
-    let cache = Rc::new(RefCell::new(TransformExpressionCache::default()));
-    let refresh: Rc<dyn Fn()> = Rc::new({
-        let label = label.clone();
-        move || {
-            let snapshot = player_state::snapshot(&player);
-            let position = snapshot.position;
-            let project = project.borrow();
-            let Some(item) = project.video_item(&key) else {
-                return;
-            };
-            let Some(value) = target.value(&project, key.clone()) else {
-                return;
-            };
-            let Some(expression) = value.expression.as_ref().filter(|value| value.enabled) else {
-                return;
-            };
-            let volume_mixer = volume
-                .borrow_mut()
-                .sample(&project, position, snapshot.revision);
-            let eval = shrimply_evaluation::TransformEvaluation::for_item_with_audio(
-                &project,
-                item,
-                position,
-                &volume_mixer,
-            );
-            let time = crate::video::visual_local_time(&project, key.clone(), position)
-                .unwrap_or(Time::ZERO);
-            let base = value.value_at(time);
-            match cache.borrow_mut().eval_timeline_value_result(
-                &eval,
-                value.id,
-                &expression.source,
-                &base,
-            ) {
-                Ok(value) => label.set_label(&format!(
-                    "X {:.2}  Y {:.2}  Z {:.2}",
-                    value.x, value.y, value.z
-                )),
-                Err(error) => label.set_label(&format!("Invalid expression: {error}")),
-            }
-        }
-    });
-    refresh();
-    let alive = Rc::downgrade(&context.listener_scope);
-    player_state::connect_while_alive_named(
-        &context.player_state,
-        "inspector vec3 expression output",
-        move || alive.upgrade().is_some(),
-        move |event| {
-            if matches!(event, player_state::PlayerEvent::State(_)) {
-                refresh();
-            }
-        },
-    );
-    row.upcast()
 }
 
 fn actions(

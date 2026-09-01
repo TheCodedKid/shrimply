@@ -65,7 +65,7 @@ impl InspectorPropertyRow {
         keyframes.connect_toggled({
             let revealer = keyframe_revealer.clone();
             move |button| {
-                if button.is_active() {
+                if button.is_active() && revealer.child().is_some() {
                     revealer.set_visible(true);
                 }
                 revealer.set_reveal_child(button.is_active());
@@ -74,7 +74,7 @@ impl InspectorPropertyRow {
         expression.connect_toggled({
             let revealer = expression_revealer.clone();
             move |button| {
-                if button.is_active() {
+                if button.is_active() && revealer.child().is_some() {
                     revealer.set_visible(true);
                 }
                 revealer.set_reveal_child(button.is_active());

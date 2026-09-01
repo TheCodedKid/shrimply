@@ -1354,7 +1354,7 @@ fn integer(
             shrimply_project::project::commit_edit(&commit_project.borrow(), "edit-background");
         })
         .build();
-    let mut body = Vec::new();
+    let mut sections = crate::timeline_value::LayeredSections::default();
     if value
         .expression
         .as_ref()
@@ -1363,7 +1363,7 @@ fn integer(
         let project = context.project.clone();
         let player = context.player_state.clone();
         let key = context.selected_item.clone();
-        body.push(crate::rhai_editor::editor(
+        sections.push_expression(crate::rhai_editor::editor(
             value.expression_source().map(str::to_string),
             crate::rhai_editor::ExpressionValue::Scalar,
             move |source| {
@@ -1377,11 +1377,11 @@ fn integer(
     let expression_project = context.project.clone();
     let expression_player = context.player_state.clone();
     let expression_key = context.selected_item.clone();
-    section.add_wide_control(&crate::timeline_value::layered::control(
+    section.add_wide_control(&crate::timeline_value::layered_control(
         label,
         value,
         control,
-        body,
+        sections,
         move |enabled| {
             toggle_integer_keyframes(
                 &keyframe_project,

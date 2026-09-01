@@ -1439,9 +1439,17 @@ fn compositing_opacity_mut(
 }
 
 pub(super) fn visual_local_time(project: &Project, key: SelectedItem, time: Time) -> Option<Time> {
-    let time = project.timeline_time_to_sequence(&key.track(), time)?;
+    let time = visual_sequence_time(project, &key, time)?;
     let item = project.video_item(&key)?;
     shrimply_project::project::generated_item_time(item, time)
+}
+
+pub(super) fn visual_sequence_time(
+    project: &Project,
+    key: &SelectedItem,
+    time: Time,
+) -> Option<Time> {
+    project.timeline_time_to_sequence(&key.track(), time)
 }
 
 pub(super) fn visual_duration(project: &Project, key: SelectedItem) -> Option<Time> {

@@ -13,7 +13,7 @@ use shrimply_project::project::{Project, Time};
 use crate::keyframe_editor::{
     self, KeyframeEditorActions, KeyframeGraph, KeyframePoint, RawSegment,
 };
-use crate::timeline_value::layered;
+use crate::timeline_value::{LayeredSections, layered_control};
 use crate::{InspectorContext, keyframe_model};
 
 pub(crate) type ScalarGet = for<'a> fn(&'a Project, SelectedItem) -> Option<&'a TimelineValue<f32>>;
@@ -224,11 +224,11 @@ pub(crate) fn scalar_control(
     spec: ScalarSpec,
 ) -> gtk::Widget {
     let Some(key) = context.selected_item.clone() else {
-        return layered::control(
+        return layered_control(
             label,
             value,
             scalar_picker((spec.display)(value.fallback()), context, target, spec),
-            Vec::new(),
+            LayeredSections::default(),
             |_| {},
             |_| {},
         );
@@ -242,7 +242,7 @@ pub(crate) fn scalar_control(
         .is_some_and(|expression| expression.enabled);
     let picker = scalar_picker(display, context, target, spec);
 
-    let mut body = Vec::new();
+    let mut sections = LayeredSections::default();
     if keyframes_enabled {
         let graph = scalar_graph(value, spec, display);
         let duration = {
@@ -276,11 +276,11 @@ pub(crate) fn scalar_control(
                 Some(scalar_graph(value, spec, static_value))
             },
         );
-        body.push(built.widget);
+        sections.set_keyframe(built.widget);
     }
 
     if expression_enabled {
-        body.push(expression_editor(context, key.clone(), target));
+        sections.push_expression(expression_editor(context, key.clone(), target, spec));
     }
 
     let keyframe_project = context.project.clone();
@@ -291,11 +291,11 @@ pub(crate) fn scalar_control(
     let expression_refresh = context.refresh.clone();
     let keyframe_key = key.clone();
     let expression_key = key;
-    layered::control(
+    layered_control(
         label,
         value,
         picker,
-        body,
+        sections,
         move |enabled| {
             if set_keyframes_enabled(
                 &keyframe_project,
@@ -449,6 +449,7 @@ fn expression_editor(
     context: &InspectorContext,
     key: SelectedItem,
     target: ScalarTarget,
+    spec: ScalarSpec,
 ) -> gtk::Widget {
     let source = {
         let project = context.project.borrow();
@@ -459,11 +460,39 @@ fn expression_editor(
     };
     let project = context.project.clone();
     let player_state = context.player_state.clone();
-    crate::rhai_editor::editor(
-        source,
-        crate::rhai_editor::ExpressionValue::Scalar,
-        move |source| {
-            update_expression_source(&project, &player_state, key.clone(), target, source);
+    let editor_key = key.clone();
+    let output_key = key;
+    expression_section(
+        context,
+        "inspector scalar expression output",
+        move |refresh| {
+            crate::rhai_editor::editor(
+                source,
+                crate::rhai_editor::ExpressionValue::Scalar,
+                move |source| {
+                    update_expression_source(
+                        &project,
+                        &player_state,
+                        editor_key.clone(),
+                        target,
+                        source,
+                    );
+                    refresh();
+                },
+            )
+        },
+        move |project, position, audio, cache| {
+            let value = target.access.get(project, output_key.clone())?;
+            let outcome = evaluate_expression(project, &output_key, position, audio, cache, value)?;
+            Some(ExpressionOutput {
+                value: format!(
+                    "{:.*}{}",
+                    spec.digits,
+                    (spec.display)(outcome.value),
+                    spec.unit_name.unwrap_or_default(),
+                ),
+                error: outcome.error,
+            })
         },
     )
 }
