@@ -593,6 +593,7 @@ impl Number2Picker {
             first: NumberPicker::fraction_builder(first),
             second: NumberPicker::fraction_builder(second),
             enable_lock: false,
+            on_change: None,
             on_first_change: None,
             on_second_change: None,
             on_first_commit: None,
@@ -605,11 +606,14 @@ pub struct Number2PickerBuilder {
     first: NumberPickerBuilder,
     second: NumberPickerBuilder,
     enable_lock: bool,
+    on_change: Number2GroupCallback,
     on_first_change: Option<Box<dyn Fn(Fraction) + 'static>>,
     on_second_change: Option<Box<dyn Fn(Fraction) + 'static>>,
     on_first_commit: Option<Box<dyn Fn(Fraction) + 'static>>,
     on_second_commit: Option<Box<dyn Fn(Fraction) + 'static>>,
 }
+
+type Number2GroupCallback = Option<Box<dyn Fn([Fraction; 2], usize) + 'static>>;
 
 impl Number2PickerBuilder {
     pub fn minimum(mut self, value: f64) -> Self {
@@ -664,6 +668,13 @@ impl Number2PickerBuilder {
         self
     }
 
+    pub fn on_change(mut self, callback: impl Fn([f64; 2], usize) + 'static) -> Self {
+        self.on_change = Some(Box::new(move |values, component| {
+            callback(values.map(fraction_as_f64), component);
+        }));
+        self
+    }
+
     pub fn on_first_change(mut self, callback: impl Fn(f64) + 'static) -> Self {
         self.on_first_change = Some(Box::new(move |value| callback(fraction_as_f64(value))));
         self
@@ -689,44 +700,20 @@ impl Number2PickerBuilder {
             first,
             second,
             enable_lock,
+            on_change,
             on_first_change,
             on_second_change,
             on_first_commit,
             on_second_commit,
         } = self;
-        if !enable_lock {
-            let first = match on_first_change {
-                Some(callback) => first.on_change_fraction(callback),
-                None => first,
-            };
-            let first = match on_first_commit {
-                Some(callback) => first.on_commit_fraction(callback),
-                None => first,
-            };
-            let second = match on_second_change {
-                Some(callback) => second.on_change_fraction(callback),
-                None => second,
-            };
-            let second = match on_second_commit {
-                Some(callback) => second.on_commit_fraction(callback),
-                None => second,
-            };
-            let first = first.build_parts();
-            let second = second.build_parts();
-            let first_handle = first.handle.clone();
-            let second_handle = second.handle.clone();
-            return Number2PickerParts {
-                widget: build_number_pair_row(first.widget, second.widget, None),
-                first: first_handle,
-                second: second_handle,
-            };
-        }
-
-        let initial_ratio = shrimply_component_core::number::pair_ratio(first.value, second.value);
-        let locked = Rc::new(Cell::new(true));
-        let locked_ratio = Rc::new(Cell::new(initial_ratio));
+        let initial_first = first.value;
+        let initial_second = second.value;
         let first_handle = Rc::new(RefCell::new(None::<NumberPickerHandle>));
         let second_handle = Rc::new(RefCell::new(None::<NumberPickerHandle>));
+        let on_change: Rc<dyn Fn([Fraction; 2], usize)> = match on_change {
+            Some(callback) => Rc::from(callback),
+            None => Rc::new(|_, _| {}),
+        };
         let on_first_change: Rc<dyn Fn(Fraction)> = match on_first_change {
             Some(callback) => Rc::from(callback),
             None => Rc::new(|_| {}),
@@ -743,41 +730,97 @@ impl Number2PickerBuilder {
             Some(callback) => Rc::from(callback),
             None => Rc::new(|_| {}),
         };
+        if !enable_lock {
+            let first = first
+                .on_change_fraction({
+                    let second_handle = second_handle.clone();
+                    let on_change = on_change.clone();
+                    let on_first_change = on_first_change.clone();
+                    move |value| {
+                        on_first_change(value);
+                        let second = second_handle
+                            .borrow()
+                            .as_ref()
+                            .map_or(initial_second, |handle| handle.value.get());
+                        on_change([value, second], 0);
+                    }
+                })
+                .on_commit_fraction({
+                    let on_first_commit = on_first_commit.clone();
+                    move |value| on_first_commit(value)
+                });
+            let second = second
+                .on_change_fraction({
+                    let first_handle = first_handle.clone();
+                    let on_change = on_change.clone();
+                    let on_second_change = on_second_change.clone();
+                    move |value| {
+                        on_second_change(value);
+                        let first = first_handle
+                            .borrow()
+                            .as_ref()
+                            .map_or(initial_first, |handle| handle.value.get());
+                        on_change([first, value], 1);
+                    }
+                })
+                .on_commit_fraction({
+                    let on_second_commit = on_second_commit.clone();
+                    move |value| on_second_commit(value)
+                });
+            let first = first.build_parts();
+            *first_handle.borrow_mut() = Some(first.handle.clone());
+            let second = second.build_parts();
+            *second_handle.borrow_mut() = Some(second.handle.clone());
+            return Number2PickerParts {
+                widget: build_number_pair_row(first.widget, second.widget, None),
+                first: first.handle,
+                second: second.handle,
+            };
+        }
+
+        let initial_ratio = shrimply_component_core::number::pair_ratio(first.value, second.value);
+        let locked = Rc::new(Cell::new(true));
+        let locked_ratio = Rc::new(Cell::new(initial_ratio));
 
         let first = first
             .on_change_fraction({
                 let locked = locked.clone();
                 let locked_ratio = locked_ratio.clone();
                 let second_handle = second_handle.clone();
+                let on_change = on_change.clone();
                 let on_first_change = on_first_change.clone();
                 let on_second_change = on_second_change.clone();
                 move |value| {
                     let primary_started = Instant::now();
                     on_first_change(value);
                     let primary_elapsed = primary_started.elapsed();
-                    if !locked.get() {
-                        return;
-                    }
-                    let ratio = locked_ratio.get();
-                    let next = shrimply_component_core::number::pair_second(value, ratio);
-                    if let Some(handle) = second_handle.borrow().as_ref() {
-                        let cascade_started = Instant::now();
-                        let next = set_handle_value(handle, next);
-                        on_second_change(next);
-                        let cascade_elapsed = cascade_started.elapsed();
-                        if primary_elapsed >= SLOW_NUMBER_PICKER_LOG_THRESHOLD
-                            || cascade_elapsed >= SLOW_NUMBER_PICKER_LOG_THRESHOLD
-                        {
-                            tracing::debug!(
-                                "number2_picker: lock_cascade source=first value={:.6} cascaded={:.6} ratio={:.6} primary_on_change_elapsed_us={} cascade_elapsed_us={}",
-                                fraction_as_f64(value),
-                                fraction_as_f64(next),
-                                fraction_as_f64(ratio),
-                                primary_elapsed.as_micros(),
-                                cascade_elapsed.as_micros(),
-                            );
+                    if locked.get() {
+                        let ratio = locked_ratio.get();
+                        let next = shrimply_component_core::number::pair_second(value, ratio);
+                        if let Some(handle) = second_handle.borrow().as_ref() {
+                            let cascade_started = Instant::now();
+                            let next = set_handle_value(handle, next);
+                            on_second_change(next);
+                            let cascade_elapsed = cascade_started.elapsed();
+                            if primary_elapsed >= SLOW_NUMBER_PICKER_LOG_THRESHOLD
+                                || cascade_elapsed >= SLOW_NUMBER_PICKER_LOG_THRESHOLD
+                            {
+                                tracing::debug!(
+                                    "number2_picker: lock_cascade source=first value={:.6} cascaded={:.6} ratio={:.6} primary_on_change_elapsed_us={} cascade_elapsed_us={}",
+                                    fraction_as_f64(value),
+                                    fraction_as_f64(next),
+                                    fraction_as_f64(ratio),
+                                    primary_elapsed.as_micros(),
+                                    cascade_elapsed.as_micros(),
+                                );
+                            }
                         }
                     }
+                    let second = second_handle
+                        .borrow()
+                        .as_ref()
+                        .map_or(initial_second, |handle| handle.value.get());
+                    on_change([value, second], 0);
                 }
             })
             .on_commit_fraction({
@@ -789,34 +832,39 @@ impl Number2PickerBuilder {
                 let locked = locked.clone();
                 let locked_ratio = locked_ratio.clone();
                 let first_handle = first_handle.clone();
+                let on_change = on_change.clone();
                 let on_first_change = on_first_change.clone();
                 let on_second_change = on_second_change.clone();
                 move |value| {
                     let primary_started = Instant::now();
                     on_second_change(value);
                     let primary_elapsed = primary_started.elapsed();
-                    if !locked.get() {
-                        return;
-                    }
-                    let next = value * locked_ratio.get();
-                    if let Some(handle) = first_handle.borrow().as_ref() {
-                        let cascade_started = Instant::now();
-                        let next = set_handle_value(handle, next);
-                        on_first_change(next);
-                        let cascade_elapsed = cascade_started.elapsed();
-                        if primary_elapsed >= SLOW_NUMBER_PICKER_LOG_THRESHOLD
-                            || cascade_elapsed >= SLOW_NUMBER_PICKER_LOG_THRESHOLD
-                        {
-                            tracing::debug!(
-                                "number2_picker: lock_cascade source=second value={:.6} cascaded={:.6} ratio={:.6} primary_on_change_elapsed_us={} cascade_elapsed_us={}",
-                                fraction_as_f64(value),
-                                fraction_as_f64(next),
-                                fraction_as_f64(locked_ratio.get()),
-                                primary_elapsed.as_micros(),
-                                cascade_elapsed.as_micros(),
-                            );
+                    if locked.get() {
+                        let next = value * locked_ratio.get();
+                        if let Some(handle) = first_handle.borrow().as_ref() {
+                            let cascade_started = Instant::now();
+                            let next = set_handle_value(handle, next);
+                            on_first_change(next);
+                            let cascade_elapsed = cascade_started.elapsed();
+                            if primary_elapsed >= SLOW_NUMBER_PICKER_LOG_THRESHOLD
+                                || cascade_elapsed >= SLOW_NUMBER_PICKER_LOG_THRESHOLD
+                            {
+                                tracing::debug!(
+                                    "number2_picker: lock_cascade source=second value={:.6} cascaded={:.6} ratio={:.6} primary_on_change_elapsed_us={} cascade_elapsed_us={}",
+                                    fraction_as_f64(value),
+                                    fraction_as_f64(next),
+                                    fraction_as_f64(locked_ratio.get()),
+                                    primary_elapsed.as_micros(),
+                                    cascade_elapsed.as_micros(),
+                                );
+                            }
                         }
                     }
+                    let first = first_handle
+                        .borrow()
+                        .as_ref()
+                        .map_or(initial_first, |handle| handle.value.get());
+                    on_change([first, value], 1);
                 }
             })
             .on_commit_fraction({

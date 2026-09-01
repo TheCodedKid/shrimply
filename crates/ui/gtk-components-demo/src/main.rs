@@ -145,91 +145,63 @@ fn build_ui(app: &adw::Application) {
     general.append(selector.widget());
 
     let position_controller = LayeredPropertyController::default();
-    let position_graph = transform_property::graph("Position", 960.0, log.clone());
+    let position_graph = transform_property::pair_graph("Position", [960.0, 540.0], log.clone());
     let position_value = Rc::new(Cell::new([960.0, 540.0]));
     let position = Number2Picker::builder(960.0, 540.0)
         .first_prefix("X")
         .second_prefix("Y")
         .unit_name("px")
         .digits(0)
-        .on_first_change(transform_property::pair_edit_handler(
+        .on_change(transform_property::pair_edit_handler(
             position_controller.clone(),
             position_graph.clone(),
             position_value.clone(),
-            0,
-        ))
-        .on_second_change(transform_property::pair_edit_handler(
-            position_controller.clone(),
-            position_graph.clone(),
-            position_value.clone(),
-            1,
         ))
         .build_with_handles();
-    let position_row = transform_property::property(
-        transform_property::PropertyConfig {
+    let position_row = transform_property::pair_property(
+        transform_property::PairPropertyConfig {
             label: "Position",
-            initial_value: 960.0,
+            initial_values: [960.0, 540.0],
             modes: (true, true),
         },
         &position.widget,
-        &position.first,
+        [&position.first, &position.second],
         position_graph.clone(),
-        position_controller,
+        position_controller.clone(),
+        position_value.clone(),
         log.clone(),
-        {
-            let position_value = position_value.clone();
-            move |value| {
-                let mut pair = position_value.get();
-                pair[0] = value;
-                position_value.set(pair);
-            }
-        },
     );
 
     let anchor_controller = LayeredPropertyController::default();
-    let anchor_graph = transform_property::graph("Anchor", 960.0, log.clone());
+    let anchor_graph = transform_property::pair_graph("Anchor", [960.0, 540.0], log.clone());
     let anchor_value = Rc::new(Cell::new([960.0, 540.0]));
     let anchor = Number2Picker::builder(960.0, 540.0)
         .first_prefix("X")
         .second_prefix("Y")
         .unit_name("px")
         .digits(0)
-        .on_first_change(transform_property::pair_edit_handler(
+        .on_change(transform_property::pair_edit_handler(
             anchor_controller.clone(),
             anchor_graph.clone(),
             anchor_value.clone(),
-            0,
-        ))
-        .on_second_change(transform_property::pair_edit_handler(
-            anchor_controller.clone(),
-            anchor_graph.clone(),
-            anchor_value.clone(),
-            1,
         ))
         .build_with_handles();
-    let anchor_row = transform_property::property(
-        transform_property::PropertyConfig {
+    let anchor_row = transform_property::pair_property(
+        transform_property::PairPropertyConfig {
             label: "Anchor",
-            initial_value: 960.0,
+            initial_values: [960.0, 540.0],
             modes: (false, false),
         },
         &anchor.widget,
-        &anchor.first,
+        [&anchor.first, &anchor.second],
         anchor_graph.clone(),
-        anchor_controller,
+        anchor_controller.clone(),
+        anchor_value.clone(),
         log.clone(),
-        {
-            let anchor_value = anchor_value.clone();
-            move |value| {
-                let mut pair = anchor_value.get();
-                pair[0] = value;
-                anchor_value.set(pair);
-            }
-        },
     );
 
     let scale_controller = LayeredPropertyController::default();
-    let scale_graph = transform_property::graph("Scale", 1.0, log.clone());
+    let scale_graph = transform_property::pair_graph("Scale", [1.0, 1.0], log.clone());
     let scale_value = Rc::new(Cell::new([1.0, 1.0]));
     let scale = Number2Picker::builder(1.0, 1.0)
         .first_prefix("X")
@@ -238,79 +210,51 @@ fn build_ui(app: &adw::Application) {
         .digits(2)
         .minimum(0.0)
         .enable_lock()
-        .on_first_change(transform_property::pair_edit_handler(
+        .on_change(transform_property::pair_edit_handler(
             scale_controller.clone(),
             scale_graph.clone(),
             scale_value.clone(),
-            0,
-        ))
-        .on_second_change(transform_property::pair_edit_handler(
-            scale_controller.clone(),
-            scale_graph.clone(),
-            scale_value.clone(),
-            1,
         ))
         .build_with_handles();
-    let scale_row = transform_property::property(
-        transform_property::PropertyConfig {
+    let scale_row = transform_property::pair_property(
+        transform_property::PairPropertyConfig {
             label: "Scale",
-            initial_value: 1.0,
+            initial_values: [1.0, 1.0],
             modes: (false, false),
         },
         &scale.widget,
-        &scale.first,
+        [&scale.first, &scale.second],
         scale_graph.clone(),
-        scale_controller,
+        scale_controller.clone(),
+        scale_value.clone(),
         log.clone(),
-        {
-            let scale_value = scale_value.clone();
-            move |value| {
-                let mut pair = scale_value.get();
-                pair[0] = value;
-                scale_value.set(pair);
-            }
-        },
     );
 
     let shear_controller = LayeredPropertyController::default();
-    let shear_graph = transform_property::graph("Shear", 0.0, log.clone());
+    let shear_graph = transform_property::pair_graph("Shear", [0.0, 0.0], log.clone());
     let shear_value = Rc::new(Cell::new([0.0, 0.0]));
     let shear = Number2Picker::builder(0.0, 0.0)
         .first_prefix("X")
         .second_prefix("Y")
         .digits(2)
-        .on_first_change(transform_property::pair_edit_handler(
+        .on_change(transform_property::pair_edit_handler(
             shear_controller.clone(),
             shear_graph.clone(),
             shear_value.clone(),
-            0,
-        ))
-        .on_second_change(transform_property::pair_edit_handler(
-            shear_controller.clone(),
-            shear_graph.clone(),
-            shear_value.clone(),
-            1,
         ))
         .build_with_handles();
-    let shear_row = transform_property::property(
-        transform_property::PropertyConfig {
+    let shear_row = transform_property::pair_property(
+        transform_property::PairPropertyConfig {
             label: "Shear",
-            initial_value: 0.0,
+            initial_values: [0.0, 0.0],
             modes: (false, false),
         },
         &shear.widget,
-        &shear.first,
+        [&shear.first, &shear.second],
         shear_graph.clone(),
-        shear_controller,
+        shear_controller.clone(),
+        shear_value.clone(),
         log.clone(),
-        {
-            let shear_value = shear_value.clone();
-            move |value| {
-                let mut pair = shear_value.get();
-                pair[0] = value;
-                shear_value.set(pair);
-            }
-        },
     );
 
     let rotation_controller = LayeredPropertyController::default();
@@ -325,7 +269,7 @@ fn build_ui(app: &adw::Application) {
             rotation_graph.clone(),
         ))
         .build_with_handle();
-    let rotation_row = transform_property::property(
+    let rotation_row = transform_property::scalar_property(
         transform_property::PropertyConfig {
             label: "Rotation",
             initial_value: 0.0,
@@ -336,7 +280,6 @@ fn build_ui(app: &adw::Application) {
         rotation_graph.clone(),
         rotation_controller,
         log.clone(),
-        |_| {},
     );
     let transform = InspectorCard::new("Transform", true, {
         let position_graph = position_graph.clone();
@@ -357,32 +300,42 @@ fn build_ui(app: &adw::Application) {
         let anchor_value = anchor_value.clone();
         let scale_value = scale_value.clone();
         let shear_value = shear_value.clone();
+        let position_controller = position_controller.clone();
+        let anchor_controller = anchor_controller.clone();
+        let scale_controller = scale_controller.clone();
+        let shear_controller = shear_controller.clone();
         let log = log.clone();
         move || {
-            position_graph.replace_state(
-                shrimply_keyframe_graph_ui::FrameGraphState::sample_for_value(960.0),
+            transform_property::reset_pair(
+                &position_graph,
+                &position_controller,
+                [&position_first, &position_second],
+                &position_value,
+                [960.0, 540.0],
             );
-            anchor_graph.replace_state(
-                shrimply_keyframe_graph_ui::FrameGraphState::sample_for_value(960.0),
+            transform_property::reset_pair(
+                &anchor_graph,
+                &anchor_controller,
+                [&anchor_first, &anchor_second],
+                &anchor_value,
+                [960.0, 540.0],
             );
-            scale_graph
-                .replace_state(shrimply_keyframe_graph_ui::FrameGraphState::sample_for_value(1.0));
-            shear_graph
-                .replace_state(shrimply_keyframe_graph_ui::FrameGraphState::sample_for_value(0.0));
+            transform_property::reset_pair(
+                &scale_graph,
+                &scale_controller,
+                [&scale_first, &scale_second],
+                &scale_value,
+                [1.0, 1.0],
+            );
+            transform_property::reset_pair(
+                &shear_graph,
+                &shear_controller,
+                [&shear_first, &shear_second],
+                &shear_value,
+                [0.0, 0.0],
+            );
             rotation_graph
                 .replace_state(shrimply_keyframe_graph_ui::FrameGraphState::sample_for_value(0.0));
-            position_value.set([960.0, 540.0]);
-            anchor_value.set([960.0, 540.0]);
-            scale_value.set([1.0, 1.0]);
-            shear_value.set([0.0, 0.0]);
-            position_first.set_f64(960.0);
-            position_second.set_f64(540.0);
-            anchor_first.set_f64(960.0);
-            anchor_second.set_f64(540.0);
-            scale_first.set_f64(1.0);
-            scale_second.set_f64(1.0);
-            shear_first.set_f64(0.0);
-            shear_second.set_f64(0.0);
             rotation.set_f64(0.0);
             log("transform reset".to_string());
         }

@@ -32,7 +32,6 @@ Item {
     NumberInputBackend {
         id: backend
         onEdited: function(next) {
-            root.value = next
             root.edited(next)
         }
         onCommitted: function(next) { root.committed(next) }

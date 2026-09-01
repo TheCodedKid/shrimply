@@ -21,7 +21,7 @@ Button {
     }
 
     function synchronize() {
-        choices.currentIndex = backend.selectedIndex(values, value)
+        popup.selectedIndex = backend.selectedIndex(values, value)
     }
 
     function choose(index) {
@@ -30,16 +30,6 @@ Button {
             return
         value = next
         selected(next)
-        popup.close()
-    }
-
-    function moveSelection(direction) {
-        const next = backend.nextMatchingIndex(
-            labels, search.text, choices.currentIndex, direction)
-        if (next >= 0) {
-            choices.currentIndex = next
-            choices.positionViewAtIndex(next, ListView.Contain)
-        }
     }
 
     SelectorBackend { id: backend }
@@ -77,89 +67,14 @@ Button {
         Label { text: "⌄" }
     }
 
-    Menu {
+    SearchMenu {
         id: popup
         width: Math.max(root.width, 240)
-        padding: 6
-        focus: true
-        popupType: Popup.Window
-        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutsideParent
-        onOpened: {
-            search.clear()
-            choices.currentIndex = backend.selectedIndex(root.values, root.value)
-            if (root.enableSearch)
-                search.forceActiveFocus(Qt.PopupFocusReason)
-            else
-                choices.forceActiveFocus(Qt.PopupFocusReason)
-        }
+        labels: root.labels
+        selectedIndex: backend.selectedIndex(root.values, root.value)
+        searchEnabled: root.enableSearch
+        placeholderText: root.searchPlaceholder
+        onActivated: function(index) { root.choose(index) }
         onClosed: root.forceActiveFocus(Qt.PopupFocusReason)
-
-        contentItem: ColumnLayout {
-            spacing: 6
-
-            TextField {
-                id: search
-                visible: root.enableSearch
-                Layout.fillWidth: true
-                placeholderText: root.searchPlaceholder
-                selectByMouse: true
-                onTextChanged: choices.currentIndex = backend.nextMatchingIndex(
-                    root.labels, text, -1, 1)
-                Keys.onDownPressed: function(event) {
-                    root.moveSelection(1)
-                    choices.forceActiveFocus(Qt.TabFocusReason)
-                    event.accepted = true
-                }
-                Keys.onUpPressed: function(event) {
-                    root.moveSelection(-1)
-                    choices.forceActiveFocus(Qt.TabFocusReason)
-                    event.accepted = true
-                }
-                Keys.onEscapePressed: function(event) {
-                    popup.close()
-                    event.accepted = true
-                }
-                onAccepted: root.choose(choices.currentIndex)
-            }
-
-            ListView {
-                id: choices
-                Layout.fillWidth: true
-                Layout.preferredHeight: Math.min(contentHeight, 280)
-                clip: true
-                model: root.labels
-                keyNavigationEnabled: false
-                delegate: ItemDelegate {
-                    required property int index
-                    width: choices.width
-                    text: root.labels[index]
-                    visible: backend.matchesQuery(text, search.text)
-                    height: visible ? implicitHeight : 0
-                    highlighted: choices.currentIndex === index
-                    onHoveredChanged: if (hovered) choices.currentIndex = index
-                    onClicked: root.choose(index)
-                }
-                Keys.onDownPressed: function(event) {
-                    root.moveSelection(1)
-                    event.accepted = true
-                }
-                Keys.onUpPressed: function(event) {
-                    root.moveSelection(-1)
-                    event.accepted = true
-                }
-                Keys.onReturnPressed: function(event) {
-                    root.choose(currentIndex)
-                    event.accepted = true
-                }
-                Keys.onEnterPressed: function(event) {
-                    root.choose(currentIndex)
-                    event.accepted = true
-                }
-                Keys.onEscapePressed: function(event) {
-                    popup.close()
-                    event.accepted = true
-                }
-            }
-        }
     }
 }

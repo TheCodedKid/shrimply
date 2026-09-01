@@ -19,23 +19,19 @@ RowLayout {
     signal secondEdited(real value)
     signal firstCommitted(real value)
     signal secondCommitted(real value)
+    signal valuesEdited(real first, real second, int component)
     spacing: 6
 
     NumberGroupBackend {
         id: group
-        onFirstChanged: {
-            firstPicker.value = first
-            root.first = first
-        }
-        onSecondChanged: {
-            secondPicker.value = second
-            root.second = second
-        }
         onValueEdited: function(axis, value) {
             if (axis === 0)
                 root.firstEdited(value)
             else if (axis === 1)
                 root.secondEdited(value)
+        }
+        onGroupEdited: function(axis) {
+            root.valuesEdited(group.first, group.second, axis)
         }
     }
     Component.onCompleted: {
@@ -65,7 +61,7 @@ RowLayout {
     NumberPicker {
         id: firstPicker
         Layout.fillWidth: true
-        value: root.first
+        value: group.first
         minimum: root.minimum
         maximum: root.maximum
         dragStep: root.dragStep
@@ -78,7 +74,7 @@ RowLayout {
     NumberPicker {
         id: secondPicker
         Layout.fillWidth: true
-        value: root.second
+        value: group.second
         minimum: root.minimum
         maximum: root.maximum
         dragStep: root.dragStep

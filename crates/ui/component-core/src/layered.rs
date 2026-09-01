@@ -10,6 +10,7 @@ pub enum LayeredEdit<T> {
 pub struct LayeredPropertyController {
     keyframes: Rc<Cell<bool>>,
     expression: Rc<Cell<bool>>,
+    active_component: Rc<Cell<usize>>,
 }
 
 impl LayeredPropertyController {
@@ -29,6 +30,15 @@ impl LayeredPropertyController {
         self.expression.get()
     }
 
+    pub fn active_component(&self) -> usize {
+        self.active_component.get()
+    }
+
+    pub fn select_component<const N: usize>(&self, component: usize) {
+        assert!(component < N, "layered value component is out of bounds");
+        self.active_component.set(component);
+    }
+
     pub fn edit<T>(&self, value: T) -> LayeredEdit<T> {
         if self.keyframes.get() {
             LayeredEdit::Keyframe(value)
@@ -42,9 +52,8 @@ impl LayeredPropertyController {
         value: [f64; N],
         component: usize,
     ) -> LayeredEdit<([f64; N], f64)> {
-        self.edit((
-            value,
-            *value.get(component).expect("layered value component"),
-        ))
+        let component_value = *value.get(component).expect("layered value component");
+        self.select_component::<N>(component);
+        self.edit((value, component_value))
     }
 }

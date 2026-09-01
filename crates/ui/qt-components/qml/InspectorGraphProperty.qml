@@ -9,7 +9,7 @@ InspectorProperty {
     property real initialSecondValue: 0
     property real firstValue: initialGraphValue
     property real secondValue: initialSecondValue
-    property int graphComponent: 0
+    readonly property int graphComponent: editRouter.activeComponent
     property alias expressionValue: expressionEditor.value
     property alias expressionOutput: expressionEditor.output
     signal graphPlaybackToggled()
@@ -23,7 +23,6 @@ InspectorProperty {
     }
 
     function editPair(first, second, component) {
-        root.graphComponent = component
         editRouter.setModes(root.keyframes, root.expression)
         editRouter.editPair(first, second, component)
     }
@@ -34,9 +33,10 @@ InspectorProperty {
     }
 
     function resetPair(first, second) {
+        editRouter.selectComponent(0)
         root.firstValue = first
         root.secondValue = second
-        graph.configureValue(root.graphComponent === 0 ? first : second)
+        graph.configurePair(first, second, 0)
     }
 
     Component.onCompleted: {
@@ -48,6 +48,7 @@ InspectorProperty {
     }
     onKeyframesChanged: editRouter.setModes(keyframes, expression)
     onExpressionChanged: editRouter.setModes(keyframes, expression)
+    onGraphComponentChanged: graph.activateComponent(graphComponent)
 
     LayeredPropertyBackend {
         id: editRouter
@@ -58,10 +59,10 @@ InspectorProperty {
             root.basePairEdited(first, second)
         }
         onKeyframeEdited: function(value) { graph.editValue(value) }
-        onKeyframePairEdited: function(first, second, graphValue) {
+        onKeyframePairEdited: function(first, second, graphValue, component) {
             root.firstValue = first
             root.secondValue = second
-            graph.editValue(graphValue)
+            graph.editComponent(component, graphValue)
         }
     }
 

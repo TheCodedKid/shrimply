@@ -95,11 +95,15 @@ ApplicationWindow {
                         window.log("transform reset")
                     }
 
-                    InspectorGraphProperty {
+                    InspectorPairGraphProperty {
                         id: positionRow
                         label: "Position"
                         initialGraphValue: 960
                         initialSecondValue: 540
+                        firstPrefix: "X"
+                        secondPrefix: "Y"
+                        unitName: "px"
+                        digits: 0
                         keyframes: true
                         expression: true
                         expressionValue: DemoLogic.expressionSource
@@ -109,94 +113,46 @@ ApplicationWindow {
                             expressionOutput = DemoLogic.expressionOutput(value)
                             window.log("expression edited (" + value.length + " chars)")
                         }
-                        Number2Picker {
-                            id: positionEditor
-                            first: positionRow.firstValue
-                            second: positionRow.secondValue
-                            firstPrefix: "X"
-                            secondPrefix: "Y"
-                            unitName: "px"
-                            digits: 0
-                            onFirstEdited: function(value) {
-                                positionRow.editPair(value, second, 0)
-                            }
-                            onSecondEdited: function(value) {
-                                positionRow.editPair(first, value, 1)
-                            }
-                        }
                     }
-                    InspectorGraphProperty {
+                    InspectorPairGraphProperty {
                         id: anchorRow
                         label: "Anchor"
                         initialGraphValue: 960
                         initialSecondValue: 540
+                        firstPrefix: "X"
+                        secondPrefix: "Y"
+                        unitName: "px"
+                        digits: 0
                         expressionValue: DemoLogic.expressionSource
                         expressionOutput: DemoLogic.expressionOutput(expressionValue)
                         onExpressionEdited: function(value) { expressionOutput = DemoLogic.expressionOutput(value) }
-                        Number2Picker {
-                            id: anchorEditor
-                            first: anchorRow.firstValue
-                            second: anchorRow.secondValue
-                            firstPrefix: "X"
-                            secondPrefix: "Y"
-                            unitName: "px"
-                            digits: 0
-                            onFirstEdited: function(value) {
-                                anchorRow.editPair(value, second, 0)
-                            }
-                            onSecondEdited: function(value) {
-                                anchorRow.editPair(first, value, 1)
-                            }
-                        }
                     }
-                    InspectorGraphProperty {
+                    InspectorPairGraphProperty {
                         id: scaleRow
                         label: "Scale"
                         initialGraphValue: 1
                         initialSecondValue: 1
+                        firstPrefix: "X"
+                        secondPrefix: "Y"
+                        unitName: "x"
+                        digits: 2
+                        minimum: 0
+                        enableLock: true
                         expressionValue: DemoLogic.expressionSource
                         expressionOutput: DemoLogic.expressionOutput(expressionValue)
                         onExpressionEdited: function(value) { expressionOutput = DemoLogic.expressionOutput(value) }
-                        Number2Picker {
-                            id: scaleEditor
-                            first: scaleRow.firstValue
-                            second: scaleRow.secondValue
-                            firstPrefix: "X"
-                            secondPrefix: "Y"
-                            unitName: "x"
-                            digits: 2
-                            minimum: 0
-                            enableLock: true
-                            onFirstEdited: function(value) {
-                                scaleRow.editPair(value, second, 0)
-                            }
-                            onSecondEdited: function(value) {
-                                scaleRow.editPair(first, value, 1)
-                            }
-                        }
                     }
-                    InspectorGraphProperty {
+                    InspectorPairGraphProperty {
                         id: shearRow
                         label: "Shear"
                         initialGraphValue: 0
                         initialSecondValue: 0
+                        firstPrefix: "X"
+                        secondPrefix: "Y"
+                        digits: 2
                         expressionValue: DemoLogic.expressionSource
                         expressionOutput: DemoLogic.expressionOutput(expressionValue)
                         onExpressionEdited: function(value) { expressionOutput = DemoLogic.expressionOutput(value) }
-                        Number2Picker {
-                            id: shearEditor
-                            first: shearRow.firstValue
-                            second: shearRow.secondValue
-                            firstPrefix: "X"
-                            secondPrefix: "Y"
-                            digits: 2
-                            onFirstEdited: function(value) {
-                                shearRow.editPair(value, second, 0)
-                            }
-                            onSecondEdited: function(value) {
-                                shearRow.editPair(first, value, 1)
-                            }
-                        }
                     }
                     InspectorGraphProperty {
                         id: rotationRow

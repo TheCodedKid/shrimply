@@ -6,8 +6,8 @@ use cxx_qt::CxxQtType;
 use cxx_qt_lib::{QPoint, QString};
 use shrimply_interpolation::Interpolation;
 use shrimply_keyframe_graph_ui::{
-    FrameGraphAction, FrameGraphKey, FrameGraphModifiers, FrameGraphPointerButton,
-    FrameGraphPointerPosition, FrameGraphScrollInput, FrameGraphState,
+    FrameGraphAction, FrameGraphComponents, FrameGraphKey, FrameGraphModifiers,
+    FrameGraphPointerButton, FrameGraphPointerPosition, FrameGraphScrollInput, FrameGraphState,
 };
 use shrimply_math_color::Color;
 use shrimply_skia_adw_ui::canvas::{TimelineRenderer, UVec2};
@@ -18,7 +18,7 @@ type SharedGraph = Arc<Mutex<GraphModel>>;
 const QT_WHEEL_ANGLE_UNITS_PER_STEP: f64 = 120.0;
 
 struct GraphModel {
-    state: FrameGraphState,
+    state: FrameGraphComponents,
     context_owner: Option<Uuid>,
 }
 
@@ -112,8 +112,22 @@ pub mod qobject {
         #[cxx_name = "editGraphValue"]
         fn edit_graph_value(self: Pin<&mut FrameGraphItem>, value: f64);
         #[qinvokable]
+        #[cxx_name = "editGraphComponentValue"]
+        fn edit_graph_component_value(self: Pin<&mut FrameGraphItem>, component: i32, value: f64);
+        #[qinvokable]
         #[cxx_name = "configureGraphValue"]
         fn configure_graph_value(self: Pin<&mut FrameGraphItem>, value: f64);
+        #[qinvokable]
+        #[cxx_name = "configureGraphPair"]
+        fn configure_graph_pair(
+            self: Pin<&mut FrameGraphItem>,
+            first: f64,
+            second: f64,
+            active_component: i32,
+        );
+        #[qinvokable]
+        #[cxx_name = "activateGraphComponent"]
+        fn activate_graph_component(self: Pin<&mut FrameGraphItem>, component: i32);
         #[qinvokable]
         #[cxx_name = "setInterpolation"]
         fn set_interpolation(self: Pin<&mut FrameGraphItem>, index: i32) -> bool;
@@ -124,6 +138,9 @@ pub mod qobject {
         #[qsignal]
         #[cxx_name = "togglePlayback"]
         fn toggle_playback(self: Pin<&mut FrameGraphItem>);
+        #[qsignal]
+        #[cxx_name = "interpolationChanged"]
+        fn interpolation_changed(self: Pin<&mut FrameGraphItem>, owner_id: QString, index: i32);
     }
 
     impl cxx_qt::Constructor<()> for FrameGraphItem {}
@@ -149,7 +166,7 @@ impl Default for FrameGraphItemRust {
             graph_value: status.value,
             interpolation_count: Interpolation::KEYFRAME.len() as i32,
             graph: Arc::new(Mutex::new(GraphModel {
-                state,
+                state: FrameGraphComponents::single(state),
                 context_owner: None,
             })),
         }
@@ -320,8 +337,49 @@ impl qobject::FrameGraphItem {
         self.as_mut().finish(actions);
     }
 
+    pub fn edit_graph_component_value(mut self: Pin<&mut Self>, component: i32, value: f64) {
+        let component = usize::try_from(component).expect("non-negative frame graph component");
+        let actions = {
+            let mut model = self.rust().lock();
+            model.context_owner = None;
+            model.state.activate(component);
+            model.state.set_value(value)
+        };
+        self.as_mut().finish(actions);
+    }
+
     pub fn configure_graph_value(mut self: Pin<&mut Self>, value: f64) {
-        self.rust().lock().state = FrameGraphState::sample_for_value(value);
+        self.rust().lock().state =
+            FrameGraphComponents::single(FrameGraphState::sample_for_value(value));
+        self.as_mut().sync_status();
+        self.as_mut().request_update();
+    }
+
+    pub fn configure_graph_pair(
+        mut self: Pin<&mut Self>,
+        first: f64,
+        second: f64,
+        active_component: i32,
+    ) {
+        let active_component =
+            usize::try_from(active_component).expect("non-negative frame graph component");
+        self.rust().lock().state = FrameGraphComponents::new(
+            vec![
+                FrameGraphState::sample_for_value(first),
+                FrameGraphState::sample_for_value(second),
+            ],
+            active_component,
+        );
+        self.as_mut().sync_status();
+        self.as_mut().request_update();
+    }
+
+    pub fn activate_graph_component(mut self: Pin<&mut Self>, component: i32) {
+        let component = usize::try_from(component).expect("non-negative frame graph component");
+        let mut model = self.rust().lock();
+        model.context_owner = None;
+        model.state.activate(component);
+        drop(model);
         self.as_mut().sync_status();
         self.as_mut().request_update();
     }
@@ -334,13 +392,16 @@ impl qobject::FrameGraphItem {
         else {
             return false;
         };
-        {
+        let owner_id = {
             let mut model = self.rust().lock();
             let Some(owner_id) = model.context_owner.take() else {
                 return false;
             };
             model.state.set_interpolation(owner_id, interpolation);
-        }
+            owner_id
+        };
+        self.as_mut()
+            .interpolation_changed(QString::from(owner_id.to_string()), index);
         self.as_mut().request_update();
         true
     }

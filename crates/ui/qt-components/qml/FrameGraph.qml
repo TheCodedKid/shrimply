@@ -6,10 +6,24 @@ import dev.shrimply.components
 FocusScope {
     id: root
     signal togglePlayback()
+    signal interpolationChanged(string ownerId, int index)
     readonly property real graphValue: graph.graphValue
+    readonly property var interpolationLabels: {
+        const labels = []
+        for (let index = 0; index < graph.interpolationCount; ++index)
+            labels.push(graph.interpolationLabel(index))
+        return labels
+    }
 
     function editValue(value) { graph.editGraphValue(value) }
     function configureValue(value) { graph.configureGraphValue(value) }
+    function editComponent(component, value) {
+        graph.editGraphComponentValue(component, value)
+    }
+    function configurePair(first, second, activeComponent) {
+        graph.configureGraphPair(first, second, activeComponent)
+    }
+    function activateComponent(component) { graph.activateGraphComponent(component) }
 
     implicitWidth: 640
     implicitHeight: controls.implicitHeight + graph.implicitHeight
@@ -75,6 +89,9 @@ FocusScope {
             mirrorVertically: true
             activeFocusOnTab: true
             onTogglePlayback: root.togglePlayback()
+            onInterpolationChanged: function(ownerId, index) {
+                root.interpolationChanged(ownerId, index)
+            }
 
             Keys.onPressed: function(event) {
                 let key = -1
@@ -126,7 +143,7 @@ FocusScope {
                         if (selected >= 0) {
                             interpolationAnchor.x = mouse.x
                             interpolationAnchor.y = controls.height + mouse.y
-                            interpolationMenu.selected = selected
+                            interpolationMenu.selectedIndex = selected
                             interpolationMenu.popup(interpolationAnchor, 0, 0)
                         }
                     }
@@ -152,20 +169,14 @@ FocusScope {
         height: 1
     }
 
-    Menu {
+    SearchMenu {
         id: interpolationMenu
-        property int selected: -1
-        popupType: Popup.Window
-
-        Repeater {
-            model: graph.interpolationCount
-            MenuItem {
-                required property int index
-                text: graph.interpolationLabel(index)
-                checkable: true
-                checked: interpolationMenu.selected === index
-                onTriggered: graph.setInterpolation(index)
-            }
-        }
+        width: 280
+        labels: root.interpolationLabels
+        placeholderText: ComponentTranslations.text("Search interpolations")
+        minimumListHeight: 180
+        maximumListHeight: 240
+        onActivated: function(index) { graph.setInterpolation(index) }
+        onClosed: graph.forceActiveFocus(Qt.PopupFocusReason)
     }
 }

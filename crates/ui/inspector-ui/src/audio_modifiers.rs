@@ -1,5 +1,7 @@
 use shrimply_gtk_components::tr;
-use shrimply_gtk_components::ui::{I18nWidgetExt, SearchMenuItem, searchable_menu, switch_row};
+use shrimply_gtk_components::ui::{
+    I18nWidgetExt, SearchMenuItem, search_rank, searchable_menu, switch_row,
+};
 use std::rc::Rc;
 use std::thread;
 
@@ -1208,22 +1210,15 @@ fn add_button(context: &InspectorContext) -> gtk::Widget {
         tr!("Add modifier").as_ref(),
         tr!("Search modifiers").as_ref(),
         move |query| {
-            let query = query.trim().to_lowercase();
             let mut effects = AudioModifierEffect::CATALOG
                 .iter()
                 .map(|new| new())
                 .filter_map(|effect| {
-                    let rank = if effect.display_name().to_lowercase().contains(&query) {
-                        0
-                    } else if effect
-                        .keywords()
-                        .iter()
-                        .any(|keyword| keyword.to_lowercase().contains(&query))
-                    {
-                        1
-                    } else {
-                        return None;
-                    };
+                    let rank = search_rank(
+                        effect.display_name(),
+                        effect.keywords().iter().copied(),
+                        query,
+                    )?;
                     Some((rank, effect))
                 })
                 .collect::<Vec<_>>();

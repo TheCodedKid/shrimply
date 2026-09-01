@@ -9,7 +9,7 @@ use uuid::Uuid;
 
 mod controller;
 pub use controller::{
-    FRAME_GRAPH_HEIGHT, FrameGraphAction, FrameGraphKey, FrameGraphModifiers,
+    FRAME_GRAPH_HEIGHT, FrameGraphAction, FrameGraphComponents, FrameGraphKey, FrameGraphModifiers,
     FrameGraphPointerButton, FrameGraphPointerPosition, FrameGraphScrollInput, FrameGraphState,
     FrameGraphStatus, GRAPH_SLIDER_HEIGHT,
 };

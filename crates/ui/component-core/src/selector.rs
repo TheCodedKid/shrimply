@@ -29,5 +29,62 @@ pub fn searchable(choice_count: usize) -> bool {
 }
 
 pub fn matches_query(label: &str, query: &str) -> bool {
-    label.to_lowercase().contains(&query.to_lowercase())
+    label.to_lowercase().contains(&query.trim().to_lowercase())
+}
+
+pub fn search_rank<'a>(
+    label: &str,
+    keywords: impl IntoIterator<Item = &'a str>,
+    query: &str,
+) -> Option<u8> {
+    if matches_query(label, query) {
+        Some(0)
+    } else if keywords
+        .into_iter()
+        .any(|keyword| matches_query(keyword, query))
+    {
+        Some(1)
+    } else {
+        None
+    }
+}
+
+pub fn adjacent_matching_index(
+    labels: &[String],
+    query: &str,
+    current: Option<usize>,
+    forward: bool,
+) -> Option<usize> {
+    let matches = labels
+        .iter()
+        .enumerate()
+        .filter(|(_, label)| matches_query(label, query))
+        .map(|(index, _)| index)
+        .collect::<Vec<_>>();
+    let boundary = || {
+        if forward {
+            matches.first().copied()
+        } else {
+            matches.last().copied()
+        }
+    };
+    let Some(current) = current else {
+        return boundary();
+    };
+    if forward {
+        matches
+            .iter()
+            .copied()
+            .find(|index| *index > current)
+            .or_else(|| matches.contains(&current).then_some(current))
+            .or_else(boundary)
+    } else {
+        matches
+            .iter()
+            .rev()
+            .copied()
+            .find(|index| *index < current)
+            .or_else(|| matches.contains(&current).then_some(current))
+            .or_else(boundary)
+    }
 }

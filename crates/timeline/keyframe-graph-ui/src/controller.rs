@@ -1,4 +1,7 @@
-use std::time::Instant;
+use std::{
+    ops::{Deref, DerefMut},
+    time::Instant,
+};
 
 use shrimply_interpolation::Interpolation;
 use shrimply_math_color::Color;
@@ -196,6 +199,58 @@ pub struct FrameGraphState {
     clipboard: Vec<KeyframePoint>,
     accent_color: Color,
     viewport_width: f64,
+}
+
+pub struct FrameGraphComponents {
+    states: Vec<FrameGraphState>,
+    active_component: usize,
+}
+
+impl FrameGraphComponents {
+    pub fn new(states: Vec<FrameGraphState>, active_component: usize) -> Self {
+        assert!(
+            !states.is_empty(),
+            "frame graph needs at least one component"
+        );
+        assert!(
+            active_component < states.len(),
+            "frame graph component is out of bounds"
+        );
+        Self {
+            states,
+            active_component,
+        }
+    }
+
+    pub fn single(state: FrameGraphState) -> Self {
+        Self::new(vec![state], 0)
+    }
+
+    pub fn active_component(&self) -> usize {
+        self.active_component
+    }
+
+    pub fn activate(&mut self, component: usize) {
+        assert!(
+            component < self.states.len(),
+            "frame graph component is out of bounds"
+        );
+        self.active_component = component;
+    }
+}
+
+impl Deref for FrameGraphComponents {
+    type Target = FrameGraphState;
+
+    fn deref(&self) -> &Self::Target {
+        &self.states[self.active_component]
+    }
+}
+
+impl DerefMut for FrameGraphComponents {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.states[self.active_component]
+    }
 }
 
 impl FrameGraphState {

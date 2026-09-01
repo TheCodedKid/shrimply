@@ -1,7 +1,7 @@
 use gtk::prelude::*;
 use shrimply_gtk_components::{
     tr,
-    ui::{SearchMenuItem, searchable_menu},
+    ui::{SearchMenuItem, search_rank, searchable_menu},
 };
 
 use crate::{InspectorContext, player_state};
@@ -20,7 +20,6 @@ pub(super) fn button(context: &InspectorContext) -> gtk::Widget {
 }
 
 fn items(query: &str, context: &InspectorContext) -> Vec<SearchMenuItem> {
-    let query = query.trim().to_lowercase();
     let state = context.selected_item.clone().and_then(|key| {
         context
             .project
@@ -61,17 +60,11 @@ fn items(query: &str, context: &InspectorContext) -> Vec<SearchMenuItem> {
                 }
                 ModifierEffect::Scene3d(_) | ModifierEffect::Vectorize(_) => {}
             }
-            let rank = if effect.display_name().to_lowercase().contains(&query) {
-                0
-            } else if effect
-                .keywords()
-                .iter()
-                .any(|keyword| keyword.to_lowercase().contains(&query))
-            {
-                1
-            } else {
-                return None;
-            };
+            let rank = search_rank(
+                effect.display_name(),
+                effect.keywords().iter().copied(),
+                query,
+            )?;
             Some((rank, effect))
         })
         .collect::<Vec<_>>();

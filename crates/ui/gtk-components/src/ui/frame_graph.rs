@@ -5,20 +5,24 @@ use adw::prelude::*;
 use gtk::{gdk, glib};
 use shrimply_interpolation::Interpolation;
 use shrimply_keyframe_graph_ui::{
-    FrameGraphAction, FrameGraphKey, FrameGraphModifiers, FrameGraphPointerButton,
-    FrameGraphPointerPosition, FrameGraphScrollInput, FrameGraphState, FrameGraphStatus,
+    FrameGraphAction, FrameGraphComponents, FrameGraphKey, FrameGraphModifiers,
+    FrameGraphPointerButton, FrameGraphPointerPosition, FrameGraphScrollInput, FrameGraphState,
+    FrameGraphStatus,
 };
 use shrimply_skia_adw_ui::canvas::{TimelineRenderer, UVec2};
+
+use super::modifier_menu::{SearchMenuItem, searchable_popover};
 
 type ActionHandler = Rc<dyn Fn(FrameGraphAction)>;
 type StatusHandler = Rc<dyn Fn(FrameGraphStatus)>;
 type StatusHandlers = Rc<RefCell<Vec<StatusHandler>>>;
+type SharedGraphState = Rc<RefCell<FrameGraphComponents>>;
 
 #[derive(Clone)]
 pub struct FrameGraph {
     widget: gtk::Box,
     area: gtk::GLArea,
-    state: Rc<RefCell<FrameGraphState>>,
+    state: SharedGraphState,
     on_action: ActionHandler,
     sync: Rc<dyn Fn()>,
     status_handlers: StatusHandlers,
@@ -33,8 +37,17 @@ impl FrameGraph {
         state: FrameGraphState,
         on_action: impl Fn(FrameGraphAction) + 'static,
     ) -> Self {
-        let graph_height = state.preferred_height();
-        let state = Rc::new(RefCell::new(state));
+        Self::with_component_actions(vec![state], 0, on_action)
+    }
+
+    pub fn with_component_actions(
+        states: Vec<FrameGraphState>,
+        active_component: usize,
+        on_action: impl Fn(FrameGraphAction) + 'static,
+    ) -> Self {
+        let states = FrameGraphComponents::new(states, active_component);
+        let graph_height = states.preferred_height();
+        let state = Rc::new(RefCell::new(states));
         let on_action: ActionHandler = Rc::new(on_action);
         let status_handlers = Rc::new(RefCell::new(Vec::<StatusHandler>::new()));
         let area = gtk::GLArea::builder()
@@ -331,7 +344,7 @@ impl FrameGraph {
         &self.area
     }
 
-    pub fn state(&self) -> Rc<RefCell<FrameGraphState>> {
+    pub fn state(&self) -> Rc<RefCell<FrameGraphComponents>> {
         self.state.clone()
     }
 
@@ -341,8 +354,23 @@ impl FrameGraph {
         self.area.queue_render();
     }
 
+    pub fn edit_component_value(&self, component: usize, value: f64) {
+        self.state.borrow_mut().activate(component);
+        self.edit_value(value);
+    }
+
+    pub fn activate_component(&self, component: usize) {
+        self.state.borrow_mut().activate(component);
+        (self.sync)();
+        self.area.queue_render();
+    }
+
     pub fn replace_state(&self, state: FrameGraphState) {
-        *self.state.borrow_mut() = state;
+        self.replace_component_states(vec![state], 0);
+    }
+
+    pub fn replace_component_states(&self, states: Vec<FrameGraphState>, active_component: usize) {
+        *self.state.borrow_mut() = FrameGraphComponents::new(states, active_component);
         (self.sync)();
         self.area.queue_render();
     }
@@ -370,7 +398,7 @@ fn dispatch(handler: &ActionHandler, actions: Vec<FrameGraphAction>) {
 fn connect_button(
     button: &gtk::Button,
     area: &gtk::GLArea,
-    state: &Rc<RefCell<FrameGraphState>>,
+    state: &SharedGraphState,
     handler: &ActionHandler,
     sync: &Rc<dyn Fn()>,
     action: impl Fn(&mut FrameGraphState) -> Vec<FrameGraphAction> + 'static,
@@ -389,7 +417,7 @@ fn connect_button(
 
 fn add_drag(
     area: &gtk::GLArea,
-    state: &Rc<RefCell<FrameGraphState>>,
+    state: &SharedGraphState,
     handler: &ActionHandler,
     sync: &Rc<dyn Fn()>,
     native_button: u32,
@@ -462,7 +490,7 @@ fn modifiers(state: gdk::ModifierType) -> FrameGraphModifiers {
 
 fn start_animation_if_needed(
     area: &gtk::GLArea,
-    state: &Rc<RefCell<FrameGraphState>>,
+    state: &SharedGraphState,
     active: &Rc<Cell<bool>>,
 ) {
     if active.get() || !state.borrow().is_animating() {
@@ -484,50 +512,59 @@ fn start_animation_if_needed(
 
 fn show_interpolation_popover(
     area: &gtk::GLArea,
-    state: &Rc<RefCell<FrameGraphState>>,
+    state: &SharedGraphState,
     handler: &ActionHandler,
     owner_id: uuid::Uuid,
     selected: Interpolation,
     x: f64,
     y: f64,
 ) {
-    let popover = gtk::Popover::new();
-    popover.set_parent(area);
-    popover.set_pointing_to(Some(&gdk::Rectangle::new(x as i32, y as i32, 1, 1)));
-    let list = gtk::Box::new(gtk::Orientation::Vertical, 0);
-    for interpolation in Interpolation::KEYFRAME {
-        let button = gtk::Button::with_label(interpolation.label());
-        button.set_halign(gtk::Align::Fill);
-        button.add_css_class("flat");
-        if interpolation == selected {
-            button.add_css_class("suggested-action");
-        }
-        button.connect_clicked({
-            let popover = popover.clone();
+    let interpolations = Interpolation::KEYFRAME;
+    let popover = searchable_popover(
+        crate::i18n::text("Search interpolations").as_ref(),
+        280,
+        180,
+        240,
+        {
             let area = area.clone();
             let state = state.clone();
             let handler = handler.clone();
-            move |_| {
-                state
-                    .borrow_mut()
-                    .set_interpolation(owner_id, interpolation);
-                handler(FrameGraphAction::InterpolationRequested {
-                    owner_id,
-                    interpolation,
-                    x,
-                    y,
-                });
-                area.queue_render();
-                popover.popdown();
+            move |query| {
+                interpolations
+                    .into_iter()
+                    .filter(|interpolation| {
+                        shrimply_component_core::selector::matches_query(
+                            interpolation.label(),
+                            query,
+                        )
+                    })
+                    .map(|interpolation| {
+                        let area = area.clone();
+                        let state = state.clone();
+                        let handler = handler.clone();
+                        SearchMenuItem::new(
+                            crate::i18n::text(interpolation.label()).as_ref(),
+                            move || {
+                                state
+                                    .borrow_mut()
+                                    .set_interpolation(owner_id, interpolation);
+                                handler(FrameGraphAction::InterpolationRequested {
+                                    owner_id,
+                                    interpolation,
+                                    x,
+                                    y,
+                                });
+                                area.queue_render();
+                            },
+                        )
+                        .selected(interpolation == selected)
+                    })
+                    .collect()
             }
-        });
-        list.append(&button);
-    }
-    let scroll = gtk::ScrolledWindow::builder()
-        .min_content_width(190)
-        .max_content_height(420)
-        .child(&list)
-        .build();
-    popover.set_child(Some(&scroll));
+        },
+    );
+    popover.set_parent(area);
+    popover.set_pointing_to(Some(&gdk::Rectangle::new(x as i32, y as i32, 1, 1)));
+    popover.connect_closed(|popover| popover.unparent());
     popover.popup();
 }

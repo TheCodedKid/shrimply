@@ -107,7 +107,7 @@ FEDORA_PACKAGES := \
 	poppler-glib-devel \
 	freetype-devel
 
-.PHONY: native-deps qt-native-deps qt-desktop-file cuda-target-check cuda-artifacts dev qt-build dev-qt dev-server docs docs-check run run-qt build release check components-check gtk-components-showcase qt-components-showcase dev-components-gtk dev-components-qt server-python-check manim manim-python-check manim-parameter-check cargo-check fmt fmt-check lint test frame-rate-test video-lifecycle-test transparent-fill-frame-range-test transparent-fill-decoder-test transparent-fill-kernel-test transparent-fill-compositor-test transparent-fill-playback-test transparent-fill-e2e-fixture transparent-fill-e2e-test decode-ahead-benchmark paint-interpolation-test crash-report oxide-doctor oxide-setup clean-dev clean deps-fedora install install-codex-mcp-dev install-agy-mcp-dev uninstall
+.PHONY: native-deps qt-native-deps qt-desktop-file cuda-target-check cuda-artifacts dev qt-build dev-qt dev-server docs docs-check run run-qt build release check components-check gtk-components-showcase qt-components-showcase server-python-check manim manim-python-check manim-parameter-check cargo-check fmt fmt-check lint test frame-rate-test video-lifecycle-test transparent-fill-frame-range-test transparent-fill-decoder-test transparent-fill-kernel-test transparent-fill-compositor-test transparent-fill-playback-test transparent-fill-e2e-fixture transparent-fill-e2e-test decode-ahead-benchmark paint-interpolation-test crash-report oxide-doctor oxide-setup clean-dev clean deps-fedora install install-codex-mcp-dev install-agy-mcp-dev uninstall
 
 native-deps:
 	@$(PKG_CONFIG) --exists rubberband || { echo "Missing Rubber Band development files (pkg-config: rubberband)" >&2; exit 1; }
@@ -257,10 +257,6 @@ gtk-components-showcase: native-deps
 
 qt-components-showcase: qt-native-deps
 	$(DEV_BUILD_ENV) QMAKE=$(QT_QMAKE) $(CARGO) run -p $(QT_COMPONENTS_DEMO_PACKAGE)
-
-dev-components-gtk: gtk-components-showcase
-
-dev-components-qt: qt-components-showcase
 
 source-size-check:
 	@oversized="$$(rg --files -g '!external/**' -g '!target/**' | while IFS= read -r source_file; do \

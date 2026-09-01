@@ -4,9 +4,10 @@ import QtQuick.Controls
 Menu {
     id: root
     required property var editor
-    required property var typoBackend
+    property var typoBackend: null
     property int typoIndex: -1
-    readonly property int correctionCount: typoBackend.typoCorrectionCount(typoIndex)
+    readonly property int correctionCount: typoBackend === null
+        ? 0 : typoBackend.typoCorrectionCount(typoIndex)
     popupType: Popup.Window
 
     function openAt(x, y, typo) {
@@ -39,18 +40,18 @@ Menu {
 
     MenuItem {
         text: qsTr("Undo")
-        enabled: root.editor.canUndo
+        enabled: !root.editor.readOnly && root.editor.canUndo
         onTriggered: root.editor.undo()
     }
     MenuItem {
         text: qsTr("Redo")
-        enabled: root.editor.canRedo
+        enabled: !root.editor.readOnly && root.editor.canRedo
         onTriggered: root.editor.redo()
     }
     MenuSeparator {}
     MenuItem {
         text: qsTr("Cut")
-        enabled: root.editor.selectedText.length > 0
+        enabled: !root.editor.readOnly && root.editor.selectedText.length > 0
         onTriggered: root.editor.cut()
     }
     MenuItem {
@@ -60,12 +61,12 @@ Menu {
     }
     MenuItem {
         text: qsTr("Paste")
-        enabled: root.editor.canPaste
+        enabled: !root.editor.readOnly && root.editor.canPaste
         onTriggered: root.editor.paste()
     }
     MenuItem {
         text: qsTr("Delete")
-        enabled: root.editor.selectedText.length > 0
+        enabled: !root.editor.readOnly && root.editor.selectedText.length > 0
         onTriggered: root.editor.remove(root.editor.selectionStart, root.editor.selectionEnd)
     }
     MenuSeparator {}

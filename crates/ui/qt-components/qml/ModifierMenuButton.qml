@@ -27,49 +27,15 @@ Button {
         height: 1
         visible: false
     }
-    Menu {
+    SearchMenu {
         id: menu
         width: 280
-        padding: 6
-        focus: true
-        popupType: Popup.Window
-        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutsideParent
-        onOpened: {
-            search.clear()
-            search.forceActiveFocus(Qt.PopupFocusReason)
-        }
-        contentItem: ColumnLayout {
-            spacing: 6
-            TextField {
-                id: search
-                Layout.fillWidth: true
-                placeholderText: qsTr("Search modifiers")
-                selectByMouse: true
-                Keys.onEscapePressed: function(event) {
-                    menu.close()
-                    event.accepted = true
-                }
-            }
-            ListView {
-                id: choices
-                Layout.fillWidth: true
-                Layout.preferredHeight: Math.min(contentHeight, 280)
-                clip: true
-                model: root.labels
-                delegate: ItemDelegate {
-                    required property int index
-                    width: choices.width
-                    text: root.labels[index]
-                    visible: backend.matchesQuery(text, search.text)
-                    height: visible ? implicitHeight : 0
-                    onClicked: {
-                        const value = backend.valueAt(root.values, index)
-                        if (value.length > 0)
-                            root.selected(value)
-                        menu.close()
-                    }
-                }
-            }
+        labels: root.labels
+        placeholderText: qsTr("Search modifiers")
+        onActivated: function(index) {
+            const value = backend.valueAt(root.values, index)
+            if (value.length > 0)
+                root.selected(value)
         }
     }
 }

@@ -115,6 +115,9 @@ pub mod qobject {
         #[qsignal]
         #[cxx_name = "valueEdited"]
         fn group_value_edited(self: Pin<&mut NumberGroupBackend>, axis: i32, value: f64);
+        #[qsignal]
+        #[cxx_name = "groupEdited"]
+        fn group_edited(self: Pin<&mut NumberGroupBackend>, axis: i32);
 
         #[qobject]
         #[qml_element]
@@ -296,6 +299,7 @@ pub mod qobject {
 
         #[qobject]
         #[qml_element]
+        #[qproperty(i32, active_component, cxx_name = "activeComponent")]
         type LayeredPropertyBackend = super::LayeredPropertyBackendRust;
 
         #[qinvokable]
@@ -312,6 +316,9 @@ pub mod qobject {
             second: f64,
             component: i32,
         );
+        #[qinvokable]
+        #[cxx_name = "selectComponent"]
+        fn select_layered_component(self: Pin<&mut LayeredPropertyBackend>, component: i32);
 
         #[qsignal]
         #[cxx_name = "baseEdited"]
@@ -329,6 +336,7 @@ pub mod qobject {
             first: f64,
             second: f64,
             graph_value: f64,
+            component: i32,
         );
 
         #[qobject]
@@ -582,6 +590,8 @@ impl qobject::NumberGroupBackend {
                 );
             }
         }
+        self.as_mut()
+            .group_edited(i32::try_from(axis).unwrap_or_default());
     }
 
     pub fn set_group_bounds(mut self: Pin<&mut Self>, minimum: f64, maximum: f64) {
@@ -1029,27 +1039,13 @@ impl qobject::SelectorBackend {
         current: i32,
         direction: i32,
     ) -> i32 {
-        let query = query.to_string();
-        let indices = labels
-            .iter()
-            .enumerate()
-            .filter(|(_, label)| selector::matches_query(&label.to_string(), &query))
-            .filter_map(|(index, _)| i32::try_from(index).ok())
-            .collect::<Vec<_>>();
-        if direction < 0 {
-            indices
-                .iter()
-                .rev()
-                .copied()
-                .find(|index| *index < current)
-                .or_else(|| indices.last().copied())
-        } else {
-            indices
-                .iter()
-                .copied()
-                .find(|index| *index > current)
-                .or_else(|| indices.first().copied())
-        }
+        selector::adjacent_matching_index(
+            &labels.iter().map(ToString::to_string).collect::<Vec<_>>(),
+            &query.to_string(),
+            usize::try_from(current).ok(),
+            direction >= 0,
+        )
+        .and_then(|index| i32::try_from(index).ok())
         .unwrap_or(-1)
     }
 
@@ -1103,6 +1099,7 @@ pub struct LivePerformanceBackendRust {
 
 #[derive(Default)]
 pub struct LayeredPropertyBackendRust {
+    active_component: i32,
     controller: layered::LayeredPropertyController,
 }
 
@@ -1125,6 +1122,9 @@ impl qobject::LayeredPropertyBackend {
 
     pub fn edit_layered_pair(mut self: Pin<&mut Self>, first: f64, second: f64, component: i32) {
         let component = usize::try_from(component).expect("non-negative layered value component");
+        self.rust().controller.select_component::<2>(component);
+        self.as_mut()
+            .set_active_component(i32::try_from(component).expect("layered value component index"));
         match self
             .rust()
             .controller
@@ -1134,10 +1134,21 @@ impl qobject::LayeredPropertyBackend {
                 self.as_mut().base_pair_edited(first, second);
             }
             layered::LayeredEdit::Keyframe(([first, second], graph_value)) => {
-                self.as_mut()
-                    .keyframe_pair_edited(first, second, graph_value);
+                self.as_mut().keyframe_pair_edited(
+                    first,
+                    second,
+                    graph_value,
+                    i32::try_from(component).expect("layered value component index"),
+                );
             }
         }
+    }
+
+    pub fn select_layered_component(mut self: Pin<&mut Self>, component: i32) {
+        let component = usize::try_from(component).expect("non-negative layered value component");
+        self.rust().controller.select_component::<2>(component);
+        self.as_mut()
+            .set_active_component(i32::try_from(component).expect("layered value component index"));
     }
 }
 

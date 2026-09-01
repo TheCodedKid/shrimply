@@ -17,14 +17,15 @@ RowLayout {
     property bool enableLock: false
     signal edited(int axis, real value)
     signal committed(int axis, real value)
+    signal valuesEdited(real first, real second, real third, int component)
     spacing: 6
 
     NumberGroupBackend {
         id: group
-        onFirstChanged: { firstPicker.value = first; root.first = first }
-        onSecondChanged: { secondPicker.value = second; root.second = second }
-        onThirdChanged: { thirdPicker.value = third; root.third = third }
         onValueEdited: function(axis, value) { root.edited(axis, value) }
+        onGroupEdited: function(axis) {
+            root.valuesEdited(group.first, group.second, group.third, axis)
+        }
     }
     Component.onCompleted: {
         group.configure(first, second, third, 3, enableLock)
@@ -54,7 +55,7 @@ RowLayout {
     NumberPicker {
         id: firstPicker
         Layout.fillWidth: true
-        value: root.first; minimum: root.minimum; maximum: root.maximum; dragStep: root.dragStep; digits: root.digits
+        value: group.first; minimum: root.minimum; maximum: root.maximum; dragStep: root.dragStep; digits: root.digits
         prefix: root.prefixes[0]; unitName: root.unitName
         onEdited: function(value) { group.edit(0, value) }
         onCommitted: function(value) { root.committed(0, value) }
@@ -62,7 +63,7 @@ RowLayout {
     NumberPicker {
         id: secondPicker
         Layout.fillWidth: true
-        value: root.second; minimum: root.minimum; maximum: root.maximum; dragStep: root.dragStep; digits: root.digits
+        value: group.second; minimum: root.minimum; maximum: root.maximum; dragStep: root.dragStep; digits: root.digits
         prefix: root.prefixes[1]; unitName: root.unitName
         onEdited: function(value) { group.edit(1, value) }
         onCommitted: function(value) { root.committed(1, value) }
@@ -70,7 +71,7 @@ RowLayout {
     NumberPicker {
         id: thirdPicker
         Layout.fillWidth: true
-        value: root.third; minimum: root.minimum; maximum: root.maximum; dragStep: root.dragStep; digits: root.digits
+        value: group.third; minimum: root.minimum; maximum: root.maximum; dragStep: root.dragStep; digits: root.digits
         prefix: root.prefixes[2]; unitName: root.unitName
         onEdited: function(value) { group.edit(2, value) }
         onCommitted: function(value) { root.committed(2, value) }

@@ -1,6 +1,8 @@
 use super::*;
 use shrimply_gtk_components::tr;
-use shrimply_gtk_components::ui::I18nWidgetExt;
+use shrimply_gtk_components::ui::{
+    I18nWidgetExt, SearchMenuItem, matches_query, searchable_popover,
+};
 
 pub(crate) fn connect_graph_refresh_impl(
     context: &InspectorContext,
@@ -705,141 +707,63 @@ pub(super) fn show_interpolation_popover(
     changed: Option<Rc<dyn Fn(Uuid, Interpolation)>>,
     text_interpolation: Option<TextInterpolationSelection>,
 ) {
-    let curve_picker = changed.is_some();
-    let search = gtk::SearchEntry::builder()
-        .placeholder_text(tr!("Search interpolations").as_ref())
-        .hexpand(true)
-        .build();
-    let list = gtk::Box::new(gtk::Orientation::Vertical, 0);
-    let scroller = gtk::ScrolledWindow::builder()
-        .child(&list)
-        .hscrollbar_policy(gtk::PolicyType::Never)
-        .min_content_width(280)
-        .min_content_height(180)
-        .max_content_height(240)
-        .build();
-    let content = gtk::Box::builder()
-        .orientation(gtk::Orientation::Vertical)
-        .spacing(6)
-        .margin_top(6)
-        .margin_bottom(6)
-        .margin_start(6)
-        .margin_end(6)
-        .build();
-    let popover = gtk::Popover::builder()
-        .child(&content)
-        .autohide(true)
-        .build();
-    if let Some((selected, set)) = text_interpolation {
-        for mode in TextInterpolation::ALL {
-            let label = gtk::Label::builder()
-                .label(tr!(mode.label()).as_ref())
-                .halign(gtk::Align::Start)
-                .xalign(0.0)
-                .hexpand(true)
-                .build();
-            let row = gtk::Box::new(gtk::Orientation::Horizontal, 8);
-            row.append(&label);
-            if mode == selected {
-                row.append(&gtk::Image::from_icon_name("object-select-symbolic"));
-            }
-            let button = gtk::Button::builder()
-                .child(&row)
-                .halign(gtk::Align::Fill)
-                .hexpand(true)
-                .tooltip_text(match mode {
-                    TextInterpolation::Jump => "Change all at once",
-                    TextInterpolation::Type => "Clear and rewrite the whole text",
-                    TextInterpolation::Append => "Edit after the shared beginning",
-                    TextInterpolation::Insert => "Edit between the shared ends",
-                    TextInterpolation::Diff => "Edit only the changed characters",
-                    TextInterpolation::Decode => "Scramble, resize, then reveal the new text",
-                })
-                .build();
-            button.add_css_class("flat");
-            let set = set.clone();
-            let popover = popover.clone();
-            button.connect_clicked(move |_| {
-                set(owner_id, mode);
-                popover.popdown();
-            });
-            content.append(&button);
-        }
-    }
-    if curve_picker {
-        content.append(&search);
-        content.append(&scroller);
-    }
-    popover.add_css_class("menu");
+    let popover = if let Some(changed) = changed {
+        searchable_popover(
+            tr!("Search interpolations").as_ref(),
+            280,
+            180,
+            240,
+            move |query| {
+                Interpolation::KEYFRAME
+                    .into_iter()
+                    .filter(|interpolation| matches_query(interpolation.label(), query))
+                    .map(|interpolation| {
+                        let changed = changed.clone();
+                        SearchMenuItem::new(tr!(interpolation.label()).as_ref(), move || {
+                            changed(owner_id, interpolation);
+                        })
+                        .selected(interpolation == selected)
+                    })
+                    .collect()
+            },
+        )
+    } else if let Some((selected, set)) = text_interpolation {
+        searchable_popover(
+            tr!("Search interpolations").as_ref(),
+            280,
+            180,
+            240,
+            move |query| {
+                TextInterpolation::ALL
+                    .into_iter()
+                    .filter(|mode| matches_query(mode.label(), query))
+                    .map(|mode| {
+                        let set = set.clone();
+                        SearchMenuItem::new(tr!(mode.label()).as_ref(), move || {
+                            set(owner_id, mode);
+                        })
+                        .selected(mode == selected)
+                        .tooltip(match mode {
+                            TextInterpolation::Jump => "Change all at once",
+                            TextInterpolation::Type => "Clear and rewrite the whole text",
+                            TextInterpolation::Append => "Edit after the shared beginning",
+                            TextInterpolation::Insert => "Edit between the shared ends",
+                            TextInterpolation::Diff => "Edit only the changed characters",
+                            TextInterpolation::Decode => {
+                                "Scramble, resize, then reveal the new text"
+                            }
+                        })
+                    })
+                    .collect()
+            },
+        )
+    } else {
+        return;
+    };
     popover.set_parent(graph);
     popover.set_pointing_to(Some(&gdk::Rectangle::new(x as i32, y as i32, 1, 1)));
-    if let Some(changed) = changed {
-        populate_interpolation_list(&list, "", selected, owner_id, &changed, &popover);
-        search.connect_search_changed({
-            let list = list.clone();
-            let popover = popover.clone();
-            move |search| {
-                populate_interpolation_list(
-                    &list,
-                    search.text().as_str(),
-                    selected,
-                    owner_id,
-                    &changed,
-                    &popover,
-                )
-            }
-        });
-    }
     popover.connect_closed(|popover| popover.unparent());
     popover.popup();
-    if curve_picker {
-        search.grab_focus();
-    }
-}
-
-pub(super) fn populate_interpolation_list(
-    list: &gtk::Box,
-    query: &str,
-    selected: Interpolation,
-    owner_id: Uuid,
-    changed: &Rc<dyn Fn(Uuid, Interpolation)>,
-    popover: &gtk::Popover,
-) {
-    while let Some(child) = list.first_child() {
-        list.remove(&child);
-    }
-    let query = query.trim().to_lowercase();
-    for interpolation in Interpolation::KEYFRAME {
-        if !interpolation.label().to_lowercase().contains(&query) {
-            continue;
-        }
-        let label = gtk::Label::builder()
-            .label(tr!(interpolation.label()).as_ref())
-            .halign(gtk::Align::Start)
-            .xalign(0.0)
-            .hexpand(true)
-            .build();
-        let row = gtk::Box::new(gtk::Orientation::Horizontal, 8);
-        row.append(&label);
-        if interpolation == selected {
-            row.append(&gtk::Image::from_icon_name("object-select-symbolic"));
-        }
-        let button = gtk::Button::builder()
-            .child(&row)
-            .halign(gtk::Align::Fill)
-            .hexpand(true)
-            .build();
-        button.add_css_class("flat");
-        button.connect_clicked({
-            let changed = changed.clone();
-            let popover = popover.clone();
-            move |_| {
-                changed(owner_id, interpolation);
-                popover.popdown();
-            }
-        });
-        list.append(&button);
-    }
 }
 
 pub(super) fn hit_graph_point(

@@ -24,7 +24,7 @@ Item {
             root.updatingCommittedColor = true
             root.color = value
             root.updatingCommittedColor = false
-            root.selected(value)
+            Qt.callLater(function() { root.selected(value) })
         }
         onScreenColorFailed: function(message) { root.screenColorFailed(message) }
     }
@@ -64,6 +64,8 @@ Item {
         id: picker
         width: 895
         height: 480
+        minimumWidth: 895
+        minimumHeight: 480
         visible: false
         flags: Qt.Dialog
         modality: Qt.NonModal
@@ -106,8 +108,7 @@ Item {
                             implicitWidth: 34
                             implicitHeight: 34
                             padding: 6
-                            ToolTip.visible: hovered
-                            ToolTip.text: ComponentTranslations.text("Open the system color picker")
+                            Accessible.name: ComponentTranslations.text("Open the system color picker")
                             onClicked: nativeDialog.open()
                             contentItem: TransparentColorPreview {
                                 implicitWidth: 22
@@ -120,6 +121,7 @@ Item {
                             id: hex
                             Layout.fillWidth: true
                             font.family: "monospace"
+                            Accessible.name: ComponentTranslations.text("Hexadecimal color")
                             onAccepted: if (!backend.applyHex(text)) selectAll()
                             onActiveFocusChanged: if (!activeFocus) backend.applyHex(text)
                             Binding {
@@ -141,8 +143,6 @@ Item {
                             Layout.preferredWidth: 24
                             Accessible.role: Accessible.Slider
                             Accessible.name: ComponentTranslations.text("Hue")
-                            ToolTip.visible: hueHover.hovered
-                            ToolTip.text: ComponentTranslations.text("Hue")
 
                             Rectangle {
                                 x: (parent.width - width) / 2
@@ -169,7 +169,6 @@ Item {
                                    * (parent.height - hue.thumbRadius * 2) - height / 2
                                 radius: hue.thumbRadius
                             }
-                            HoverHandler { id: hueHover }
                             MouseArea {
                                 anchors.fill: parent
                                 cursorShape: Qt.PointingHandCursor

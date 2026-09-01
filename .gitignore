@@ -1,4 +1,5 @@
-/target
+target/
+.qmlls.ini
 /.oxide-artifacts
 /video-generation-cache
 

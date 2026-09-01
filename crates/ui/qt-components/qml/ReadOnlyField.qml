@@ -1,4 +1,5 @@
 import QtQuick
+import dev.shrimply.components
 import QtQuick.Controls
 import QtQuick.Layouts
 
@@ -23,11 +24,29 @@ Control {
             id: label
             Layout.fillWidth: true
             readOnly: true
-            activeFocusOnPress: false
+            activeFocusOnPress: true
+            activeFocusOnTab: false
             textFormat: Text.PlainText
             selectByMouse: true
+            selectByKeyboard: true
+            persistentSelection: true
             wrapMode: TextEdit.NoWrap
             color: root.palette.text
+            Accessible.role: Accessible.StaticText
+            Accessible.name: text
+            Accessible.editable: false
+            Accessible.selectableText: true
+
+            TapHandler {
+                acceptedButtons: Qt.RightButton
+                onTapped: function(eventPoint) {
+                    contextMenu.openAt(eventPoint.position.x, eventPoint.position.y, -1)
+                }
+            }
+            TextContextMenu {
+                id: contextMenu
+                editor: label
+            }
         }
 
         ToolButton {
