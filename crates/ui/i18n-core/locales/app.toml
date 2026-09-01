@@ -208,7 +208,7 @@ ja = "サーバー URL を確認中"
 "ru" = "Проверка URL сервера"
 pt = "Verificando URL do servidor"
 tr = "Sunucu URL'si kontrol ediliyor"
-it = "Controllo URL del server"
+it = "Verificando URL del server"
 
 ["Checking…"]
 en = "Checking…"
@@ -236,7 +236,7 @@ ja = "Blender 実行ファイルを選択"
 "ru" = "Выберите исполняемый файл Blender"
 pt = "Escolher executável do Blender"
 tr = "Blender Yürütülebilir Dosyası Seçin"
-it = "Scegli il binadio di Blender"
+it = "Scegli il binario di Blender"
 
 ["Clear Blender binary"]
 en = "Clear Blender binary"
@@ -320,7 +320,7 @@ ko = "변환"
 ru = "Преобразовать"
 pt = "Converter"
 tr = "Dönüştür"
-it = "COnverti"
+it = "Converti"
 
 ["Convert Kdenlive Project?"]
 en = "Convert Kdenlive Project?"
@@ -362,7 +362,7 @@ ko = "프로젝트 타이밍을 수정해야 합니다"
 ru = "Тайминг проекта требует исправления"
 pt = "A temporização do projeto precisa de correção"
 tr = "Proje Zamanlamasında Düzeltme Gerekiyor"
-it = "La tempistica del progetto richiede una correzione"
+it = "La tempistica del progetto richiede una riparazione"
 
 ["Save Fixed Project"]
 en = "Save Fixed Project"
@@ -614,7 +614,7 @@ ja = "既定のテキストフォント"
 "ru" = "Шрифт текста по умолчанию"
 pt = "Fonte de texto padrão"
 tr = "Varsayılan Metin Yazı Tipi"
-it = "Font di testo predefinito"
+it = "Font predefinito del testo"
 
 ["Default Visual Duration"]
 en = "Default Visual Duration"
@@ -852,7 +852,7 @@ ja = "GPU ホストメモリ予算"
 "ru" = "Бюджет системной памяти GPU"
 pt = "Limite de memória do host para GPU"
 tr = "GPU Ana Bellek Bütçesi"
-it = "Limite memoria host per GPU"
+it = "Limite memoria di sistema per la GPU"
 
 ["Import Kdenlive as Shrimply Project"]
 en = "Import Kdenlive as Shrimply Project"
@@ -964,7 +964,7 @@ ja = "最終編集"
 "ru" = "Последнее изменение"
 pt = "Última edição"
 tr = "En Son Düzenlenen"
-it = "Ultimo modificato"
+it = "Ultima modifica"
 
 ["Last edited time unavailable"]
 en = "Last edited time unavailable"
@@ -1006,7 +1006,7 @@ ja = "明るい青"
 "ru" = "Светло-голубой"
 pt = "Azul-claro"
 tr = "Açık Mavi"
-it = "Azzurro"
+it = "Blu chiaro"
 
 ["Light Brown"]
 en = "Light Brown"
@@ -1314,7 +1314,7 @@ ja = "プロジェクトを開く…"
 "ru" = "Открыть проект…"
 pt = "Abrir projeto…"
 tr = "Proje Aç…"
-it = "Apertura progetto..."
+it = "Apri progetto..."
 
 ["Open the GTK color picker"]
 en = "Open the GTK color picker"
@@ -1594,7 +1594,7 @@ ja = "リップルカット"
 "ru" = "Разрез с уплотнением"
 pt = "Corte com ondulação"
 tr = "Ardışık kesim"
-it = "Taglia e salda"
+it = "Taglia e scorri"
 
 ["Ripple trim selected clip to playhead"]
 en = "Ripple trim selected clip to playhead"
@@ -1608,7 +1608,7 @@ ja = "選択したクリップを再生ヘッドまでリップルトリム"
 "ru" = "Подрезать выбранный клип до курсора с уплотнением"
 pt = "Aparar com ondulação o clipe selecionado até o indicador de reprodução"
 tr = "Seçilen klibi oynatma imlecine kadar ardışık kırp"
-it = "Taglia e salda la clip selezionata alla testina di riproduzione"
+it = "Taglia e scorri la clip selezionata fino alla testina di riproduzione"
 
 ["Saturation and value"]
 en = "Saturation and value"
@@ -1692,7 +1692,7 @@ ja = "履歴を検索"
 "ru" = "Поиск по истории"
 pt = "Pesquisar histórico"
 tr = "Arama geçmişi"
-it = "Cerca nella cronologia"
+it = "Cerca cronologia"
 
 ["Select color"]
 en = "Select color"
@@ -1706,7 +1706,7 @@ ja = "色を選択"
 "ru" = "Выбрать цвет"
 pt = "Selecionar cor"
 tr = "Renk seç"
-it = "Seleziona un colore"
+it = "Seleziona colore"
 
 ["Selected Server"]
 en = "Selected Server"
@@ -1818,7 +1818,7 @@ ja = "Shrimply プロジェクト"
 "ru" = "Проекты Shrimply"
 pt = "Projetos do Shrimply"
 tr = "Shrimply projeleri"
-it = "Progetti di Shrimply"
+it = "Progetti Shrimply"
 
 ["Shrimply supports only some Kdenlive features. Unsupported content may be changed or omitted."]
 en = "Shrimply supports only some Kdenlive features. Unsupported content may be changed or omitted."
@@ -1902,7 +1902,7 @@ ja = "CUDA の退避と再構築可能な GPU リソースに使用できるシ�
 "ru" = "Максимальный объем системной RAM, доступный для выгрузки CUDA и реконструируемых ресурсов GPU"
 pt = "RAM máxima do sistema disponível para transbordamento de CUDA e recursos reconstruíveis da GPU"
 tr = "CUDA taşması ve yeniden oluşturulabilir GPU kaynakları için kullanılabilir azami sistem RAM'i"
-it = "RAM di sistema massima disponibile per overflow CUDA e risorse GPU ricostruibili"
+it = "RAM di sistema massima disponibile per spillover CUDA e risorse GPU ricostruibili"
 
 ["Step playback"]
 en = "Step playback"
@@ -1958,7 +1958,7 @@ ja = "タイムライン"
 "ru" = "Таймлайн"
 pt = "Linha do tempo"
 tr = "Zaman Çizelgesi"
-it = "Sequenza temporale"
+it = "Sequenza"
 
 ["Toggle Inspector"]
 en = "Toggle Inspector"
@@ -2210,7 +2210,7 @@ ja = "ごく明るい青"
 "ru" = "Очень светло-голубой"
 pt = "Azul muito claro"
 tr = "Çok Açık Mavi"
-it = "Azzurro molto chiaro"
+it = "Blu molto chiaro"
 
 ["Very Light Brown"]
 en = "Very Light Brown"
@@ -2434,7 +2434,7 @@ ja = "待機中 %{queued} · 実行中 %{active}"
 "ru" = "%{queued} в очереди · %{active} активных"
 pt = "%{queued} na fila · %{active} ativas"
 tr = "%{queued} kuyrukta · %{active} aktif"
-it = "%{queued} accodato · %{active} active"
+it = "%{queued} accodato · %{active} attivi"
 
 ["Project is in use"]
 en = "Project is in use"
