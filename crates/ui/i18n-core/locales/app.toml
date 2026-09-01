@@ -12,7 +12,7 @@ ja = "シンプルな動画エディター"
 "ru" = "Простой видео редактор"
 pt = "Um editor de vídeo simples"
 tr = "Basit bir video düzenleyicisi"
-it = "Un semplice video edito"
+it = "Un semplice video editor"
 
 ["About Shrimply"]
 en = "About Shrimply"
@@ -152,7 +152,7 @@ ja = "協力"
 "ru" = "Разработан с помощью"
 pt = "Desenvolvido com a ajuda de"
 tr = "Katkıda bulunanlar"
-it = "Creato con l'aiuto di"
+it = "Creato con l’aiuto di"
 
 ["Caption background color"]
 en = "Caption background color"
@@ -390,7 +390,7 @@ ko = "일부 클립이 프로젝트 프레임 격자에 맞지 않습니다. 수
 ru = "Некоторые клипы не выровнены по сетке кадров проекта. Исправление привяжет и минимально сдвинет их границы, а затем сохранит новый проект без изменения исходного."
 pt = "Alguns clipes não estão alinhados à grade de quadros do projeto. A correção ajustará e deslocará minimamente os limites dos clipes e salvará um novo projeto sem alterar o original."
 tr = "Bazı klipler proje kare ızgarasıyla hizalı değil. Düzeltme işlemi klip sınırlarını ızgaraya oturtup mümkün olduğunca az kaydıracak, ardından özgün projeyi değiştirmeden yeni bir proje kaydedecektir."
-it = "Alcune clip non sono allineate alla griglia dei fotogrammi del progetto. La correzione aggancerà e sposterà leggermente i bordi delle clip, salvando un nuovo progetto senza modificare l'originale."
+it = "Alcune clip non sono allineate alla griglia dei fotogrammi del progetto. La correzione aggancerà e sposterà leggermente i bordi delle clip, salvando un nuovo progetto senza modificare l’originale."
 
 ["Compute"]
 en = "Compute"
@@ -684,7 +684,7 @@ ja = "タイムライン、ビート、プレビューのスナップ距離（�
 "ru" = "Расстояние в пикселях для привязки таймлайна, битов и предпросмотра"
 pt = "Distância em pixels para encaixe na linha do tempo, batidas e pré-visualização"
 tr = "Zaman akışı, vuruş ve önizleme hizalaması için piksel cinsinden mesafe"
-it = "Distanza in pixel per l'aggancio a sequenza, beat e anteprima"
+it = "Distanza in pixel per l’aggancio a sequenza, beat e anteprima"
 
 ["Drop shadow extent around the video frame in pixels"]
 en = "Drop shadow extent around the video frame in pixels"
@@ -698,7 +698,7 @@ ja = "動画フレーム周囲のドロップシャドウの大きさ（ピク�
 "ru" = "Размер тени вокруг кадра видео в пикселях"
 pt = "Extensão da sombra projetada ao redor do quadro de vídeo em pixels"
 tr = "Piksel cinsinden video çerçevesinin etrafındaki gölge genişliği"
-it = "Estensione in pixel dell'ombra esterna attorno al fotogramma video"
+it = "Estensione in pixel dell’ombra esterna attorno al fotogramma video"
 
 ["Edit Server"]
 en = "Edit Server"
@@ -908,7 +908,7 @@ ja = "推論サーバー"
 "ru" = "Серверы инференса"
 pt = "Servidores de inferência"
 tr = "Çıkarım Sunucuları"
-it = "Server d'inferenza"
+it = "Server d’inferenza"
 
 ["Jobs"]
 en = "Jobs"
@@ -978,7 +978,7 @@ ja = "最終編集日時を取得できません"
 "ru" = "Время последнего изменения недоступно"
 pt = "Data da última edição indisponível"
 tr = "En son düzenleme zamanı mevcut değil"
-it = "Data dell'ultima modifica non disponibile"
+it = "Data dell’ultima modifica non disponibile"
 
 ["Learn more"]
 en = "Learn more"
@@ -1776,7 +1776,7 @@ ja = "影のサイズ"
 "ru" = "Размер тени"
 pt = "Tamanho da sombra"
 tr = "Gölge Boyutu"
-it = "Dimensione dell'ombra"
+it = "Dimensione dell’ombra"
 
 ["Show Keyboard Shortcuts"]
 en = "Show Keyboard Shortcuts"
@@ -1930,7 +1930,7 @@ ja = "別のエディターを停止"
 "ru" = "Остановить другой редактор"
 pt = "Parar outro editor"
 tr = "Diğer Düzenleyiciyi Durdur"
-it = "Ferma l'altro editor"
+it = "Ferma l’altro editor"
 
 ["Temporal Decoder Pool Size"]
 en = "Temporal Decoder Pool Size"
@@ -2504,7 +2504,7 @@ ja = "プレビューが動画より大きい場合に使用するフィルタ�
 "ru" = "Фильтр, используемый, когда предпросмотр больше видео"
 pt = "Filtro usado quando a pré-visualização é maior que o vídeo"
 tr = "Önizleme videodan daha büyük olduğunda kullanılan filtre"
-it = "Filtro utilizzato quando l'anteprima è più grande del video"
+it = "Filtro utilizzato quando l’anteprima è più grande del video"
 
 ["Filter used when the preview is smaller than the video"]
 en = "Filter used when the preview is smaller than the video"
@@ -2518,7 +2518,7 @@ ja = "プレビューが動画より小さい場合に使用するフィルタ�
 "ru" = "Фильтр, используемый, когда предпросмотр меньше видео"
 pt = "Filtro usado quando a pré-visualização é menor que o vídeo"
 tr = "Önizleme videodan daha küçük olduğunda kullanılan filtre"
-it = "Filtro utilizzato quando l'anteprima è più piccola del video"
+it = "Filtro utilizzato quando l’anteprima è più piccola del video"
 
 ["Nearest"]
 en = "Nearest"
@@ -2546,7 +2546,7 @@ ja = "プレビューのダウンサンプリング方式"
 "ru" = "Метод уменьшения предпросмотра"
 pt = "Método de redução da pré-visualização"
 tr = "Önizleme Alt Örnekleme Yöntemi"
-it = "Metodo di downsampling dell'anteprima"
+it = "Metodo di downsampling dell’anteprima"
 
 ["Preview Upsample Method"]
 en = "Preview Upsample Method"
@@ -2560,7 +2560,7 @@ ja = "プレビューのアップサンプリング方式"
 "ru" = "Метод увеличения предпросмотра"
 pt = "Método de ampliação da pré-visualização"
 tr = "Önizleme Üst Örnekleme Yöntemi"
-it = "Metodo di upsample dell'anteprima"
+it = "Metodo di upsample dell’anteprima"
 
 ["Trilinear"]
 en = "Trilinear"
