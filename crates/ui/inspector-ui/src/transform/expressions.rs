@@ -51,10 +51,15 @@ pub(super) fn vec2_expression_editor(
 }
 
 fn expression_editor(
-    source: Option<String>,
+    mut source: Option<String>,
     value: crate::rhai_editor::ExpressionValue,
     update: impl Fn(String) + 'static,
 ) -> gtk::Widget {
+    source.get_or_insert_with(|| match value {
+        crate::rhai_editor::ExpressionValue::Scalar => "value".to_string(),
+        crate::rhai_editor::ExpressionValue::Vec2 => "[x, y]".to_string(),
+        _ => unreachable!("transform expression editor received an unsupported value type"),
+    });
     crate::rhai_editor::editor(source, value, update)
 }
 
@@ -124,7 +129,7 @@ pub(super) fn set_expression_enabled(
         player_state,
         ProjectChange {
             video: true,
-            inspector: true,
+            live_preview: true,
             ..ProjectChange::default()
         },
     );

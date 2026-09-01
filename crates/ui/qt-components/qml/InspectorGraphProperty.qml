@@ -7,6 +7,7 @@ InspectorProperty {
     property real initialGraphValue: 0
     property real graphValue: initialGraphValue
     property real initialSecondValue: 0
+    property bool paired: false
     property real firstValue: initialGraphValue
     property real secondValue: initialSecondValue
     readonly property int graphComponent: editRouter.activeComponent
@@ -16,6 +17,7 @@ InspectorProperty {
     signal expressionEdited(string value)
     signal baseValueEdited(real value)
     signal basePairEdited(real first, real second)
+    signal graphReset(int component, real value)
 
     function editValue(value) {
         editRouter.setModes(root.keyframes, root.expression)
@@ -30,21 +32,39 @@ InspectorProperty {
     function resetValue(value) {
         graph.configureValue(value)
         root.graphValue = value
+        root.graphReset(0, value)
     }
 
     function resetPair(first, second) {
         editRouter.selectComponent(0)
+        editRouter.configurePair(first, second)
         root.firstValue = first
         root.secondValue = second
         graph.configurePair(first, second, 0)
+        root.graphReset(0, first)
+        root.graphReset(1, second)
     }
+
+    function replaceRawGraphComponent(component, pointTimes, pointValues, segments, staticValue) {
+        graph.replaceRawGraph(component, pointTimes, pointValues, segments, staticValue)
+    }
+    function setGraphRange(startNumerator, startDenominator, endNumerator, endDenominator) {
+        graph.setRange(startNumerator, startDenominator, endNumerator, endDenominator)
+    }
+    function setGraphFrameStep(numerator, denominator) {
+        graph.setFrameStep(numerator, denominator)
+    }
+    function setGraphPlayhead(numerator, denominator) {
+        graph.setPlayhead(numerator, denominator)
+    }
+    function setGraphSnapping(enabled, radiusPx) { graph.setSnapping(enabled, radiusPx) }
 
     Component.onCompleted: {
         editRouter.setModes(root.keyframes, root.expression)
-        graph.configureValue(initialGraphValue)
-        root.graphValue = initialGraphValue
-        root.firstValue = initialGraphValue
-        root.secondValue = initialSecondValue
+        if (root.paired)
+            root.resetPair(initialGraphValue, initialSecondValue)
+        else
+            root.resetValue(initialGraphValue)
     }
     onKeyframesChanged: editRouter.setModes(keyframes, expression)
     onExpressionChanged: editRouter.setModes(keyframes, expression)
@@ -59,10 +79,10 @@ InspectorProperty {
             root.basePairEdited(first, second)
         }
         onKeyframeEdited: function(value) { graph.editValue(value) }
-        onKeyframePairEdited: function(first, second, graphValue, component) {
+        onKeyframePairEdited: function(first, second, component, firstChanged, secondChanged) {
             root.firstValue = first
             root.secondValue = second
-            graph.editComponent(component, graphValue)
+            graph.editPair(first, second, component, firstChanged, secondChanged)
         }
     }
 

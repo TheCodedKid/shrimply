@@ -185,7 +185,6 @@ pub(crate) fn bool_control(
             .unwrap_or((Time::ZERO, Time::ZERO));
         let built = keyframe_editor::build(
             context,
-            gtk::Box::new(gtk::Orientation::Horizontal, 0).upcast(),
             graph,
             visible_area,
             format!("bool:{}", target.scope()),

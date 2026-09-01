@@ -156,7 +156,6 @@ pub(crate) fn control(
     if matches!(value.base, TimelineBase::Keyframes(_)) {
         let built = keyframe_editor::build(
             context,
-            gtk::Box::new(gtk::Orientation::Horizontal, 0).upcast(),
             super::speed_graph(value),
             visible_area(&context.project.borrow(), key.clone())
                 .unwrap_or((Time::ZERO, Time::ZERO)),
@@ -168,7 +167,7 @@ pub(crate) fn control(
         keyframe_editor::connect_graph_refresh(
             context,
             "inspector vec3 graph refresh",
-            built.update_graph.clone(),
+            &built,
             move || {
                 target
                     .value(&project.borrow(), graph_key.clone())

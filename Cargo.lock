@@ -5408,7 +5408,11 @@ version = "0.1.0"
 dependencies = [
  "rhai",
  "shrimply-core",
+ "shrimply-interpolation",
+ "shrimply-keyframe-graph-ui",
+ "shrimply-math-core",
  "shrimply-video-modifiers",
+ "uuid",
 ]
 
 [[package]]
@@ -5720,6 +5724,7 @@ dependencies = [
  "shrimply-audio-modifiers",
  "shrimply-benchmarking",
  "shrimply-blender",
+ "shrimply-component-core",
  "shrimply-core",
  "shrimply-cross-ui-theme",
  "shrimply-discrete-keyframe-graph-ui",
@@ -6394,6 +6399,8 @@ dependencies = [
  "cxx-qt-lib",
  "shrimply-benchmarking",
  "shrimply-components-demo-core",
+ "shrimply-keyframe-graph-ui",
+ "shrimply-math-core",
  "shrimply-qt-components",
  "shrimply-qt-helpers",
  "shrimply-support",

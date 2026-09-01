@@ -2,8 +2,6 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use uuid::Uuid;
 
-use gtk::prelude::*;
-
 use crate::InspectedItem as SelectedItem;
 use crate::player_state::{self, ProjectChange, SharedPlayerState};
 use crate::timeline_value::*;
@@ -253,7 +251,6 @@ pub(crate) fn scalar_control(
         };
         let built = keyframe_editor::build(
             context,
-            keyframe_body_placeholder(),
             graph,
             (Time::ZERO, duration),
             format!(
@@ -268,7 +265,7 @@ pub(crate) fn scalar_control(
         keyframe_editor::connect_graph_refresh(
             context,
             "inspector scalar keyframe graph refresh",
-            built.update_graph.clone(),
+            &built,
             move || {
                 let position = player_state::snapshot(&player).position;
                 let project = project.borrow();
@@ -322,10 +319,6 @@ pub(crate) fn scalar_control(
             }
         },
     )
-}
-
-fn keyframe_body_placeholder() -> gtk::Widget {
-    gtk::Box::new(gtk::Orientation::Horizontal, 0).upcast()
 }
 
 fn scalar_picker(

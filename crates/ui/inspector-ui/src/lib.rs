@@ -70,7 +70,8 @@ use shrimply_state::preferences::SharedPreferences;
 use section::InspectorSection;
 use track::TrackInspection;
 
-type KeyframeGraphViewStates = Rc<RefCell<HashMap<String, keyframe_editor::SharedGraphViewState>>>;
+type KeyframeGraphViewStates =
+    Rc<RefCell<HashMap<String, shrimply_gtk_components::ui::SharedFrameGraphState>>>;
 pub(crate) type InspectedItem = ItemAddress;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -138,10 +139,11 @@ impl InspectorContext {
         context
     }
 
-    pub(crate) fn keyframe_graph_view_state(
+    pub(crate) fn keyframe_graph_state(
         &self,
         scope: impl Into<String>,
-    ) -> keyframe_editor::SharedGraphViewState {
+        initial: shrimply_keyframe_graph_ui::FrameGraphState,
+    ) -> shrimply_gtk_components::ui::SharedFrameGraphState {
         let selected = match &self.selected_item {
             Some(item) => {
                 format!("{:?}:{}:{}", item.kind(), item.track_id(), item.item_id())
@@ -151,8 +153,12 @@ impl InspectorContext {
         let key = format!("{selected}:{}", scope.into());
         self.keyframe_graph_views
             .borrow_mut()
-            .entry(key.clone())
-            .or_insert_with(keyframe_editor::new_graph_view_state)
+            .entry(key)
+            .or_insert_with(|| {
+                Rc::new(RefCell::new(
+                    shrimply_keyframe_graph_ui::FrameGraphComponents::single(initial),
+                ))
+            })
             .clone()
     }
 }

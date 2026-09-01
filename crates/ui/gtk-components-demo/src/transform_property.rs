@@ -1,6 +1,6 @@
 use std::{cell::Cell, rc::Rc};
 
-use shrimply_component_core::layered::{LayeredEdit, LayeredPropertyController};
+use shrimply_component_core::layered::{LayeredEdit, LayeredPropertyController, component_changes};
 use shrimply_gtk_components::ui::{
     ExpressionEditor, FrameGraph, InspectorGraphProperty, NumberPickerHandle,
 };
@@ -8,19 +8,15 @@ use shrimply_gtk_components::ui::{
 pub fn graph(label: &str, value: f64, log: Rc<dyn Fn(String)>) -> FrameGraph {
     let label = label.to_string();
     FrameGraph::with_actions(
-        shrimply_keyframe_graph_ui::FrameGraphState::sample_for_value(value),
+        shrimply_components_demo_core::property_graph_state(value),
         move |_| log(format!("{label} keyframe action")),
     )
 }
 
 pub fn pair_graph(label: &str, values: [f64; 2], log: Rc<dyn Fn(String)>) -> FrameGraph {
     let label = label.to_string();
-    FrameGraph::with_component_actions(
-        values
-            .into_iter()
-            .map(shrimply_keyframe_graph_ui::FrameGraphState::sample_for_value)
-            .collect(),
-        0,
+    FrameGraph::with_components(
+        shrimply_components_demo_core::property_graph_components(&values, 0),
         move |_| log(format!("{label} keyframe action")),
     )
 }
@@ -42,10 +38,12 @@ pub fn pair_edit_handler(
     value: Rc<Cell<[f64; 2]>>,
 ) -> impl Fn([f64; 2], usize) + 'static {
     move |next, component| {
-        value.set(next);
-        if let LayeredEdit::Keyframe((_, graph_value)) = controller.edit_component(next, component)
-        {
-            graph.edit_component_value(component, graph_value);
+        let previous = value.replace(next);
+        match controller.edit_component(next, component) {
+            LayeredEdit::Base(_) => graph.activate_component(component),
+            LayeredEdit::Keyframe(_) => {
+                graph.edit_component_values(component, &component_changes(previous, next));
+            }
         }
     }
 }
@@ -120,13 +118,10 @@ pub fn reset_pair(
 ) {
     controller.select_component::<2>(0);
     value.set(initial_values);
-    graph.replace_component_states(
-        initial_values
-            .into_iter()
-            .map(shrimply_keyframe_graph_ui::FrameGraphState::sample_for_value)
-            .collect(),
+    graph.replace_components(shrimply_components_demo_core::property_graph_components(
+        &initial_values,
         0,
-    );
+    ));
     for (handle, initial) in handles.into_iter().zip(initial_values) {
         handle.set_f64(initial);
     }

@@ -169,7 +169,6 @@ pub(crate) fn vec_control_with_lock(
         };
         let built = keyframe_editor::build(
             context,
-            keyframe_body_placeholder(),
             graph,
             (Time::ZERO, duration),
             format!("vec:{}:{:?}:{label}", target.commit_name, target.scope_id),
@@ -180,7 +179,7 @@ pub(crate) fn vec_control_with_lock(
         keyframe_editor::connect_graph_refresh(
             context,
             "inspector vec keyframe graph refresh",
-            built.update_graph.clone(),
+            &built,
             move || {
                 target
                     .access
@@ -230,10 +229,6 @@ pub(crate) fn vec_control_with_lock(
             }
         },
     )
-}
-
-fn keyframe_body_placeholder() -> gtk::Widget {
-    gtk::Box::new(gtk::Orientation::Horizontal, 0).upcast()
 }
 
 fn picker(

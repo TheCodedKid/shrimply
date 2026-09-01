@@ -51,12 +51,14 @@ impl InspectorPropertyRow {
             .visible(false)
             .margin_top(6)
             .transition_type(gtk::RevealerTransitionType::SlideDown)
+            .transition_duration(180)
             .build();
         let expression_revealer = gtk::Revealer::builder()
             .reveal_child(false)
             .visible(false)
             .margin_top(6)
             .transition_type(gtk::RevealerTransitionType::SlideDown)
+            .transition_duration(180)
             .build();
         hide_after_collapse(&keyframe_revealer);
         hide_after_collapse(&expression_revealer);

@@ -4,7 +4,6 @@ use std::{
 };
 
 use crate::InspectedItem as SelectedItem;
-use gtk::prelude::Cast;
 use shrimply_core::timeline_value::{
     DiscreteEditPolicy, TimelineBase, TimelineStep, TimelineValue, edit_discrete_value,
     set_expression_enabled, set_keyframes_enabled,
@@ -139,7 +138,6 @@ fn step_control_with_buttons<T: TimelineStep>(
     if let TimelineBase::Keyframes(_) = &value.base {
         let built = keyframe_editor::build(
             context,
-            gtk::Box::new(gtk::Orientation::Horizontal, 0).upcast(),
             step_graph(value),
             visible_area(&context.project.borrow(), key.clone())
                 .unwrap_or((Time::ZERO, Time::ZERO)),
@@ -152,7 +150,7 @@ fn step_control_with_buttons<T: TimelineStep>(
         keyframe_editor::connect_graph_refresh(
             context,
             "inspector step keyframe graph refresh",
-            built.update_graph.clone(),
+            &built,
             move || (graph_target.get)(&project.borrow(), graph_key.clone()).map(step_graph),
         );
         body.push(built.widget);

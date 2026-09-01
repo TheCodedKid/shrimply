@@ -95,7 +95,7 @@ ApplicationWindow {
                         window.log("transform reset")
                     }
 
-                    InspectorPairGraphProperty {
+                    DemoPairGraphProperty {
                         id: positionRow
                         label: "Position"
                         initialGraphValue: 960
@@ -114,7 +114,7 @@ ApplicationWindow {
                             window.log("expression edited (" + value.length + " chars)")
                         }
                     }
-                    InspectorPairGraphProperty {
+                    DemoPairGraphProperty {
                         id: anchorRow
                         label: "Anchor"
                         initialGraphValue: 960
@@ -127,7 +127,7 @@ ApplicationWindow {
                         expressionOutput: DemoLogic.expressionOutput(expressionValue)
                         onExpressionEdited: function(value) { expressionOutput = DemoLogic.expressionOutput(value) }
                     }
-                    InspectorPairGraphProperty {
+                    DemoPairGraphProperty {
                         id: scaleRow
                         label: "Scale"
                         initialGraphValue: 1
@@ -142,7 +142,7 @@ ApplicationWindow {
                         expressionOutput: DemoLogic.expressionOutput(expressionValue)
                         onExpressionEdited: function(value) { expressionOutput = DemoLogic.expressionOutput(value) }
                     }
-                    InspectorPairGraphProperty {
+                    DemoPairGraphProperty {
                         id: shearRow
                         label: "Shear"
                         initialGraphValue: 0
@@ -154,7 +154,7 @@ ApplicationWindow {
                         expressionOutput: DemoLogic.expressionOutput(expressionValue)
                         onExpressionEdited: function(value) { expressionOutput = DemoLogic.expressionOutput(value) }
                     }
-                    InspectorGraphProperty {
+                    DemoGraphProperty {
                         id: rotationRow
                         label: "Rotation"
                         initialGraphValue: 0

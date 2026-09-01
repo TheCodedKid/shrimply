@@ -69,8 +69,12 @@ pub enum FrameGraphKey {
 pub enum FrameGraphAction {
     PlayheadChanged(Time),
     KeysChanged(Vec<KeyframePoint>),
+    KeysMoved(Vec<FrameGraphKeyMove>),
     KeysDeleted(Vec<Time>),
     KeyAdded(KeyframePoint),
+    KeysPasted(Vec<KeyframePoint>),
+    CopyRequested(Vec<Time>),
+    PasteRequested(Time),
     TogglePlayback,
     InterpolationRequested {
         owner_id: Uuid,
@@ -78,6 +82,24 @@ pub enum FrameGraphAction {
         x: f64,
         y: f64,
     },
+    TextInterpolationRequested {
+        owner_id: Uuid,
+        x: f64,
+        y: f64,
+    },
+}
+
+#[derive(Clone, Copy)]
+pub struct FrameGraphKeyMove {
+    pub old_time: Time,
+    pub time: Time,
+    pub value: f64,
+}
+
+#[derive(Clone)]
+pub struct FrameGraphComponentAction {
+    pub component: usize,
+    pub action: FrameGraphAction,
 }
 
 #[derive(Clone, Copy)]
@@ -197,6 +219,10 @@ pub struct FrameGraphState {
     overscroll: Option<GraphOverscroll>,
     scrollbar: slider::Lifecycle,
     clipboard: Vec<KeyframePoint>,
+    external_clipboard: bool,
+    text_interpolation: bool,
+    snap_enabled: bool,
+    snap_radius_px: f64,
     accent_color: Color,
     viewport_width: f64,
 }
@@ -226,6 +252,17 @@ impl FrameGraphComponents {
         Self::new(vec![state], 0)
     }
 
+    pub fn constant_values(values: &[f64], active_component: usize) -> Self {
+        Self::new(
+            values
+                .iter()
+                .copied()
+                .map(FrameGraphState::constant)
+                .collect(),
+            active_component,
+        )
+    }
+
     pub fn active_component(&self) -> usize {
         self.active_component
     }
@@ -236,6 +273,81 @@ impl FrameGraphComponents {
             "frame graph component is out of bounds"
         );
         self.active_component = component;
+    }
+
+    pub fn replace_component_graph(&mut self, component: usize, graph: KeyframeGraph) {
+        self.states
+            .get_mut(component)
+            .expect("frame graph component is out of bounds")
+            .replace_graph(graph);
+    }
+
+    pub fn set_item_range(&mut self, item_range: GraphDomain) {
+        for state in &mut self.states {
+            state.set_item_range(item_range);
+        }
+    }
+
+    pub fn set_frame_step(&mut self, frame_step: Time) {
+        for state in &mut self.states {
+            state.set_frame_step(frame_step);
+        }
+    }
+
+    pub fn set_playhead(&mut self, playhead: Time) {
+        for state in &mut self.states {
+            state.set_playhead(playhead);
+        }
+    }
+
+    pub fn set_snapping(&mut self, enabled: bool, radius_px: f64) {
+        for state in &mut self.states {
+            state.set_snapping(enabled, radius_px);
+        }
+    }
+
+    pub fn set_external_clipboard(&mut self, enabled: bool) {
+        for state in &mut self.states {
+            state.set_external_clipboard(enabled);
+        }
+    }
+
+    pub fn set_text_interpolation(&mut self, enabled: bool) {
+        for state in &mut self.states {
+            state.set_text_interpolation(enabled);
+        }
+    }
+
+    pub fn active_actions(
+        &mut self,
+        action: impl FnOnce(&mut FrameGraphState) -> Vec<FrameGraphAction>,
+    ) -> Vec<FrameGraphComponentAction> {
+        let component = self.active_component;
+        action(&mut self.states[component])
+            .into_iter()
+            .map(|action| FrameGraphComponentAction { component, action })
+            .collect()
+    }
+
+    pub fn set_component_values(
+        &mut self,
+        active_component: usize,
+        values: &[(usize, f64)],
+    ) -> Vec<FrameGraphComponentAction> {
+        self.activate(active_component);
+        values
+            .iter()
+            .flat_map(|&(component, value)| {
+                let state = self
+                    .states
+                    .get_mut(component)
+                    .expect("frame graph component is out of bounds");
+                state
+                    .set_value(value)
+                    .into_iter()
+                    .map(move |action| FrameGraphComponentAction { component, action })
+            })
+            .collect()
     }
 }
 
@@ -285,41 +397,25 @@ impl FrameGraphState {
             overscroll: None,
             scrollbar: slider::Lifecycle::default(),
             clipboard: Vec::new(),
+            external_clipboard: false,
+            text_interpolation: false,
+            snap_enabled: true,
+            snap_radius_px: SNAP_RADIUS_PX,
             accent_color: Color::<u8>::new(0x35, 0x84, 0xe4, 0xff).into(),
             viewport_width: 1.0,
         }
     }
 
-    pub fn sample() -> Self {
-        Self::sample_for_value(0.5)
-    }
-
-    pub fn sample_for_value(value: f64) -> Self {
-        let spread = value.abs().max(1.0) * 0.25;
-        let points = vec![
-            KeyframePoint {
-                time: Time::from_fraction(1, 2),
-                value,
-            },
-            KeyframePoint {
-                time: Time::from_fraction(3, 2),
-                value: value + spread,
-            },
-            KeyframePoint {
-                time: Time::from_fraction(5, 2),
-                value: value - spread,
-            },
-            KeyframePoint {
-                time: Time::from_fraction(7, 2),
-                value,
-            },
-        ];
-        let graph = raw_graph(points);
+    pub fn constant(value: f64) -> Self {
         Self::new(
-            graph,
-            (Time::ZERO, Time::from_seconds(4)),
+            KeyframeGraph::RawValue {
+                points: Vec::new(),
+                segments: Vec::new(),
+                static_value: value,
+            },
+            (Time::ZERO, Time::from_seconds(1)),
             Time::from_fraction(1, 30),
-            Time::from_seconds(2),
+            Time::ZERO,
         )
     }
 
@@ -394,10 +490,52 @@ impl FrameGraphState {
         self.retain_valid_selection();
     }
 
+    pub fn set_item_range(&mut self, item_range: GraphDomain) {
+        assert!(
+            item_range.1 >= item_range.0,
+            "frame graph range is reversed"
+        );
+        self.item_range = item_range;
+        self.playhead = self.playhead.clamp(item_range.0, item_range.1);
+        self.view.clamp(item_range, self.viewport_width);
+    }
+
+    pub fn set_frame_step(&mut self, frame_step: Time) {
+        assert!(frame_step > Time::ZERO, "frame graph step must be positive");
+        self.frame_step = frame_step;
+        if matches!(self.graph, KeyframeGraph::Step { .. }) {
+            self.view.minimum_seconds_per_pixel = Some(
+                frame_step.as_secs_f64() / shrimply_discrete_keyframe_graph_ui::MAX_FRAME_WIDTH,
+            );
+        }
+    }
+
+    pub fn set_playhead(&mut self, value: Time) {
+        self.playhead = value.clamp(self.item_range.0, self.item_range.1);
+    }
+
+    pub fn set_snapping(&mut self, enabled: bool, radius_px: f64) {
+        assert!(radius_px >= 0.0, "frame graph snap radius is negative");
+        self.snap_enabled = enabled;
+        self.snap_radius_px = radius_px;
+    }
+
+    pub fn set_external_clipboard(&mut self, enabled: bool) {
+        self.external_clipboard = enabled;
+    }
+
+    pub fn set_text_interpolation(&mut self, enabled: bool) {
+        self.text_interpolation = enabled;
+    }
+
     pub fn set_value(&mut self, value: f64) -> Vec<FrameGraphAction> {
         if let Some(time) = key_at(&self.graph.key_times(), self.playhead) {
             update_graph_point(&mut self.graph, time, time, value);
-            return vec![FrameGraphAction::KeysChanged(graph_key_points(&self.graph))];
+            return vec![FrameGraphAction::KeysMoved(vec![FrameGraphKeyMove {
+                old_time: time,
+                time,
+                value,
+            }])];
         }
         let point = KeyframePoint {
             time: self.playhead,
@@ -438,18 +576,25 @@ impl FrameGraphState {
             return Vec::new();
         }
         if button == FrameGraphPointerButton::Secondary {
-            return self
-                .hit_segment(width, graph_content_height(height), x, y)
-                .map(
-                    |(owner_id, interpolation)| FrameGraphAction::InterpolationRequested {
-                        owner_id,
-                        interpolation,
-                        x,
-                        y,
-                    },
-                )
-                .into_iter()
-                .collect();
+            let content_height = graph_content_height(height);
+            return if let Some((owner_id, interpolation)) =
+                self.hit_segment(width, content_height, x, y)
+            {
+                vec![FrameGraphAction::InterpolationRequested {
+                    owner_id,
+                    interpolation,
+                    x,
+                    y,
+                }]
+            } else if self.text_interpolation
+                && y > CURSOR_LANE_HEIGHT
+                && y < content_height
+                && let Some(owner_id) = self.segment_owner_at_x(width, x)
+            {
+                vec![FrameGraphAction::TextInterpolationRequested { owner_id, x, y }]
+            } else {
+                Vec::new()
+            };
         }
 
         let domain = self.domain(width);
@@ -604,19 +749,18 @@ impl FrameGraphState {
                     snap_keyframe_time(
                         time_at_x(point_x, width, domain),
                         self.item_range,
-                        true,
-                        SNAP_RADIUS_PX,
+                        self.snap_enabled,
+                        self.snap_radius_px,
                         graph_duration_seconds(domain) / graph_plot_width(width),
                         self.playhead,
-                    )
-                    .snapped(self.frame_step),
+                    ),
                     self.item_range,
                 );
                 let requested_value = graph_edit_value(
                     &self.graph,
                     value_at_y(y, graph_content_height(height), range),
                 );
-                let (_, selected, focused) = move_selected_graph_points(
+                let (updates, selected, focused) = move_selected_graph_points(
                     &mut self.graph,
                     &self.selected_keys,
                     focus_time,
@@ -629,7 +773,16 @@ impl FrameGraphState {
                 if let Some(active) = self.active_drag.as_mut() {
                     active.target = DragTarget::Point(focused);
                 }
-                vec![FrameGraphAction::KeysChanged(graph_key_points(&self.graph))]
+                vec![FrameGraphAction::KeysMoved(
+                    updates
+                        .into_iter()
+                        .map(|(old_time, time, value)| FrameGraphKeyMove {
+                            old_time,
+                            time,
+                            value,
+                        })
+                        .collect(),
+                )]
             }
         }
     }
@@ -725,8 +878,14 @@ impl FrameGraphState {
             FrameGraphKey::NextKey => self.next_key(),
             FrameGraphKey::Delete => self.delete_selected(),
             FrameGraphKey::Copy => {
-                self.copy_selected();
-                Vec::new()
+                let selected = self.selected_keys.clone();
+                if !self.external_clipboard {
+                    self.copy_selected();
+                }
+                vec![FrameGraphAction::CopyRequested(selected)]
+            }
+            FrameGraphKey::Paste if self.external_clipboard => {
+                vec![FrameGraphAction::PasteRequested(self.playhead)]
             }
             FrameGraphKey::Paste => self.paste(),
             FrameGraphKey::TogglePlayback => vec![FrameGraphAction::TogglePlayback],
@@ -847,10 +1006,6 @@ impl FrameGraphState {
         };
         self.set_scroll(width, target);
         self.seek_pointer(x.clamp(left, right), width)
-    }
-
-    fn set_playhead(&mut self, value: Time) {
-        self.playhead = value.clamp(self.item_range.0, self.item_range.1);
     }
 
     fn zoom(&mut self, delta: f64, pointer_x: f64, width: f64) {
@@ -979,7 +1134,7 @@ impl FrameGraphState {
         }
         self.selected_keys = added.iter().map(|point| point.time).collect();
         self.focused_key = self.selected_keys.first().copied();
-        vec![FrameGraphAction::KeysChanged(graph_key_points(&self.graph))]
+        vec![FrameGraphAction::KeysPasted(added)]
     }
 
     fn retain_valid_selection(&mut self) {
@@ -1079,6 +1234,26 @@ impl FrameGraphState {
         closest
             .filter(|(distance, _, _)| *distance <= HIT_RADIUS)
             .map(|(_, owner_id, interpolation)| (owner_id, interpolation))
+    }
+
+    fn segment_owner_at_x(&mut self, width: f64, x: f64) -> Option<Uuid> {
+        let domain = self.domain(width);
+        let contains = |start: Time, end: Time| {
+            let start = time_x(start, width, domain);
+            let end = time_x(end, width, domain);
+            x > start.min(end) && x < start.max(end)
+        };
+        match &self.graph {
+            KeyframeGraph::Step { .. } => None,
+            KeyframeGraph::RawValue { segments, .. } => segments
+                .iter()
+                .find(|segment| contains(segment.start, segment.end))
+                .map(|segment| segment.owner_id),
+            KeyframeGraph::Speed { segments, .. } => segments
+                .iter()
+                .find(|segment| contains(segment.start, segment.end))
+                .map(|segment| segment.owner_id),
+        }
     }
 }
 
@@ -1397,11 +1572,13 @@ fn insert_graph_key(graph: &mut KeyframeGraph, point: KeyframePoint) {
             points.push(point);
             points.sort_by_key(|point| point.time);
         }
-        KeyframeGraph::RawValue { points, .. } => {
+        KeyframeGraph::RawValue {
+            points, segments, ..
+        } => {
             points.retain(|existing| !existing.time.approx_eq(point.time));
             points.push(point);
             points.sort_by_key(|point| point.time);
-            *graph = raw_graph(points.clone());
+            *segments = raw_segments_preserving(points, segments);
         }
         KeyframeGraph::Speed { keys, .. } => {
             keys.retain(|time| !time.approx_eq(point.time));
@@ -1414,9 +1591,11 @@ fn insert_graph_key(graph: &mut KeyframeGraph, point: KeyframePoint) {
 fn delete_graph_key(graph: &mut KeyframeGraph, time: Time) {
     match graph {
         KeyframeGraph::Step { points } => points.retain(|point| !point.time.approx_eq(time)),
-        KeyframeGraph::RawValue { points, .. } => {
+        KeyframeGraph::RawValue {
+            points, segments, ..
+        } => {
             points.retain(|point| !point.time.approx_eq(time));
-            *graph = raw_graph(points.clone());
+            *segments = raw_segments_preserving(points, segments);
         }
         KeyframeGraph::Speed { segments, keys, .. } => {
             keys.retain(|key| !key.approx_eq(time));
@@ -1426,23 +1605,30 @@ fn delete_graph_key(graph: &mut KeyframeGraph, time: Time) {
     }
 }
 
-fn raw_graph(points: Vec<KeyframePoint>) -> KeyframeGraph {
-    let segments = points
+fn raw_segments_preserving(points: &[KeyframePoint], previous: &[RawSegment]) -> Vec<RawSegment> {
+    points
         .windows(2)
-        .map(|points| RawSegment {
-            owner_id: Uuid::new_v4(),
-            start: points[0].time,
-            end: points[1].time,
-            start_value: points[0].value,
-            end_value: points[1].value,
-            interpolation: Interpolation::ManimSmooth,
+        .map(|points| {
+            let owner = previous
+                .iter()
+                .find(|segment| segment.start.approx_eq(points[0].time));
+            let interpolation = owner
+                .or_else(|| {
+                    previous.iter().find(|segment| {
+                        segment.start < points[0].time && segment.end > points[0].time
+                    })
+                })
+                .map_or_else(Interpolation::default, |segment| segment.interpolation);
+            RawSegment {
+                owner_id: owner.map_or_else(Uuid::new_v4, |segment| segment.owner_id),
+                start: points[0].time,
+                end: points[1].time,
+                start_value: points[0].value,
+                end_value: points[1].value,
+                interpolation,
+            }
         })
-        .collect();
-    KeyframeGraph::RawValue {
-        points,
-        segments,
-        static_value: 0.0,
-    }
+        .collect()
 }
 
 fn snap_keyframe_time(

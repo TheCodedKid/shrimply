@@ -567,6 +567,10 @@ impl NumberPickerHandle {
     pub fn set_f64(&self, value: f64) {
         set_display_handle_value(self, fraction_from_f64(value));
     }
+
+    pub fn widget_is_mapped(&self) -> bool {
+        self.stack.is_mapped()
+    }
 }
 
 impl WeakNumberPickerHandle {

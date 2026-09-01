@@ -3,6 +3,7 @@ import dev.shrimply.components
 
 InspectorGraphProperty {
     id: root
+    paired: true
     property alias minimum: editor.minimum
     property alias maximum: editor.maximum
     property alias dragStep: editor.dragStep
@@ -11,9 +12,6 @@ InspectorGraphProperty {
     property alias secondPrefix: editor.secondPrefix
     property alias unitName: editor.unitName
     property alias enableLock: editor.enableLock
-
-    Component.onCompleted: root.resetPair(root.initialGraphValue, root.initialSecondValue)
-
     Number2Picker {
         id: editor
         first: root.firstValue

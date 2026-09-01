@@ -75,28 +75,6 @@ pub(crate) fn live_refresh(mut refresh: ProjectChange) -> ProjectChange {
     refresh
 }
 
-pub(crate) fn key_at(times: &[Time], playhead: Time, frame_step: Time) -> Option<Time> {
-    times
-        .iter()
-        .copied()
-        .find(|time| same_frame(*time, playhead, frame_step))
-}
-
-pub(crate) fn previous_key(times: &[Time], playhead: Time, frame_step: Time) -> Option<Time> {
-    times
-        .iter()
-        .copied()
-        .rev()
-        .find(|time| *time < playhead && !same_frame(*time, playhead, frame_step))
-}
-
-pub(crate) fn next_key(times: &[Time], playhead: Time, frame_step: Time) -> Option<Time> {
-    times
-        .iter()
-        .copied()
-        .find(|time| *time > playhead && !same_frame(*time, playhead, frame_step))
-}
-
 pub(crate) fn same_frame(left: Time, right: Time, frame_step: Time) -> bool {
     if frame_step > Time::ZERO {
         left.snapped(frame_step) == right.snapped(frame_step)

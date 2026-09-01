@@ -22,6 +22,15 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "expressionOutput"]
         fn expression_output(self: &DemoLogic, source: &QString) -> QString;
+        #[qinvokable]
+        #[cxx_name = "graphPointTimes"]
+        fn graph_point_times(self: &DemoLogic) -> QStringList;
+        #[qinvokable]
+        #[cxx_name = "graphPointValues"]
+        fn graph_point_values(self: &DemoLogic, value: f64) -> QStringList;
+        #[qinvokable]
+        #[cxx_name = "graphSegments"]
+        fn graph_segments(self: &DemoLogic, value: f64) -> QStringList;
     }
 
     impl cxx_qt::Initialize for DemoLogic {}
@@ -61,4 +70,61 @@ impl qobject::DemoLogic {
             &source.to_string(),
         ))
     }
+
+    pub fn graph_point_times(&self) -> QStringList {
+        raw_graph(0.0)
+            .0
+            .into_iter()
+            .map(|point| exact_time(point.time))
+            .collect()
+    }
+
+    pub fn graph_point_values(&self, value: f64) -> QStringList {
+        raw_graph(value)
+            .0
+            .into_iter()
+            .map(|point| QString::from(point.value.to_string()))
+            .collect()
+    }
+
+    pub fn graph_segments(&self, value: f64) -> QStringList {
+        raw_graph(value)
+            .1
+            .into_iter()
+            .map(|segment| {
+                QString::from(format!(
+                    "{}\t{}\t{}\t{}\t{}\t{}",
+                    segment.owner_id,
+                    exact_time(segment.start),
+                    exact_time(segment.end),
+                    segment.start_value,
+                    segment.end_value,
+                    segment.interpolation.label(),
+                ))
+            })
+            .collect()
+    }
+}
+
+fn raw_graph(
+    value: f64,
+) -> (
+    Vec<shrimply_keyframe_graph_ui::KeyframePoint>,
+    Vec<shrimply_keyframe_graph_ui::RawSegment>,
+) {
+    let shrimply_keyframe_graph_ui::KeyframeGraph::RawValue {
+        points, segments, ..
+    } = shrimply_components_demo_core::property_graph(value)
+    else {
+        panic!("demo property graph is not a raw graph")
+    };
+    (points, segments)
+}
+
+fn exact_time(time: shrimply_math_core::Time) -> QString {
+    QString::from(format!(
+        "{}/{}",
+        shrimply_math_core::fraction_numerator(time.seconds),
+        shrimply_math_core::fraction_denominator(time.seconds),
+    ))
 }

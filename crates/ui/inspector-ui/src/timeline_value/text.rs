@@ -56,7 +56,6 @@ pub(crate) fn text_control(
     if matches!(value.base, TimelineBase::Keyframes(_)) {
         let built = keyframe_editor::build(
             context,
-            gtk::Box::new(gtk::Orientation::Horizontal, 0).upcast(),
             text_graph(value),
             visible_area(&context.project.borrow(), key.clone())
                 .unwrap_or((Time::ZERO, Time::ZERO)),
@@ -68,7 +67,7 @@ pub(crate) fn text_control(
         keyframe_editor::connect_graph_refresh(
             context,
             "inspector text keyframe graph refresh",
-            built.update_graph.clone(),
+            &built,
             move || text_value(&graph_project.borrow(), graph_key.clone()).map(text_graph),
         );
         body.push(built.widget);

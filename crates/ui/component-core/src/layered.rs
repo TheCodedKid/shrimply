@@ -6,6 +6,18 @@ pub enum LayeredEdit<T> {
     Keyframe(T),
 }
 
+pub fn component_changes<T: Copy + PartialEq, const N: usize>(
+    previous: [T; N],
+    next: [T; N],
+) -> Vec<(usize, T)> {
+    previous
+        .into_iter()
+        .zip(next)
+        .enumerate()
+        .filter_map(|(component, (previous, next))| (previous != next).then_some((component, next)))
+        .collect()
+}
+
 #[derive(Clone, Default)]
 pub struct LayeredPropertyController {
     keyframes: Rc<Cell<bool>>,
@@ -45,6 +57,15 @@ impl LayeredPropertyController {
         } else {
             LayeredEdit::Base(value)
         }
+    }
+
+    pub fn edit_component_value<T, const N: usize>(
+        &self,
+        component: usize,
+        value: T,
+    ) -> LayeredEdit<T> {
+        self.select_component::<N>(component);
+        self.edit(value)
     }
 
     pub fn edit_component<const N: usize>(

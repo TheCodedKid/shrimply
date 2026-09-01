@@ -20,6 +20,7 @@ shrimply-benchmarking = { path = "../../benchmarking" }
 shrimply-blender = { path = "../../blender/blender-bridge" }
 shrimply-3dgs = { path = "../../3d/3dgs" }
 shrimply-core = { path = "../../core" }
+shrimply-component-core = { path = "../component-core" }
 shrimply-evaluation = { path = "../../evaluation" }
 shrimply-discrete-keyframe-graph-ui = { path = "../../timeline/discrete-keyframe-graph-ui" }
 shrimply-interpolation = { path = "../../interpolation" }

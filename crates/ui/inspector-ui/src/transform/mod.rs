@@ -5,19 +5,21 @@ use std::time::{Duration, Instant};
 
 use glam::Vec2;
 use gtk::prelude::*;
+use shrimply_component_core::layered::{LayeredEdit, LayeredPropertyController};
 
 use crate::InspectedItem as SelectedItem;
 use crate::player_state::{self, ProjectChange, SharedPlayerState};
 use crate::timeline_value::*;
 use crate::transform_eval::{self, FrameAudioAnalysis, TransformExpressionCache};
-use crate::ui::{Number2Picker, NumberPicker, NumberPickerHandle};
+use crate::ui::{
+    FrameGraph, InspectorGraphProperty, Number2Picker, NumberPicker, NumberPickerHandle,
+};
 use shrimply_project::project::{Project, ResolvedTransform, Time, Transform, VideoItem};
 
 use super::{
     Inspectable, InspectorContext,
     keyframe_editor::{self, KeyframeGraph, KeyframePoint, RawSegment, SpeedSegment},
     section::InspectorSection,
-    timeline_value::layered,
 };
 
 use crate::timeline_value::{
@@ -29,10 +31,7 @@ mod expressions;
 mod keyframes;
 
 use expressions::{scalar_expression_editor, set_expression_enabled, vec2_expression_editor};
-use keyframes::{
-    scalar_base_editor, scalar_keyframe_body_editor, stored_vec2_value, vec2_base_editor,
-    vec2_keyframe_body_editor,
-};
+use keyframes::{scalar_keyframe_body_editor, stored_vec2_value, vec2_keyframe_body_editor};
 
 const SLOW_TRANSFORM_LOG_THRESHOLD: Duration = Duration::from_millis(25);
 
@@ -332,31 +331,35 @@ fn add_vec2_meta_control(
     let keyframes_enabled = vec2_keyframes_enabled(&current);
     let expression_enabled = expression_enabled(&current.expression);
     let base_display = base_display_transform(context, key.clone()).unwrap_or(display);
-    let editor = vec2_base_editor(
+    let controller = LayeredPropertyController::default();
+    controller.set_keyframes(keyframes_enabled);
+    controller.set_expression(expression_enabled);
+    let editor = vec2_dynamic_editor(
         context,
         key.clone(),
         field,
         base_display,
-        keyframes_enabled,
-        keyframes_enabled || expression_enabled,
+        controller.clone(),
     );
-    let mut body = Vec::new();
-    if keyframes_enabled {
-        body.push(vec2_keyframe_body_editor(context, key.clone(), field));
-    }
-    if expression_enabled {
-        body.push(vec2_expression_editor(context, key.clone(), field));
-        body.push(vec2_expression_output(context, key.clone(), field));
-    }
+    let keyframe_section = vec2_keyframe_body_editor(context, key.clone(), field);
+    let expression_section = gtk::Box::new(gtk::Orientation::Vertical, 6);
+    expression_section.append(&vec2_expression_editor(context, key.clone(), field));
+    expression_section.append(&vec2_expression_output(
+        context,
+        key.clone(),
+        field,
+        controller.clone(),
+    ));
     section.add_wide_control(&layered_control(
         context,
         key.clone(),
         LayeredControlInput {
             label,
-            value: &current,
             editor,
             field: TransformField::Vec2(field),
-            body,
+            keyframe_section,
+            expression_section: expression_section.upcast(),
+            controller,
         },
     ));
 }
@@ -374,104 +377,107 @@ fn add_scalar_meta_control(
     let keyframes_enabled = scalar_keyframes_enabled(&current);
     let expression_enabled = expression_enabled(&current.expression);
     let base_display = base_display_transform(context, key.clone()).unwrap_or(display);
-    let editor = scalar_base_editor(
+    let controller = LayeredPropertyController::default();
+    controller.set_keyframes(keyframes_enabled);
+    controller.set_expression(expression_enabled);
+    let editor = scalar_dynamic_editor(
         context,
         key.clone(),
         field,
         base_display,
-        keyframes_enabled,
-        keyframes_enabled || expression_enabled,
+        controller.clone(),
     );
-    let mut body = Vec::new();
-    if keyframes_enabled {
-        body.push(scalar_keyframe_body_editor(
-            context,
-            key.clone(),
-            field,
-            base_display,
-        ));
-    }
-    if expression_enabled {
-        body.push(scalar_expression_editor(context, key.clone(), field));
-        body.push(scalar_expression_output(context, key.clone(), field));
-    }
+    let keyframe_section = scalar_keyframe_body_editor(context, key.clone(), field, base_display);
+    let expression_section = gtk::Box::new(gtk::Orientation::Vertical, 6);
+    expression_section.append(&scalar_expression_editor(context, key.clone(), field));
+    expression_section.append(&scalar_expression_output(
+        context,
+        key.clone(),
+        field,
+        controller.clone(),
+    ));
     section.add_wide_control(&layered_control(
         context,
         key.clone(),
         LayeredControlInput {
             label,
-            value: &current,
             editor,
             field: TransformField::Scalar(field),
-            body,
+            keyframe_section,
+            expression_section: expression_section.upcast(),
+            controller,
         },
     ));
 }
 
-struct LayeredControlInput<'a, T: TimelineValueType> {
+struct LayeredControlInput<'a> {
     label: &'a str,
-    value: &'a TimelineValue<T>,
     editor: gtk::Widget,
     field: TransformField,
-    body: Vec<gtk::Widget>,
+    keyframe_section: FrameGraph,
+    expression_section: gtk::Widget,
+    controller: LayeredPropertyController,
 }
 
-fn layered_control<T: TimelineValueType>(
+fn layered_control(
     context: &InspectorContext,
     key: SelectedItem,
-    input: LayeredControlInput<'_, T>,
+    input: LayeredControlInput<'_>,
 ) -> gtk::Widget {
     let LayeredControlInput {
         label,
-        value,
         editor,
         field,
-        body,
+        keyframe_section,
+        expression_section,
+        controller,
     } = input;
     let keyframe_project = context.project.clone();
     let keyframe_player_state = context.player_state.clone();
-    let keyframe_refresh = context.refresh.clone();
     let expression_project = context.project.clone();
     let expression_player_state = context.player_state.clone();
-    let expression_refresh = context.refresh.clone();
     let keyframe_key = key.clone();
     let expression_key = key;
-    layered::control(
+    let property = InspectorGraphProperty::with_expression(
         label,
-        value,
-        editor,
-        body,
-        move |enabled| {
-            if set_keyframes_enabled(
+        &editor,
+        &expression_section,
+        keyframe_section,
+        controller,
+    );
+    property.connect_keyframes_changed(move |enabled| {
+        assert!(
+            set_keyframes_enabled(
                 &keyframe_project,
                 &keyframe_player_state,
                 keyframe_key.clone(),
                 field,
                 enabled,
-            ) {
-                keyframe_refresh();
-            }
-        },
-        move |enabled| {
-            if set_expression_enabled(
+            ),
+            "transform keyframe mode could not be updated",
+        );
+    });
+    property.connect_expression_changed(move |enabled| {
+        assert!(
+            set_expression_enabled(
                 &expression_project,
                 &expression_player_state,
                 expression_key.clone(),
                 field,
                 enabled,
-            ) {
-                expression_refresh();
-            }
-        },
-    )
+            ),
+            "transform expression mode could not be updated",
+        );
+    });
+    property.widget().clone()
 }
 
-fn vec2_const_editor(
+fn vec2_dynamic_editor(
     context: &InspectorContext,
     key: SelectedItem,
     field: Vec2Field,
     display: ResolvedTransform,
-    live_display: bool,
+    controller: LayeredPropertyController,
 ) -> gtk::Widget {
     let value = display_vec2_value(display, field);
     let mut picker = Number2Picker::builder(value.x as f64, value.y as f64)
@@ -499,55 +505,71 @@ fn vec2_const_editor(
     let second_player_state = context.player_state.clone();
     let first_commit_project = context.project.clone();
     let second_commit_project = context.project.clone();
+    let first_commit_player = context.player_state.clone();
+    let second_commit_player = context.player_state.clone();
+    let first_controller = controller.clone();
+    let second_controller = controller.clone();
+    let first_commit_controller = controller.clone();
+    let second_commit_controller = controller.clone();
     let first_key = key.clone();
     let second_key = key.clone();
     let parts = picker
         .on_first_change(move |next| {
-            update_vec2_const(
+            update_vec2_dynamic(
                 &first_project,
                 &first_player_state,
                 first_key.clone(),
                 field,
                 0,
                 next,
+                &first_controller,
             );
         })
         .on_second_change(move |next| {
-            update_vec2_const(
+            update_vec2_dynamic(
                 &second_project,
                 &second_player_state,
                 second_key.clone(),
                 field,
                 1,
                 next,
+                &second_controller,
             );
         })
         .on_first_commit(move |_| {
-            shrimply_project::project::commit_edit(
-                &first_commit_project.borrow(),
-                "video-transform",
+            commit_dynamic_transform(
+                &first_commit_project,
+                &first_commit_player,
+                &first_commit_controller,
             );
         })
         .on_second_commit(move |_| {
-            shrimply_project::project::commit_edit(
-                &second_commit_project.borrow(),
-                "video-transform",
+            commit_dynamic_transform(
+                &second_commit_project,
+                &second_commit_player,
+                &second_commit_controller,
             );
         })
         .build_with_handles();
     let widget = parts.widget;
-    if live_display {
-        connect_vec2_base_display(context, key.clone(), field, parts.first, parts.second);
-    }
+    connect_vec2_base_display(
+        context,
+        key.clone(),
+        field,
+        &widget,
+        parts.first,
+        parts.second,
+        controller,
+    );
     widget
 }
 
-fn scalar_const_editor(
+fn scalar_dynamic_editor(
     context: &InspectorContext,
     key: SelectedItem,
     field: ScalarField,
     display: ResolvedTransform,
-    live_display: bool,
+    controller: LayeredPropertyController,
 ) -> gtk::Widget {
     let picker = NumberPicker::builder(display_scalar_value(display, field))
         .drag_step(scalar_drag_step(field))
@@ -559,26 +581,87 @@ fn scalar_const_editor(
     let project = context.project.clone();
     let player_state = context.player_state.clone();
     let commit_project = context.project.clone();
+    let commit_player = context.player_state.clone();
+    let update_controller = controller.clone();
+    let commit_controller = controller.clone();
     let update_key = key.clone();
     let parts = picker
         .on_change(move |next| {
-            update_scalar_const(
+            update_scalar_dynamic(
                 &project,
                 &player_state,
                 update_key.clone(),
                 field,
-                stored_scalar_value(field, next),
+                next,
+                &update_controller,
             );
         })
         .on_commit(move |_| {
-            shrimply_project::project::commit_edit(&commit_project.borrow(), "video-transform");
+            commit_dynamic_transform(&commit_project, &commit_player, &commit_controller);
         })
         .build_with_handle();
     let widget = parts.widget;
-    if live_display {
-        connect_scalar_base_display(context, key.clone(), field, parts.handle);
-    }
+    connect_scalar_base_display(
+        context,
+        key.clone(),
+        field,
+        &widget,
+        parts.handle,
+        controller,
+    );
     widget
+}
+
+fn update_vec2_dynamic(
+    project: &Rc<RefCell<Project>>,
+    player_state: &SharedPlayerState,
+    key: SelectedItem,
+    field: Vec2Field,
+    component: usize,
+    value: f64,
+    controller: &LayeredPropertyController,
+) {
+    match controller.edit_component_value::<f64, 2>(component, value) {
+        LayeredEdit::Base(value) => {
+            update_vec2_const(project, player_state, key, field, component, value)
+        }
+        LayeredEdit::Keyframe(value) => {
+            keyframes::update_vec2_keyframe(project, player_state, key, field, component, value)
+        }
+    }
+}
+
+fn update_scalar_dynamic(
+    project: &Rc<RefCell<Project>>,
+    player_state: &SharedPlayerState,
+    key: SelectedItem,
+    field: ScalarField,
+    value: f64,
+    controller: &LayeredPropertyController,
+) {
+    let value = stored_scalar_value(field, value);
+    match controller.edit(value) {
+        LayeredEdit::Base(value) => update_scalar_const(project, player_state, key, field, value),
+        LayeredEdit::Keyframe(value) => {
+            keyframes::update_scalar_keyframe(project, player_state, key, field, value)
+        }
+    }
+}
+
+fn commit_dynamic_transform(
+    project: &Rc<RefCell<Project>>,
+    player_state: &SharedPlayerState,
+    controller: &LayeredPropertyController,
+) {
+    match controller.edit(()) {
+        LayeredEdit::Base(()) => {
+            shrimply_project::project::commit_edit(&project.borrow(), "video-transform");
+        }
+        LayeredEdit::Keyframe(()) => {
+            shrimply_project::project::commit_edit(&project.borrow(), "video-transform-keyframe");
+            refresh_video(player_state);
+        }
+    }
 }
 
 fn update_vec2_const(
@@ -718,7 +801,7 @@ fn set_keyframes_enabled(
         player_state,
         ProjectChange {
             video: true,
-            inspector: true,
+            live_preview: true,
             ..ProjectChange::default()
         },
     );
@@ -840,8 +923,10 @@ fn connect_vec2_base_display(
     context: &InspectorContext,
     key: SelectedItem,
     field: Vec2Field,
+    widget: &gtk::Widget,
     first: NumberPickerHandle,
     second: NumberPickerHandle,
+    controller: LayeredPropertyController,
 ) {
     update_vec2_base_display(
         &context.project,
@@ -851,6 +936,26 @@ fn connect_vec2_base_display(
         &first,
         &second,
     );
+    widget.connect_map({
+        let project = context.project.clone();
+        let player_state = context.player_state.clone();
+        let key = key.clone();
+        let first = first.clone();
+        let second = second.clone();
+        let controller = controller.clone();
+        move |_| {
+            if controller.keyframes() || controller.expression() {
+                update_vec2_base_display(
+                    &project,
+                    &player_state,
+                    key.clone(),
+                    field,
+                    &first,
+                    &second,
+                );
+            }
+        }
+    });
     let project = context.project.clone();
     let player_state = context.player_state.clone();
     let alive = Rc::downgrade(&context.listener_scope);
@@ -862,7 +967,9 @@ fn connect_vec2_base_display(
         "inspector transform vec2 base display",
         move || alive_for_prune.upgrade().is_some(),
         move |event| {
-            if !transform_display_refresh_event(event) {
+            if (!controller.keyframes() && !controller.expression())
+                || !transform_display_refresh_event(event)
+            {
                 return;
             }
             shrimply_support::crash::set_context(format!(
@@ -883,6 +990,9 @@ fn connect_vec2_base_display(
                 );
                 return;
             };
+            if !first.widget_is_mapped() || !second.widget_is_mapped() {
+                return;
+            }
             update_vec2_base_display(&project, &player_state, key.clone(), field, &first, &second);
         },
     );
@@ -892,7 +1002,9 @@ fn connect_scalar_base_display(
     context: &InspectorContext,
     key: SelectedItem,
     field: ScalarField,
+    widget: &gtk::Widget,
     handle: NumberPickerHandle,
+    controller: LayeredPropertyController,
 ) {
     update_scalar_base_display(
         &context.project,
@@ -901,6 +1013,18 @@ fn connect_scalar_base_display(
         field,
         &handle,
     );
+    widget.connect_map({
+        let project = context.project.clone();
+        let player_state = context.player_state.clone();
+        let key = key.clone();
+        let handle = handle.clone();
+        let controller = controller.clone();
+        move |_| {
+            if controller.keyframes() || controller.expression() {
+                update_scalar_base_display(&project, &player_state, key.clone(), field, &handle);
+            }
+        }
+    });
     let project = context.project.clone();
     let player_state = context.player_state.clone();
     let alive = Rc::downgrade(&context.listener_scope);
@@ -911,7 +1035,9 @@ fn connect_scalar_base_display(
         "inspector transform scalar base display",
         move || alive_for_prune.upgrade().is_some(),
         move |event| {
-            if !transform_display_refresh_event(event) {
+            if (!controller.keyframes() && !controller.expression())
+                || !transform_display_refresh_event(event)
+            {
                 return;
             }
             shrimply_support::crash::set_context(format!(
@@ -932,6 +1058,9 @@ fn connect_scalar_base_display(
                 );
                 return;
             };
+            if !handle.widget_is_mapped() {
+                return;
+            }
             update_scalar_base_display(&project, &player_state, key.clone(), field, &handle);
         },
     );
@@ -1066,91 +1195,85 @@ fn vec2_expression_output(
     context: &InspectorContext,
     key: SelectedItem,
     field: Vec2Field,
+    controller: LayeredPropertyController,
 ) -> gtk::Widget {
-    let label = expression_output_value_label();
-    let widget = expression_output_row(label.clone());
-    let cache = Rc::new(RefCell::new(TransformExpressionCache::default()));
-    update_vec2_expression_output(
-        &context.project,
-        &context.player_state,
-        &context.volume,
-        key.clone(),
-        field,
-        &label,
-        &cache,
-    );
     let project = context.project.clone();
     let player_state = context.player_state.clone();
     let volume = context.volume.clone();
-    let alive = Rc::downgrade(&context.listener_scope);
-    let label = label.downgrade();
-    player_state::connect_while_alive_named(
-        &context.player_state,
-        "inspector transform vec2 expression output",
-        move || alive.upgrade().is_some(),
-        move |event| {
-            if !transform_display_refresh_event(event) {
-                return;
-            }
-            let Some(label) = label.upgrade() else {
-                return;
-            };
-            update_vec2_expression_output(
-                &project,
-                &player_state,
-                &volume,
-                key.clone(),
-                field,
-                &label,
-                &cache,
-            );
-        },
-    );
-    widget
+    let cache = Rc::new(RefCell::new(TransformExpressionCache::default()));
+    expression_output(context, controller, move |label| {
+        update_vec2_expression_output(
+            &project,
+            &player_state,
+            &volume,
+            key.clone(),
+            field,
+            label,
+            &cache,
+        )
+    })
 }
 
 fn scalar_expression_output(
     context: &InspectorContext,
     key: SelectedItem,
     field: ScalarField,
+    controller: LayeredPropertyController,
 ) -> gtk::Widget {
-    let label = expression_output_value_label();
-    let widget = expression_output_row(label.clone());
-    let cache = Rc::new(RefCell::new(TransformExpressionCache::default()));
-    update_scalar_expression_output(
-        &context.project,
-        &context.player_state,
-        &context.volume,
-        key.clone(),
-        field,
-        &label,
-        &cache,
-    );
     let project = context.project.clone();
     let player_state = context.player_state.clone();
     let volume = context.volume.clone();
+    let cache = Rc::new(RefCell::new(TransformExpressionCache::default()));
+    expression_output(context, controller, move |label| {
+        update_scalar_expression_output(
+            &project,
+            &player_state,
+            &volume,
+            key.clone(),
+            field,
+            label,
+            &cache,
+        )
+    })
+}
+
+fn expression_output(
+    context: &InspectorContext,
+    controller: LayeredPropertyController,
+    update: impl Fn(&gtk::Label) + 'static,
+) -> gtk::Widget {
+    let label = expression_output_value_label();
+    let widget = expression_output_row(label.clone());
+    let update: Rc<dyn Fn(&gtk::Label)> = Rc::new(update);
+    if controller.expression() {
+        update(&label);
+    }
+    widget.connect_map({
+        let controller = controller.clone();
+        let label = label.clone();
+        let update = update.clone();
+        move |_| {
+            if controller.expression() {
+                update(&label);
+            }
+        }
+    });
     let alive = Rc::downgrade(&context.listener_scope);
     let label = label.downgrade();
     player_state::connect_while_alive_named(
         &context.player_state,
-        "inspector transform scalar expression output",
+        "inspector transform expression output",
         move || alive.upgrade().is_some(),
         move |event| {
-            if !transform_display_refresh_event(event) {
+            if !controller.expression() || !transform_display_refresh_event(event) {
                 return;
             }
             let Some(label) = label.upgrade() else {
                 return;
             };
-            update_scalar_expression_output(
-                &project,
-                &player_state,
-                &volume,
-                key.clone(),
-                field,
-                &label,
-                &cache,
-            );
+            if label.is_mapped() {
+                update(&label);
+            }
         },
     );
     widget

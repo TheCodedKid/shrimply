@@ -6,7 +6,16 @@ import dev.shrimply.components
 FocusScope {
     id: root
     signal togglePlayback()
-    signal interpolationChanged(string ownerId, int index)
+    signal playheadChanged(int component, var numerator, var denominator)
+    signal keysChanged(int component, var times, var values)
+    signal keysMoved(int component, var oldTimes, var times, var values)
+    signal keysDeleted(int component, var times)
+    signal keyAdded(int component, var numerator, var denominator, real value)
+    signal keysPasted(int component, var times, var values)
+    signal copyRequested(int component, var times)
+    signal pasteRequested(int component, var numerator, var denominator)
+    signal textInterpolationRequested(int component, string ownerId, real x, real y)
+    signal interpolationChanged(int component, string ownerId, int index)
     readonly property real graphValue: graph.graphValue
     readonly property var interpolationLabels: {
         const labels = []
@@ -20,9 +29,33 @@ FocusScope {
     function editComponent(component, value) {
         graph.editGraphComponentValue(component, value)
     }
+    function editPair(first, second, activeComponent, firstChanged, secondChanged) {
+        graph.editGraphPair(first, second, activeComponent, firstChanged, secondChanged)
+    }
     function configurePair(first, second, activeComponent) {
         graph.configureGraphPair(first, second, activeComponent)
     }
+    function replaceStepGraph(component, times, values) {
+        graph.replaceStepGraph(component, times, values)
+    }
+    function replaceRawGraph(component, pointTimes, pointValues, segments, staticValue) {
+        graph.replaceRawGraph(component, pointTimes, pointValues, segments, staticValue)
+    }
+    function replaceSpeedGraph(component, keys, segments, staticValue) {
+        graph.replaceSpeedGraph(component, keys, segments, staticValue)
+    }
+    function setRange(startNumerator, startDenominator, endNumerator, endDenominator) {
+        graph.setGraphRange(startNumerator, startDenominator, endNumerator, endDenominator)
+    }
+    function setFrameStep(numerator, denominator) {
+        graph.setGraphFrameStep(numerator, denominator)
+    }
+    function setPlayhead(numerator, denominator) {
+        graph.setGraphPlayhead(numerator, denominator)
+    }
+    function setSnapping(enabled, radiusPx) { graph.setGraphSnapping(enabled, radiusPx) }
+    function setExternalClipboard(enabled) { graph.setGraphExternalClipboard(enabled) }
+    function setTextInterpolation(enabled) { graph.setGraphTextInterpolation(enabled) }
     function activateComponent(component) { graph.activateGraphComponent(component) }
 
     implicitWidth: 640
@@ -85,12 +118,45 @@ FocusScope {
             id: graph
             Layout.fillWidth: true
             Layout.fillHeight: true
-            implicitHeight: 132
+            implicitHeight: preferredHeight
             mirrorVertically: true
             activeFocusOnTab: true
             onTogglePlayback: root.togglePlayback()
-            onInterpolationChanged: function(ownerId, index) {
-                root.interpolationChanged(ownerId, index)
+            onPlayheadChanged: function(component, numerator, denominator) {
+                root.playheadChanged(component, numerator, denominator)
+            }
+            onKeysChanged: function(component, times, values) {
+                root.keysChanged(component, times, values)
+            }
+            onKeysMoved: function(component, oldTimes, times, values) {
+                root.keysMoved(component, oldTimes, times, values)
+            }
+            onKeysDeleted: function(component, times) {
+                root.keysDeleted(component, times)
+            }
+            onKeyAdded: function(component, numerator, denominator, value) {
+                root.keyAdded(component, numerator, denominator, value)
+            }
+            onKeysPasted: function(component, times, values) {
+                root.keysPasted(component, times, values)
+            }
+            onCopyRequested: function(component, times) {
+                root.copyRequested(component, times)
+            }
+            onPasteRequested: function(component, numerator, denominator) {
+                root.pasteRequested(component, numerator, denominator)
+            }
+            onTextInterpolationRequested: function(component, ownerId, x, y) {
+                root.textInterpolationRequested(component, ownerId, x, y)
+            }
+            onInterpolationRequested: function(component, ownerId, index, x, y) {
+                interpolationAnchor.x = x
+                interpolationAnchor.y = controls.height + y
+                interpolationMenu.selectedIndex = index
+                interpolationMenu.popup(interpolationAnchor, 0, 0)
+            }
+            onInterpolationChanged: function(component, ownerId, index) {
+                root.interpolationChanged(component, ownerId, index)
             }
 
             Keys.onPressed: function(event) {
@@ -120,6 +186,7 @@ FocusScope {
                 preventStealing: true
 
                 onPressed: function(mouse) {
+                    mouse.accepted = true
                     graph.forceActiveFocus()
                     const button = mouse.button === Qt.LeftButton ? 0
                                  : mouse.button === Qt.MiddleButton ? 1 : 2
@@ -135,18 +202,11 @@ FocusScope {
                         graph.updatePointer(mouse.x, mouse.y)
                 }
                 onReleased: function(mouse) {
-                    if (mouse.button === Qt.RightButton) {
-                        const selected = graph.begin(
+                    if (mouse.button === Qt.RightButton)
+                        graph.begin(
                             2, mouse.x, mouse.y,
                             (mouse.modifiers & Qt.ControlModifier) !== 0,
                             (mouse.modifiers & Qt.ShiftModifier) !== 0)
-                        if (selected >= 0) {
-                            interpolationAnchor.x = mouse.x
-                            interpolationAnchor.y = controls.height + mouse.y
-                            interpolationMenu.selectedIndex = selected
-                            interpolationMenu.popup(interpolationAnchor, 0, 0)
-                        }
-                    }
                     graph.endPointer()
                 }
                 onCanceled: {

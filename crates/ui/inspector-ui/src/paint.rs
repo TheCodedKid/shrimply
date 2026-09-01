@@ -372,7 +372,6 @@ fn drawing_keyframe_graph(
         crate::video::visual_duration(&context.project.borrow(), key.clone()).unwrap_or(Time::ZERO);
     let built = crate::keyframe_editor::build(
         context,
-        gtk::Box::new(gtk::Orientation::Horizontal, 0).upcast(),
         graph,
         (Time::ZERO, duration),
         format!("paint-drawing:{}", value.id),
@@ -382,7 +381,7 @@ fn drawing_keyframe_graph(
     crate::keyframe_editor::connect_graph_refresh(
         context,
         "inspector paint drawing keyframe graph refresh",
-        built.update_graph.clone(),
+        &built,
         move || {
             selected_paint(&project.borrow(), key.clone())
                 .map(|paint| drawing_graph(&paint.drawing))

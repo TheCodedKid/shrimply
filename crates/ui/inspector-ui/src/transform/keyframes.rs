@@ -2,7 +2,6 @@ use super::*;
 use crate::keyframe_model;
 
 struct TransformKeyframeEditorInput {
-    value_editor: gtk::Widget,
     graph_data: KeyframeGraph,
     refresh_graph: Rc<dyn Fn() -> KeyframeGraph>,
     visible_area: (Time, Time),
@@ -15,116 +14,16 @@ struct TransformKeyframeEditorInput {
     set_interpolation: Rc<dyn Fn(uuid::Uuid, Interpolation)>,
 }
 
-pub(super) fn vec2_base_editor(
-    context: &InspectorContext,
-    key: SelectedItem,
-    field: Vec2Field,
-    display: ResolvedTransform,
-    keyframes_enabled: bool,
-    live_display: bool,
-) -> gtk::Widget {
-    if keyframes_enabled {
-        vec2_keyframe_value_editor(context, key.clone(), field, display)
-    } else {
-        vec2_const_editor(context, key.clone(), field, display, live_display)
-    }
-}
-
-pub(super) fn scalar_base_editor(
-    context: &InspectorContext,
-    key: SelectedItem,
-    field: ScalarField,
-    display: ResolvedTransform,
-    keyframes_enabled: bool,
-    live_display: bool,
-) -> gtk::Widget {
-    if keyframes_enabled {
-        scalar_keyframe_value_editor(context, key.clone(), field, display)
-    } else {
-        scalar_const_editor(context, key.clone(), field, display, live_display)
-    }
-}
-
-fn vec2_keyframe_value_editor(
-    context: &InspectorContext,
-    key: SelectedItem,
-    field: Vec2Field,
-    display: ResolvedTransform,
-) -> gtk::Widget {
-    let value = display_vec2_value(display, field);
-    let mut picker = Number2Picker::builder(value.x as f64, value.y as f64)
-        .first_prefix("X")
-        .second_prefix("Y")
-        .drag_step(if matches!(field, Vec2Field::Scale | Vec2Field::Shear) {
-            0.01
-        } else {
-            1.0
-        })
-        .digits(if matches!(field, Vec2Field::Scale | Vec2Field::Shear) {
-            2
-        } else {
-            0
-        })
-        .unit_name(vec2_unit_name(field))
-        .width_chars(7);
-    if matches!(field, Vec2Field::Scale) {
-        picker = picker.minimum(0.0).enable_lock();
-    }
-
-    let first_project = context.project.clone();
-    let first_player_state = context.player_state.clone();
-    let second_project = context.project.clone();
-    let second_player_state = context.player_state.clone();
-    let first_commit_project = context.project.clone();
-    let first_commit_player_state = context.player_state.clone();
-    let second_commit_project = context.project.clone();
-    let second_commit_player_state = context.player_state.clone();
-    let first_key = key.clone();
-    let second_key = key.clone();
-    let parts = picker
-        .on_first_change(move |next| {
-            update_vec2_keyframe(
-                &first_project,
-                &first_player_state,
-                first_key.clone(),
-                field,
-                0,
-                next,
-            );
-        })
-        .on_second_change(move |next| {
-            update_vec2_keyframe(
-                &second_project,
-                &second_player_state,
-                second_key.clone(),
-                field,
-                1,
-                next,
-            );
-        })
-        .on_first_commit(move |_| {
-            commit_keyframe_edit(&first_commit_project, &first_commit_player_state);
-        })
-        .on_second_commit(move |_| {
-            commit_keyframe_edit(&second_commit_project, &second_commit_player_state);
-        })
-        .build_with_handles();
-    let widget = parts.widget;
-    connect_vec2_base_display(context, key.clone(), field, parts.first, parts.second);
-    widget
-}
-
 pub(super) fn vec2_keyframe_body_editor(
     context: &InspectorContext,
     key: SelectedItem,
     field: Vec2Field,
-) -> gtk::Widget {
+) -> FrameGraph {
     let graph_project = context.project.clone();
     let graph_key = key.clone();
     build_transform_keyframe_editor(
         context,
         TransformKeyframeEditorInput {
-            value_editor: keyframe_body_placeholder(),
             graph_data: vec2_speed_graph(&context.project.borrow(), key.clone(), field),
             refresh_graph: Rc::new(move || {
                 vec2_speed_graph(&graph_project.borrow(), graph_key.clone(), field)
@@ -153,55 +52,17 @@ pub(super) fn vec2_keyframe_body_editor(
     )
 }
 
-fn scalar_keyframe_value_editor(
-    context: &InspectorContext,
-    key: SelectedItem,
-    field: ScalarField,
-    display: ResolvedTransform,
-) -> gtk::Widget {
-    let picker = NumberPicker::builder(display_scalar_value(display, field))
-        .drag_step(scalar_drag_step(field))
-        .digits(scalar_digits(field))
-        .width_chars(9)
-        .unit_name(scalar_unit_name(field))
-        .rotating_prefix_icon_name("arrow3-up-symbolic");
-
-    let project = context.project.clone();
-    let player_state = context.player_state.clone();
-    let commit_project = context.project.clone();
-    let commit_player_state = context.player_state.clone();
-    let update_key = key.clone();
-    let parts = picker
-        .on_change(move |next| {
-            update_scalar_keyframe(
-                &project,
-                &player_state,
-                update_key.clone(),
-                field,
-                stored_scalar_value(field, next),
-            );
-        })
-        .on_commit(move |_| {
-            commit_keyframe_edit(&commit_project, &commit_player_state);
-        })
-        .build_with_handle();
-    let widget = parts.widget;
-    connect_scalar_base_display(context, key.clone(), field, parts.handle);
-    widget
-}
-
 pub(super) fn scalar_keyframe_body_editor(
     context: &InspectorContext,
     key: SelectedItem,
     field: ScalarField,
     display: ResolvedTransform,
-) -> gtk::Widget {
+) -> FrameGraph {
     let graph_project = context.project.clone();
     let graph_key = key.clone();
     build_transform_keyframe_editor(
         context,
         TransformKeyframeEditorInput {
-            value_editor: keyframe_body_placeholder(),
             graph_data: scalar_value_graph(&context.project.borrow(), key.clone(), field, display),
             refresh_graph: Rc::new(move || {
                 scalar_value_graph(&graph_project.borrow(), graph_key.clone(), field, display)
@@ -234,18 +95,13 @@ pub(super) fn scalar_keyframe_body_editor(
     )
 }
 
-fn keyframe_body_placeholder() -> gtk::Widget {
-    gtk::Box::new(gtk::Orientation::Horizontal, 0).upcast()
-}
-
 fn build_transform_keyframe_editor(
     context: &InspectorContext,
     input: TransformKeyframeEditorInput,
-) -> gtk::Widget {
+) -> FrameGraph {
     let refresh_graph = input.refresh_graph.clone();
     let built = keyframe_editor::build(
         context,
-        input.value_editor,
         input.graph_data,
         input.visible_area,
         input.view_state_scope,
@@ -266,10 +122,10 @@ fn build_transform_keyframe_editor(
     keyframe_editor::connect_graph_refresh(
         context,
         "inspector keyframe graph refresh",
-        built.update_graph.clone(),
+        &built,
         move || Some(refresh_graph()),
     );
-    built.widget
+    built.frame_graph
 }
 
 fn transform_graph_view_scope(field: TransformField) -> &'static str {
@@ -282,7 +138,7 @@ fn transform_graph_view_scope(field: TransformField) -> &'static str {
     }
 }
 
-fn update_vec2_keyframe(
+pub(super) fn update_vec2_keyframe(
     project: &Rc<RefCell<Project>>,
     player_state: &SharedPlayerState,
     key: SelectedItem,
@@ -327,7 +183,7 @@ fn update_vec2_keyframe(
     refresh_video(player_state);
 }
 
-fn update_scalar_keyframe(
+pub(super) fn update_scalar_keyframe(
     project: &Rc<RefCell<Project>>,
     player_state: &SharedPlayerState,
     key: SelectedItem,
@@ -360,18 +216,6 @@ fn update_scalar_keyframe(
     }
     drop(project);
     refresh_video(player_state);
-}
-
-fn commit_keyframe_edit(project: &Rc<RefCell<Project>>, player_state: &SharedPlayerState) {
-    shrimply_project::project::commit_edit(&project.borrow(), "video-transform-keyframe");
-    player_state::refresh_project(
-        player_state,
-        ProjectChange {
-            video: true,
-            inspector: true,
-            ..ProjectChange::default()
-        },
-    );
 }
 
 fn delete_keyframe_at_time(

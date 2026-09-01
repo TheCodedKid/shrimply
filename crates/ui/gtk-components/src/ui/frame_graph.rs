@@ -5,24 +5,24 @@ use adw::prelude::*;
 use gtk::{gdk, glib};
 use shrimply_interpolation::Interpolation;
 use shrimply_keyframe_graph_ui::{
-    FrameGraphAction, FrameGraphComponents, FrameGraphKey, FrameGraphModifiers,
-    FrameGraphPointerButton, FrameGraphPointerPosition, FrameGraphScrollInput, FrameGraphState,
-    FrameGraphStatus,
+    FrameGraphAction, FrameGraphComponentAction, FrameGraphComponents, FrameGraphKey,
+    FrameGraphModifiers, FrameGraphPointerButton, FrameGraphPointerPosition, FrameGraphScrollInput,
+    FrameGraphState, FrameGraphStatus,
 };
 use shrimply_skia_adw_ui::canvas::{TimelineRenderer, UVec2};
 
 use super::modifier_menu::{SearchMenuItem, searchable_popover};
 
-type ActionHandler = Rc<dyn Fn(FrameGraphAction)>;
+type ActionHandler = Rc<dyn Fn(FrameGraphComponentAction)>;
 type StatusHandler = Rc<dyn Fn(FrameGraphStatus)>;
 type StatusHandlers = Rc<RefCell<Vec<StatusHandler>>>;
-type SharedGraphState = Rc<RefCell<FrameGraphComponents>>;
+pub type SharedFrameGraphState = Rc<RefCell<FrameGraphComponents>>;
 
 #[derive(Clone)]
 pub struct FrameGraph {
     widget: gtk::Box,
     area: gtk::GLArea,
-    state: SharedGraphState,
+    state: SharedFrameGraphState,
     on_action: ActionHandler,
     sync: Rc<dyn Fn()>,
     status_handlers: StatusHandlers,
@@ -37,17 +37,32 @@ impl FrameGraph {
         state: FrameGraphState,
         on_action: impl Fn(FrameGraphAction) + 'static,
     ) -> Self {
-        Self::with_component_actions(vec![state], 0, on_action)
+        Self::with_component_actions(vec![state], 0, move |action| on_action(action.action))
     }
 
     pub fn with_component_actions(
         states: Vec<FrameGraphState>,
         active_component: usize,
-        on_action: impl Fn(FrameGraphAction) + 'static,
+        on_action: impl Fn(FrameGraphComponentAction) + 'static,
     ) -> Self {
-        let states = FrameGraphComponents::new(states, active_component);
-        let graph_height = states.preferred_height();
-        let state = Rc::new(RefCell::new(states));
+        Self::with_components(
+            FrameGraphComponents::new(states, active_component),
+            on_action,
+        )
+    }
+
+    pub fn with_components(
+        states: FrameGraphComponents,
+        on_action: impl Fn(FrameGraphComponentAction) + 'static,
+    ) -> Self {
+        Self::with_shared_components(Rc::new(RefCell::new(states)), on_action)
+    }
+
+    pub fn with_shared_components(
+        state: SharedFrameGraphState,
+        on_action: impl Fn(FrameGraphComponentAction) + 'static,
+    ) -> Self {
+        let graph_height = state.borrow().preferred_height();
         let on_action: ActionHandler = Rc::new(on_action);
         let status_handlers = Rc::new(RefCell::new(Vec::<StatusHandler>::new()));
         let area = gtk::GLArea::builder()
@@ -99,6 +114,13 @@ impl FrameGraph {
             }) as Rc<dyn Fn()>
         };
         sync();
+        area.connect_map({
+            let sync = sync.clone();
+            move |area| {
+                sync();
+                area.queue_render();
+            }
+        });
 
         connect_button(&previous, &area, &state, &on_action, &sync, |state| {
             state.previous_key()
@@ -199,15 +221,18 @@ impl FrameGraph {
             let on_action = on_action.clone();
             move |gesture, _, x, y| {
                 area.grab_focus();
-                let actions = state.borrow_mut().begin_pointer(
-                    FrameGraphPointerButton::Secondary,
-                    x,
-                    y,
-                    f64::from(area.width().max(1)),
-                    f64::from(area.height().max(1)),
-                    modifiers(gesture.current_event_state()),
-                );
-                for action in actions {
+                let actions = state.borrow_mut().active_actions(|state| {
+                    state.begin_pointer(
+                        FrameGraphPointerButton::Secondary,
+                        x,
+                        y,
+                        f64::from(area.width().max(1)),
+                        f64::from(area.height().max(1)),
+                        modifiers(gesture.current_event_state()),
+                    )
+                });
+                for component_action in actions {
+                    let FrameGraphComponentAction { component, action } = component_action;
                     if let FrameGraphAction::InterpolationRequested {
                         owner_id,
                         interpolation,
@@ -219,13 +244,16 @@ impl FrameGraph {
                             &area,
                             &state,
                             &on_action,
-                            owner_id,
-                            interpolation,
-                            x,
-                            y,
+                            InterpolationPopoverRequest {
+                                component,
+                                owner_id,
+                                selected: interpolation,
+                                x,
+                                y,
+                            },
                         );
                     } else {
-                        on_action(action);
+                        on_action(FrameGraphComponentAction { component, action });
                     }
                 }
             }
@@ -279,6 +307,7 @@ impl FrameGraph {
         area.add_controller(scroll);
 
         let keys = gtk::EventControllerKey::new();
+        keys.set_propagation_phase(gtk::PropagationPhase::Capture);
         keys.connect_key_pressed({
             let area = area.clone();
             let state = state.clone();
@@ -305,7 +334,10 @@ impl FrameGraph {
                     gdk::Key::minus => FrameGraphKey::ZoomOut,
                     _ => return glib::Propagation::Proceed,
                 };
-                dispatch(&on_action, state.borrow_mut().key(graph_key));
+                let actions = state
+                    .borrow_mut()
+                    .active_actions(|state| state.key(graph_key));
+                dispatch(&on_action, actions);
                 sync();
                 area.queue_render();
                 glib::Propagation::Stop
@@ -332,10 +364,6 @@ impl FrameGraph {
         }
     }
 
-    pub fn sample() -> Self {
-        Self::new(FrameGraphState::sample())
-    }
-
     pub fn widget(&self) -> &gtk::Box {
         &self.widget
     }
@@ -344,19 +372,32 @@ impl FrameGraph {
         &self.area
     }
 
-    pub fn state(&self) -> Rc<RefCell<FrameGraphComponents>> {
+    pub fn state(&self) -> SharedFrameGraphState {
         self.state.clone()
     }
 
     pub fn edit_value(&self, value: f64) {
-        dispatch(&self.on_action, self.state.borrow_mut().set_value(value));
+        let actions = self
+            .state
+            .borrow_mut()
+            .active_actions(|state| state.set_value(value));
+        dispatch(&self.on_action, actions);
         (self.sync)();
         self.area.queue_render();
     }
 
     pub fn edit_component_value(&self, component: usize, value: f64) {
-        self.state.borrow_mut().activate(component);
-        self.edit_value(value);
+        self.edit_component_values(component, &[(component, value)]);
+    }
+
+    pub fn edit_component_values(&self, active_component: usize, values: &[(usize, f64)]) {
+        let actions = self
+            .state
+            .borrow_mut()
+            .set_component_values(active_component, values);
+        dispatch(&self.on_action, actions);
+        (self.sync)();
+        self.area.queue_render();
     }
 
     pub fn activate_component(&self, component: usize) {
@@ -365,14 +406,34 @@ impl FrameGraph {
         self.area.queue_render();
     }
 
+    pub fn set_playhead(&self, playhead: shrimply_math_core::Time) {
+        self.state.borrow_mut().set_playhead(playhead);
+        if self.area.is_mapped() {
+            (self.sync)();
+            self.area.queue_render();
+        }
+    }
+
     pub fn replace_state(&self, state: FrameGraphState) {
         self.replace_component_states(vec![state], 0);
     }
 
     pub fn replace_component_states(&self, states: Vec<FrameGraphState>, active_component: usize) {
-        *self.state.borrow_mut() = FrameGraphComponents::new(states, active_component);
-        (self.sync)();
-        self.area.queue_render();
+        self.replace_components(FrameGraphComponents::new(states, active_component));
+    }
+
+    pub fn replace_components(&self, states: FrameGraphComponents) {
+        *self.state.borrow_mut() = states;
+        self.refresh();
+    }
+
+    pub fn refresh(&self) {
+        self.area
+            .set_height_request(self.state.borrow().preferred_height());
+        if self.area.is_mapped() {
+            (self.sync)();
+            self.area.queue_render();
+        }
     }
 
     pub fn connect_status(&self, handler: impl Fn(FrameGraphStatus) + 'static) {
@@ -389,7 +450,7 @@ fn flat_button(icon: &str, tooltip: &str) -> gtk::Button {
         .build()
 }
 
-fn dispatch(handler: &ActionHandler, actions: Vec<FrameGraphAction>) {
+fn dispatch(handler: &ActionHandler, actions: Vec<FrameGraphComponentAction>) {
     for action in actions {
         handler(action);
     }
@@ -398,7 +459,7 @@ fn dispatch(handler: &ActionHandler, actions: Vec<FrameGraphAction>) {
 fn connect_button(
     button: &gtk::Button,
     area: &gtk::GLArea,
-    state: &SharedGraphState,
+    state: &SharedFrameGraphState,
     handler: &ActionHandler,
     sync: &Rc<dyn Fn()>,
     action: impl Fn(&mut FrameGraphState) -> Vec<FrameGraphAction> + 'static,
@@ -408,7 +469,8 @@ fn connect_button(
     let handler = handler.clone();
     let sync = sync.clone();
     button.connect_clicked(move |_| {
-        dispatch(&handler, action(&mut state.borrow_mut()));
+        let actions = state.borrow_mut().active_actions(|state| action(state));
+        dispatch(&handler, actions);
         sync();
         area.queue_render();
         area.grab_focus();
@@ -417,7 +479,7 @@ fn connect_button(
 
 fn add_drag(
     area: &gtk::GLArea,
-    state: &SharedGraphState,
+    state: &SharedFrameGraphState,
     handler: &ActionHandler,
     sync: &Rc<dyn Fn()>,
     native_button: u32,
@@ -435,17 +497,17 @@ fn add_drag(
         move |gesture, x, y| {
             area.grab_focus();
             start.set((x, y));
-            dispatch(
-                &handler,
-                state.borrow_mut().begin_pointer(
+            let actions = state.borrow_mut().active_actions(|state| {
+                state.begin_pointer(
                     button,
                     x,
                     y,
                     f64::from(area.width().max(1)),
                     f64::from(area.height().max(1)),
                     modifiers(gesture.current_event_state()),
-                ),
-            );
+                )
+            });
+            dispatch(&handler, actions);
             sync();
             area.queue_render();
         }
@@ -457,15 +519,15 @@ fn add_drag(
         let sync = sync.clone();
         move |_, dx, dy| {
             let (start_x, start_y) = start.get();
-            dispatch(
-                &handler,
-                state.borrow_mut().update_pointer(
+            let actions = state.borrow_mut().active_actions(|state| {
+                state.update_pointer(
                     start_x + dx,
                     start_y + dy,
                     f64::from(area.width().max(1)),
                     f64::from(area.height().max(1)),
-                ),
-            );
+                )
+            });
+            dispatch(&handler, actions);
             sync();
             area.queue_render();
         }
@@ -490,7 +552,7 @@ fn modifiers(state: gdk::ModifierType) -> FrameGraphModifiers {
 
 fn start_animation_if_needed(
     area: &gtk::GLArea,
-    state: &SharedGraphState,
+    state: &SharedFrameGraphState,
     active: &Rc<Cell<bool>>,
 ) {
     if active.get() || !state.borrow().is_animating() {
@@ -510,15 +572,27 @@ fn start_animation_if_needed(
     });
 }
 
-fn show_interpolation_popover(
-    area: &gtk::GLArea,
-    state: &SharedGraphState,
-    handler: &ActionHandler,
+struct InterpolationPopoverRequest {
+    component: usize,
     owner_id: uuid::Uuid,
     selected: Interpolation,
     x: f64,
     y: f64,
+}
+
+fn show_interpolation_popover(
+    area: &gtk::GLArea,
+    state: &SharedFrameGraphState,
+    handler: &ActionHandler,
+    request: InterpolationPopoverRequest,
 ) {
+    let InterpolationPopoverRequest {
+        component,
+        owner_id,
+        selected,
+        x,
+        y,
+    } = request;
     let interpolations = Interpolation::KEYFRAME;
     let popover = searchable_popover(
         crate::i18n::text("Search interpolations").as_ref(),
@@ -548,11 +622,14 @@ fn show_interpolation_popover(
                                 state
                                     .borrow_mut()
                                     .set_interpolation(owner_id, interpolation);
-                                handler(FrameGraphAction::InterpolationRequested {
-                                    owner_id,
-                                    interpolation,
-                                    x,
-                                    y,
+                                handler(FrameGraphComponentAction {
+                                    component,
+                                    action: FrameGraphAction::InterpolationRequested {
+                                        owner_id,
+                                        interpolation,
+                                        x,
+                                        y,
+                                    },
                                 });
                                 area.queue_render();
                             },

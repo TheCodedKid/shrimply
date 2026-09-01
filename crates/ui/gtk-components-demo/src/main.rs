@@ -334,8 +334,7 @@ fn build_ui(app: &adw::Application) {
                 &shear_value,
                 [0.0, 0.0],
             );
-            rotation_graph
-                .replace_state(shrimply_keyframe_graph_ui::FrameGraphState::sample_for_value(0.0));
+            rotation_graph.replace_state(shrimply_components_demo_core::property_graph_state(0.0));
             rotation.set_f64(0.0);
             log("transform reset".to_string());
         }

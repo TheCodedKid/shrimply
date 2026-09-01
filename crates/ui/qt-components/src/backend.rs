@@ -317,6 +317,9 @@ pub mod qobject {
             component: i32,
         );
         #[qinvokable]
+        #[cxx_name = "configurePair"]
+        fn configure_layered_pair(self: Pin<&mut LayeredPropertyBackend>, first: f64, second: f64);
+        #[qinvokable]
         #[cxx_name = "selectComponent"]
         fn select_layered_component(self: Pin<&mut LayeredPropertyBackend>, component: i32);
 
@@ -335,8 +338,9 @@ pub mod qobject {
             self: Pin<&mut LayeredPropertyBackend>,
             first: f64,
             second: f64,
-            graph_value: f64,
             component: i32,
+            first_changed: bool,
+            second_changed: bool,
         );
 
         #[qobject]
@@ -1101,6 +1105,7 @@ pub struct LivePerformanceBackendRust {
 pub struct LayeredPropertyBackendRust {
     active_component: i32,
     controller: layered::LayeredPropertyController,
+    pair: [f64; 2],
 }
 
 impl cxx_qt::Initialize for qobject::LayeredPropertyBackend {
@@ -1122,26 +1127,30 @@ impl qobject::LayeredPropertyBackend {
 
     pub fn edit_layered_pair(mut self: Pin<&mut Self>, first: f64, second: f64, component: i32) {
         let component = usize::try_from(component).expect("non-negative layered value component");
+        let next = [first, second];
+        let changes = layered::component_changes(self.rust().pair, next);
+        self.as_mut().rust_mut().pair = next;
         self.rust().controller.select_component::<2>(component);
         self.as_mut()
             .set_active_component(i32::try_from(component).expect("layered value component index"));
-        match self
-            .rust()
-            .controller
-            .edit_component([first, second], component)
-        {
+        match self.rust().controller.edit_component(next, component) {
             layered::LayeredEdit::Base(([first, second], _)) => {
                 self.as_mut().base_pair_edited(first, second);
             }
-            layered::LayeredEdit::Keyframe(([first, second], graph_value)) => {
+            layered::LayeredEdit::Keyframe(([first, second], _)) => {
                 self.as_mut().keyframe_pair_edited(
                     first,
                     second,
-                    graph_value,
                     i32::try_from(component).expect("layered value component index"),
+                    changes.iter().any(|(component, _)| *component == 0),
+                    changes.iter().any(|(component, _)| *component == 1),
                 );
             }
         }
+    }
+
+    pub fn configure_layered_pair(mut self: Pin<&mut Self>, first: f64, second: f64) {
+        self.as_mut().rust_mut().pair = [first, second];
     }
 
     pub fn select_layered_component(mut self: Pin<&mut Self>, component: i32) {

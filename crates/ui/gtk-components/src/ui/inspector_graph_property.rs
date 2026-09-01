@@ -1,12 +1,11 @@
 use gtk::prelude::*;
 use shrimply_component_core::layered::LayeredPropertyController;
 
-use super::{ExpressionEditor, FrameGraph, InspectorPropertyRow};
+use super::{ExpressionEditor, FrameGraph, InspectorLayeredProperty};
 
 pub struct InspectorGraphProperty {
-    row: InspectorPropertyRow,
+    property: InspectorLayeredProperty,
     graph: FrameGraph,
-    controller: LayeredPropertyController,
 }
 
 impl InspectorGraphProperty {
@@ -17,39 +16,59 @@ impl InspectorGraphProperty {
         expression: ExpressionEditor,
         controller: LayeredPropertyController,
     ) -> Self {
-        let row = InspectorPropertyRow::new(label, editor);
-        row.set_keyframe_section(graph.widget());
-        row.set_expression_section(expression.widget());
-        row.connect_keyframes_changed({
-            let controller = controller.clone();
-            move |enabled| controller.set_keyframes(enabled)
-        });
-        row.connect_expression_changed({
-            let controller = controller.clone();
-            move |enabled| controller.set_expression(enabled)
-        });
-        Self {
-            row,
-            graph,
+        Self::with_expression(label, editor, expression.widget(), graph, controller)
+    }
+
+    pub fn with_expression(
+        label: &str,
+        editor: &impl IsA<gtk::Widget>,
+        expression: &impl IsA<gtk::Widget>,
+        graph: FrameGraph,
+        controller: LayeredPropertyController,
+    ) -> Self {
+        let property =
+            InspectorLayeredProperty::new(label, editor, graph.widget(), expression, controller);
+        Self { property, graph }
+    }
+
+    pub fn with_expression_wide(
+        label: &str,
+        editor: &impl IsA<gtk::Widget>,
+        expression: &impl IsA<gtk::Widget>,
+        graph: FrameGraph,
+        controller: LayeredPropertyController,
+    ) -> Self {
+        let property = InspectorLayeredProperty::new_wide(
+            label,
+            editor,
+            graph.widget(),
+            expression,
             controller,
-        }
+        );
+        Self { property, graph }
     }
 
     pub fn widget(&self) -> &gtk::Widget {
-        self.row.widget()
+        self.property.widget()
     }
 
     pub fn graph(&self) -> &FrameGraph {
         &self.graph
     }
 
+    pub fn connect_keyframes_changed(&self, changed: impl Fn(bool) + 'static) {
+        self.property.connect_keyframes_changed(changed);
+    }
+
+    pub fn connect_expression_changed(&self, changed: impl Fn(bool) + 'static) {
+        self.property.connect_expression_changed(changed);
+    }
+
     pub fn set_keyframes_active(&self, active: bool) {
-        self.controller.set_keyframes(active);
-        self.row.set_keyframes_active(active);
+        self.property.set_keyframes_active(active);
     }
 
     pub fn set_expression_active(&self, active: bool) {
-        self.controller.set_expression(active);
-        self.row.set_expression_active(active);
+        self.property.set_expression_active(active);
     }
 }

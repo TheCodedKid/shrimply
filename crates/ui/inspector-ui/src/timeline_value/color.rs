@@ -2,7 +2,6 @@ use shrimply_gtk_components::tr;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use gtk::prelude::*;
 use num_traits::ToPrimitive;
 
 use super::layered;
@@ -136,7 +135,6 @@ pub(crate) fn color_control(
         };
         let built = keyframe_editor::build(
             context,
-            gtk::Box::new(gtk::Orientation::Horizontal, 0).upcast(),
             color_speed_graph(value),
             (Time::ZERO, duration),
             format!("color:{}:{:?}:{label}", target.commit_name, target.scope_id),
@@ -147,7 +145,7 @@ pub(crate) fn color_control(
         keyframe_editor::connect_graph_refresh(
             context,
             "inspector color keyframe graph refresh",
-            built.update_graph.clone(),
+            &built,
             move || {
                 let mut project = project.borrow_mut();
                 target
