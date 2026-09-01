@@ -3,11 +3,9 @@ use std::{
     cell::RefCell,
     panic::{AssertUnwindSafe, catch_unwind},
     rc::Rc,
-    sync::atomic::{AtomicU64, Ordering},
     time::{Duration, Instant},
 };
 
-use cached::{Cached, stores::LruCache};
 use hashbrown::{HashMap, HashSet};
 use num_traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, ToPrimitive};
 use rhai::{
@@ -22,7 +20,7 @@ use shrimply_core::timeline_value::{
     ExpressionData, ExpressionInput as TimelineExpressionInput, TimelineExpressionValue,
 };
 use shrimply_math_color::Color;
-use shrimply_project::project::{Time, fraction_denominator, fraction_numerator};
+use shrimply_project::project::{Time, fraction_numerator};
 
 const FRACTION_ZERO: Fraction = Fraction::new_raw(0, 1);
 const MAX_AUDIO_TRACK_ARGUMENTS: usize = 16;
@@ -30,15 +28,10 @@ const RANDOM_HALF_RANGE: INT = 2_147_483_648;
 const SLOW_EXPRESSION_LOG_THRESHOLD: Duration = Duration::from_millis(2);
 const MAX_EXPRESSION_ARRAY_SIZE: usize = 100_000;
 const MAX_EXPRESSION_OPERATIONS: u64 = 100_000;
-const MAX_EXPRESSION_VALUE_CACHE_ENTRIES: usize = 262_144;
 
 thread_local! {
     static EXPRESSION_STATE: RefCell<Option<ExpressionState>> = const { RefCell::new(None) };
-    static EXPRESSION_VALUE_CACHE: RefCell<Option<LruCache<ExpressionValueCacheKey, ExpressionData>>> =
-        const { RefCell::new(None) };
 }
-
-static NEXT_EXPRESSION_CACHE_ID: AtomicU64 = AtomicU64::new(1);
 
 #[derive(Clone)]
 struct ExpressionState {
@@ -91,7 +84,6 @@ impl Drop for ExpressionStateReset {
 const EXPRESSION_HELPERS: &str = include_str!("expression_helpers.rhai");
 
 pub struct TransformExpressionCache {
-    id: u64,
     engine: Rc<Engine>,
     entries: HashMap<ExpressionCacheKey, CachedExpression>,
     sources: HashMap<Uuid, Rc<str>>,
@@ -108,17 +100,6 @@ pub struct ExpressionDiagnostic {
 struct ExpressionCacheKey {
     value_id: Uuid,
     source: Rc<str>,
-}
-
-#[derive(Clone, Eq, Hash, PartialEq)]
-struct ExpressionValueCacheKey {
-    cache_id: u64,
-    expression: ExpressionCacheKey,
-    item_id: Uuid,
-    local_time_numerator: i64,
-    local_time_denominator: i64,
-    timeline_time_numerator: i64,
-    timeline_time_denominator: i64,
 }
 
 enum CachedExpression {
@@ -138,10 +119,7 @@ struct ReadyExpression {
 
 impl Default for TransformExpressionCache {
     fn default() -> Self {
-        let id = NEXT_EXPRESSION_CACHE_ID.fetch_add(1, Ordering::Relaxed);
-        assert!(id != u64::MAX, "expression cache id overflow");
         Self {
-            id,
             engine: Rc::new(expression_engine()),
             entries: HashMap::new(),
             sources: HashMap::new(),
@@ -176,30 +154,13 @@ impl TransformExpressionCache {
         base: &T,
     ) -> Result<T, String> {
         let expression = self.expression_key(value_id, source);
-        let value_key = ExpressionValueCacheKey {
-            cache_id: self.id,
-            expression: expression.clone(),
-            item_id: eval.item_id,
-            local_time_numerator: fraction_numerator(eval.local_time.seconds),
-            local_time_denominator: fraction_denominator(eval.local_time.seconds),
-            timeline_time_numerator: fraction_numerator(eval.timeline_time.seconds),
-            timeline_time_denominator: fraction_denominator(eval.timeline_time.seconds),
-        };
-        if let Some(output) = expression_value(&value_key) {
-            shrimply_benchmarking::increment("Expression value cache / Hit");
-            return base
-                .expression_output(output)
-                .ok_or_else(|| "cached expression returned an invalid value".to_string());
-        }
-        shrimply_benchmarking::increment("Expression value cache / Miss");
         let input = engine_input(base.expression_input());
         let entry = self
             .entry(expression)
             .ok_or_else(|| "expression cache entry is unavailable".to_string())?;
         let result = match entry.eval_with(eval, input, expression_data_from_dynamic) {
             Ok(Some(output)) => base
-                .expression_output(output.clone())
-                .map(|value| (value, output))
+                .expression_output(output)
                 .ok_or_else(|| "expression returned an invalid value".to_string()),
             Ok(None) => Err("expression returned unsupported data".to_string()),
             Err(error) => Err(error),
@@ -207,29 +168,10 @@ impl TransformExpressionCache {
         if let Err(error) = &result {
             entry.log_error(eval.item_id, error);
         }
-        let (value, output) = result?;
-        if !eval.mouth_mixer.pending() {
-            cache_expression_value(value_key, output);
-        }
-        Ok(value)
-    }
-
-    pub fn invalidate_values(&mut self) {
-        EXPRESSION_VALUE_CACHE.with(|cache| {
-            if let Some(cache) = cache.borrow_mut().as_mut() {
-                cache.cache_clear();
-            }
-        });
+        result
     }
 
     fn expression_key(&mut self, value_id: Uuid, source: &str) -> ExpressionCacheKey {
-        if self
-            .sources
-            .get(&value_id)
-            .is_some_and(|cached| cached.as_ref() != source)
-        {
-            self.invalidate_values();
-        }
         let source = match self.sources.get(&value_id) {
             Some(cached) if cached.as_ref() == source => Rc::clone(cached),
             _ => {
@@ -273,29 +215,6 @@ impl TransformExpressionCache {
         }
         self.entries.get_mut(&key)
     }
-}
-
-fn expression_value(key: &ExpressionValueCacheKey) -> Option<ExpressionData> {
-    with_expression_value_cache(|cache| cache.cache_get(key).cloned())
-}
-
-fn cache_expression_value(key: ExpressionValueCacheKey, value: ExpressionData) {
-    with_expression_value_cache(|cache| cache.cache_set(key, value));
-}
-
-fn with_expression_value_cache<T>(
-    use_cache: impl FnOnce(&mut LruCache<ExpressionValueCacheKey, ExpressionData>) -> T,
-) -> T {
-    EXPRESSION_VALUE_CACHE.with(|cache| {
-        let mut cache = cache.borrow_mut();
-        let cache = cache.get_or_insert_with(|| {
-            LruCache::builder()
-                .max_size(MAX_EXPRESSION_VALUE_CACHE_ENTRIES)
-                .build()
-                .expect("valid expression value cache size")
-        });
-        use_cache(cache)
-    })
 }
 
 fn engine_input(input: TimelineExpressionInput) -> EngineInput {
@@ -898,37 +817,37 @@ mod fraction_functions {
         super::fraction_to_int(value)
     }
 
-    #[rhai_fn(return_raw)]
+    #[rhai_fn(volatile, return_raw)]
     pub fn sin() -> Result<Fraction, Box<EvalAltResult>> {
         super::current_sin()
     }
 
-    #[rhai_fn(return_raw)]
+    #[rhai_fn(volatile, return_raw)]
     pub fn cos() -> Result<Fraction, Box<EvalAltResult>> {
         super::current_cos()
     }
 
-    #[rhai_fn(return_raw)]
+    #[rhai_fn(volatile, return_raw)]
     pub fn tan() -> Result<Fraction, Box<EvalAltResult>> {
         super::current_tan()
     }
 
-    #[rhai_fn(return_raw)]
+    #[rhai_fn(volatile, return_raw)]
     pub fn random() -> Result<Fraction, Box<EvalAltResult>> {
         super::current_random()
     }
 
-    #[rhai_fn(name = "shake", return_raw)]
+    #[rhai_fn(name = "shake", volatile, return_raw)]
     pub fn shake_default() -> Result<Fraction, Box<EvalAltResult>> {
         super::current_shake_default()
     }
 
-    #[rhai_fn(name = "shake", return_raw)]
+    #[rhai_fn(name = "shake", volatile, return_raw)]
     pub fn shake_with_phase(phase: Dynamic) -> Result<Fraction, Box<EvalAltResult>> {
         super::current_shake(phase, None)
     }
 
-    #[rhai_fn(return_raw)]
+    #[rhai_fn(volatile, return_raw)]
     pub fn shake(phase: Dynamic, seed: INT) -> Result<Fraction, Box<EvalAltResult>> {
         super::current_shake(phase, Some(seed))
     }

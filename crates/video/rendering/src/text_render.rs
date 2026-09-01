@@ -54,10 +54,9 @@ impl VisualElement for TextElement {
         let shrimply_project::project::VideoItemContent::Text(text) = &request.item.content else {
             return Err("text renderer received a non-text visual".to_string());
         };
-        let evaluation = shrimply_evaluation::VisualEvaluation::for_item_at_local_time_with_audio(
+        let evaluation = shrimply_evaluation::VisualEvaluation::for_item_local_time_with_audio(
             request.project,
             request.item,
-            request.position,
             local_time,
             request.audio_analysis,
         );

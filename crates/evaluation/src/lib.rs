@@ -24,7 +24,6 @@ use shrimply_project::project::{
 #[derive(Clone)]
 pub struct VisualEvaluation {
     pub(crate) item_id: Uuid,
-    pub(crate) timeline_time: Time,
     pub(crate) local_time: Time,
     pub(crate) duration: Time,
     pub(crate) item_start: Time,
@@ -65,7 +64,7 @@ impl VisualEvaluation {
         audio: &FrameAudioAnalysis,
     ) -> Self {
         let local_time = generated_item_time(item, position).unwrap_or(Time::ZERO);
-        Self::for_item_at_local_time_with_audio(project, item, position, local_time, audio)
+        Self::for_item_local_time_with_audio(project, item, local_time, audio)
     }
 
     pub fn for_item_local_time(project: &Project, item: &VideoItem, local_time: Time) -> Self {
@@ -92,23 +91,12 @@ impl VisualEvaluation {
         local_time: Time,
         audio: &FrameAudioAnalysis,
     ) -> Self {
-        Self::for_item_at_local_time_with_audio(project, item, local_time, local_time, audio)
-    }
-
-    pub fn for_item_at_local_time_with_audio(
-        project: &Project,
-        item: &VideoItem,
-        timeline_time: Time,
-        local_time: Time,
-        audio: &FrameAudioAnalysis,
-    ) -> Self {
         let local_nanos = local_time.as_nanos_i128() as u64;
         let duration = generated_item_keyframe_span(item)
             .map(|(start, end)| end.saturating_sub(start))
             .unwrap_or_else(|| item.end.saturating_sub(item.start));
         Self {
             item_id: item.id,
-            timeline_time,
             local_time,
             duration,
             item_start: item.start,

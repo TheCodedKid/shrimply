@@ -7,17 +7,15 @@
 - Concrete references:
   - GTK component behavior and layout: the corresponding implementation in `crates/ui/gtk-components/src/ui/` moved from `ui-foundation`.
   - Inspector category tabs and property mode layout: `crates/ui/inspector-ui/src/list.rs` and the relevant `timeline_value` inspector.
-  - Frame graph interaction/state: `crates/ui/inspector-ui/src/keyframe_editor.rs` and `crates/ui/inspector-ui/src/keyframe_editor/graph.rs`.
+  - Frame graph interaction/state: `crates/ui/inspector-ui/src/keyframe_editor.rs` and `crates/timeline/keyframe-graph-ui/src/controller.rs`.
   - Frame graph drawing: `crates/timeline/keyframe-graph-ui/src/lib.rs`.
   - GTK expression editor language/diagnostics: `crates/ui/inspector-ui/src/rhai_editor/`.
   - Qt Wayland popup anchoring: the working timeline popup implementation in `crates/apps/editor-qt-ui/` and its native surface path.
 
 - [ ] Deliver the existing shared frame graph as a complete reusable inspector keyframe-editor component, not a reduced graph-only showcase or static preview.
-  - [ ] Replace the production inspector's duplicate interaction controller with the shared Rust controller, keeping GTK and Qt limited to native event/rendering adapters while project time mapping, persistent per-property view state, typed clipboard actions, and preferences remain explicit inputs.
-  - [ ] Keep Qt keyboard focus and an explicit mouse grab for the full graph drag so parent scroll/focus handlers cannot steal it.
-  - [ ] Match inspector keyboard behavior including playback, navigation, delete/backspace, copy, and paste through reusable action callbacks.
-  - [ ] Make graph mutations request changes from the authoritative model and refresh from it; expose live graph/range/frame-step/playhead/snapping inputs and component-identified mutation/playhead/interpolation outputs from both wrappers, with no discarded Qt actions, sample-data-only adapter, rebuilt UUIDs, or forced interpolation modes.
-  - [ ] Initialize each demonstrated graph from that property's actual value/model; do not reuse one unrelated sample curve for every Transform property.
-  - [ ] Preserve the full typed value when a graph shows a projection such as Vec2 speed; editing either vector axis must not silently replace or ignore the other axis.
-  - [ ] Match discrete step graph height, minimum zoom, and half-frame-cell drag positioning, and support speed/text interpolation context actions at release coordinates.
+- [ ] Unify every layered inspector value behind one reusable path for numbers, vectors, text, booleans, colors, and step values; remove the parallel `timeline_value/layered.rs` assembly path.
+  - [ ] Preserve the generic evaluation order `const or interpolated keyframe base -> typed expression input -> final result`; expression variables such as `value`, `x`, `y`, `z`, and color channels must come from the current base value and every expression must run with the current exact fractional frame and dynamic context, including implicit time helpers such as `sin()`.
+  - [ ] Make inspector output use the same invalid-expression fallback semantics as rendering.
+  - [ ] Route base edits, automatic keyframe insertion, expression enable/source changes, output display, and renderer refresh through shared typed logic instead of per-property mode checks or copied callbacks.
+  - [ ] Keep disabled, collapsed, or unmapped graph and expression UI free of playback-frame evaluation while refreshing from the authoritative value when mapped again.
 - [ ] Run `make components-check`, launch both showcases, run `make check`, and obtain a final parity review.

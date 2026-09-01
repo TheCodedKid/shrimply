@@ -56,10 +56,9 @@ impl VisualElement for ShapeElement {
         else {
             return Err("shape renderer received a non-shape visual".to_string());
         };
-        let evaluation = shrimply_evaluation::VisualEvaluation::for_item_at_local_time_with_audio(
+        let evaluation = shrimply_evaluation::VisualEvaluation::for_item_local_time_with_audio(
             request.project,
             request.item,
-            request.position,
             local_time,
             request.audio_analysis,
         );

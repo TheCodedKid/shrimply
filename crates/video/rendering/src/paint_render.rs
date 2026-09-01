@@ -55,10 +55,9 @@ impl VisualElement for PaintElement {
         let VideoItemContent::Paint(paint) = &request.item.content else {
             return Err("paint renderer received a non-paint visual".to_string());
         };
-        let evaluation = VisualEvaluation::for_item_at_local_time_with_audio(
+        let evaluation = VisualEvaluation::for_item_local_time_with_audio(
             request.project,
             request.item,
-            request.position,
             local_time,
             request.audio_analysis,
         );

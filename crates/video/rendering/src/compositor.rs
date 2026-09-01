@@ -1052,7 +1052,6 @@ fn video_compositor_worker(
                     project = (*next_project).clone();
                     project_revision = next_revision;
                     project_generation = next_generation;
-                    render_cache.expressions.invalidate_values();
                     render_cache.morphs.clear();
                     let _measurement =
                         shrimply_benchmarking::measure("Video / Retain project sessions");
@@ -1372,7 +1371,6 @@ fn coalesce_pending_commands(
                     *project = (*next_project).clone();
                     *project_revision = next_revision;
                     *project_generation = next_generation;
-                    render_cache.expressions.invalidate_values();
                     render_cache.morphs.clear();
                     retain_project_sessions(project, sessions);
                 }

@@ -5570,7 +5570,6 @@ dependencies = [
 name = "shrimply-evaluation"
 version = "0.1.0"
 dependencies = [
- "cached",
  "glam 0.33.5",
  "hashbrown 0.17.1",
  "num-traits",

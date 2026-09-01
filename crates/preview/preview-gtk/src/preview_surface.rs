@@ -68,7 +68,6 @@ struct VideoSurfaceState {
     frame: Option<CompositedVideoFrame>,
     audio_analysis: FrameAudioAnalysis,
     expression_cache: RefCell<TransformExpressionCache>,
-    expression_revision: Option<u64>,
     guides_visible: bool,
     snap_enabled: bool,
     snap_radius_px: u32,
@@ -152,7 +151,6 @@ impl PreviewController {
             frame: None,
             audio_analysis: FrameAudioAnalysis::default(),
             expression_cache: RefCell::new(TransformExpressionCache::default()),
-            expression_revision: None,
             guides_visible: preference.preview_guides_visible,
             snap_enabled: preference.timeline_magnet == "true",
             snap_radius_px: preference.timeline_snap_radius_px,
@@ -339,7 +337,7 @@ impl PreviewController {
         }
         controller.context_invalidated |= context_invalidated;
         drop(controller);
-        self.surface.set_frame(frame, audio_analysis, revision);
+        self.surface.set_frame(frame, audio_analysis);
     }
 
     pub fn clear_frame(
@@ -368,22 +366,13 @@ impl PreviewController {
         }
         controller.context_invalidated |= context_invalidated;
         drop(controller);
-        self.surface.clear_frame(audio_analysis, revision);
+        self.surface.clear_frame(audio_analysis);
     }
 }
 
 impl VideoSurface {
-    fn set_frame(
-        &self,
-        frame: CompositedVideoFrame,
-        audio_analysis: FrameAudioAnalysis,
-        revision: u64,
-    ) {
+    fn set_frame(&self, frame: CompositedVideoFrame, audio_analysis: FrameAudioAnalysis) {
         let mut state = self.state.borrow_mut();
-        if state.expression_revision != Some(revision) {
-            state.expression_cache.get_mut().invalidate_values();
-            state.expression_revision = Some(revision);
-        }
         if state.frame.as_ref().map(|frame| frame.storage_key) != Some(frame.storage_key)
             || !state.audio_analysis.same_frame(&audio_analysis)
         {
@@ -394,12 +383,8 @@ impl VideoSurface {
         self.area.queue_render();
     }
 
-    fn clear_frame(&self, audio_analysis: FrameAudioAnalysis, revision: u64) {
+    fn clear_frame(&self, audio_analysis: FrameAudioAnalysis) {
         let mut state = self.state.borrow_mut();
-        if state.expression_revision != Some(revision) {
-            state.expression_cache.get_mut().invalidate_values();
-            state.expression_revision = Some(revision);
-        }
         state.frame = None;
         state.audio_analysis = audio_analysis;
         drop(state);
