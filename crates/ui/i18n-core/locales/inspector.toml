@@ -13,6 +13,7 @@ ja = "吸音"
 pt = "Absorção"
 tr = "Soğurma"
 it = "Assorbimento"
+id = "Penyerapan"
 
 ["Accurate Render Method"]
 en = "Accurate Render Method"
@@ -27,6 +28,7 @@ ja = "高精度レンダリング方式"
 pt = "Método de renderização preciso"
 tr = "Hassas İşleme Yöntemi"
 it = "Metodo di rendering preciso"
+id = "Metode Render Akurat"
 
 ["Actions"]
 en = "Actions"
@@ -41,6 +43,7 @@ ja = "操作"
 pt = "Ações"
 tr = "Eylemler"
 it = "Azioni"
+id = "Tindakan"
 
 ["Adaptive weights"]
 en = "Adaptive weights"
@@ -55,6 +58,7 @@ ja = "適応ウェイト"
 pt = "Pesos adaptativos"
 tr = "Uyarlamalı ağırlıklar"
 it = "Pesi adattivi"
+id = "Bobot adaptif"
 
 ["Add"]
 en = "Add"
@@ -69,6 +73,7 @@ ja = "追加"
 pt = "Adicionar"
 tr = "Ekle"
 it = "Aggiungi"
+id = "Tambah"
 
 ["Add color"]
 en = "Add color"
@@ -83,6 +88,7 @@ ja = "色を追加"
 pt = "Adicionar cor"
 tr = "Renk ekle"
 it = "Aggiungi colore"
+id = "Tambah warna"
 
 ["Add font"]
 en = "Add font"
@@ -97,6 +103,7 @@ ja = "フォントを追加"
 pt = "Adicionar fonte"
 tr = "Yazı tipi ekle"
 it = "Aggiungi font"
+id = "Tambah font"
 
 ["Add keyframe at playhead"]
 en = "Add keyframe at playhead"
@@ -111,6 +118,7 @@ ja = "再生位置にキーフレームを追加"
 pt = "Adicionar quadro-chave no indicador de reprodução"
 tr = "Oynatma imlecine anahtar kare ekle"
 it = "Aggiungi keyframe alla testina di riproduzione"
+id = "Tambah keyframe di playhead"
 
 ["Add modifier"]
 en = "Add modifier"
@@ -125,6 +133,7 @@ ja = "モディファイアを追加"
 pt = "Adicionar modificador"
 tr = "Değiştirici ekle"
 it = "Aggiungi modificatore"
+id = "Tambah modifier"
 
 ["Addressing"]
 en = "Addressing"
@@ -139,6 +148,7 @@ ja = "アドレッシング"
 pt = "Endereçamento"
 tr = "Adresleme"
 it = "Indirizzamento"
+id = "Pengalamatan"
 
 ["Aggressiveness"]
 en = "Aggressiveness"
@@ -153,6 +163,7 @@ ja = "強度"
 pt = "Agressividade"
 tr = "Agresiflik"
 it = "Aggressività"
+id = "Agresivitas"
 
 ["Align"]
 en = "Align"
@@ -167,6 +178,7 @@ ja = "整列"
 pt = "Alinhar"
 tr = "Hizala"
 it = "Allinea"
+id = "Ratakan"
 
 ["Alpha Mask Stream"]
 en = "Alpha Mask Stream"
@@ -181,6 +193,7 @@ ja = "アルファマスクストリーム"
 pt = "Fluxo de máscara alfa"
 tr = "Alfa Maskesi Akışı"
 it = "Stream della maschera alpha"
+id = "Stream Masker Alfa"
 
 ["Amount"]
 en = "Amount"
@@ -195,6 +208,7 @@ ja = "量"
 pt = "Quantidade"
 tr = "Miktar"
 it = "Quantità"
+id = "Jumlah"
 
 ["Amplitude"]
 en = "Amplitude"
@@ -209,6 +223,7 @@ ja = "振幅"
 pt = "Amplitude"
 tr = "Genlik"
 it = "Ampiezza"
+id = "Amplitudo"
 
 ["Analysis FPS"]
 en = "Analysis FPS"
@@ -223,6 +238,7 @@ ja = "解析FPS"
 pt = "FPS de análise"
 tr = "Analiz FPS'si"
 it = "FPS di analisi"
+id = "FPS Analisis"
 
 ["Analysis status"]
 en = "Analysis status"
@@ -237,6 +253,7 @@ ja = "解析状態"
 pt = "Status da análise"
 tr = "Analiz durumu"
 it = "Stato dell'analisi"
+id = "Status analisis"
 
 ["Analyze"]
 en = "Analyze"
@@ -251,6 +268,7 @@ ja = "解析"
 pt = "Analisar"
 tr = "Analiz et"
 it = "Analizza"
+id = "Analisis"
 
 ["Analyze Again"]
 en = "Analyze Again"
@@ -265,6 +283,7 @@ ja = "再解析"
 pt = "Analisar novamente"
 tr = "Tekrar Analiz Et"
 it = "Analizza di nuovo"
+id = "Analisis Ulang"
 
 ["Analyze this clip for beat-grid snapping"]
 en = "Analyze this clip for beat-grid snapping"
@@ -279,6 +298,7 @@ ja = "ビートグリッドへのスナップ用にクリップを解析"
 pt = "Analisar este clipe para encaixe na grade de batidas"
 tr = "Ritim ızgarasına yapışma için bu klibi analiz et"
 it = "Analizza questo clip per l'aggancio alla griglia dei beat"
+id = "Analisis klip ini untuk perataan kisi ketukan"
 
 ["Analyzing source motion…"]
 en = "Analyzing source motion…"
@@ -293,6 +313,7 @@ ja = "ソースの動きを解析中…"
 pt = "Analisando movimento de origem…"
 tr = "Kaynak hareket analiz ediliyor…"
 it = "Analisi del movimento sorgente…"
+id = "Menganalisis gerakan sumber…"
 
 ["Analyzing…"]
 en = "Analyzing…"
@@ -307,6 +328,7 @@ ja = "解析中…"
 pt = "Analisando…"
 tr = "Analiz ediliyor…"
 it = "Analisi…"
+id = "Menganalisis…"
 
 ["Anchor"]
 en = "Anchor"
@@ -321,6 +343,7 @@ ja = "アンカー"
 pt = "Âncora"
 tr = "Çapa"
 it = "Ancora"
+id = "Jangkar"
 
 ["Angle"]
 en = "Angle"
@@ -335,6 +358,7 @@ ja = "角度"
 pt = "Ângulo"
 tr = "Açı"
 it = "Angolo"
+id = "Sudut"
 
 ["Angular radius"]
 en = "Angular radius"
@@ -349,6 +373,7 @@ ja = "角半径"
 pt = "Raio angular"
 tr = "Açısal yarıçap"
 it = "Raggio angolare"
+id = "Radius sudut"
 
 ["Angular randomness"]
 en = "Angular randomness"
@@ -363,6 +388,7 @@ ja = "角度のランダム性"
 pt = "Aleatoriedade angular"
 tr = "Açısal rastgelelik"
 it = "Casualità angolare"
+id = "Keacakan sudut"
 
 ["Animated"]
 en = "Animated"
@@ -377,6 +403,7 @@ ja = "アニメーション"
 pt = "Animado"
 tr = "Hareketli"
 it = "Animato"
+id = "Dianimasikan"
 
 ["Anti-aliasing"]
 en = "Anti-aliasing"
@@ -391,6 +418,7 @@ ja = "アンチエイリアス"
 pt = "Anti-aliasing"
 tr = "Kenar Yumuşatma"
 it = "Anti-aliasing"
+id = "Anti-aliasing"
 
 ["Aperture"]
 en = "Aperture"
@@ -405,6 +433,7 @@ ja = "絞り"
 pt = "Abertura"
 tr = "Diyafram"
 it = "Apertura"
+id = "Bukaan"
 
 ["Arm thickness"]
 en = "Arm thickness"
@@ -419,6 +448,7 @@ ja = "アームの太さ"
 pt = "Espessura do braço"
 tr = "Kol kalınlığı"
 it = "Spessore del braccio"
+id = "Ketebalan lengan"
 
 ["Attack"]
 en = "Attack"
@@ -433,6 +463,7 @@ ja = "アタック"
 pt = "Ataque"
 tr = "Atak"
 it = "Attacco"
+id = "Attack"
 
 ["Audio Stream"]
 en = "Audio Stream"
@@ -447,6 +478,7 @@ ja = "オーディオストリーム"
 pt = "Fluxo de áudio"
 tr = "Ses Akışı"
 it = "Stream audio"
+id = "Stream Audio"
 
 ["Audio stream %{number}"]
 en = "Audio stream %{number}"
@@ -461,6 +493,7 @@ ja = "オーディオストリーム %{number}"
 pt = "Fluxo de áudio %{number}"
 tr = "Ses akışı %{number}"
 it = "Stream audio %{number}"
+id = "Stream audio %{number}"
 
 ["Auto level"]
 en = "Auto level"
@@ -475,6 +508,7 @@ ja = "自動レベル"
 pt = "Nível automático"
 tr = "Otomatik düzey"
 it = "Livello automatico"
+id = "Level otomatis"
 
 ["B&W threshold"]
 en = "B&W threshold"
@@ -489,6 +523,7 @@ ja = "白黒しきい値"
 pt = "Limiar P&B"
 tr = "Siyah-Beyaz eşiği"
 it = "Soglia B/N"
+id = "Ambang B/W"
 
 ["Background color"]
 en = "Background color"
@@ -503,6 +538,7 @@ ja = "背景色"
 pt = "Cor de fundo"
 tr = "Arka plan rengi"
 it = "Colore di sfondo"
+id = "Warna latar belakang"
 
 ["Background distance"]
 en = "Background distance"
@@ -517,6 +553,7 @@ ja = "背景の距離"
 pt = "Distância do fundo"
 tr = "Arka plan uzaklığı"
 it = "Distanza dello sfondo"
+id = "Jarak latar belakang"
 
 ["Background fill"]
 en = "Background fill"
@@ -531,6 +568,7 @@ ja = "背景の塗り"
 pt = "Preenchimento do fundo"
 tr = "Arka plan dolgusu"
 it = "Riempimento dello sfondo"
+id = "Isian latar belakang"
 
 ["Background intensity"]
 en = "Background intensity"
@@ -545,6 +583,7 @@ ja = "背景の強度"
 pt = "Intensidade do fundo"
 tr = "Arka plan yoğunluğu"
 it = "Intensità dello sfondo"
+id = "Intensitas latar belakang"
 
 ["Background padding"]
 en = "Background padding"
@@ -559,6 +598,7 @@ ja = "背景の余白"
 pt = "Preenchimento do fundo"
 tr = "Arka plan iç boşluğu"
 it = "Margine dello sfondo"
+id = "Padding latar belakang"
 
 ["Background plane"]
 en = "Background plane"
@@ -573,6 +613,7 @@ ja = "背景平面"
 pt = "Plano de fundo"
 tr = "Arka plan düzlemi"
 it = "Piano di sfondo"
+id = "Bidang latar belakang"
 
 ["Background roundness"]
 en = "Background roundness"
@@ -587,6 +628,7 @@ ja = "背景の丸み"
 pt = "Arredondamento do fundo"
 tr = "Arka plan yuvarlaklığı"
 it = "Arrotondamento dello sfondo"
+id = "Kebulatan latar belakang"
 
 ["Background tiling"]
 en = "Background tiling"
@@ -601,6 +643,7 @@ ja = "背景のタイリング"
 pt = "Mosaico do fundo"
 tr = "Arka plan döşeme"
 it = "Tassellatura dello sfondo"
+id = "Pengubinan latar belakang"
 
 ["Bake"]
 en = "Bake"
@@ -615,6 +658,7 @@ ja = "ベイク"
 pt = "Pré-computar"
 tr = "Pişir"
 it = "Pre-calcola"
+id = "Bake"
 
 ["Baking…"]
 en = "Baking…"
@@ -629,6 +673,7 @@ ja = "ベイク中…"
 pt = "Pré-computando…"
 tr = "Pişiriliyor…"
 it = "Pre-calcolo…"
+id = "Melakukan baking…"
 
 ["Balanced"]
 en = "Balanced"
@@ -643,6 +688,7 @@ ja = "バランス"
 pt = "Equilibrado"
 tr = "Dengeli"
 it = "Equilibrato"
+id = "Seimbang"
 
 ["Band count"]
 en = "Band count"
@@ -657,6 +703,7 @@ ja = "バンド数"
 pt = "Número de bandas"
 tr = "Bant sayısı"
 it = "Numero di bande"
+id = "Jumlah band"
 
 ["Band width"]
 en = "Band width"
@@ -671,6 +718,7 @@ ja = "バンド幅"
 pt = "Largura da banda"
 tr = "Bant genişliği"
 it = "Larghezza di banda"
+id = "Lebar band"
 
 ["Bands"]
 en = "Bands"
@@ -685,6 +733,7 @@ ja = "バンド"
 pt = "Bandas"
 tr = "Bantlar"
 it = "Bande"
+id = "Band"
 
 ["Base angle"]
 en = "Base angle"
@@ -699,6 +748,7 @@ ja = "基準角度"
 pt = "Ângulo base"
 tr = "Temel açı"
 it = "Angolo base"
+id = "Sudut dasar"
 
 ["Base color"]
 en = "Base color"
@@ -713,6 +763,7 @@ ja = "ベースカラー"
 pt = "Cor base"
 tr = "Temel renk"
 it = "Colore base"
+id = "Warna dasar"
 
 ["Beat Detection"]
 en = "Beat Detection"
@@ -727,6 +778,7 @@ ja = "ビート検出"
 pt = "Detecção de batidas"
 tr = "Ritim Tespiti"
 it = "Rilevamento beat"
+id = "Deteksi Ketukan"
 
 ["Bevel"]
 en = "Bevel"
@@ -741,6 +793,7 @@ ja = "ベベル"
 pt = "Bisel"
 tr = "Pah"
 it = "Smussatura"
+id = "Bevel"
 
 ["Blend curve"]
 en = "Blend curve"
@@ -755,6 +808,7 @@ ja = "ブレンド曲線"
 pt = "Curva de mesclagem"
 tr = "Karıştırma eğrisi"
 it = "Curva di mescolamento"
+id = "Kurva perpaduan"
 
 ["Blend mode"]
 en = "Blend mode"
@@ -769,6 +823,7 @@ ja = "ブレンドモード"
 pt = "Modo de mesclagem"
 tr = "Karıştırma modu"
 it = "Modalità di mescolamento"
+id = "Mode perpaduan"
 
 ["Block height"]
 en = "Block height"
@@ -783,6 +838,7 @@ ja = "ブロックの高さ"
 pt = "Altura do bloco"
 tr = "Blok yüksekliği"
 it = "Altezza del blocco"
+id = "Tinggi blok"
 
 ["Block width"]
 en = "Block width"
@@ -797,6 +853,7 @@ ja = "ブロックの幅"
 pt = "Largura do bloco"
 tr = "Blok genişliği"
 it = "Larghezza del blocco"
+id = "Lebar blok"
 
 ["Blur"]
 en = "Blur"
@@ -811,6 +868,7 @@ ja = "ぼかし"
 pt = "Desfoque"
 tr = "Bulanıklaştırma"
 it = "Sfocatura"
+id = "Buram"
 
 ["Bottom"]
 en = "Bottom"
@@ -825,6 +883,7 @@ ja = "下"
 pt = "Inferior"
 tr = "Alt"
 it = "In basso"
+id = "Bawah"
 
 ["Bottom left"]
 en = "Bottom left"
@@ -839,6 +898,7 @@ ja = "左下"
 pt = "Inferior esquerdo"
 tr = "Sol alt"
 it = "In basso a sinistra"
+id = "Kiri bawah"
 
 ["Bottom right"]
 en = "Bottom right"
@@ -853,6 +913,7 @@ ja = "右下"
 pt = "Inferior direito"
 tr = "Sağ alt"
 it = "In basso a destra"
+id = "Kanan bawah"
 
 ["Box"]
 en = "Box"
@@ -867,6 +928,7 @@ ja = "ボックス"
 pt = "Caixa"
 tr = "Kutu"
 it = "Riquadro"
+id = "Kotak"
 
 ["Brightness"]
 en = "Brightness"
@@ -881,6 +943,7 @@ ja = "明るさ"
 pt = "Brilho"
 tr = "Parlaklık"
 it = "Luminosità"
+id = "Kecerahan"
 
 ["Camera"]
 en = "Camera"
@@ -895,6 +958,7 @@ ja = "カメラ"
 pt = "Câmera"
 tr = "Kamera"
 it = "Videocamera"
+id = "Kamera"
 
 ["Camera model"]
 en = "Camera model"
@@ -909,6 +973,7 @@ ja = "カメラモデル"
 pt = "Modelo da câmera"
 tr = "Kamera modeli"
 it = "Modello videocamera"
+id = "Model kamera"
 
 ["Camera source"]
 en = "Camera source"
@@ -923,6 +988,7 @@ ja = "カメラソース"
 pt = "Origem da câmera"
 tr = "Kamera kaynağı"
 it = "Fonte Videocamera"
+id = "Sumber kamera"
 
 ["Cancelling"]
 en = "Cancelling"
@@ -937,6 +1003,7 @@ ja = "キャンセル中"
 pt = "Cancelando"
 tr = "İptal ediliyor"
 it = "Annullamento"
+id = "Membatalkan"
 
 ["Caption text color"]
 en = "Caption text color"
@@ -951,6 +1018,7 @@ ja = "字幕テキストの色"
 pt = "Cor do texto da legenda"
 tr = "Altyazı metin rengi"
 it = "Colore del testo dei sottotitoli"
+id = "Warna teks takarir"
 
 ["Ceiling"]
 en = "Ceiling"
@@ -965,6 +1033,7 @@ ja = "上限"
 pt = "Teto"
 tr = "Tavan"
 it = "Limite superiore"
+id = "Batas atas"
 
 ["Cell size"]
 en = "Cell size"
@@ -979,6 +1048,7 @@ ja = "セルサイズ"
 pt = "Tamanho da célula"
 tr = "Hücre boyutu"
 it = "Dimensione cella"
+id = "Ukuran sel"
 
 ["Center"]
 en = "Center"
@@ -993,6 +1063,7 @@ ja = "中央"
 pt = "Centro"
 tr = "Merkez"
 it = "Centro"
+id = "Tengah"
 
 ["Center X"]
 en = "Center X"
@@ -1007,6 +1078,7 @@ ja = "中心 X"
 pt = "Centro X"
 tr = "Merkez X"
 it = "Centro X"
+id = "Tengah X"
 
 ["Center Y"]
 en = "Center Y"
@@ -1021,6 +1093,7 @@ ja = "中心 Y"
 pt = "Centro Y"
 tr = "Merkez Y"
 it = "Centro Y"
+id = "Tengah Y"
 
 ["Chamfer"]
 en = "Chamfer"
@@ -1035,6 +1108,7 @@ ja = "面取り"
 pt = "Chanfro"
 tr = "Pah Kırma"
 it = "Smusso"
+id = "Chamfer"
 
 ["Change all at once"]
 en = "Change all at once"
@@ -1049,6 +1123,7 @@ ja = "一度にすべて変更"
 pt = "Alterar tudo de uma vez"
 tr = "Tümünü tek seferde değiştir"
 it = "Modifica tutto in una volta"
+id = "Ubah semua sekaligus"
 
 ["Change Project Settings?"]
 en = "Change Project Settings?"
@@ -1063,6 +1138,7 @@ ja = "プロジェクト設定を変更しますか？"
 pt = "Alterar configurações do projeto?"
 tr = "Proje ayarları değiştirilsin mi?"
 it = "Modificare le impostazioni del progetto?"
+id = "Ubah Pengaturan Proyek?"
 
 ["Changing the frame rate or resolution can affect timing, visual layout, and rendered output. Existing media and effects may no longer match the project."]
 en = "Changing the frame rate or resolution can affect timing, visual layout, and rendered output. Existing media and effects may no longer match the project."
@@ -1077,6 +1153,7 @@ ja = "フレームレートや解像度を変更すると、タイミング、�
 pt = "Alterar a taxa de quadros ou a resolução pode afetar a sincronização, o layout visual e a saída renderizada. As mídias e efeitos existentes podem não corresponder mais ao projeto."
 tr = "Kare hızını veya çözünürlüğü değiştirmek zamanlamayı, görsel düzeni ve işlenmiş çıktıyı etkileyebilir. Mevcut medya ve efektler artık bu projeyle eşleşmeyebilir."
 it = "Modificare la frequenza dei fotogrammi o la risoluzione può influire su temporizzazione, layout visivo e l'output renderizzato. I media e gli effetti esistenti potrebbero non corrispondere più al progetto."
+id = "Mengubah laju bingkai atau resolusi dapat memengaruhi pewaktuan, tata letak visual, dan hasil render. Media dan efek yang ada mungkin tidak lagi cocok dengan proyek."
 
 ["Channel angle offset"]
 en = "Channel angle offset"
@@ -1091,6 +1168,7 @@ ja = "チャンネル角度オフセット"
 pt = "Deslocamento angular de canais"
 tr = "Kanal açı ofseti"
 it = "Offset angolo canali"
+id = "Ofset sudut saluran"
 
 ["Channel offset"]
 en = "Channel offset"
@@ -1105,6 +1183,7 @@ ja = "チャンネルオフセット"
 pt = "Deslocamento de canais"
 tr = "Kanal ofseti"
 it = "Offset dei canali"
+id = "Ofset saluran"
 
 ["Choose font"]
 en = "Choose font"
@@ -1119,6 +1198,7 @@ ja = "フォントを選択"
 pt = "Escolher fonte"
 tr = "Yazı tipi seç"
 it = "Scegli font"
+id = "Pilih font"
 
 ["Choose item…"]
 en = "Choose item…"
@@ -1133,6 +1213,7 @@ ja = "項目を選択…"
 pt = "Escolher item…"
 tr = "Öge seç…"
 it = "Scegli elemento…"
+id = "Pilih item…"
 
 ["Circular"]
 en = "Circular"
@@ -1147,6 +1228,7 @@ ja = "円形"
 pt = "Circular"
 tr = "Dairesel"
 it = "Circolare"
+id = "Melingkar"
 
 ["Classic"]
 en = "Classic"
@@ -1161,6 +1243,7 @@ ja = "クラシック"
 pt = "Clássico"
 tr = "Klasik"
 it = "Classico"
+id = "Klasik"
 
 ["Clear and rewrite the whole text"]
 en = "Clear and rewrite the whole text"
@@ -1175,6 +1258,7 @@ ja = "テキスト全体を消去して書き直す"
 pt = "Limpar e reescrever todo o texto"
 tr = "Tüm metni sil ve yeniden yaz"
 it = "Cancella e riscrivi tutto il testo"
+id = "Hapus dan tulis ulang seluruh teks"
 
 ["Clear image"]
 en = "Clear image"
@@ -1189,6 +1273,7 @@ ja = "画像をクリア"
 pt = "Remover imagem"
 tr = "Resmi temizle"
 it = "Cancella immagine"
+id = "Hapus gambar"
 
 ["Clear mask source"]
 en = "Clear mask source"
@@ -1203,6 +1288,7 @@ ja = "マスクソースをクリア"
 pt = "Remover origem da máscara"
 tr = "Maske kaynağını temizle"
 it = "Cancella origine della maschera"
+id = "Hapus sumber masker"
 
 ["Clear model"]
 en = "Clear model"
@@ -1217,6 +1303,7 @@ ja = "モデルをクリア"
 pt = "Remover modelo"
 tr = "Modeli temizle"
 it = "Cancella modello"
+id = "Hapus model"
 
 ["Clear texture"]
 en = "Clear texture"
@@ -1231,6 +1318,7 @@ ja = "テクスチャをクリア"
 pt = "Remover textura"
 tr = "Dokuyu temizle"
 it = "Cancella texture"
+id = "Hapus tekstur"
 
 ["Clearcoat"]
 en = "Clearcoat"
@@ -1245,6 +1333,7 @@ ja = "クリアコート"
 pt = "Verniz"
 tr = "Şeffaf Kaplama"
 it = "Vernice trasparente"
+id = "Clearcoat"
 
 ["Clockwise"]
 en = "Clockwise"
@@ -1259,6 +1348,7 @@ ja = "時計回り"
 pt = "Sentido horário"
 tr = "Saat Yönünde"
 it = "Senso orario"
+id = "Searah jarum jam"
 
 ["Coalesce"]
 en = "Coalesce"
@@ -1273,6 +1363,7 @@ ja = "結合"
 pt = "Unificar"
 tr = "Kaynaştır"
 it = "Unifica"
+id = "Satukan"
 
 ["Collapse"]
 en = "Collapse"
@@ -1287,6 +1378,7 @@ ja = "折りたたむ"
 pt = "Recolher"
 tr = "Daralt"
 it = "Comprimi"
+id = "Ciutkan"
 
 ["Color"]
 en = "Color"
@@ -1301,6 +1393,7 @@ ja = "色"
 pt = "Cor"
 tr = "Renk"
 it = "Colore"
+id = "Warna"
 
 ["Color A"]
 en = "Color A"
@@ -1315,6 +1408,7 @@ ja = "色 A"
 pt = "Cor A"
 tr = "Renk A"
 it = "Colore A"
+id = "Warna A"
 
 ["Color B"]
 en = "Color B"
@@ -1329,6 +1423,7 @@ ja = "色 B"
 pt = "Cor B"
 tr = "Renk B"
 it = "Colore B"
+id = "Warna B"
 
 ["Color mode"]
 en = "Color mode"
@@ -1343,6 +1438,7 @@ ja = "カラーモード"
 pt = "Modo de cor"
 tr = "Renk modu"
 it = "Modalità colore"
+id = "Mode warna"
 
 ["Color position"]
 en = "Color position"
@@ -1357,6 +1453,7 @@ ja = "色の位置"
 pt = "Posição da cor"
 tr = "Renk konumu"
 it = "Posizione colore"
+id = "Posisi warna"
 
 ["Color precision"]
 en = "Color precision"
@@ -1371,6 +1468,7 @@ ja = "色精度"
 pt = "Precisão da cor"
 tr = "Renk hassaslığı"
 it = "Precisione colore"
+id = "Presisi warna"
 
 ["Color %{number}"]
 en = "Color %{number}"
@@ -1385,6 +1483,7 @@ ja = "色 %{number}"
 pt = "Cor %{number}"
 tr = "Renk %{number}"
 it = "Colore %{number}"
+id = "Warna %{number}"
 
 ["Coloring"]
 en = "Coloring"
@@ -1399,6 +1498,7 @@ ja = "カラーリング"
 pt = "Coloração"
 tr = "Renklendirme"
 it = "Colorazione"
+id = "Pewarnaan"
 
 ["Completion"]
 en = "Completion"
@@ -1413,6 +1513,7 @@ ja = "進行度"
 pt = "Conclusão"
 tr = "Tamamlama"
 it = "Avanzamento"
+id = "Penyelesaian"
 
 ["Complexity"]
 en = "Complexity"
@@ -1427,6 +1528,7 @@ ja = "複雑さ"
 pt = "Complexidade"
 tr = "Karmaşıklık"
 it = "Complessità"
+id = "Kompleksitas"
 
 ["Composite"]
 en = "Composite"
@@ -1441,6 +1543,7 @@ ja = "合成"
 pt = "Composição"
 tr = "Kompozit"
 it = "Composito"
+id = "Komposit"
 
 ["Composite background"]
 en = "Composite background"
@@ -1455,6 +1558,7 @@ ja = "背景を合成"
 pt = "Compor fundo"
 tr = "Kompozit arka plan"
 it = "Componi sfondo"
+id = "Latar belakang komposit"
 
 ["Compositing"]
 en = "Compositing"
@@ -1469,6 +1573,7 @@ ja = "コンポジット"
 pt = "Composição"
 tr = "Kompozisyon"
 it = "Compositing"
+id = "Pengomposisian"
 
 ["Constant high"]
 en = "Constant high"
@@ -1483,6 +1588,7 @@ ja = "常に高"
 pt = "Constante alto"
 tr = "Sabit yüksek"
 it = "Costante alto"
+id = "Tinggi konstan"
 
 ["Constant low"]
 en = "Constant low"
@@ -1497,6 +1603,7 @@ ja = "常に低"
 pt = "Constante baixo"
 tr = "Sabit düşük"
 it = "Costante basso"
+id = "Rendah konstan"
 
 ["Constant-acceleration weight"]
 en = "Constant-acceleration weight"
@@ -1511,6 +1618,7 @@ ja = "等加速度ウェイト"
 pt = "Peso de aceleração constante"
 tr = "Sabit ivme ağırlığı"
 it = "Peso di accelerazione costante"
+id = "Bobot percepatan konstan"
 
 ["Constant-motion weight"]
 en = "Constant-motion weight"
@@ -1525,6 +1633,7 @@ ja = "等速運動ウェイト"
 pt = "Peso de movimento constante"
 tr = "Sabit hareket ağırlığı"
 it = "Peso di movimento costante"
+id = "Bobot gerakan konstan"
 
 ["Continuous"]
 en = "Continuous"
@@ -1539,6 +1648,7 @@ ja = "連続"
 pt = "Contínuo"
 tr = "Sürekli"
 it = "Continuo"
+id = "Kontinu"
 
 ["Contrast"]
 en = "Contrast"
@@ -1553,6 +1663,7 @@ ja = "コントラスト"
 pt = "Contraste"
 tr = "Kontrast"
 it = "Contrasto"
+id = "Kontras"
 
 ["Copies X"]
 en = "Copies X"
@@ -1567,6 +1678,7 @@ ja = "コピー数 X"
 pt = "Cópias X"
 tr = "X Kopya Sayısı"
 it = "Copie X"
+id = "Salinan X"
 
 ["Copies Y"]
 en = "Copies Y"
@@ -1581,6 +1693,7 @@ ja = "コピー数 Y"
 pt = "Cópias Y"
 tr = "Y Kopya Sayısı"
 it = "Copie Y"
+id = "Salinan Y"
 
 ["Copy JSON"]
 en = "Copy JSON"
@@ -1595,6 +1708,7 @@ ja = "JSONをコピー"
 pt = "Copiar JSON"
 tr = "JSON'u kopyala"
 it = "Copia JSON"
+id = "Salin JSON"
 
 ["Corner radius"]
 en = "Corner radius"
@@ -1609,6 +1723,7 @@ ja = "角の半径"
 pt = "Raio do canto"
 tr = "Köşe yuvarlaklığı"
 it = "Raggio angoli"
+id = "Radius sudut"
 
 ["Corner rounding"]
 en = "Corner rounding"
@@ -1623,6 +1738,7 @@ ja = "角の丸み"
 pt = "Arredondamento dos cantos"
 tr = "Köşe yuvarlatma"
 it = "Arrotondamento angoli"
+id = "Pembulatan sudut"
 
 ["Corner threshold"]
 en = "Corner threshold"
@@ -1637,6 +1753,7 @@ ja = "コーナーしきい値"
 pt = "Limiar de canto"
 tr = "Köşe eşiği"
 it = "Soglia angoli"
+id = "Ambang batas sudut"
 
 ["Counterclockwise"]
 en = "Counterclockwise"
@@ -1651,6 +1768,7 @@ ja = "反時計回り"
 pt = "Sentido anti-horário"
 tr = "Saat Yönünün Tersi"
 it = "Senso antiorario"
+id = "Berlawanan arah jarum jam"
 
 ["Create"]
 en = "Create"
@@ -1665,6 +1783,7 @@ ja = "作成"
 pt = "Criar"
 tr = "Oluştur"
 it = "Crea"
+id = "Buat"
 
 ["Crop ratio"]
 en = "Crop ratio"
@@ -1679,6 +1798,7 @@ ja = "クロップ率"
 pt = "Proporção de corte"
 tr = "Kırpma oranı"
 it = "Proporzione di ritaglio"
+id = "Rasio pemangkasan"
 
 ["Cross"]
 en = "Cross"
@@ -1693,6 +1813,7 @@ ja = "十字"
 pt = "Cruz"
 tr = "Artı"
 it = "Croce"
+id = "Silang"
 
 ["Crosshatch"]
 en = "Crosshatch"
@@ -1707,6 +1828,7 @@ ja = "クロスハッチ"
 pt = "Hachura cruzada"
 tr = "Çapraz tarama"
 it = "Tratteggio incrociato"
+id = "Arsir silang"
 
 ["Curvature"]
 en = "Curvature"
@@ -1721,6 +1843,7 @@ ja = "曲率"
 pt = "Curvatura"
 tr = "Eğrilik"
 it = "Curvatura"
+id = "Kelengkungan"
 
 ["Curve"]
 en = "Curve"
@@ -1735,6 +1858,7 @@ ja = "カーブ"
 pt = "Curva"
 tr = "Eğri"
 it = "Curva"
+id = "Kurva"
 
 ["Cutoff"]
 en = "Cutoff"
@@ -1749,6 +1873,7 @@ ja = "カットオフ"
 pt = "Corte"
 tr = "Kesim"
 it = "Cutoff"
+id = "Cutoff"
 
 ["Damping"]
 en = "Damping"
@@ -1763,6 +1888,7 @@ ja = "ダンピング"
 pt = "Amortecimento"
 tr = "Sönümleme"
 it = "Smorzamento"
+id = "Peredaman"
 
 ["Darkest tone"]
 en = "Darkest tone"
@@ -1777,6 +1903,7 @@ ja = "最暗部"
 pt = "Tom mais escuro"
 tr = "En karanlık ton"
 it = "Tono più scuro"
+id = "Warna tergelap"
 
 ["Dash gap"]
 en = "Dash gap"
@@ -1791,6 +1918,7 @@ ja = "破線の間隔"
 pt = "Espaço do tracejado"
 tr = "Çizgi aralığı"
 it = "Spazio tratteggio"
+id = "Celah garis putus-putus"
 
 ["Dash length"]
 en = "Dash length"
@@ -1805,6 +1933,7 @@ ja = "破線の長さ"
 pt = "Comprimento do traço"
 tr = "Çizgi uzunluğu"
 it = "Lunghezza tratteggio"
+id = "Panjang garis putus-putus"
 
 ["Dash position"]
 en = "Dash position"
@@ -1819,6 +1948,7 @@ ja = "破線の位置"
 pt = "Posição do tracejado"
 tr = "Çizgi konumu"
 it = "Posizione tratteggio"
+id = "Posisi garis putus-putus"
 
 ["Decay"]
 en = "Decay"
@@ -1833,6 +1963,7 @@ ja = "減衰"
 pt = "Decaimento"
 tr = "Zayıflama"
 it = "Decadimento"
+id = "Decay"
 
 ["Default outline color"]
 en = "Default outline color"
@@ -1847,6 +1978,7 @@ ja = "既定のアウトライン色"
 pt = "Cor de contorno padrão"
 tr = "Varsayılan kontür rengi"
 it = "Colore contorno predefinito"
+id = "Warna garis luar bawaan"
 
 ["Delay"]
 en = "Delay"
@@ -1861,6 +1993,7 @@ ja = "ディレイ"
 pt = "Atraso"
 tr = "Gecikme"
 it = "Ritardo"
+id = "Delay"
 
 ["Delete selected keyframe"]
 en = "Delete selected keyframe"
@@ -1875,6 +2008,7 @@ ja = "選択したキーフレームを削除"
 pt = "Excluir quadro-chave selecionado"
 tr = "Seçilen anahtar karesini sil"
 it = "Elimina keyframe selezionato"
+id = "Hapus keyframe yang dipilih"
 
 ["Depth"]
 en = "Depth"
@@ -1889,6 +2023,7 @@ ja = "深度"
 pt = "Profundidade"
 tr = "Derinlik"
 it = "Profondità"
+id = "Kedalaman"
 
 ["Depth edge roundness"]
 en = "Depth edge roundness"
@@ -1903,6 +2038,7 @@ ja = "深度エッジの丸み"
 pt = "Arredondamento de borda de profundidade"
 tr = "Derinlik kenarı yuvarlaklığı"
 it = "Arrotondamento bordo profondità"
+id = "Kebulatan tepi kedalaman"
 
 ["Depth threshold"]
 en = "Depth threshold"
@@ -1917,6 +2053,7 @@ ja = "深度しきい値"
 pt = "Limiar de profundidade"
 tr = "Derinlik eşiği"
 it = "Soglia profondità"
+id = "Ambang batas kedalaman"
 
 ["Detail"]
 en = "Detail"
@@ -1931,6 +2068,7 @@ ja = "ディテール"
 pt = "Detalhe"
 tr = "Detay"
 it = "Dettaglio"
+id = "Detail"
 
 ["Diamond"]
 en = "Diamond"
@@ -1945,6 +2083,7 @@ ja = "ひし形"
 pt = "Losango"
 tr = "Eşkenar dörtgen"
 it = "Rombo"
+id = "Belah ketupat"
 
 ["Diffusion"]
 en = "Diffusion"
@@ -1959,6 +2098,7 @@ ja = "拡散"
 pt = "Difusão"
 tr = "Difüzyon"
 it = "Diffusione"
+id = "Difusi"
 
 ["Dimensions"]
 en = "Dimensions"
@@ -1973,6 +2113,7 @@ ja = "寸法"
 pt = "Dimensões"
 tr = "Boyutlar"
 it = "Dimensioni"
+id = "Dimensi"
 
 ["Direction"]
 en = "Direction"
@@ -1987,6 +2128,7 @@ ja = "方向"
 pt = "Direção"
 tr = "Yön"
 it = "Direzione"
+id = "Arah"
 
 ["Disable modifier"]
 en = "Disable modifier"
@@ -2001,6 +2143,7 @@ ja = "モディファイアを無効化"
 pt = "Desabilitar modificador"
 tr = "Değiştiriciyi devre dışı bırak"
 it = "Disattiva modificatore"
+id = "Nonaktifkan modifier"
 
 ["Discard and reanalyze the current source-time chunk"]
 en = "Discard and reanalyze the current source-time chunk"
@@ -2015,6 +2158,7 @@ ja = "現在のソース時間チャンクを破棄して再解析"
 pt = "Descartar e reanalisar o trecho temporal de origem atual"
 tr = "Mevcut kaynak-zaman dilimini sil ve yeniden analiz et"
 it = "Scarta e rianalizza il frammento temporale sorgente attuale"
+id = "Buang dan analisis ulang potongan waktu sumber saat ini"
 
 ["Distance"]
 en = "Distance"
@@ -2029,6 +2173,7 @@ ja = "距離"
 pt = "Distância"
 tr = "Uzaklık"
 it = "Distanza"
+id = "Jarak"
 
 ["Distortion"]
 en = "Distortion"
@@ -2043,6 +2188,7 @@ ja = "歪み"
 pt = "Distorção"
 tr = "Bozulma"
 it = "Distorsione"
+id = "Distorsi"
 
 ["Distribution"]
 en = "Distribution"
@@ -2057,6 +2203,7 @@ ja = "分布"
 pt = "Distribuição"
 tr = "Dağılım"
 it = "Distribuzione"
+id = "Distribusi"
 
 ["Distribution randomness"]
 en = "Distribution randomness"
@@ -2071,6 +2218,7 @@ ja = "分布のランダム性"
 pt = "Aleatoriedade da distribuição"
 tr = "Dağıtım rastgeleliği"
 it = "Casualità distribuzione"
+id = "Keacakan distribusi"
 
 ["Dot density"]
 en = "Dot density"
@@ -2085,6 +2233,7 @@ ja = "ドット密度"
 pt = "Densidade de pontos"
 tr = "Nokta yoğunluğu"
 it = "Densità punti"
+id = "Kepadatan titik"
 
 ["Dot size"]
 en = "Dot size"
@@ -2099,6 +2248,7 @@ ja = "ドットサイズ"
 pt = "Tamanho do ponto"
 tr = "Nokta büyüklüğü"
 it = "Dimensione punto"
+id = "Ukuran titik"
 
 ["Dots"]
 en = "Dots"
@@ -2113,6 +2263,7 @@ ja = "ドット"
 pt = "Pontos"
 tr = "Noktalar"
 it = "Punti"
+id = "Titik-titik"
 
 ["Downloading font family…"]
 en = "Downloading font family…"
@@ -2127,6 +2278,7 @@ ja = "フォントファミリーをダウンロード中…"
 pt = "Baixando família de fontes…"
 tr = "Yazı tipi ailesi indiriliyor…"
 it = "Download della famiglia di font…"
+id = "Mengunduh famili font…"
 
 ["Drag onto a visual clip in the timeline"]
 en = "Drag onto a visual clip in the timeline"
@@ -2141,6 +2293,7 @@ ja = "タイムライン上のビジュアルクリップにドラッグ"
 pt = "Arraste sobre um clipe visual na linha do tempo"
 tr = "Zaman çizelgesinde bir görsel klibin üzerine sürükle"
 it = "Trascina su un clip visivo nella timeline"
+id = "Tarik ke klip visual di lini masa"
 
 ["Drag onto a visual clip…"]
 en = "Drag onto a visual clip…"
@@ -2155,6 +2308,7 @@ ja = "ビジュアルクリップにドラッグ…"
 pt = "Arraste sobre um clipe visual…"
 tr = "Bir görsel klibin üzerine sürükle…"
 it = "Trascina su un clip visivo…"
+id = "Tarik ke klip visual…"
 
 ["Drawing"]
 en = "Drawing"
@@ -2169,6 +2323,7 @@ ja = "描画"
 pt = "Desenho"
 tr = "Çizim"
 it = "Disegno"
+id = "Gambar"
 
 ["Drive"]
 en = "Drive"
@@ -2183,6 +2338,7 @@ ja = "ドライブ"
 pt = "Drive"
 tr = "Sürme"
 it = "Drive"
+id = "Drive"
 
 ["Duration"]
 en = "Duration"
@@ -2197,6 +2353,7 @@ ja = "長さ"
 pt = "Duração"
 tr = "Süre"
 it = "Durata"
+id = "Durasi"
 
 ["Edge"]
 en = "Edge"
@@ -2211,6 +2368,7 @@ ja = "エッジ"
 pt = "Borda"
 tr = "Kenar"
 it = "Bordo"
+id = "Tepi"
 
 ["Edge color"]
 en = "Edge color"
@@ -2225,6 +2383,7 @@ ja = "エッジ色"
 pt = "Cor da borda"
 tr = "Kenar rengi"
 it = "Colore bordo"
+id = "Warna tepi"
 
 ["Edge softness"]
 en = "Edge softness"
@@ -2239,6 +2398,7 @@ ja = "エッジの柔らかさ"
 pt = "Suavidade da borda"
 tr = "Kenar yumuşaklığı"
 it = "Morbidezza bordo"
+id = "Kelembutan tepi"
 
 ["Edge width"]
 en = "Edge width"
@@ -2253,6 +2413,7 @@ ja = "エッジ幅"
 pt = "Largura da borda"
 tr = "Kenar genişliği"
 it = "Larghezza bordo"
+id = "Lebar tepi"
 
 ["Edit after the shared beginning"]
 en = "Edit after the shared beginning"
@@ -2267,6 +2428,7 @@ ja = "共通の冒頭以降を編集"
 pt = "Editar após o início compartilhado"
 tr = "Ortak giriş kısmından sonra düzenle"
 it = "Modifica dopo l'inizio condiviso"
+id = "Edit setelah awal bersama"
 
 ["Edit between the shared ends"]
 en = "Edit between the shared ends"
@@ -2281,6 +2443,7 @@ ja = "共通部分の間を編集"
 pt = "Editar entre as extremidades compartilhadas"
 tr = "Ortak bitişlerin arasında düzenle"
 it = "Modifica tra le estremità condivise"
+id = "Edit di antara akhir bersama"
 
 ["Edit only the changed characters"]
 en = "Edit only the changed characters"
@@ -2295,6 +2458,7 @@ ja = "変更された文字だけを編集"
 pt = "Editar apenas os caracteres alterados"
 tr = "Sadece değişmiş karakterleri düzenle"
 it = "Modifica solo i caratteri cambiati"
+id = "Edit hanya karakter yang berubah"
 
 ["Effect strength"]
 en = "Effect strength"
@@ -2309,6 +2473,7 @@ ja = "エフェクト強度"
 pt = "Intensidade do efeito"
 tr = "Efekt gücü"
 it = "Intensità effetto"
+id = "Kekuatan efek"
 
 ["Ellipse"]
 en = "Ellipse"
@@ -2323,6 +2488,7 @@ ja = "楕円"
 pt = "Elipse"
 tr = "Elips"
 it = "Ellisse"
+id = "Elips"
 
 ["Enable layout"]
 en = "Enable layout"
@@ -2337,6 +2503,7 @@ ja = "レイアウトを有効化"
 pt = "Habilitar layout"
 tr = "Düzeni etkinleştir"
 it = "Attiva layout"
+id = "Aktifkan tata letak"
 
 ["Enable modifier"]
 en = "Enable modifier"
@@ -2351,6 +2518,7 @@ ja = "モディファイアを有効化"
 pt = "Habilitar modificador"
 tr = "Değiştiriciyi etkinleştir"
 it = "Attiva modificatore"
+id = "Aktifkan modifier"
 
 ["Enable styling"]
 en = "Enable styling"
@@ -2365,6 +2533,7 @@ ja = "スタイルを有効化"
 pt = "Habilitar estilização"
 tr = "Stilleri etkinleştir"
 it = "Attiva stile"
+id = "Aktifkan gaya"
 
 ["Enabled"]
 en = "Enabled"
@@ -2379,6 +2548,7 @@ ja = "有効"
 pt = "Habilitado"
 tr = "Etkin"
 it = "Attivo"
+id = "Diaktifkan"
 
 ["End cap"]
 en = "End cap"
@@ -2393,6 +2563,7 @@ ja = "終端キャップ"
 pt = "Extremidade final"
 tr = "Bitiş ucu"
 it = "Estremità finale"
+id = "Ujung akhir"
 
 ["End taper"]
 en = "End taper"
@@ -2407,6 +2578,7 @@ ja = "終端テーパー"
 pt = "Afilamento final"
 tr = "Sona doğru sivriltme"
 it = "Cono finale"
+id = "Pengecilan akhir"
 
 ["End taper distance"]
 en = "End taper distance"
@@ -2421,6 +2593,7 @@ ja = "終端テーパー距離"
 pt = "Distância do afilamento final"
 tr = "Sona doğru sivriltme uzaklığı"
 it = "Distanza cono finale"
+id = "Jarak pengecilan akhir"
 
 ["Engine"]
 en = "Engine"
@@ -2435,6 +2608,7 @@ ja = "エンジン"
 pt = "Motor"
 tr = "Motor"
 it = "Engine"
+id = "Mesin"
 
 ["Enter a Google font family name"]
 en = "Enter a Google font family name"
@@ -2449,6 +2623,7 @@ ja = "Google Fontsのファミリー名を入力"
 pt = "Digite o nome de uma família do Google Fonts"
 tr = "Google Fonts yazı tipi ailesi ismi gir"
 it = "Inserisci il nome di una famiglia Google Fonts"
+id = "Masukkan nama famili Google Fonts"
 
 ["Environment"]
 en = "Environment"
@@ -2463,6 +2638,7 @@ ja = "環境"
 pt = "Ambiente"
 tr = "Ortam"
 it = "Ambiente"
+id = "Lingkungan"
 
 ["Environment images"]
 en = "Environment images"
@@ -2477,6 +2653,7 @@ ja = "環境画像"
 pt = "Imagens de ambiente"
 tr = "Ortam görselleri"
 it = "Immagini di ambiente"
+id = "Gambar lingkungan"
 
 ["Evolution"]
 en = "Evolution"
@@ -2491,6 +2668,7 @@ ja = "変化"
 pt = "Evolução"
 tr = "Evrim"
 it = "Evoluzione"
+id = "Evolusi"
 
 ["Evolve seed"]
 en = "Evolve seed"
@@ -2505,6 +2683,7 @@ ja = "シードを変化"
 pt = "Evoluir semente"
 tr = "Tohumu değiştir"
 it = "Evolvi seed"
+id = "Evolusikan seed"
 
 ["Expand"]
 en = "Expand"
@@ -2519,6 +2698,7 @@ ja = "展開"
 pt = "Expandir"
 tr = "Genişlet"
 it = "Espandi"
+id = "Perluas"
 
 ["Exposure"]
 en = "Exposure"
@@ -2533,6 +2713,7 @@ ja = "露出"
 pt = "Exposição"
 tr = "Pozlama"
 it = "Esposizione"
+id = "Eksposur"
 
 ["Expression"]
 en = "Expression"
@@ -2547,6 +2728,7 @@ ja = "式"
 pt = "Expressão"
 tr = "İfade"
 it = "Espressione"
+id = "Ekspresi"
 
 ["Extend edge"]
 en = "Extend edge"
@@ -2561,6 +2743,7 @@ ja = "エッジを拡張"
 pt = "Estender borda"
 tr = "Kenarı uzat"
 it = "Estendi bordo"
+id = "Perpanjang tepi"
 
 ["FOV"]
 en = "FOV"
@@ -2575,6 +2758,7 @@ ja = "視野角"
 pt = "Campo de visão"
 tr = "Görüş Alanı"
 it = "FOV"
+id = "FOV"
 
 ["FPS"]
 en = "FPS"
@@ -2589,6 +2773,7 @@ ja = "FPS"
 pt = "FPS"
 tr = "FPS"
 it = "FPS"
+id = "FPS"
 
 ["Fade"]
 en = "Fade"
@@ -2603,6 +2788,7 @@ ja = "フェード"
 pt = "Esmaecimento"
 tr = "Soldurma"
 it = "Fade"
+id = "Fade"
 
 ["Fade length"]
 en = "Fade length"
@@ -2617,6 +2803,7 @@ ja = "フェード長"
 pt = "Duração do esmaecimento"
 tr = "Soldurma uzunluğu"
 it = "Lunghezza fade"
+id = "Panjang fade"
 
 ["Fade one by one"]
 en = "Fade one by one"
@@ -2631,6 +2818,7 @@ ja = "1つずつフェード"
 pt = "Esmaecer um por um"
 tr = "Tek tek soldur"
 it = "Fade uno per uno"
+id = "Fade satu per satu"
 
 ["Fade opacity"]
 en = "Fade opacity"
@@ -2645,6 +2833,7 @@ ja = "フェード不透明度"
 pt = "Opacidade do esmaecimento"
 tr = "Soldurma opaklığı"
 it = "Opacità fade"
+id = "Opasitas fade"
 
 ["Fade together"]
 en = "Fade together"
@@ -2659,6 +2848,7 @@ ja = "まとめてフェード"
 pt = "Esmaecer juntos"
 tr = "Beraber soldur"
 it = "Fondi insieme"
+id = "Fade bersama"
 
 ["Fade-through color"]
 en = "Fade-through color"
@@ -2673,6 +2863,7 @@ ja = "中間フェード色"
 pt = "Cor do esmaecimento"
 tr = "Geçiş rengi"
 it = "Colore di dissolvenza"
+id = "Warna fade-through"
 
 ["Feather"]
 en = "Feather"
@@ -2687,6 +2878,7 @@ ja = "フェザー"
 pt = "Difusão"
 tr = "Yumuşatma"
 it = "Sfumatura"
+id = "Feather"
 
 ["Feedback"]
 en = "Feedback"
@@ -2701,6 +2893,7 @@ ja = "フィードバック"
 pt = "Realimentação"
 tr = "Geri besleme"
 it = "Feedback"
+id = "Umpan balik"
 
 ["File Location"]
 en = "File Location"
@@ -2715,6 +2908,7 @@ ja = "ファイルの場所"
 pt = "Local do arquivo"
 tr = "Dosya Konumu"
 it = "Posizione file"
+id = "Lokasi Berkas"
 
 ["Fill"]
 en = "Fill"
@@ -2729,6 +2923,7 @@ ja = "塗り"
 pt = "Preenchimento"
 tr = "Doldur"
 it = "Riempi"
+id = "Isian"
 
 ["Fill color %{number}"]
 en = "Fill color %{number}"
@@ -2743,6 +2938,7 @@ ja = "塗りの色 %{number}"
 pt = "Cor de preenchimento %{number}"
 tr = "Dolgu rengi %{number}"
 it = "Colore riempimento %{number}"
+id = "Warna isian %{number}"
 
 ["Flipped"]
 en = "Flipped"
@@ -2757,6 +2953,7 @@ ja = "反転"
 pt = "Invertido"
 tr = "Tersine Çevrilmiş"
 it = "Capovolto"
+id = "Dibalik"
 
 ["Focal length"]
 en = "Focal length"
@@ -2771,6 +2968,7 @@ ja = "焦点距離"
 pt = "Distância focal"
 tr = "Odak uzaklığı"
 it = "Lunghezza focale"
+id = "Panjang fokus"
 
 ["Focus distance (0 = off)"]
 en = "Focus distance (0 = off)"
@@ -2785,6 +2983,7 @@ ja = "焦点距離（0 = オフ）"
 pt = "Distância de foco (0 = desativado)"
 tr = "Odak mesafesi (0 = kapalı)"
 it = "Distanza messa a fuoco (0 = disattivato)"
+id = "Jarak fokus (0 = mati)"
 
 ["Fold depth"]
 en = "Fold depth"
@@ -2799,6 +2998,7 @@ ja = "折り深さ"
 pt = "Profundidade da dobra"
 tr = "Katlama derinliği"
 it = "Profondità piegatura"
+id = "Kedalaman lipatan"
 
 ["Fold size"]
 en = "Fold size"
@@ -2813,6 +3013,7 @@ ja = "折りサイズ"
 pt = "Tamanho da dobra"
 tr = "Katlama boyutu"
 it = "Dimensione piegatura"
+id = "Ukuran lipatan"
 
 ["Folded Sequence"]
 en = "Folded Sequence"
@@ -2827,6 +3028,7 @@ ja = "折りたたみシーケンス"
 pt = "Sequência recolhida"
 tr = "Katlanmış sekans"
 it = "Sequenza piegata"
+id = "Urutan Terlipat"
 
 ["Font"]
 en = "Font"
@@ -2841,6 +3043,7 @@ ja = "フォント"
 pt = "Fonte"
 tr = "Yazı Tipi"
 it = "Font"
+id = "Font"
 
 ["Font size"]
 en = "Font size"
@@ -2855,6 +3058,7 @@ ja = "フォントサイズ"
 pt = "Tamanho da fonte"
 tr = "Yazı tipi boyutu"
 it = "Dimensione font"
+id = "Ukuran font"
 
 ["Font weight"]
 en = "Font weight"
@@ -2869,6 +3073,7 @@ ja = "フォントウェイト"
 pt = "Peso da fonte"
 tr = "Yazı tipi kalınlığı"
 it = "Peso font"
+id = "Ketebalan font"
 
 ["Fonts"]
 en = "Fonts"
@@ -2883,6 +3088,7 @@ ja = "フォント"
 pt = "Fontes"
 tr = "Yazı Tipleri"
 it = "Fonts"
+id = "Font"
 
 ["Formant shift"]
 en = "Formant shift"
@@ -2897,6 +3103,7 @@ ja = "フォルマントシフト"
 pt = "Deslocamento de formantes"
 tr = "Formant kaydırma"
 it = "Spostamento formanti"
+id = "Pergeseran forman"
 
 ["Frequency"]
 en = "Frequency"
@@ -2911,6 +3118,7 @@ ja = "周波数"
 pt = "Frequência"
 tr = "Frekans"
 it = "Frequenza"
+id = "Frekuensi"
 
 ["Fresnel contour"]
 en = "Fresnel contour"
@@ -2924,6 +3132,7 @@ ja = "フレネル輪郭"
 "ru" = "Контур Френеля"
 pt = "Contorno de Fresnel"
 it = "Contorno Fresnel"
+id = "Kontur Fresnel"
 
 ["From inside"]
 en = "From inside"
@@ -2937,6 +3146,7 @@ ja = "内側から"
 "ru" = "Изнутри"
 pt = "De dentro"
 it = "Da dentro"
+id = "Dari dalam"
 
 ["From outside"]
 en = "From outside"
@@ -2950,6 +3160,7 @@ ja = "外側から"
 "ru" = "Снаружи"
 pt = "De fora"
 it = "Da fuori"
+id = "Dari luar"
 
 ["Gamma"]
 en = "Gamma"
@@ -2963,6 +3174,7 @@ ja = "ガンマ"
 "ru" = "Гамма"
 pt = "Gama"
 it = "Gamma"
+id = "Gamma"
 
 ["Generator"]
 en = "Generator"
@@ -2976,6 +3188,7 @@ ja = "ジェネレーター"
 "ru" = "Генератор"
 pt = "Gerador"
 it = "Generatore"
+id = "Generator"
 
 ["Glow / outline"]
 en = "Glow / outline"
@@ -2989,6 +3202,7 @@ ja = "グロー / アウトライン"
 "ru" = "Свечение / контур"
 pt = "Brilho / contorno"
 it = "Bagliore / contorno"
+id = "Pijar / garis luar"
 
 ["Gradient step"]
 en = "Gradient step"
@@ -3002,6 +3216,7 @@ ja = "グラデーション段階"
 "ru" = "Шаг градиента"
 pt = "Passo do gradiente"
 it = "Passo gradiente"
+id = "Langkah gradien"
 
 ["Grain size"]
 en = "Grain size"
@@ -3015,6 +3230,7 @@ ja = "粒子サイズ"
 "ru" = "Размер зерна"
 pt = "Tamanho do grão"
 it = "Dimensione grana"
+id = "Ukuran butiran"
 
 ["Ground intensity"]
 en = "Ground intensity"
@@ -3028,6 +3244,7 @@ ja = "地面の強度"
 "ru" = "Интенсивность земли"
 pt = "Intensidade do chão"
 it = "Intensità terreno"
+id = "Intensitas dasar"
 
 ["H align"]
 en = "H align"
@@ -3041,6 +3258,7 @@ ja = "水平揃え"
 "ru" = "Выравнивание по горизонтали"
 pt = "Alinhamento H"
 it = "Allinea H"
+id = "Perataan H"
 
 ["Hard shadow"]
 en = "Hard shadow"
@@ -3054,6 +3272,7 @@ ja = "ハードシャドウ"
 "ru" = "Жёсткая тень"
 pt = "Sombra dura"
 it = "Ombra dura"
+id = "Bayangan tajam"
 
 ["Head length"]
 en = "Head length"
@@ -3067,6 +3286,7 @@ ja = "先端の長さ"
 "ru" = "Длина наконечника"
 pt = "Comprimento da ponta"
 it = "Lunghezza punta"
+id = "Panjang kepala"
 
 ["Heart"]
 en = "Heart"
@@ -3080,6 +3300,7 @@ ja = "ハート"
 "ru" = "Сердце"
 pt = "Coração"
 it = "Cuore"
+id = "Hati"
 
 ["Hexagon"]
 en = "Hexagon"
@@ -3093,6 +3314,7 @@ ja = "六角形"
 "ru" = "Шестиугольник"
 pt = "Hexágono"
 it = "Esagono"
+id = "Heksagon"
 
 ["Hierarchy"]
 en = "Hierarchy"
@@ -3106,6 +3328,7 @@ ja = "階層"
 "ru" = "Иерархия"
 pt = "Hierarquia"
 it = "Gerarchia"
+id = "Hierarki"
 
 ["High"]
 en = "High"
@@ -3119,6 +3342,7 @@ ja = "高"
 "ru" = "Высокое"
 pt = "Alto"
 it = "Alto"
+id = "Tinggi"
 
 ["High color"]
 en = "High color"
@@ -3132,6 +3356,7 @@ ja = "高域色"
 "ru" = "Цвет верха"
 pt = "Cor alta"
 it = "Colore alto"
+id = "Warna tinggi"
 
 ["High-pass"]
 en = "High-pass"
@@ -3145,6 +3370,7 @@ ja = "ハイパス"
 "ru" = "Высокие частоты"
 pt = "Passa-altas"
 it = "Passa-alti"
+id = "High-pass"
 
 ["Highlight color"]
 en = "Highlight color"
@@ -3158,6 +3384,7 @@ ja = "ハイライト色"
 "ru" = "Цвет бликов"
 pt = "Cor de destaque"
 it = "Colore evidenziazione"
+id = "Warna sorotan"
 
 ["Horizontal"]
 en = "Horizontal"
@@ -3171,6 +3398,7 @@ ja = "水平"
 "ru" = "Горизонтальный"
 pt = "Horizontal"
 it = "Orizzontale"
+id = "Horizontal"
 
 ["Horizontal alignment"]
 en = "Horizontal alignment"
@@ -3184,6 +3412,7 @@ ja = "水平揃え"
 "ru" = "Горизонтальное выравнивание"
 pt = "Alinhamento horizontal"
 it = "Allineamento orizzontale"
+id = "Perataan horizontal"
 
 ["Hue position"]
 en = "Hue position"
@@ -3197,6 +3426,7 @@ ja = "色相位置"
 "ru" = "Положение тона"
 pt = "Posição do matiz"
 it = "Posizione tono"
+id = "Posisi rona"
 
 ["Image"]
 en = "Image"
@@ -3210,6 +3440,7 @@ ja = "画像"
 "ru" = "Изображение"
 pt = "Imagem"
 it = "Immagine"
+id = "Gambar"
 
 ["Images"]
 en = "Images"
@@ -3223,6 +3454,7 @@ ja = "画像"
 "ru" = "Изображения"
 pt = "Imagens"
 it = "Immagini"
+id = "Gambar"
 
 ["Immediate"]
 en = "Immediate"
@@ -3236,6 +3468,7 @@ ja = "即時"
 "ru" = "Немедленно"
 pt = "Imediato"
 it = "Immediato"
+id = "Langsung"
 
 ["Include this track in playback and export"]
 en = "Include this track in playback and export"
@@ -3249,6 +3482,7 @@ ja = "再生と書き出しにこのトラックを含める"
 "ru" = "Включать эту дорожку в воспроизведение и экспорт"
 pt = "Incluir esta faixa na reprodução e exportação"
 it = "Includi questa traccia in riproduzione ed esportazione"
+id = "Sertakan trek ini dalam pemutaran dan ekspor"
 
 ["Index of refraction"]
 en = "Index of refraction"
@@ -3262,6 +3496,7 @@ ja = "屈折率"
 "ru" = "Показатель преломления"
 pt = "Índice de refração"
 it = "Indice di rifrazione"
+id = "Indeks bias"
 
 ["Infinite"]
 en = "Infinite"
@@ -3275,6 +3510,7 @@ ja = "無限"
 "ru" = "Бесконечный"
 pt = "Infinito"
 it = "Infinito"
+id = "Tak terhingga"
 
 ["Inner radius"]
 en = "Inner radius"
@@ -3288,6 +3524,7 @@ ja = "内半径"
 "ru" = "Внутренний радиус"
 pt = "Raio interno"
 it = "Raggio interno"
+id = "Radius dalam"
 
 ["Intensity"]
 en = "Intensity"
@@ -3301,6 +3538,7 @@ ja = "強度"
 "ru" = "Интенсивность"
 pt = "Intensidade"
 it = "Intensità"
+id = "Intensitas"
 
 ["Intro"]
 en = "Intro"
@@ -3314,6 +3552,7 @@ ja = "イントロ"
 "ru" = "Интро"
 pt = "Introdução"
 it = "Intro"
+id = "Intro"
 
 ["Invert"]
 en = "Invert"
@@ -3327,6 +3566,7 @@ ja = "反転"
 "ru" = "Инвертировать"
 pt = "Inverter"
 it = "Inverti"
+id = "Balikkan"
 
 ["Iris"]
 en = "Iris"
@@ -3340,6 +3580,7 @@ ja = "アイリス"
 "ru" = "Ирис"
 pt = "Íris"
 it = "Iride"
+id = "Iris"
 
 ["Italic"]
 en = "Italic"
@@ -3353,6 +3594,7 @@ ja = "斜体"
 "ru" = "Курсив"
 pt = "Itálico"
 it = "Corsivo"
+id = "Miring"
 
 ["Items"]
 en = "Items"
@@ -3366,6 +3608,7 @@ ja = "項目"
 "ru" = "Элементы"
 pt = "Itens"
 it = "Elementi"
+id = "Item"
 
 ["Jitter"]
 en = "Jitter"
@@ -3379,6 +3622,7 @@ ja = "ジッター"
 "ru" = "Джиттер"
 pt = "Instabilidade"
 it = "Jitter"
+id = "Jitter"
 
 ["Key color"]
 en = "Key color"
@@ -3392,6 +3636,7 @@ ja = "キーカラー"
 "ru" = "Ключевой цвет"
 pt = "Cor-chave"
 it = "Colore chiave"
+id = "Warna kunci"
 
 ["Keyframes"]
 en = "Keyframes"
@@ -3405,6 +3650,7 @@ ja = "キーフレーム"
 "ru" = "Ключевые кадры"
 pt = "Quadros-chave"
 it = "Keyframes"
+id = "Keyframe"
 
 ["Kind"]
 en = "Kind"
@@ -3418,6 +3664,7 @@ ja = "種類"
 "ru" = "Вид"
 pt = "Tipo"
 it = "Tipo"
+id = "Jenis"
 
 ["Kuwahara radius"]
 en = "Kuwahara radius"
@@ -3431,6 +3678,7 @@ ja = "Kuwahara半径"
 "ru" = "Радиус Kuwahara"
 pt = "Raio Kuwahara"
 it = "Raggio Kuwahara"
+id = "Radius Kuwahara"
 
 ["Kuwahara strength"]
 en = "Kuwahara strength"
@@ -3444,6 +3692,7 @@ ja = "Kuwahara強度"
 "ru" = "Сила Kuwahara"
 pt = "Intensidade Kuwahara"
 it = "Intensità Kuwahara"
+id = "Kekuatan Kuwahara"
 
 ["Lacunarity"]
 en = "Lacunarity"
@@ -3457,6 +3706,7 @@ ja = "ラキュナリティ"
 "ru" = "Лакунарность"
 pt = "Lacunaridade"
 it = "Lacunarità"
+id = "Lakunaritas"
 
 ["Layered Image"]
 en = "Layered Image"
@@ -3470,6 +3720,7 @@ ja = "レイヤー画像"
 "ru" = "Многослойное изображение"
 pt = "Imagem em camadas"
 it = "Immagine su livelli"
+id = "Gambar Berlapis"
 
 ["Layers"]
 en = "Layers"
@@ -3483,6 +3734,7 @@ ja = "レイヤー"
 "ru" = "Слои"
 pt = "Camadas"
 it = "Livelli"
+id = "Lapisan"
 
 ["Layout"]
 en = "Layout"
@@ -3496,6 +3748,7 @@ ja = "レイアウト"
 "ru" = "Макет"
 pt = "Layout"
 it = "Layout"
+id = "Tata letak"
 
 ["Language"]
 en = "Language"
@@ -3509,6 +3762,7 @@ ko = "언어"
 "ru" = "Язык"
 pt = "Idioma"
 it = "Lingua"
+id = "Bahasa"
 
 ["Left"]
 en = "Left"
@@ -3522,6 +3776,7 @@ ja = "左"
 "ru" = "Слева"
 pt = "Esquerda"
 it = "Sinistra"
+id = "Kiri"
 
 ["Length randomness"]
 en = "Length randomness"
@@ -3535,6 +3790,7 @@ ja = "長さのランダム性"
 "ru" = "Случайность длины"
 pt = "Aleatoriedade do comprimento"
 it = "Casualità lunghezza"
+id = "Keacakan panjang"
 
 ["Length timing"]
 en = "Length timing"
@@ -3548,6 +3804,7 @@ ja = "長さのタイミング"
 "ru" = "Тайминг длины"
 pt = "Temporização do comprimento"
 it = "Timing lunghezza"
+id = "Pewaktuan panjang"
 
 ["Letter"]
 en = "Letter"
@@ -3561,6 +3818,7 @@ ja = "文字"
 "ru" = "Буква"
 pt = "Letra"
 it = "Lettera"
+id = "Huruf"
 
 ["Level"]
 en = "Level"
@@ -3574,6 +3832,7 @@ ja = "レベル"
 "ru" = "Уровень"
 pt = "Nível"
 it = "Livello"
+id = "Level"
 
 ["Levels"]
 en = "Levels"
@@ -3587,6 +3846,7 @@ ja = "レベル"
 "ru" = "Уровни"
 pt = "Níveis"
 it = "Livelli"
+id = "Level"
 
 ["Light bands"]
 en = "Light bands"
@@ -3600,6 +3860,7 @@ ja = "明部バンド"
 "ru" = "Светлые полосы"
 pt = "Faixas claras"
 it = "Bande luce"
+id = "Pita cahaya"
 
 ["Line count"]
 en = "Line count"
@@ -3613,6 +3874,7 @@ ja = "ライン数"
 "ru" = "Количество линий"
 pt = "Número de linhas"
 it = "Numero linee"
+id = "Jumlah garis"
 
 ["Line density"]
 en = "Line density"
@@ -3626,6 +3888,7 @@ ja = "ライン密度"
 "ru" = "Плотность линий"
 pt = "Densidade de linhas"
 it = "Densità linee"
+id = "Kepadatan garis"
 
 ["Line direction"]
 en = "Line direction"
@@ -3639,6 +3902,7 @@ ja = "ライン方向"
 "ru" = "Направление линий"
 pt = "Direção das linhas"
 it = "Direzione linee"
+id = "Arah garis"
 
 ["Line height"]
 en = "Line height"
@@ -3652,6 +3916,7 @@ ja = "行の高さ"
 "ru" = "Высота строки"
 pt = "Altura da linha"
 it = "Altezza linea"
+id = "Tinggi baris"
 
 ["Line length"]
 en = "Line length"
@@ -3665,6 +3930,7 @@ ja = "ライン長"
 "ru" = "Длина линии"
 pt = "Comprimento da linha"
 it = "Lunghezza linea"
+id = "Panjang garis"
 
 ["Line offset"]
 en = "Line offset"
@@ -3678,6 +3944,7 @@ ja = "ラインオフセット"
 "ru" = "Смещение линий"
 pt = "Deslocamento de linha"
 it = "Offset linea"
+id = "Ofset garis"
 
 ["Line style"]
 en = "Line style"
@@ -3691,6 +3958,7 @@ ja = "ラインスタイル"
 "ru" = "Стиль линии"
 pt = "Estilo de linha"
 it = "Stile linea"
+id = "Gaya garis"
 
 ["Line width"]
 en = "Line width"
@@ -3704,6 +3972,7 @@ ja = "線幅"
 "ru" = "Ширина линии"
 pt = "Largura da linha"
 it = "Larghezza linea"
+id = "Lebar garis"
 
 ["Linear"]
 en = "Linear"
@@ -3717,6 +3986,7 @@ ja = "線形"
 "ru" = "Линейный"
 pt = "Linear"
 it = "Lineare"
+id = "Linier"
 
 ["Lines"]
 en = "Lines"
@@ -3730,6 +4000,7 @@ ja = "ライン"
 "ru" = "Линии"
 pt = "Linhas"
 it = "Linee"
+id = "Garis"
 
 ["Link stereo channels"]
 en = "Link stereo channels"
@@ -3743,6 +4014,7 @@ ja = "ステレオチャンネルをリンク"
 "ru" = "Связать стереоканалы"
 pt = "Vincular canais estéreo"
 it = "Collega canali stereo"
+id = "Tautkan saluran stereo"
 
 ["Loading cached font…"]
 en = "Loading cached font…"
@@ -3756,6 +4028,7 @@ ja = "キャッシュ済みフォントを読み込み中…"
 "ru" = "Загрузка шрифта из кэша…"
 pt = "Carregando fonte em cache…"
 it = "Caricamento font in cache…"
+id = "Memuat font cache…"
 
 ["Loading cameras…"]
 en = "Loading cameras…"
@@ -3769,6 +4042,7 @@ ja = "カメラを読み込み中…"
 "ru" = "Загрузка камер…"
 pt = "Carregando câmeras…"
 it = "Caricamento telecamere…"
+id = "Memuat kamera…"
 
 ["Loading installed fonts…"]
 en = "Loading installed fonts…"
@@ -3782,6 +4056,7 @@ ja = "インストール済みフォントを読み込み中…"
 "ru" = "Загрузка установленных шрифтов…"
 pt = "Carregando fontes instaladas…"
 it = "Caricamento font installati…"
+id = "Memuat font terpasang…"
 
 ["Loading scenes..."]
 en = "Loading scenes..."
@@ -3795,6 +4070,7 @@ ja = "シーンを読み込み中..."
 "ru" = "Загрузка сцен..."
 pt = "Carregando cenas..."
 it = "Caricamento scene..."
+id = "Memuat adegan..."
 
 ["Loading scenes…"]
 en = "Loading scenes…"
@@ -3808,6 +4084,7 @@ ja = "シーンを読み込み中…"
 "ru" = "Загрузка сцен…"
 pt = "Carregando cenas…"
 it = "Caricamento scene…"
+id = "Memuat adegan…"
 
 ["Loading tracking model"]
 en = "Loading tracking model"
@@ -3821,6 +4098,7 @@ ja = "トラッキングモデルを読み込み中"
 "ru" = "Загрузка модели отслеживания"
 pt = "Carregando modelo de rastreamento"
 it = "Caricamento modello tracking"
+id = "Memuat model pelacakan"
 
 ["Loading view layers…"]
 en = "Loading view layers…"
@@ -3834,6 +4112,7 @@ ja = "ビューレイヤーを読み込み中…"
 "ru" = "Загрузка слоёв просмотра…"
 pt = "Carregando camadas de visualização…"
 it = "Caricamento livelli vista…"
+id = "Memuat lapisan tampilan…"
 
 ["Low"]
 en = "Low"
@@ -3847,6 +4126,7 @@ ja = "低"
 "ru" = "Низкое"
 pt = "Baixo"
 it = "Basso"
+id = "Rendah"
 
 ["Low color"]
 en = "Low color"
@@ -3860,6 +4140,7 @@ ja = "低域色"
 "ru" = "Цвет низа"
 pt = "Cor baixa"
 it = "Colore basso"
+id = "Warna rendah"
 
 ["Low latency"]
 en = "Low latency"
@@ -3873,6 +4154,7 @@ ja = "低レイテンシ"
 "ru" = "Низкая задержка"
 pt = "Baixa latência"
 it = "Bassa latenza"
+id = "Latensi rendah"
 
 ["Low-pass"]
 en = "Low-pass"
@@ -3886,6 +4168,7 @@ ja = "ローパス"
 "ru" = "Низкие частоты"
 pt = "Passa-baixas"
 it = "Passa-bassi"
+id = "Low-pass"
 
 ["Maintain pitch while changing speed"]
 en = "Maintain pitch while changing speed"
@@ -3899,6 +4182,7 @@ ja = "速度変更時にピッチを維持"
 "ru" = "Сохранять высоту тона при изменении скорости"
 pt = "Manter o tom ao alterar a velocidade"
 it = "Mantieni l'altezza mentre cambi la velocità"
+id = "Pertahankan titinada saat mengubah kecepatan"
 
 ["Makeup"]
 en = "Makeup"
@@ -3912,6 +4196,7 @@ ja = "メイクアップ"
 "ru" = "Компенсация"
 pt = "Compensação"
 it = "Compensazione"
+id = "Makeup"
 
 ["Mask"]
 en = "Mask"
@@ -3925,6 +4210,7 @@ ja = "マスク"
 "ru" = "Маска"
 pt = "Máscara"
 it = "Maschera"
+id = "Masker"
 
 ["Mask strength"]
 en = "Mask strength"
@@ -3938,6 +4224,7 @@ ja = "マスク強度"
 "ru" = "Сила маски"
 pt = "Intensidade da máscara"
 it = "Intensità maschera"
+id = "Kekuatan masker"
 
 ["Material Preview"]
 en = "Material Preview"
@@ -3951,6 +4238,7 @@ ja = "マテリアルプレビュー"
 "ru" = "Предпросмотр материала"
 pt = "Pré-visualização de material"
 it = "Anteprima materiale"
+id = "Pratinjau Material"
 
 ["Max iterations"]
 en = "Max iterations"
@@ -3964,6 +4252,7 @@ ja = "最大反復回数"
 "ru" = "Макс. итераций"
 pt = "Iterações máximas"
 it = "Iterazioni massime"
+id = "Iterasi maks"
 
 ["Maximum block size"]
 en = "Maximum block size"
@@ -3977,6 +4266,7 @@ ja = "最大ブロックサイズ"
 "ru" = "Максимальный размер блока"
 pt = "Tamanho máximo de bloco"
 it = "Dimensione massima blocco"
+id = "Ukuran blok maksimum"
 
 ["Maximum directions"]
 en = "Maximum directions"
@@ -3990,6 +4280,7 @@ ja = "最大方向数"
 "ru" = "Максимум направлений"
 pt = "Direções máximas"
 it = "Direzioni massime"
+id = "Arah maksimum"
 
 ["Maximum gap"]
 en = "Maximum gap"
@@ -4003,6 +4294,7 @@ ja = "最大間隔"
 "ru" = "Максимальный зазор"
 pt = "Espaço máximo"
 it = "Spazio massimo"
+id = "Celah maksimum"
 
 ["Maximum radius"]
 en = "Maximum radius"
@@ -4016,6 +4308,7 @@ ja = "最大半径"
 "ru" = "Максимальный радиус"
 pt = "Raio máximo"
 it = "Raggio massimo"
+id = "Radius maksimum"
 
 ["Mesh columns"]
 en = "Mesh columns"
@@ -4029,6 +4322,7 @@ ja = "メッシュ列"
 "ru" = "Столбцы сетки"
 pt = "Colunas da malha"
 it = "Colonne mesh"
+id = "Kolom mesh"
 
 ["Mesh rows"]
 en = "Mesh rows"
@@ -4042,6 +4336,7 @@ ja = "メッシュ行"
 "ru" = "Строки сетки"
 pt = "Linhas da malha"
 it = "Righe mesh"
+id = "Baris mesh"
 
 ["Metallic"]
 en = "Metallic"
@@ -4055,6 +4350,7 @@ ja = "メタリック"
 "ru" = "Металличность"
 pt = "Metálico"
 it = "Metallico"
+id = "Metalik"
 
 ["Method"]
 en = "Method"
@@ -4068,6 +4364,7 @@ ja = "方式"
 "ru" = "Метод"
 pt = "Método"
 it = "Metodo"
+id = "Metode"
 
 ["Metric"]
 en = "Metric"
@@ -4081,6 +4378,7 @@ ja = "メトリック"
 "ru" = "Метрика"
 pt = "Métrica"
 it = "Metrica"
+id = "Metrik"
 
 ["Mid"]
 en = "Mid"
@@ -4094,6 +4392,7 @@ ja = "中域"
 "ru" = "Середина"
 pt = "Médios"
 it = "Medie"
+id = "Tengah"
 
 ["Middle"]
 en = "Middle"
@@ -4107,6 +4406,7 @@ ja = "中央"
 "ru" = "Середина"
 pt = "Meio"
 it = "Centro"
+id = "Tengah"
 
 ["Middle padding"]
 en = "Middle padding"
@@ -4120,6 +4420,7 @@ ja = "中央余白"
 "ru" = "Средний отступ"
 pt = "Preenchimento central"
 it = "Margine centrale"
+id = "Padding tengah"
 
 ["Midpoint"]
 en = "Midpoint"
@@ -4133,6 +4434,7 @@ ja = "中間点"
 "ru" = "Средняя точка"
 pt = "Ponto médio"
 it = "Punto medio"
+id = "Titik tengah"
 
 ["Mirror"]
 en = "Mirror"
@@ -4146,6 +4448,7 @@ ja = "ミラー"
 "ru" = "Зеркало"
 pt = "Espelhar"
 it = "Specchia"
+id = "Cermin"
 
 ["Mix"]
 en = "Mix"
@@ -4159,6 +4462,7 @@ ja = "ミックス"
 "ru" = "Смесь"
 pt = "Mistura"
 it = "Miscola"
+id = "Mix"
 
 ["Mode"]
 en = "Mode"
@@ -4172,6 +4476,7 @@ ja = "モード"
 "ru" = "Режим"
 pt = "Modo"
 it = "Modalità"
+id = "Mode"
 
 ["Morph"]
 en = "Morph"
@@ -4185,6 +4490,7 @@ ja = "モーフ"
 "ru" = "Морфинг"
 pt = "Morph"
 it = "Morph"
+id = "Morph"
 
 ["Morph by"]
 en = "Morph by"
@@ -4198,6 +4504,7 @@ ja = "モーフ単位"
 "ru" = "Морфить по"
 pt = "Transformar por"
 it = "Morph per"
+id = "Morph berdasarkan"
 
 ["Motion amount"]
 en = "Motion amount"
@@ -4211,6 +4518,7 @@ ja = "モーション量"
 "ru" = "Величина движения"
 pt = "Quantidade de movimento"
 it = "Quantità movimento"
+id = "Jumlah gerakan"
 
 ["Motion blur"]
 en = "Motion blur"
@@ -4224,6 +4532,7 @@ ja = "モーションブラー"
 "ru" = "Размытие в движении"
 pt = "Desfoque de movimento"
 it = "Motion blur"
+id = "Motion blur"
 
 ["Motion position"]
 en = "Motion position"
@@ -4237,6 +4546,7 @@ ja = "モーション位置"
 "ru" = "Положение движения"
 pt = "Posição do movimento"
 it = "Posizione movimento"
+id = "Posisi gerakan"
 
 ["Motion-dependent temporal smoothing model"]
 en = "Motion-dependent temporal smoothing model"
@@ -4250,6 +4560,7 @@ ja = "動きに応じた時間平滑化モデル"
 "ru" = "Модель временного сглаживания с учётом движения"
 pt = "Modelo de suavização temporal dependente de movimento"
 it = "Modello di smoothing temporale dipendente dal movimento"
+id = "Model penghalusan temporal bergantung gerakan"
 
 ["Move down"]
 en = "Move down"
@@ -4263,6 +4574,7 @@ ja = "下へ移動"
 "ru" = "Переместить вниз"
 pt = "Mover para baixo"
 it = "Sposta in basso"
+id = "Pindahkan ke bawah"
 
 ["Move up"]
 en = "Move up"
@@ -4276,6 +4588,7 @@ ja = "上へ移動"
 "ru" = "Переместить вверх"
 pt = "Mover para cima"
 it = "Sposta in alto"
+id = "Pindahkan ke atas"
 
 ["Name"]
 en = "Name"
@@ -4289,6 +4602,7 @@ ja = "名前"
 "ru" = "Имя"
 pt = "Nome"
 it = "Nome"
+id = "Nama"
 
 ["Natural Duration"]
 en = "Natural Duration"
@@ -4302,6 +4616,7 @@ ja = "元の長さ"
 "ru" = "Естественная длительность"
 pt = "Duração natural"
 it = "Durata naturale"
+id = "Durasi Alami"
 
 ["Neighboring frames considered on each side"]
 en = "Neighboring frames considered on each side"
@@ -4315,6 +4630,7 @@ ja = "両側で考慮する隣接フレーム"
 "ru" = "Соседние кадры, учитываемые с каждой стороны"
 pt = "Quadros vizinhos considerados em cada lado"
 it = "Fotogrammi adiacenti considerati su ciascun lato"
+id = "Bingkai tetangga yang dipertimbangkan di setiap sisi"
 
 ["Next keyframe"]
 en = "Next keyframe"
@@ -4328,6 +4644,7 @@ ja = "次のキーフレーム"
 "ru" = "Следующий ключевой кадр"
 pt = "Próximo quadro-chave"
 it = "Keyframe successivo"
+id = "Keyframe berikutnya"
 
 ["Noise evolution"]
 en = "Noise evolution"
@@ -4341,6 +4658,7 @@ ja = "ノイズ変化"
 "ru" = "Эволюция шума"
 pt = "Evolução do ruído"
 it = "Evoluzione rumore"
+id = "Evolusi derau"
 
 ["Noise seed"]
 en = "Noise seed"
@@ -4354,6 +4672,7 @@ ja = "ノイズシード"
 "ru" = "Сид шума"
 pt = "Semente do ruído"
 it = "Seed rumore"
+id = "Seed derau"
 
 ["Normal"]
 en = "Normal"
@@ -4367,6 +4686,7 @@ ja = "標準"
 "ru" = "Обычный"
 pt = "Normal"
 it = "Normale"
+id = "Normal"
 
 ["Normal angle"]
 en = "Normal angle"
@@ -4380,6 +4700,7 @@ ja = "法線角度"
 "ru" = "Угол нормали"
 pt = "Ângulo da normal"
 it = "Angolo normale"
+id = "Sudut normal"
 
 ["Normals"]
 en = "Normals"
@@ -4393,6 +4714,7 @@ ja = "法線"
 "ru" = "Нормали"
 pt = "Normais"
 it = "Normali"
+id = "Normal"
 
 ["Not analyzed"]
 en = "Not analyzed"
@@ -4406,6 +4728,7 @@ ja = "未解析"
 "ru" = "Не проанализировано"
 pt = "Não analisado"
 it = "Non analizzato"
+id = "Belum dianalisis"
 
 ["Number of independently moving cell columns"]
 en = "Number of independently moving cell columns"
@@ -4419,6 +4742,7 @@ ja = "独立して動くセル列の数"
 "ru" = "Количество независимо движущихся столбцов ячеек"
 pt = "Número de colunas de células com movimento independente"
 it = "Numero di colonne di celle con movimento indipendente"
+id = "Jumlah kolom sel yang bergerak independen"
 
 ["Number of independently moving cell rows"]
 en = "Number of independently moving cell rows"
@@ -4432,6 +4756,7 @@ ja = "独立して動くセル行の数"
 "ru" = "Количество независимо движущихся строк ячеек"
 pt = "Número de linhas de células com movimento independente"
 it = "Numero di righe di celle con movimento indipendente"
+id = "Jumlah baris sel yang bergerak independen"
 
 ["Octagon"]
 en = "Octagon"
@@ -4445,6 +4770,7 @@ ja = "八角形"
 "ru" = "Восьмиугольник"
 pt = "Octógono"
 it = "Ottagono"
+id = "Oktagon"
 
 ["Octaves"]
 en = "Octaves"
@@ -4458,6 +4784,7 @@ ja = "オクターブ"
 "ru" = "Октавы"
 pt = "Oitavas"
 it = "Ottave"
+id = "Oktaf"
 
 ["Off"]
 en = "Off"
@@ -4471,6 +4798,7 @@ ja = "オフ"
 "ru" = "Выкл."
 pt = "Desativado"
 it = "Spento"
+id = "Mati"
 
 ["Offset"]
 en = "Offset"
@@ -4484,6 +4812,7 @@ ja = "オフセット"
 "ru" = "Смещение"
 pt = "Deslocamento"
 it = "Offset"
+id = "Ofset"
 
 ["Offset axis"]
 en = "Offset axis"
@@ -4497,6 +4826,7 @@ ja = "オフセット軸"
 "ru" = "Ось смещения"
 pt = "Eixo de deslocamento"
 it = "Asse offset"
+id = "Sumbu ofset"
 
 ["Offset frequency"]
 en = "Offset frequency"
@@ -4510,6 +4840,7 @@ ja = "オフセット周波数"
 "ru" = "Частота смещения"
 pt = "Frequência de deslocamento"
 it = "Frequenza offset"
+id = "Frekuensi ofset"
 
 ["Offset randomness"]
 en = "Offset randomness"
@@ -4523,6 +4854,7 @@ ja = "オフセットのランダム性"
 "ru" = "Случайность смещения"
 pt = "Aleatoriedade de deslocamento"
 it = "Casualità offset"
+id = "Keacakan ofset"
 
 ["Offset variation"]
 en = "Offset variation"
@@ -4536,6 +4868,7 @@ ja = "オフセット変化"
 "ru" = "Изменение смещения"
 pt = "Variação de deslocamento"
 it = "Variazione offset"
+id = "Variasi ofset"
 
 ["On"]
 en = "On"
@@ -4549,6 +4882,7 @@ ja = "オン"
 "ru" = "Вкл."
 pt = "Ativado"
 it = "Acceso"
+id = "Hidup"
 
 ["Opacity"]
 en = "Opacity"
@@ -4562,6 +4896,7 @@ ja = "不透明度"
 "ru" = "Непрозрачность"
 pt = "Opacidade"
 it = "Opacità"
+id = "Opasitas"
 
 ["Open larger editor"]
 en = "Open larger editor"
@@ -4575,6 +4910,7 @@ ja = "大きなエディターを開く"
 "ru" = "Открыть редактор крупнее"
 pt = "Abrir editor ampliado"
 it = "Apri editor più grande"
+id = "Buka editor lebih besar"
 
 ["Operation"]
 en = "Operation"
@@ -4588,6 +4924,7 @@ ja = "処理"
 "ru" = "Операция"
 pt = "Operação"
 it = "Operazione"
+id = "Operasi"
 
 ["Optimization iterations"]
 en = "Optimization iterations"
@@ -4601,6 +4938,7 @@ ja = "最適化の反復回数"
 "ru" = "Итерации оптимизации"
 pt = "Iterações de otimização"
 it = "Iterazioni di ottimizzazione"
+id = "Iterasi pengoptimalan"
 
 ["Ordering"]
 en = "Ordering"
@@ -4614,6 +4952,7 @@ ja = "順序"
 "ru" = "Порядок"
 pt = "Ordenação"
 it = "Ordine"
+id = "Pengurutan"
 
 ["Original"]
 en = "Original"
@@ -4627,6 +4966,7 @@ ja = "オリジナル"
 "ru" = "Оригинал"
 pt = "Original"
 it = "Originale"
+id = "Asli"
 
 ["Orthographic height"]
 en = "Orthographic height"
@@ -4640,6 +4980,7 @@ ja = "平行投影の高さ"
 "ru" = "Ортографическая высота"
 pt = "Altura ortográfica"
 it = "Altezza ortografica"
+id = "Tinggi ortografis"
 
 ["Out of date"]
 en = "Out of date"
@@ -4653,6 +4994,7 @@ ja = "期限切れ"
 "ru" = "Устарело"
 pt = "Desatualizado"
 it = "Non aggiornato"
+id = "Kedaluwarsa"
 
 ["Outline"]
 en = "Outline"
@@ -4666,6 +5008,7 @@ ja = "アウトライン"
 "ru" = "Контур"
 pt = "Contorno"
 it = "Contorno"
+id = "Garis luar"
 
 ["Outline method"]
 en = "Outline method"
@@ -4679,6 +5022,7 @@ ja = "アウトライン方式"
 "ru" = "Метод контура"
 pt = "Método de contorno"
 it = "Metodo contorno"
+id = "Metode garis luar"
 
 ["Outline opacity"]
 en = "Outline opacity"
@@ -4692,6 +5036,7 @@ ja = "アウトライン不透明度"
 "ru" = "Непрозрачность контура"
 pt = "Opacidade do contorno"
 it = "Opacità contorno"
+id = "Opasitas garis luar"
 
 ["Outline quality"]
 en = "Outline quality"
@@ -4705,6 +5050,7 @@ ja = "アウトライン品質"
 "ru" = "Качество контура"
 pt = "Qualidade do contorno"
 it = "Qualità contorno"
+id = "Kualitas garis luar"
 
 ["Outline width"]
 en = "Outline width"
@@ -4718,6 +5064,7 @@ ja = "アウトライン幅"
 "ru" = "Ширина контура"
 pt = "Largura do contorno"
 it = "Larghezza contorno"
+id = "Lebar garis luar"
 
 ["Outro"]
 en = "Outro"
@@ -4731,6 +5078,7 @@ ja = "アウトロ"
 "ru" = "Аутро"
 pt = "Encerramento"
 it = "Outro"
+id = "Outro"
 
 ["Padding randomness"]
 en = "Padding randomness"
@@ -4744,6 +5092,7 @@ ja = "余白のランダム性"
 "ru" = "Случайность отступа"
 pt = "Aleatoriedade de preenchimento"
 it = "Casualità margine"
+id = "Keacakan bantalan"
 
 ["Page"]
 en = "Page"
@@ -4757,6 +5106,7 @@ ja = "ページ"
 "ru" = "Страница"
 pt = "Página"
 it = "Pagina"
+id = "Halaman"
 
 ["Palette levels"]
 en = "Palette levels"
@@ -4770,6 +5120,7 @@ ja = "パレットレベル"
 "ru" = "Уровни палитры"
 pt = "Níveis da paleta"
 it = "Livelli palette"
+id = "Level palet"
 
 ["Parameters"]
 en = "Parameters"
@@ -4783,6 +5134,7 @@ ja = "パラメーター"
 "ru" = "Параметры"
 pt = "Parâmetros"
 it = "Parametri"
+id = "Parameter"
 
 ["Partial mode"]
 en = "Partial mode"
@@ -4796,6 +5148,7 @@ ja = "部分モード"
 "ru" = "Частичный режим"
 pt = "Modo parcial"
 it = "Modalità parziale"
+id = "Mode parsial"
 
 ["Paste Modifier"]
 en = "Paste Modifier"
@@ -4809,6 +5162,7 @@ ja = "モディファイアを貼り付け"
 "ru" = "Вставить модификатор"
 pt = "Colar modificador"
 it = "Incolla modificatore"
+id = "Tempel Modifier"
 
 ["Path mode"]
 en = "Path mode"
@@ -4822,6 +5176,7 @@ ja = "パスモード"
 "ru" = "Режим пути"
 pt = "Modo de caminho"
 it = "Modalità percorso"
+id = "Mode jalur"
 
 ["Path precision"]
 en = "Path precision"
@@ -4835,6 +5190,7 @@ ja = "パス精度"
 "ru" = "Точность пути"
 pt = "Precisão do caminho"
 it = "Precisione percorso"
+id = "Presisi jalur"
 
 ["Pattern"]
 en = "Pattern"
@@ -4848,6 +5204,7 @@ ja = "パターン"
 "ru" = "Узор"
 pt = "Padrão"
 it = "Pattern"
+id = "Pola"
 
 ["Pattern softness"]
 en = "Pattern softness"
@@ -4861,6 +5218,7 @@ ja = "パターンの柔らかさ"
 "ru" = "Мягкость узора"
 pt = "Suavidade do padrão"
 it = "Morbidezza pattern"
+id = "Kelembutan pola"
 
 ["Pentagon"]
 en = "Pentagon"
@@ -4874,6 +5232,7 @@ ja = "五角形"
 "ru" = "Пятиугольник"
 pt = "Pentágono"
 it = "Pentagono"
+id = "Pentagon"
 
 ["Percentage"]
 en = "Percentage"
@@ -4887,6 +5246,7 @@ ja = "割合"
 "ru" = "Процент"
 pt = "Porcentagem"
 it = "Percentuale"
+id = "Persentase"
 
 ["Persistence"]
 en = "Persistence"
@@ -4900,6 +5260,7 @@ ja = "持続性"
 "ru" = "Персистентность"
 pt = "Persistência"
 it = "Persistenza"
+id = "Persistensi"
 
 ["Perspective"]
 en = "Perspective"
@@ -4913,6 +5274,7 @@ ja = "透視投影"
 "ru" = "Перспектива"
 pt = "Perspectiva"
 it = "Prospettiva"
+id = "Perspektif"
 
 ["Phase"]
 en = "Phase"
@@ -4926,6 +5288,7 @@ ja = "位相"
 "ru" = "Фаза"
 pt = "Fase"
 it = "Fase"
+id = "Fase"
 
 ["Picture"]
 en = "Picture"
@@ -4939,6 +5302,7 @@ ja = "ピクチャー"
 "ru" = "Картинка"
 pt = "Imagem"
 it = "Immagine"
+id = "Gambar"
 
 ["Ping-pong"]
 en = "Ping-pong"
@@ -4952,6 +5316,7 @@ ja = "ピンポン"
 "ru" = "Пинг-понг"
 pt = "Pingue-pongue"
 it = "Ping-pong"
+id = "Ping-pong"
 
 ["Pitch"]
 en = "Pitch"
@@ -4965,6 +5330,7 @@ ja = "ピッチ"
 "ru" = "Высота тона"
 pt = "Pitch"
 it = "Pitch"
+id = "Titinada"
 
 ["Pitch offset"]
 en = "Pitch offset"
@@ -4978,6 +5344,7 @@ ja = "ピッチオフセット"
 "ru" = "Смещение высоты тона"
 pt = "Deslocamento de pitch"
 it = "Offset pitch"
+id = "Ofset titinada"
 
 ["Pixel size"]
 en = "Pixel size"
@@ -4991,6 +5358,7 @@ ja = "ピクセルサイズ"
 "ru" = "Размер пикселя"
 pt = "Tamanho do pixel"
 it = "Dimensione pixel"
+id = "Ukuran piksel"
 
 ["Pixelate"]
 en = "Pixelate"
@@ -5004,6 +5372,7 @@ ja = "ピクセル化"
 "ru" = "Пикселизация"
 pt = "Pixelizar"
 it = "Pixelizza"
+id = "Pikselasi"
 
 ["Pixels"]
 en = "Pixels"
@@ -5017,6 +5386,7 @@ ja = "ピクセル"
 "ru" = "Пиксели"
 pt = "Pixels"
 it = "Pixels"
+id = "Piksel"
 
 ["Playback"]
 en = "Playback"
@@ -5030,6 +5400,7 @@ ja = "再生"
 "ru" = "Воспроизведение"
 pt = "Reprodução"
 it = "Riproduzione"
+id = "Pemutaran"
 
 ["Point type"]
 en = "Point type"
@@ -5043,6 +5414,7 @@ ja = "ポイント種別"
 "ru" = "Тип точки"
 pt = "Tipo de ponto"
 it = "Tipo di punto"
+id = "Jenis titik"
 
 ["Point %{number}"]
 en = "Point %{number}"
@@ -5056,6 +5428,7 @@ ja = "ポイント %{number}"
 "ru" = "Точка %{number}"
 pt = "Ponto %{number}"
 it = "Punto %{number}"
+id = "Titik %{number}"
 
 ["Points"]
 en = "Points"
@@ -5069,6 +5442,7 @@ ja = "ポイント"
 "ru" = "Точки"
 pt = "Pontos"
 it = "Punti"
+id = "Titik"
 
 ["Polygon"]
 en = "Polygon"
@@ -5082,6 +5456,7 @@ ja = "多角形"
 "ru" = "Многоугольник"
 pt = "Polígono"
 it = "Poligono"
+id = "Poligon"
 
 ["Position"]
 en = "Position"
@@ -5095,6 +5470,7 @@ ja = "位置"
 "ru" = "Положение"
 pt = "Posição"
 it = "Posizione"
+id = "Posisi"
 
 ["Position X"]
 en = "Position X"
@@ -5108,6 +5484,7 @@ ja = "位置 X"
 "ru" = "Положение X"
 pt = "Posição X"
 it = "Posizione X"
+id = "Posisi X"
 
 ["Position Y"]
 en = "Position Y"
@@ -5121,6 +5498,7 @@ ja = "位置 Y"
 "ru" = "Положение Y"
 pt = "Posição Y"
 it = "Posizione Y"
+id = "Posisi Y"
 
 ["Pre-delay"]
 en = "Pre-delay"
@@ -5134,6 +5512,7 @@ ja = "プリディレイ"
 "ru" = "Предзадержка"
 pt = "Pré-atraso"
 it = "Pre-delay"
+id = "Pra-tunda"
 
 ["Precompute compact CPU mask frames so normal playback does not run SAM2"]
 en = "Precompute compact CPU mask frames so normal playback does not run SAM2"
@@ -5147,6 +5526,7 @@ ja = "通常再生でSAM2を実行しないようCPUマスクを事前計算"
 "ru" = "Заранее вычислять компактные кадры маски на CPU, чтобы SAM2 не выполнялся при обычном воспроизведении"
 pt = "Pré-computar quadros de máscara compactos na CPU para que a reprodução normal não execute SAM2"
 it = "Pre-calcola i fotogrammi della maschera CPU compattati così la riproduzione normale non esegue SAM2"
+id = "Hitung awal bingkai masker CPU yang ringkas agar pemutaran normal tidak menjalankan SAM2"
 
 ["Precompute exact one-bit transparency masks for every frame"]
 en = "Precompute exact one-bit transparency masks for every frame"
@@ -5160,6 +5540,7 @@ ja = "全フレームの正確な1ビット透明マスクを事前計算"
 "ru" = "Заранее вычислять точные однобитные маски прозрачности для каждого кадра"
 pt = "Pré-computar máscaras de transparência exatas de um bit para cada quadro"
 it = "Pre-calcola maschere di trasparenza esatte a un bit per ogni fotogramma"
+id = "Hitung awal masker transparansi 1-bit yang presisi untuk setiap bingkai"
 
 ["Preference for a steady camera velocity"]
 en = "Preference for a steady camera velocity"
@@ -5173,6 +5554,7 @@ ja = "一定のカメラ速度を優先"
 "ru" = "Предпочтение стабильной скорости камеры"
 pt = "Preferência por velocidade constante da câmera"
 it = "Preferenza per una velocità della telecamera costante"
+id = "Preferensi untuk kecepatan kamera yang stabil"
 
 ["Preference for frames with no camera motion"]
 en = "Preference for frames with no camera motion"
@@ -5186,6 +5568,7 @@ ja = "カメラが動かないフレームを優先"
 "ru" = "Предпочтение кадров без движения камеры"
 pt = "Preferência por quadros sem movimento da câmera"
 it = "Preferenza per fotogrammi senza movimento di telecamera"
+id = "Preferensi untuk bingkai tanpa gerakan kamera"
 
 ["Preference for smoothly changing camera motion"]
 en = "Preference for smoothly changing camera motion"
@@ -5199,6 +5582,7 @@ ja = "滑らかに変化するカメラ動作を優先"
 "ru" = "Предпочтение плавного изменения движения камеры"
 pt = "Preferência por transições suaves de movimento da câmera"
 it = "Preferenza per movimenti di telecamera fluidi"
+id = "Preferensi untuk perubahan gerakan kamera yang mulus"
 
 ["Preserve formants"]
 en = "Preserve formants"
@@ -5212,6 +5596,7 @@ ja = "フォルマントを維持"
 "ru" = "Сохранять форманты"
 pt = "Preservar formantes"
 it = "Preserva formanti"
+id = "Pertahankan forman"
 
 ["Preserve pitch"]
 en = "Preserve pitch"
@@ -5225,6 +5610,7 @@ ja = "ピッチを維持"
 "ru" = "Сохранять высоту тона"
 pt = "Preservar tom"
 it = "Preserva pitch"
+id = "Pertahankan titinada"
 
 ["Preview Downsampling"]
 en = "Preview Downsampling"
@@ -5238,6 +5624,7 @@ ja = "プレビューのダウンサンプリング"
 "ru" = "Даунсемплинг предпросмотра"
 pt = "Redução da pré-visualização"
 it = "Downsampling anteprima"
+id = "Downsampling Pratinjau"
 
 ["Preview Render Method"]
 en = "Preview Render Method"
@@ -5251,6 +5638,7 @@ ja = "プレビューのレンダリング方式"
 "ru" = "Метод рендеринга предпросмотра"
 pt = "Método de renderização da pré-visualização"
 it = "Metodo rendering anteprima"
+id = "Metode Render Pratinjau"
 
 ["Previous keyframe"]
 en = "Previous keyframe"
@@ -5264,6 +5652,7 @@ ja = "前のキーフレーム"
 "ru" = "Предыдущий ключевой кадр"
 pt = "Quadro-chave anterior"
 it = "Keyframe precedente"
+id = "Keyframe sebelumnya"
 
 ["Project"]
 en = "Project"
@@ -5277,6 +5666,7 @@ ja = "プロジェクト"
 "ru" = "Проект"
 pt = "Projeto"
 it = "Progetto"
+id = "Proyek"
 
 ["Project File"]
 en = "Project File"
@@ -5290,6 +5680,7 @@ ja = "プロジェクトファイル"
 "ru" = "Файл проекта"
 pt = "Arquivo do projeto"
 it = "File progetto"
+id = "Berkas Proyek"
 
 ["Projection"]
 en = "Projection"
@@ -5303,6 +5694,7 @@ ja = "投影"
 "ru" = "Проекция"
 pt = "Projeção"
 it = "Proiezione"
+id = "Proyeksi"
 
 ["Pulse width"]
 en = "Pulse width"
@@ -5316,6 +5708,7 @@ ja = "パルス幅"
 "ru" = "Ширина импульса"
 pt = "Largura do pulso"
 it = "Larghezza impulso"
+id = "Lebar pulsa"
 
 ["Quality"]
 en = "Quality"
@@ -5329,6 +5722,7 @@ ja = "品質"
 "ru" = "Качество"
 pt = "Qualidade"
 it = "Qualità"
+id = "Kualitas"
 
 ["Queued"]
 en = "Queued"
@@ -5342,6 +5736,7 @@ ja = "待機中"
 "ru" = "В очереди"
 pt = "Na fila"
 it = "In coda"
+id = "Dalam antrean"
 
 ["Radius"]
 en = "Radius"
@@ -5355,6 +5750,7 @@ ja = "半径"
 "ru" = "Радиус"
 pt = "Raio"
 it = "Raggio"
+id = "Radius"
 
 ["Range"]
 en = "Range"
@@ -5368,6 +5764,7 @@ ja = "範囲"
 "ru" = "Диапазон"
 pt = "Intervalo"
 it = "Intervallo"
+id = "Rentang"
 
 ["Rate"]
 en = "Rate"
@@ -5381,6 +5778,7 @@ ja = "レート"
 "ru" = "Скорость"
 pt = "Taxa"
 it = "Frequenza"
+id = "Laju"
 
 ["Ratio"]
 en = "Ratio"
@@ -5394,6 +5792,7 @@ ja = "比率"
 "ru" = "Соотношение"
 pt = "Proporção"
 it = "Rapporto"
+id = "Rasio"
 
 ["Ready (%{sample_count} samples)"]
 en = "Ready (%{sample_count} samples)"
@@ -5407,6 +5806,7 @@ ja = "準備完了（%{sample_count}サンプル）"
 "ru" = "Готово (%{sample_count} сэмплов)"
 pt = "Pronto (%{sample_count} amostras)"
 it = "Pronto (%{sample_count} campioni)"
+id = "Siap (%{sample_count} sampel)"
 
 ["Reanalyze"]
 en = "Reanalyze"
@@ -5420,6 +5820,7 @@ ja = "再解析"
 "ru" = "Проанализировать заново"
 pt = "Reanalisar"
 it = "Rianalizza"
+id = "Analisis ulang"
 
 ["Rebake"]
 en = "Rebake"
@@ -5433,6 +5834,7 @@ ja = "再ベイク"
 "ru" = "Перезапечь"
 pt = "Pré-computar novamente"
 it = "Ricalcola"
+id = "Bake ulang"
 
 ["Rebuild"]
 en = "Rebuild"
@@ -5446,6 +5848,7 @@ ja = "再構築"
 "ru" = "Пересобрать"
 pt = "Reconstruir"
 it = "Ricostruisci"
+id = "Bangun ulang"
 
 ["Rectangle"]
 en = "Rectangle"
@@ -5459,6 +5862,7 @@ ja = "長方形"
 "ru" = "Прямоугольник"
 pt = "Retângulo"
 it = "Rettangolo"
+id = "Persegi panjang"
 
 ["Reduction"]
 en = "Reduction"
@@ -5472,6 +5876,7 @@ ja = "低減"
 "ru" = "Сокращение"
 pt = "Redução"
 it = "Riduzione"
+id = "Pengurangan"
 
 ["Reflection opacity"]
 en = "Reflection opacity"
@@ -5485,6 +5890,7 @@ ja = "反射の不透明度"
 "ru" = "Непрозрачность отражения"
 pt = "Opacidade do reflexo"
 it = "Opacità riflesso"
+id = "Opasitas pantulan"
 
 ["Refresh interval"]
 en = "Refresh interval"
@@ -5498,6 +5904,7 @@ ja = "更新間隔"
 "ru" = "Интервал обновления"
 pt = "Intervalo de atualização"
 it = "Intervallo aggiornamento"
+id = "Interval penyegaran"
 
 ["Release"]
 en = "Release"
@@ -5511,6 +5918,7 @@ ja = "リリース"
 "ru" = "Релиз"
 pt = "Liberação"
 it = "Rilascio"
+id = "Release"
 
 ["Reload Blender file and scene metadata"]
 en = "Reload Blender file and scene metadata"
@@ -5524,6 +5932,7 @@ ja = "Blenderファイルとシーンメタデータを再読み込み"
 "ru" = "Перезагрузить файл Blender и метаданные сцены"
 pt = "Recarregar arquivo do Blender e metadados da cena"
 it = "Ricarica file e metadati della scena di Blender"
+id = "Muat ulang berkas Blender dan metadata adegan"
 
 ["Reload Python source and rebuild Manim scene states"]
 en = "Reload Python source and rebuild Manim scene states"
@@ -5537,6 +5946,7 @@ ja = "Pythonソースを再読み込みしてManimシーン状態を再構築"
 "ru" = "Перезагрузить исходный код Python и пересобрать состояния сцен Manim"
 pt = "Recarregar código Python e reconstruir estados da cena do Manim"
 it = "Ricarica sorgente Python e ricostruisci stati della scena Manim"
+id = "Muat ulang sumber Python dan bangun ulang status adegan Manim"
 
 ["Remove"]
 en = "Remove"
@@ -5550,6 +5960,7 @@ ja = "削除"
 "ru" = "Удалить"
 pt = "Remover"
 it = "Rimuovi"
+id = "Hapus"
 
 ["Remove box"]
 en = "Remove box"
@@ -5563,6 +5974,7 @@ ja = "ボックスを削除"
 "ru" = "Удалить квадрат"
 pt = "Remover caixa"
 it = "Rimuovi riquadro"
+id = "Hapus kotak"
 
 ["Remove color"]
 en = "Remove color"
@@ -5576,6 +5988,7 @@ ja = "色を削除"
 "ru" = "Удалить цвет"
 pt = "Remover cor"
 it = "Rimuovi colore"
+id = "Hapus warna"
 
 ["Remove point"]
 en = "Remove point"
@@ -5589,6 +6002,7 @@ ja = "ポイントを削除"
 "ru" = "Удалить точку"
 pt = "Remover ponto"
 it = "Rimuovi punto"
+id = "Hapus titik"
 
 ["Replace"]
 en = "Replace"
@@ -5602,6 +6016,7 @@ ja = "置換"
 "ru" = "Заменить"
 pt = "Substituir"
 it = "Sostituisci"
+id = "Ganti"
 
 ["Replace image"]
 en = "Replace image"
@@ -5615,6 +6030,7 @@ ja = "画像を置換"
 "ru" = "Заменить изображение"
 pt = "Substituir imagem"
 it = "Sostituisci immagine"
+id = "Ganti gambar"
 
 ["Replace model"]
 en = "Replace model"
@@ -5628,6 +6044,7 @@ ja = "モデルを置換"
 "ru" = "Заменить модель"
 pt = "Substituir modelo"
 it = "Sostituisci modello"
+id = "Ganti model"
 
 ["Reset"]
 en = "Reset"
@@ -5641,6 +6058,7 @@ ja = "リセット"
 "ru" = "Сбросить"
 pt = "Redefinir"
 it = "Reimposta"
+id = "Atur ulang"
 
 ["Resolution"]
 en = "Resolution"
@@ -5654,6 +6072,7 @@ ja = "解像度"
 "ru" = "Разрешение"
 pt = "Resolução"
 it = "Risoluzione"
+id = "Resolusi"
 
 ["Resonance"]
 en = "Resonance"
@@ -5667,6 +6086,7 @@ ja = "レゾナンス"
 "ru" = "Резонанс"
 pt = "Ressonância"
 it = "Risonanza"
+id = "Resonansi"
 
 ["Right"]
 en = "Right"
@@ -5680,6 +6100,7 @@ ja = "右"
 "ru" = "Справа"
 pt = "Direita"
 it = "Destra"
+id = "Kanan"
 
 ["Rim power"]
 en = "Rim power"
@@ -5693,6 +6114,7 @@ ja = "リムパワー"
 "ru" = "Степень контурного света"
 pt = "Potência do contorno"
 it = "Potenza bordo"
+id = "Daya rim"
 
 ["Rim strength"]
 en = "Rim strength"
@@ -5706,6 +6128,7 @@ ja = "リム強度"
 "ru" = "Сила контурного света"
 pt = "Intensidade do contorno"
 it = "Intensità bordo"
+id = "Kekuatan rim"
 
 ["Rim tint"]
 en = "Rim tint"
@@ -5719,6 +6142,7 @@ ja = "リム色"
 "ru" = "Оттенок контурного света"
 pt = "Tonalidade do contorno"
 it = "Tinta bordo"
+id = "Tint rim"
 
 ["Room capture"]
 en = "Room capture"
@@ -5732,6 +6156,7 @@ ja = "ルームキャプチャー"
 "ru" = "Захват помещения"
 pt = "Captura de sala"
 it = "Acquisizione stanza"
+id = "Tangkapan ruangan"
 
 ["Room scale"]
 en = "Room scale"
@@ -5745,6 +6170,7 @@ ja = "部屋の規模"
 "ru" = "Масштаб помещения"
 pt = "Escala da sala"
 it = "Scala stanza"
+id = "Skala ruangan"
 
 ["Rotation"]
 en = "Rotation"
@@ -5758,6 +6184,7 @@ ja = "回転"
 "ru" = "Поворот"
 pt = "Rotação"
 it = "Rotazione"
+id = "Rotasi"
 
 ["Rotation order"]
 en = "Rotation order"
@@ -5771,6 +6198,7 @@ ja = "回転順序"
 "ru" = "Порядок поворота"
 pt = "Ordem de rotação"
 it = "Ordine rotazione"
+id = "Urutan rotasi"
 
 ["Roughness"]
 en = "Roughness"
@@ -5784,6 +6212,7 @@ ja = "粗さ"
 "ru" = "Шероховатость"
 pt = "Rugosidade"
 it = "Roughness"
+id = "Kekasaran"
 
 ["Rounded"]
 en = "Rounded"
@@ -5797,6 +6226,7 @@ ja = "角丸"
 "ru" = "Скруглённый"
 pt = "Arredondado"
 it = "Arrotondato"
+id = "Membulat"
 
 ["Rounding"]
 en = "Rounding"
@@ -5810,6 +6240,7 @@ ja = "丸み"
 "ru" = "Скругление"
 pt = "Arredondamento"
 it = "Arrotondamento"
+id = "Pembulatan"
 
 ["Roundness"]
 en = "Roundness"
@@ -5823,6 +6254,7 @@ ja = "丸み"
 "ru" = "Скруглённость"
 pt = "Arredondamento"
 it = "Rotondità"
+id = "Kebulatan"
 
 ["Row offset"]
 en = "Row offset"
@@ -5836,6 +6268,7 @@ ja = "行オフセット"
 "ru" = "Смещение строк"
 pt = "Deslocamento de linha"
 it = "Offset riga"
+id = "Ofset baris"
 
 ["Sample Rate"]
 en = "Sample Rate"
@@ -5849,6 +6282,7 @@ ja = "サンプルレート"
 "ru" = "Частота дискретизации"
 pt = "Taxa de amostragem"
 it = "Frequenza campionamento"
+id = "Laju Sampel"
 
 ["Sample rate"]
 en = "Sample rate"
@@ -5862,6 +6296,7 @@ ja = "サンプルレート"
 "ru" = "Частота дискретизации"
 pt = "Taxa de amostragem"
 it = "Frequenza campionamento"
+id = "Laju sampel"
 
 ["Samples"]
 en = "Samples"
@@ -5875,6 +6310,7 @@ ja = "サンプル"
 "ru" = "Сэмплы"
 pt = "Amostras"
 it = "Campioni"
+id = "Sampel"
 
 ["Saturation"]
 en = "Saturation"
@@ -5888,6 +6324,7 @@ ja = "彩度"
 "ru" = "Насыщенность"
 pt = "Saturação"
 it = "Saturazione"
+id = "Saturasi"
 
 ["Scale"]
 en = "Scale"
@@ -5901,6 +6338,7 @@ ja = "スケール"
 "ru" = "Масштаб"
 pt = "Escala"
 it = "Scala"
+id = "Skala"
 
 ["Scene"]
 en = "Scene"
@@ -5914,6 +6352,7 @@ ja = "シーン"
 "ru" = "Сцена"
 pt = "Cena"
 it = "Scena"
+id = "Adegan"
 
 ["Scene Renderer"]
 en = "Scene Renderer"
@@ -5927,6 +6366,7 @@ ja = "シーンレンダラー"
 "ru" = "Рендерер сцены"
 pt = "Renderizador de cena"
 it = "Renderer scena"
+id = "Renderer Adegan"
 
 ["Scramble, resize, then reveal the new text"]
 en = "Scramble, resize, then reveal the new text"
@@ -5940,6 +6380,7 @@ ja = "並べ替えとサイズ変更後に新しいテキストを表示"
 "ru" = "Перемешать, изменить размер, затем показать новый текст"
 pt = "Embaralhar, redimensionar e revelar o novo texto"
 it = "Mescola, ridimensiona, poi mostra il nuovo testo"
+id = "Acak, ubah ukuran, lalu tampilkan teks baru"
 
 ["Search fonts or paste a Google Fonts specimen URL"]
 en = "Search fonts or paste a Google Fonts specimen URL"
@@ -5953,6 +6394,7 @@ ja = "フォントを検索、またはGoogle FontsのURLを貼り付け"
 "ru" = "Ищите шрифты или вставьте URL образца Google Fonts"
 pt = "Pesquisar fontes ou colar URL de amostra do Google Fonts"
 it = "Cerca font o incolla URL campione di Google Fonts"
+id = "Cari font atau tempel URL spesimen Google Fonts"
 
 ["Search interpolations"]
 en = "Search interpolations"
@@ -5966,6 +6408,7 @@ ja = "補間を検索"
 "ru" = "Искать интерполяции"
 pt = "Pesquisar interpolações"
 it = "Cerca interpolazioni"
+id = "Cari interpolasi"
 
 ["Search modifiers"]
 en = "Search modifiers"
@@ -5979,6 +6422,7 @@ ja = "モディファイアを検索"
 "ru" = "Искать модификаторы"
 pt = "Pesquisar modificadores"
 it = "Cerca modificatori"
+id = "Cari modifier"
 
 ["Searching Google Fonts…"]
 en = "Searching Google Fonts…"
@@ -5992,6 +6436,7 @@ ja = "Google Fontsを検索中…"
 "ru" = "Поиск в Google Fonts…"
 pt = "Pesquisando no Google Fonts…"
 it = "Ricerca in Google Fonts…"
+id = "Mencari Google Fonts…"
 
 ["Seed"]
 en = "Seed"
@@ -6005,6 +6450,7 @@ ja = "シード"
 "ru" = "Сид"
 pt = "Semente"
 it = "Seed"
+id = "Seed"
 
 ["Seed frequency"]
 en = "Seed frequency"
@@ -6018,6 +6464,7 @@ ja = "シード周波数"
 "ru" = "Частота сида"
 pt = "Frequência da semente"
 it = "Frequenza seed"
+id = "Frekuensi seed"
 
 ["Segment length"]
 en = "Segment length"
@@ -6031,6 +6478,7 @@ ja = "セグメント長"
 "ru" = "Длина сегмента"
 pt = "Comprimento do segmento"
 it = "Lunghezza segmento"
+id = "Panjang segmen"
 
 ["Segments"]
 en = "Segments"
@@ -6044,6 +6492,7 @@ ja = "セグメント"
 "ru" = "Сегменты"
 pt = "Segmentos"
 it = "Segmenti"
+id = "Segmen"
 
 ["Select"]
 en = "Select"
@@ -6057,6 +6506,7 @@ ja = "選択"
 "ru" = "Выбрать"
 pt = "Selecionar"
 it = "Seleziona"
+id = "Pilih"
 
 ["Select 3D model"]
 en = "Select 3D model"
@@ -6070,6 +6520,7 @@ ja = "3Dモデルを選択"
 "ru" = "Выбрать 3D-модель"
 pt = "Selecionar modelo 3D"
 it = "Seleziona modello 3D"
+id = "Pilih model 3D"
 
 ["Select environment image"]
 en = "Select environment image"
@@ -6083,6 +6534,7 @@ ja = "環境画像を選択"
 "ru" = "Выбрать изображение окружения"
 pt = "Selecionar imagem de ambiente"
 it = "Seleziona immagine ambiente"
+id = "Pilih gambar lingkungan"
 
 ["Select image"]
 en = "Select image"
@@ -6096,6 +6548,7 @@ ja = "画像を選択"
 "ru" = "Выбрать изображение"
 pt = "Selecionar imagem"
 it = "Seleziona immagine"
+id = "Pilih gambar"
 
 ["Select model"]
 en = "Select model"
@@ -6109,6 +6562,7 @@ ja = "モデルを選択"
 "ru" = "Выбрать модель"
 pt = "Selecionar modelo"
 it = "Seleziona modello"
+id = "Pilih model"
 
 ["Select paint texture"]
 en = "Select paint texture"
@@ -6122,6 +6576,7 @@ ja = "ペイントテクスチャを選択"
 "ru" = "Выбрать текстуру кисти"
 pt = "Selecionar textura de pintura"
 it = "Seleziona texture pittura"
+id = "Pilih tekstur lukisan"
 
 ["Semitones"]
 en = "Semitones"
@@ -6135,6 +6590,7 @@ ja = "半音"
 "ru" = "Полутоны"
 pt = "Semitons"
 it = "Semitoni"
+id = "Seminada"
 
 ["Sensitivity"]
 en = "Sensitivity"
@@ -6148,6 +6604,7 @@ ja = "感度"
 "ru" = "Чувствительность"
 pt = "Sensibilidade"
 it = "Sensibilità"
+id = "Sensitivitas"
 
 ["Sequential"]
 en = "Sequential"
@@ -6161,6 +6618,7 @@ ja = "順次"
 "ru" = "Последовательно"
 pt = "Sequencial"
 it = "Sequenziale"
+id = "Berurutan"
 
 ["Shader"]
 en = "Shader"
@@ -6174,6 +6632,7 @@ ja = "シェーダー"
 "ru" = "Шейдер"
 pt = "Shader"
 it = "Shader"
+id = "Shader"
 
 ["Shadow blur"]
 en = "Shadow blur"
@@ -6187,6 +6646,7 @@ ja = "影のぼかし"
 "ru" = "Размытие тени"
 pt = "Desfoque da sombra"
 it = "Sfocatura ombra"
+id = "Buram bayangan"
 
 ["Shadow color"]
 en = "Shadow color"
@@ -6200,6 +6660,7 @@ ja = "影の色"
 "ru" = "Цвет тени"
 pt = "Cor da sombra"
 it = "Colore ombra"
+id = "Warna bayangan"
 
 ["Shadow direction"]
 en = "Shadow direction"
@@ -6213,6 +6674,7 @@ ja = "影の方向"
 "ru" = "Направление тени"
 pt = "Direção da sombra"
 it = "Direzione ombra"
+id = "Arah bayangan"
 
 ["Shadow distance"]
 en = "Shadow distance"
@@ -6226,6 +6688,7 @@ ja = "影の距離"
 "ru" = "Расстояние тени"
 pt = "Distância da sombra"
 it = "Distanza ombra"
+id = "Jarak bayangan"
 
 ["Shadow kind"]
 en = "Shadow kind"
@@ -6239,6 +6702,7 @@ ja = "影の種類"
 "ru" = "Вид тени"
 pt = "Tipo de sombra"
 it = "Tipo ombra"
+id = "Jenis bayangan"
 
 ["Shadow quality"]
 en = "Shadow quality"
@@ -6252,6 +6716,7 @@ ja = "影の品質"
 "ru" = "Качество тени"
 pt = "Qualidade da sombra"
 it = "Qualità ombra"
+id = "Kualitas bayangan"
 
 ["Shadow strength"]
 en = "Shadow strength"
@@ -6265,6 +6730,7 @@ ja = "影の強度"
 "ru" = "Сила тени"
 pt = "Intensidade da sombra"
 it = "Intensità ombra"
+id = "Kekuatan bayangan"
 
 ["Shadow width"]
 en = "Shadow width"
@@ -6278,6 +6744,7 @@ ja = "影の幅"
 "ru" = "Ширина тени"
 pt = "Largura da sombra"
 it = "Larghezza ombra"
+id = "Lebar bayangan"
 
 ["Shaft width"]
 en = "Shaft width"
@@ -6291,6 +6758,7 @@ ja = "軸の幅"
 "ru" = "Ширина древка"
 pt = "Largura do corpo"
 it = "Larghezza asta"
+id = "Lebar batang"
 
 ["Sharpness"]
 en = "Sharpness"
@@ -6304,6 +6772,7 @@ ja = "シャープネス"
 "ru" = "Резкость"
 pt = "Nitidez"
 it = "Nitidezza"
+id = "Ketajaman"
 
 ["Shear"]
 en = "Shear"
@@ -6317,6 +6786,7 @@ ja = "シアー"
 "ru" = "Сдвиг"
 pt = "Cisalhamento"
 it = "Inclinazione"
+id = "Geser"
 
 ["Sheen"]
 en = "Sheen"
@@ -6330,6 +6800,7 @@ ja = "光沢"
 "ru" = "Глянец"
 pt = "Brilho suave"
 it = "Lucentezza"
+id = "Sheen"
 
 ["Show in folder"]
 en = "Show in folder"
@@ -6343,6 +6814,7 @@ ja = "フォルダーに表示"
 "ru" = "Показать в папке"
 pt = "Mostrar na pasta"
 it = "Mostra nella cartella"
+id = "Tampilkan di folder"
 
 ["Show project file in folder"]
 en = "Show project file in folder"
@@ -6356,6 +6828,7 @@ ja = "プロジェクトファイルをフォルダーに表示"
 "ru" = "Показать файл проекта в папке"
 pt = "Mostrar arquivo do projeto na pasta"
 it = "Mostra file progetto nella cartella"
+id = "Tampilkan berkas proyek di folder"
 
 ["Sigma"]
 en = "Sigma"
@@ -6369,6 +6842,7 @@ ja = "シグマ"
 "ru" = "Сигма"
 pt = "Sigma"
 it = "Sigma"
+id = "Sigma"
 
 ["Sigma ratio"]
 en = "Sigma ratio"
@@ -6382,6 +6856,7 @@ ja = "シグマ比"
 "ru" = "Соотношение сигма"
 pt = "Proporção de sigma"
 it = "Rapporto sigma"
+id = "Rasio sigma"
 
 ["Similarity"]
 en = "Similarity"
@@ -6395,6 +6870,7 @@ ja = "類似度"
 "ru" = "Сходство"
 pt = "Similaridade"
 it = "Similarità"
+id = "Kemiripan"
 
 ["Simplify tolerance"]
 en = "Simplify tolerance"
@@ -6408,6 +6884,7 @@ ja = "簡略化許容値"
 "ru" = "Допуск упрощения"
 pt = "Tolerância de simplificação"
 it = "Tolleranza semplificazione"
+id = "Toleransi penyederhanaan"
 
 ["Simultaneous"]
 en = "Simultaneous"
@@ -6421,6 +6898,7 @@ ja = "同時"
 "ru" = "Одновременно"
 pt = "Simultâneo"
 it = "Simultaneo"
+id = "Simultan"
 
 ["Size"]
 en = "Size"
@@ -6434,6 +6912,7 @@ ja = "サイズ"
 "ru" = "Размер"
 pt = "Tamanho"
 it = "Dimensione"
+id = "Ukuran"
 
 ["Size randomness"]
 en = "Size randomness"
@@ -6447,6 +6926,7 @@ ja = "サイズのランダム性"
 "ru" = "Случайность размера"
 pt = "Aleatoriedade de tamanho"
 it = "Casualità dimensione"
+id = "Keacakan ukuran"
 
 ["Skia drawing"]
 en = "Skia drawing"
@@ -6460,6 +6940,7 @@ ja = "Skia描画"
 "ru" = "Рисование Skia"
 pt = "Desenho Skia"
 it = "Disegno Skia"
+id = "Gambar Skia"
 
 ["Smoothing"]
 en = "Smoothing"
@@ -6473,6 +6954,7 @@ ja = "スムージング"
 "ru" = "Сглаживание"
 pt = "Suavização"
 it = "Smussatura"
+id = "Penghalusan"
 
 ["Smoothing radius"]
 en = "Smoothing radius"
@@ -6486,6 +6968,7 @@ ja = "平滑化半径"
 "ru" = "Радиус сглаживания"
 pt = "Raio de suavização"
 it = "Raggio smussatura"
+id = "Radius penghalusan"
 
 ["Smoothness"]
 en = "Smoothness"
@@ -6499,6 +6982,7 @@ ja = "滑らかさ"
 "ru" = "Плавность"
 pt = "Suavidade"
 it = "Levigatura"
+id = "Kemulusan"
 
 ["Soft shadow"]
 en = "Soft shadow"
@@ -6512,6 +6996,7 @@ ja = "ソフトシャドウ"
 "ru" = "Мягкая тень"
 pt = "Sombra suave"
 it = "Ombra morbida"
+id = "Bayangan lembut"
 
 ["Softness"]
 en = "Softness"
@@ -6525,6 +7010,7 @@ ja = "柔らかさ"
 "ru" = "Мягкость"
 pt = "Suavidade"
 it = "Morbidezza"
+id = "Kelembutan"
 
 ["Solid"]
 en = "Solid"
@@ -6538,6 +7024,7 @@ ja = "ソリッド"
 "ru" = "Сплошной"
 pt = "Sólido"
 it = "Pieno"
+id = "Solid"
 
 ["Solid color"]
 en = "Solid color"
@@ -6551,6 +7038,7 @@ ja = "単色"
 "ru" = "Сплошной цвет"
 pt = "Cor sólida"
 it = "Colore pieno"
+id = "Warna solid"
 
 ["Source"]
 en = "Source"
@@ -6564,6 +7052,7 @@ ja = "ソース"
 "ru" = "Источник"
 pt = "Origem"
 it = "Sorgente"
+id = "Sumber"
 
 ["Spacing"]
 en = "Spacing"
@@ -6577,6 +7066,7 @@ ja = "間隔"
 "ru" = "Интервал"
 pt = "Espaçamento"
 it = "Spaziatura"
+id = "Spasi"
 
 ["Speckle size"]
 en = "Speckle size"
@@ -6590,6 +7080,7 @@ ja = "斑点サイズ"
 "ru" = "Размер крапинок"
 pt = "Tamanho do granulado"
 it = "Dimensione macchia"
+id = "Ukuran bintik"
 
 ["Specular size"]
 en = "Specular size"
@@ -6603,6 +7094,7 @@ ja = "スペキュラーサイズ"
 "ru" = "Размер блика"
 pt = "Tamanho especular"
 it = "Dimensione speculare"
+id = "Ukuran spekular"
 
 ["Specular strength"]
 en = "Specular strength"
@@ -6616,6 +7108,7 @@ ja = "スペキュラー強度"
 "ru" = "Сила блика"
 pt = "Intensidade especular"
 it = "Intensità speculare"
+id = "Kekuatan spekular"
 
 ["Speed method"]
 en = "Speed method"
@@ -6629,6 +7122,7 @@ ja = "速度方式"
 "ru" = "Метод изменения скорости"
 pt = "Método de velocidade"
 it = "Metodo velocità"
+id = "Metode kecepatan"
 
 ["Spill"]
 en = "Spill"
@@ -6642,6 +7136,7 @@ ja = "スピル"
 "ru" = "Захлёст"
 pt = "Vazamento de cor"
 it = "Spill"
+id = "Spill"
 
 ["Spin"]
 en = "Spin"
@@ -6655,6 +7150,7 @@ ja = "スピン"
 "ru" = "Вращение"
 pt = "Giro"
 it = "Giro"
+id = "Putar"
 
 ["Splice threshold"]
 en = "Splice threshold"
@@ -6668,6 +7164,7 @@ ja = "スプライスしきい値"
 "ru" = "Порог склейки"
 pt = "Limiar de emenda"
 it = "Soglia giunzione"
+id = "Ambang batas sambungan"
 
 ["Square"]
 en = "Square"
@@ -6681,6 +7178,7 @@ ja = "正方形"
 "ru" = "Квадрат"
 pt = "Quadrado"
 it = "Quadrato"
+id = "Persegi"
 
 ["Stabilization"]
 en = "Stabilization"
@@ -6694,6 +7192,7 @@ ja = "手ぶれ補正"
 "ru" = "Стабилизация"
 pt = "Estabilização"
 it = "Stabilizzazione"
+id = "Stabilisasi"
 
 ["Stabilization cache"]
 en = "Stabilization cache"
@@ -6707,6 +7206,7 @@ ja = "手ぶれ補正キャッシュ"
 "ru" = "Кэш стабилизации"
 pt = "Cache de estabilização"
 it = "Cache stabilizzazione"
+id = "Cache stabilisasi"
 
 ["Start cap"]
 en = "Start cap"
@@ -6720,6 +7220,7 @@ ja = "始端キャップ"
 "ru" = "Начальный колпачок"
 pt = "Extremidade inicial"
 it = "Estremità iniziale"
+id = "Ujung awal"
 
 ["Start taper"]
 en = "Start taper"
@@ -6733,6 +7234,7 @@ ja = "始端テーパー"
 "ru" = "Сужение в начале"
 pt = "Afilamento inicial"
 it = "Cono iniziale"
+id = "Pengecilan awal"
 
 ["Start taper distance"]
 en = "Start taper distance"
@@ -6746,6 +7248,7 @@ ja = "始端テーパー距離"
 "ru" = "Расстояние сужения в начале"
 pt = "Distância do afilamento inicial"
 it = "Distanza cono iniziale"
+id = "Jarak pengecilan awal"
 
 ["Starting angle"]
 en = "Starting angle"
@@ -6759,6 +7262,7 @@ ja = "開始角度"
 "ru" = "Начальный угол"
 pt = "Ângulo inicial"
 it = "Angolo iniziale"
+id = "Sudut awal"
 
 ["Starting scale"]
 en = "Starting scale"
@@ -6772,6 +7276,7 @@ ja = "開始スケール"
 "ru" = "Начальный масштаб"
 pt = "Escala inicial"
 it = "Scala iniziale"
+id = "Skala awal"
 
 ["Static-camera weight"]
 en = "Static-camera weight"
@@ -6785,6 +7290,7 @@ ja = "固定カメラウェイト"
 "ru" = "Вес статичной камеры"
 pt = "Peso de câmera estática"
 it = "Peso telecamera statica"
+id = "Bobot kamera statis"
 
 ["Step"]
 en = "Step"
@@ -6798,6 +7304,7 @@ ja = "ステップ"
 "ru" = "Шаг"
 pt = "Passo"
 it = "Passo"
+id = "Langkah"
 
 ["Step size"]
 en = "Step size"
@@ -6811,6 +7318,7 @@ ja = "ステップサイズ"
 "ru" = "Размер шага"
 pt = "Tamanho do passo"
 it = "Dimensione passo"
+id = "Ukuran langkah"
 
 ["Strategy"]
 en = "Strategy"
@@ -6824,6 +7332,7 @@ ja = "方式"
 "ru" = "Стратегия"
 pt = "Estratégia"
 it = "Strategia"
+id = "Strategi"
 
 ["Strength"]
 en = "Strength"
@@ -6837,6 +7346,7 @@ ja = "強度"
 "ru" = "Сила"
 pt = "Intensidade"
 it = "Intensità"
+id = "Kekuatan"
 
 ["Stroke color %{number}"]
 en = "Stroke color %{number}"
@@ -6850,6 +7360,7 @@ ja = "線の色 %{number}"
 "ru" = "Цвет обводки %{number}"
 pt = "Cor do traço %{number}"
 it = "Colore tratto %{number}"
+id = "Warna goresan %{number}"
 
 ["Stroke overlap"]
 en = "Stroke overlap"
@@ -6863,6 +7374,7 @@ ja = "ストロークの重なり"
 "ru" = "Перекрытие штрихов"
 pt = "Sobreposição de traços"
 it = "Sovrapposizione tratti"
+id = "Tumpang tindih goresan"
 
 ["Strokes"]
 en = "Strokes"
@@ -6876,6 +7388,7 @@ ja = "ストローク"
 "ru" = "Штрихи"
 pt = "Traços"
 it = "Tratti"
+id = "Goresan"
 
 ["Style"]
 en = "Style"
@@ -6889,6 +7402,7 @@ ja = "スタイル"
 "ru" = "Стиль"
 pt = "Estilo"
 it = "Stile"
+id = "Gaya"
 
 ["Subdivision spacing"]
 en = "Subdivision spacing"
@@ -6902,6 +7416,7 @@ ja = "細分化間隔"
 "ru" = "Интервал подразделения"
 pt = "Espaçamento de subdivisão"
 it = "Spaziatura suddivisione"
+id = "Spasi subdivisi"
 
 ["Subsurface"]
 en = "Subsurface"
@@ -6915,6 +7430,7 @@ ja = "サブサーフェス"
 "ru" = "Подповерхностное рассеивание"
 pt = "Subsuperfície"
 it = "Subsuperficie"
+id = "Bawah permukaan"
 
 ["Temperature"]
 en = "Temperature"
@@ -6928,6 +7444,7 @@ ja = "色温度"
 "ru" = "Температура"
 pt = "Temperatura"
 it = "Temperatura"
+id = "Suhu"
 
 ["Text color"]
 en = "Text color"
@@ -6941,6 +7458,7 @@ ja = "テキスト色"
 "ru" = "Цвет текста"
 pt = "Cor do texto"
 it = "Colore testo"
+id = "Warna teks"
 
 ["Texture"]
 en = "Texture"
@@ -6954,6 +7472,7 @@ ja = "テクスチャ"
 "ru" = "Текстура"
 pt = "Textura"
 it = "Texture"
+id = "Tekstur"
 
 ["Texture filter"]
 en = "Texture filter"
@@ -6967,6 +7486,7 @@ ja = "テクスチャフィルター"
 "ru" = "Фильтр текстуры"
 pt = "Filtro de textura"
 it = "Filtro texture"
+id = "Filter tekstur"
 
 ["Texture rotation"]
 en = "Texture rotation"
@@ -6980,6 +7500,7 @@ ja = "テクスチャ回転"
 "ru" = "Поворот текстуры"
 pt = "Rotação da textura"
 it = "Rotazione texture"
+id = "Rotasi tekstur"
 
 ["Texture scale"]
 en = "Texture scale"
@@ -6993,6 +7514,7 @@ ja = "テクスチャスケール"
 "ru" = "Масштаб текстуры"
 pt = "Escala da textura"
 it = "Scala texture"
+id = "Skala tekstur"
 
 ["Textures"]
 en = "Textures"
@@ -7006,6 +7528,7 @@ ja = "テクスチャ"
 "ru" = "Текстуры"
 pt = "Texturas"
 it = "Textures"
+id = "Tekstur"
 
 ["Threshold"]
 en = "Threshold"
@@ -7019,6 +7542,7 @@ ja = "しきい値"
 "ru" = "Порог"
 pt = "Limiar"
 it = "Soglia"
+id = "Ambang batas"
 
 ["Timeline Duration"]
 en = "Timeline Duration"
@@ -7032,6 +7556,7 @@ ja = "タイムライン上の長さ"
 "ru" = "Длительность на таймлайне"
 pt = "Duração na linha do tempo"
 it = "Durata timeline"
+id = "Durasi Lini Masa"
 
 ["Tint"]
 en = "Tint"
@@ -7045,6 +7570,7 @@ ja = "色合い"
 "ru" = "Оттенок"
 pt = "Tonalidade"
 it = "Tinta"
+id = "Tint"
 
 ["Tolerance"]
 en = "Tolerance"
@@ -7058,6 +7584,7 @@ ja = "許容値"
 "ru" = "Допуск"
 pt = "Tolerância"
 it = "Tolleranza"
+id = "Toleransi"
 
 ["Tone"]
 en = "Tone"
@@ -7071,6 +7598,7 @@ ja = "トーン"
 "ru" = "Тон"
 pt = "Tom"
 it = "Tono"
+id = "Nada"
 
 ["Top"]
 en = "Top"
@@ -7084,6 +7612,7 @@ ja = "上"
 "ru" = "Верх"
 pt = "Superior"
 it = "In alto"
+id = "Atas"
 
 ["Top left"]
 en = "Top left"
@@ -7097,6 +7626,7 @@ ja = "左上"
 "ru" = "Сверху слева"
 pt = "Superior esquerdo"
 it = "In alto a sinistra"
+id = "Kiri atas"
 
 ["Top right"]
 en = "Top right"
@@ -7110,6 +7640,7 @@ ja = "右上"
 "ru" = "Сверху справа"
 pt = "Superior direito"
 it = "In alto a destra"
+id = "Kanan atas"
 
 ["Track"]
 en = "Track"
@@ -7123,6 +7654,7 @@ ja = "トラック"
 "ru" = "Дорожка"
 pt = "Faixa"
 it = "Traccia"
+id = "Trek"
 
 ["Tracking"]
 en = "Tracking"
@@ -7136,6 +7668,7 @@ ja = "トラッキング"
 "ru" = "Отслеживание"
 pt = "Rastreamento"
 it = "Tracking"
+id = "Pelacakan"
 
 ["Tracking method"]
 en = "Tracking method"
@@ -7149,6 +7682,7 @@ ja = "トラッキング方式"
 "ru" = "Метод отслеживания"
 pt = "Método de rastreamento"
 it = "Metodo tracking"
+id = "Metode pelacakan"
 
 ["Tracks"]
 en = "Tracks"
@@ -7162,6 +7696,7 @@ ja = "トラック"
 "ru" = "Дорожки"
 pt = "Faixas"
 it = "Tracce"
+id = "Trek"
 
 ["Trail length"]
 en = "Trail length"
@@ -7175,6 +7710,7 @@ ja = "軌跡の長さ"
 "ru" = "Длина шлейфа"
 pt = "Comprimento do rastro"
 it = "Lunghezza scia"
+id = "Panjang jejak"
 
 ["Transform"]
 en = "Transform"
@@ -7188,6 +7724,7 @@ ja = "変形"
 "ru" = "Трансформация"
 pt = "Transformação"
 it = "Trasforma"
+id = "Transformasi"
 
 ["Transition"]
 en = "Transition"
@@ -7201,6 +7738,7 @@ ja = "トランジション"
 "ru" = "Переход"
 pt = "Transição"
 it = "Transizione"
+id = "Transisi"
 
 ["Transmission"]
 en = "Transmission"
@@ -7214,6 +7752,7 @@ ja = "透過"
 "ru" = "Пропускание"
 pt = "Transmissão"
 it = "Trasmissione"
+id = "Transmisi"
 
 ["Triangle"]
 en = "Triangle"
@@ -7227,6 +7766,7 @@ ja = "三角形"
 "ru" = "Треугольник"
 pt = "Triângulo"
 it = "Triangolo"
+id = "Segitiga"
 
 ["Type"]
 en = "Type"
@@ -7240,6 +7780,7 @@ ja = "種類"
 "ru" = "Тип"
 pt = "Tipo"
 it = "Tipo"
+id = "Jenis"
 
 ["Unavailable (%{id})"]
 en = "Unavailable (%{id})"
@@ -7253,6 +7794,7 @@ ja = "利用不可（%{id}）"
 "ru" = "Недоступно (%{id})"
 pt = "Indisponível (%{id})"
 it = "Non disponibile (%{id})"
+id = "Tidak tersedia (%{id})"
 
 ["Unavailable while an alpha-mask stream is selected"]
 en = "Unavailable while an alpha-mask stream is selected"
@@ -7266,6 +7808,7 @@ ja = "アルファマスクストリーム選択中は利用不可"
 "ru" = "Недоступно при выбранном потоке альфа-маски"
 pt = "Indisponível enquanto um fluxo de máscara alfa estiver selecionado"
 it = "Non disponibile con uno stream di maschera alpha selezionato"
+id = "Tidak tersedia saat stream masker alfa dipilih"
 
 ["Upsampling"]
 en = "Upsampling"
@@ -7279,6 +7822,7 @@ ja = "アップサンプリング"
 "ru" = "Апсемплинг"
 pt = "Sobreamostragem"
 it = "Upsampling"
+id = "Upsampling"
 
 ["Using the reusable chunked analysis cache"]
 en = "Using the reusable chunked analysis cache"
@@ -7292,6 +7836,7 @@ ja = "再利用可能なチャンク解析キャッシュを使用中"
 "ru" = "Используется повторно используемый кэш анализа по фрагментам"
 pt = "Usando cache de análise segmentada reutilizável"
 it = "Uso della cache di analisi a blocchi riutilizzabile"
+id = "Menggunakan cache analisis potongan yang dapat digunakan kembali"
 
 ["V align"]
 en = "V align"
@@ -7305,6 +7850,7 @@ ja = "垂直揃え"
 "ru" = "Выравнивание по вертикали"
 pt = "Alinhamento V"
 it = "Allinea V"
+id = "Perataan V"
 
 ["Value"]
 en = "Value"
@@ -7318,6 +7864,7 @@ ja = "値"
 "ru" = "Значение"
 pt = "Valor"
 it = "Valore"
+id = "Nilai"
 
 ["Variation"]
 en = "Variation"
@@ -7331,6 +7878,7 @@ ja = "変化"
 "ru" = "Вариация"
 pt = "Variação"
 it = "Variazione"
+id = "Variasi"
 
 ["Vertical"]
 en = "Vertical"
@@ -7344,6 +7892,7 @@ ja = "垂直"
 "ru" = "Вертикальный"
 pt = "Vertical"
 it = "Verticale"
+id = "Vertikal"
 
 ["Vertical FOV"]
 en = "Vertical FOV"
@@ -7357,6 +7906,7 @@ ja = "垂直視野角"
 "ru" = "Вертикальный угол обзора (FOV)"
 pt = "Campo de visão vertical"
 it = "FOV verticale"
+id = "FOV Vertikal"
 
 ["Vertical alignment"]
 en = "Vertical alignment"
@@ -7370,6 +7920,7 @@ ja = "垂直揃え"
 "ru" = "Вертикальное выравнивание"
 pt = "Alinhamento vertical"
 it = "Allineamento verticale"
+id = "Perataan vertikal"
 
 ["Video Stream"]
 en = "Video Stream"
@@ -7383,6 +7934,7 @@ ja = "ビデオストリーム"
 "ru" = "Видеопоток"
 pt = "Fluxo de vídeo"
 it = "Stream video"
+id = "Stream Video"
 
 ["Video stream %{number}"]
 en = "Video stream %{number}"
@@ -7396,6 +7948,7 @@ ja = "ビデオストリーム %{number}"
 "ru" = "Видеопоток %{number}"
 pt = "Fluxo de vídeo %{number}"
 it = "Stream video %{number}"
+id = "Stream video %{number}"
 
 ["View Layer"]
 en = "View Layer"
@@ -7409,6 +7962,7 @@ ja = "ビューレイヤー"
 "ru" = "Слой просмотра"
 pt = "Camada de visualização"
 it = "Livello vista"
+id = "Lapisan Tampilan"
 
 ["Visible"]
 en = "Visible"
@@ -7422,6 +7976,7 @@ ja = "表示"
 "ru" = "Видимый"
 pt = "Visível"
 it = "Visibile"
+id = "Terlihat"
 
 ["Visible source area after stabilization"]
 en = "Visible source area after stabilization"
@@ -7435,6 +7990,7 @@ ja = "手ぶれ補正後に表示されるソース領域"
 "ru" = "Видимая область исходника после стабилизации"
 pt = "Área de origem visível após estabilização"
 it = "Area sorgente visibile dopo la stabilizzazione"
+id = "Area sumber yang terlihat setelah stabilisasi"
 
 ["Visual"]
 en = "Visual"
@@ -7448,6 +8004,7 @@ ja = "ビジュアル"
 "ru" = "Визуальный"
 pt = "Visual"
 it = "Visuale"
+id = "Visual"
 
 ["Visual track %{index}"]
 en = "Visual track %{index}"
@@ -7461,6 +8018,7 @@ ja = "ビジュアルトラック %{index}"
 "ru" = "Визуальная дорожка %{index}"
 pt = "Faixa visual %{index}"
 it = "Traccia visuale %{index}"
+id = "Trek visual %{index}"
 
 ["Warp amount"]
 en = "Warp amount"
@@ -7474,6 +8032,7 @@ ja = "ワープ量"
 "ru" = "Величина искажения"
 pt = "Quantidade de distorção"
 it = "Quantità deformazione"
+id = "Jumlah lengkungan"
 
 ["Warp scale"]
 en = "Warp scale"
@@ -7487,6 +8046,7 @@ ja = "ワープスケール"
 "ru" = "Масштаб искажения"
 pt = "Escala de distorção"
 it = "Scala deformazione"
+id = "Skala lengkungan"
 
 ["Waveform"]
 en = "Waveform"
@@ -7500,6 +8060,7 @@ ja = "波形"
 "ru" = "Форма волны"
 pt = "Forma de onda"
 it = "Forma d'onda"
+id = "Bentuk gelombang"
 
 ["Wavelength"]
 en = "Wavelength"
@@ -7513,6 +8074,7 @@ ja = "波長"
 "ru" = "Длина волны"
 pt = "Comprimento de onda"
 it = "Lunghezza d'onda"
+id = "Panjang gelombang"
 
 ["Width frequency"]
 en = "Width frequency"
@@ -7526,6 +8088,7 @@ ja = "幅の周波数"
 "ru" = "Частота ширины"
 pt = "Frequência da largura"
 it = "Frequenza larghezza"
+id = "Frekuensi lebar"
 
 ["Width randomness"]
 en = "Width randomness"
@@ -7539,6 +8102,7 @@ ja = "幅のランダム性"
 "ru" = "Случайность ширины"
 pt = "Aleatoriedade da largura"
 it = "Casualità larghezza"
+id = "Keacakan lebar"
 
 ["Width variation"]
 en = "Width variation"
@@ -7552,6 +8116,7 @@ ja = "幅の変化"
 "ru" = "Изменение ширины"
 pt = "Variação da largura"
 it = "Variazione larghezza"
+id = "Variasi lebar"
 
 ["Wipe"]
 en = "Wipe"
@@ -7565,6 +8130,7 @@ ja = "ワイプ"
 "ru" = "Шторка"
 pt = "Varredura"
 it = "Wipe"
+id = "Wipe"
 
 ["Wobble"]
 en = "Wobble"
@@ -7578,6 +8144,7 @@ ja = "揺れ"
 "ru" = "Колебание"
 pt = "Oscilação"
 it = "Oscillazione"
+id = "Goyangan"
 
 ["Wobble position"]
 en = "Wobble position"
@@ -7591,6 +8158,7 @@ ja = "揺れ位置"
 "ru" = "Положение колебания"
 pt = "Posição da oscilação"
 it = "Posizione oscillazione"
+id = "Posisi goyangan"
 
 ["Wobble scale"]
 en = "Wobble scale"
@@ -7604,6 +8172,7 @@ ja = "揺れスケール"
 "ru" = "Масштаб колебания"
 pt = "Escala da oscilação"
 it = "Scala oscillazione"
+id = "Skala goyangan"
 
 ["Word"]
 en = "Word"
@@ -7617,6 +8186,7 @@ ja = "単語"
 "ru" = "Слово"
 pt = "Palavra"
 it = "Parola"
+id = "Kata"
 
 ["Zoom"]
 en = "Zoom"
@@ -7630,6 +8200,7 @@ ja = "ズーム"
 "ru" = "Зум"
 pt = "Zoom"
 it = "Zoom"
+id = "Zoom"
 
 ["Arrow"]
 en = "Arrow"
@@ -7643,6 +8214,7 @@ ja = "矢印"
 "ru" = "Стрелка"
 pt = "Seta"
 it = "Freccia"
+id = "Panah"
 
 ["Blue X"]
 en = "Blue X"
@@ -7656,6 +8228,7 @@ ja = "青 X"
 "ru" = "Синий X"
 pt = "Azul X"
 it = "Blu X"
+id = "Biru X"
 
 ["Blue Y"]
 en = "Blue Y"
@@ -7669,6 +8242,7 @@ ja = "青 Y"
 "ru" = "Синий Y"
 pt = "Azul Y"
 it = "Blu Y"
+id = "Biru Y"
 
 ["Blue ← blue"]
 en = "Blue ← blue"
@@ -7682,6 +8256,7 @@ ja = "青 ← 青"
 "ru" = "Синий ← синий"
 pt = "Azul ← azul"
 it = "Blu ← blu"
+id = "Biru ← biru"
 
 ["Blue ← green"]
 en = "Blue ← green"
@@ -7695,6 +8270,7 @@ ja = "青 ← 緑"
 "ru" = "Синий ← зелёный"
 pt = "Azul ← verde"
 it = "Blu ← verde"
+id = "Biru ← hijau"
 
 ["Blue ← red"]
 en = "Blue ← red"
@@ -7708,6 +8284,7 @@ ja = "青 ← 赤"
 "ru" = "Синий ← красный"
 pt = "Azul ← vermelho"
 it = "Blu ← rosso"
+id = "Biru ← merah"
 
 ["Capsule"]
 en = "Capsule"
@@ -7721,6 +8298,7 @@ ja = "カプセル"
 "ru" = "Капсула"
 pt = "Cápsula"
 it = "Capsula"
+id = "Kapsul"
 
 ["Casual"]
 en = "Casual"
@@ -7734,6 +8312,7 @@ ja = "カジュアル"
 "ru" = "Повседневный"
 pt = "Casual"
 it = "Casual"
+id = "Santai"
 
 ["Clock Wipe"]
 en = "Clock Wipe"
@@ -7747,6 +8326,7 @@ ja = "クロックワイプ"
 "ru" = "Шторка по кругу"
 pt = "Varredura de relógio"
 it = "Wipe orario"
+id = "Clock Wipe"
 
 ["Cone"]
 en = "Cone"
@@ -7760,6 +8340,7 @@ ja = "円錐"
 "ru" = "Конус"
 pt = "Cone"
 it = "Cono"
+id = "Kerucut"
 
 ["Contour Current"]
 en = "Contour Current"
@@ -7773,6 +8354,7 @@ ja = "輪郭電流"
 "ru" = "Контурный ток"
 pt = "Corrente de contorno"
 it = "Corrente contorno"
+id = "Arus Kontur"
 
 ["Cross Fade"]
 en = "Cross Fade"
@@ -7786,6 +8368,7 @@ ja = "クロスフェード"
 "ru" = "Перекрёстное растворение"
 pt = "Fade cruzado"
 it = "Crossfade"
+id = "Cross Fade"
 
 ["Cursive"]
 en = "Cursive"
@@ -7799,6 +8382,7 @@ ja = "筆記体"
 "ru" = "Рукописный"
 pt = "Cursiva"
 it = "Cursivo"
+id = "Kursif"
 
 ["Direct"]
 en = "Direct"
@@ -7812,6 +8396,7 @@ ja = "直接"
 "ru" = "Прямой"
 pt = "Direto"
 it = "Diretta"
+id = "Langsung"
 
 ["Disk / cylinder"]
 en = "Disk / cylinder"
@@ -7825,6 +8410,7 @@ ja = "円盤 / 円柱"
 "ru" = "Диск / цилиндр"
 pt = "Disco / cilindro"
 it = "Disco / cilindro"
+id = "Cakram / silinder"
 
 ["Dissolve"]
 en = "Dissolve"
@@ -7838,6 +8424,7 @@ ja = "ディゾルブ"
 "ru" = "Растворение"
 pt = "Dissolvência"
 it = "Dissolvenza"
+id = "Dissolve"
 
 ["Equal Power"]
 en = "Equal Power"
@@ -7851,6 +8438,7 @@ ja = "等パワー"
 "ru" = "Равная мощность"
 pt = "Potência igual"
 it = "Potenza uguale"
+id = "Daya Seimbang"
 
 ["F0 method"]
 en = "F0 method"
@@ -7864,6 +8452,7 @@ ja = "F0方式"
 "ru" = "Метод F0"
 pt = "Método F0"
 it = "Metodo F0"
+id = "Metode F0"
 
 ["Facet Assembly"]
 en = "Facet Assembly"
@@ -7877,6 +8466,7 @@ ja = "ファセット構成"
 "ru" = "Сборка граней"
 pt = "Montagem de facetas"
 it = "Assemblaggio faccette"
+id = "Perakitan Faset"
 
 ["Fade Through Color"]
 en = "Fade Through Color"
@@ -7890,6 +8480,7 @@ ja = "カラーフェード"
 "ru" = "Переход через цвет"
 pt = "Esmaecer para cor"
 it = "Fade attraverso colore"
+id = "Fade Lewat Warna"
 
 ["Feature contours · multipass"]
 en = "Feature contours · multipass"
@@ -7903,6 +8494,7 @@ ja = "特徴輪郭 · マルチパス"
 "ru" = "Контуры признаков · многопроходно"
 pt = "Contornos de feições · múltiplos passos"
 it = "Contorni elementi · multipass"
+id = "Kontur fitur · multipass"
 
 ["Google"]
 en = "Google"
@@ -7916,6 +8508,7 @@ ja = "Google"
 "ru" = "Google"
 pt = "Google"
 it = "Google"
+id = "Google"
 
 ["Green ← blue"]
 en = "Green ← blue"
@@ -7929,6 +8522,7 @@ ja = "緑 ← 青"
 "ru" = "Зелёный ← синий"
 pt = "Verde ← azul"
 it = "Verde ← blu"
+id = "Hijau ← biru"
 
 ["Green ← green"]
 en = "Green ← green"
@@ -7942,6 +8536,7 @@ ja = "緑 ← 緑"
 "ru" = "Зелёный ← зелёный"
 pt = "Verde ← verde"
 it = "Verde ← verde"
+id = "Hijau ← hijau"
 
 ["Green ← red"]
 en = "Green ← red"
@@ -7955,6 +8550,7 @@ ja = "緑 ← 赤"
 "ru" = "Зелёный ← красный"
 pt = "Verde ← vermelho"
 it = "Verde ← rosso"
+id = "Hijau ← merah"
 
 ["High · 24 samples"]
 en = "High · 24 samples"
@@ -7968,6 +8564,7 @@ ja = "高 · 24サンプル"
 "ru" = "Высокое · 24 сэмпла"
 pt = "Alta · 24 amostras"
 it = "Alta · 24 campioni"
+id = "Tinggi · 24 sampel"
 
 ["High · 8 probes"]
 en = "High · 8 probes"
@@ -7981,6 +8578,7 @@ ja = "高 · 8プローブ"
 "ru" = "Высокое · 8 зондов"
 pt = "Alta · 8 sondas"
 it = "Alta · 8 sonde"
+id = "Tinggi · 8 probe"
 
 ["Kuwahara · painterly"]
 en = "Kuwahara · painterly"
@@ -7994,6 +8592,7 @@ ja = "Kuwahara · 絵画調"
 "ru" = "Kuwahara · живописный"
 pt = "Kuwahara · pictórico"
 it = "Kuwahara · pittorico"
+id = "Kuwahara · lukisan"
 
 ["Live Performance"]
 en = "Live Performance"
@@ -8007,6 +8606,7 @@ ja = "ライブパフォーマンス"
 "ru" = "Производительность в реальном времени"
 pt = "Desempenho em tempo real"
 it = "Prestazione live"
+id = "Performa Langsung"
 
 ["Last %{last} · Avg %{average} · Min %{minimum} · Max %{maximum} · %{samples} samples%{percentage}"]
 en = "Last %{last} · Avg %{average} · Min %{minimum} · Max %{maximum} · %{samples} samples%{percentage}"
@@ -8020,6 +8620,7 @@ ja = "直近 %{last} · 平均 %{average} · 最小 %{minimum} · 最大 %{maxim
 "ru" = "Последнее %{last} · Ср. %{average} · Мин. %{minimum} · Макс. %{maximum} · %{samples} сэмплов%{percentage}"
 pt = "Último %{last} · Méd. %{average} · Mín. %{minimum} · Máx. %{maximum} · %{samples} amostras%{percentage}"
 it = "Ultimo %{last} · Medio %{average} · Min %{minimum} · Max %{maximum} · %{samples} campioni%{percentage}"
+id = "Terakhir %{last} · Rata-rata %{average} · Min %{minimum} · Maks %{maximum} · %{samples} sampel%{percentage}"
 
 ["Living Fill"]
 en = "Living Fill"
@@ -8033,6 +8634,7 @@ ja = "リビングフィル"
 "ru" = "Живая заливка"
 pt = "Preenchimento vivo"
 it = "Riempimento dinamico"
+id = "Isian Hidup"
 
 ["Caption markup: **bold**, *italic*, __underline__, {milliseconds} karaoke, [base/ruby]"]
 en = "Caption markup: **bold**, *italic*, __underline__, {milliseconds} karaoke, [base/ruby]"
@@ -8046,6 +8648,7 @@ ja = "キャプションマークアップ: **太字**、*斜体*、__下線__�
 "ru" = "Разметка субтитров: **жирный**, *курсив*, __подчёркнутый__, {миллисекунды} караоке, [основа/фуригана]"
 pt = "Marcação de legenda: **negrito**, *itálico*, __sublinhado__, {milissegundos} karaokê, [base/ruby]"
 it = "Marcatura sottotitoli: **grassetto**, *corsivo*, __sottolineato__, {milliseconds} karaoke, [base/ruby]"
+id = "Markup takarir: **tebal**, *miring*, __garis bawah__, {milliseconds} karaoke, [dasar/ruby]"
 
 ["Missing item"]
 en = "Missing item"
@@ -8059,6 +8662,7 @@ ja = "項目がありません"
 "ru" = "Отсутствующий элемент"
 pt = "Item ausente"
 it = "Elemento mancante"
+id = "Item hilang"
 
 ["Morphological Resolve"]
 en = "Morphological Resolve"
@@ -8072,6 +8676,7 @@ ja = "形態学的解決"
 "ru" = "Морфологическое разрешение"
 pt = "Resolução morfológica"
 it = "Morphological Resolve"
+id = "Resolusi Morfologis"
 
 ["Naive"]
 en = "Naive"
@@ -8085,6 +8690,7 @@ ja = "単純"
 "ru" = "Наивный"
 pt = "Simples"
 it = "Naive"
+id = "Sederhana"
 
 ["Native"]
 en = "Native"
@@ -8098,6 +8704,7 @@ ja = "ネイティブ"
 "ru" = "Встроенный"
 pt = "Nativo"
 it = "Nativo"
+id = "Asli"
 
 ["Oblique"]
 en = "Oblique"
@@ -8111,6 +8718,7 @@ ja = "斜体"
 "ru" = "Наклонный"
 pt = "Oblíquo"
 it = "Obliquo"
+id = "Oblik"
 
 ["Off (Full Resolution)"]
 en = "Off (Full Resolution)"
@@ -8124,6 +8732,7 @@ ja = "オフ（フル解像度）"
 "ru" = "Выкл. (полное разрешение)"
 pt = "Desativado (resolução máxima)"
 it = "Off (risoluzione completa)"
+id = "Mati (Resolusi Penuh)"
 
 ["Origami"]
 en = "Origami"
@@ -8137,6 +8746,7 @@ ja = "折り紙"
 "ru" = "Оригами"
 pt = "Origami"
 it = "Origami"
+id = "Origami"
 
 ["Path tracing"]
 en = "Path tracing"
@@ -8150,6 +8760,7 @@ ja = "パストレーシング"
 "ru" = "Трассировка пути"
 pt = "Traçado de caminhos"
 it = "Path tracing"
+id = "Path tracing"
 
 ["Pools"]
 en = "Pools"
@@ -8163,6 +8774,7 @@ ja = "プール"
 "ru" = "Пулы"
 pt = "Pools"
 it = "Pool"
+id = "Kolam"
 
 ["Push"]
 en = "Push"
@@ -8176,6 +8788,7 @@ ja = "プッシュ"
 "ru" = "Сдвиг"
 pt = "Empurrar"
 it = "Push"
+id = "Dorong"
 
 ["Radial + Fresnel"]
 en = "Radial + Fresnel"
@@ -8189,6 +8802,7 @@ ja = "放射 + フレネル"
 "ru" = "Радиальный + Френель"
 pt = "Radial + Fresnel"
 it = "Radiale + Fresnel"
+id = "Radial + Fresnel"
 
 ["Radial probes"]
 en = "Radial probes"
@@ -8202,6 +8816,7 @@ ja = "放射プローブ"
 "ru" = "Радиальные зонды"
 pt = "Sondas radiais"
 it = "Probes radiali"
+id = "Probe radial"
 
 ["Red X"]
 en = "Red X"
@@ -8215,6 +8830,7 @@ ja = "赤 X"
 "ru" = "Красный X"
 pt = "Vermelho X"
 it = "Rosso X"
+id = "Merah X"
 
 ["Red Y"]
 en = "Red Y"
@@ -8228,6 +8844,7 @@ ja = "赤 Y"
 "ru" = "Красный Y"
 pt = "Vermelho Y"
 it = "Rosso Y"
+id = "Merah Y"
 
 ["Red ← blue"]
 en = "Red ← blue"
@@ -8241,6 +8858,7 @@ ja = "赤 ← 青"
 "ru" = "Красный ← синий"
 pt = "Vermelho ← azul"
 it = "Rosso ← blu"
+id = "Merah ← biru"
 
 ["Red ← green"]
 en = "Red ← green"
@@ -8254,6 +8872,7 @@ ja = "赤 ← 緑"
 "ru" = "Красный ← зелёный"
 pt = "Vermelho ← verde"
 it = "Rosso ← verde"
+id = "Merah ← hijau"
 
 ["Red ← red"]
 en = "Red ← red"
@@ -8267,6 +8886,7 @@ ja = "赤 ← 赤"
 "ru" = "Красный ← красный"
 pt = "Vermelho ← vermelho"
 it = "Rosso ← rosso"
+id = "Merah ← merah"
 
 ["Render Style"]
 en = "Render Style"
@@ -8280,6 +8900,7 @@ ja = "レンダリングスタイル"
 "ru" = "Стиль рендеринга"
 pt = "Estilo de renderização"
 it = "Stile di render"
+id = "Gaya Render"
 
 ["Repeat"]
 en = "Repeat"
@@ -8293,6 +8914,7 @@ ja = "繰り返し"
 "ru" = "Повторить"
 pt = "Repetir"
 it = "Ripeti"
+id = "Ulangi"
 
 ["Reverse Diffusion"]
 en = "Reverse Diffusion"
@@ -8306,6 +8928,7 @@ ja = "逆拡散"
 "ru" = "Обратная диффузия"
 pt = "Difusão reversa"
 it = "Diffusione inversa"
+id = "Difusi Terbalik"
 
 ["Rotated LTR"]
 en = "Rotated LTR"
@@ -8319,6 +8942,7 @@ ja = "回転・左から右"
 "ru" = "Повёрнутый, слева направо"
 pt = "Girado da esq. para dir."
 it = "Ruotato LTR"
+id = "Diputar LTR"
 
 ["Rotated RTL"]
 en = "Rotated RTL"
@@ -8332,6 +8956,7 @@ ja = "回転・右から左"
 "ru" = "Повёрнутый, справа налево"
 pt = "Girado da dir. para esq."
 it = "Ruotato RTL"
+id = "Diputar RTL"
 
 ["SVG Colors"]
 en = "SVG Colors"
@@ -8345,6 +8970,7 @@ ja = "SVGの色"
 "ru" = "Цвета SVG"
 pt = "Cores SVG"
 it = "Colori SVG"
+id = "Warna SVG"
 
 ["SVG color"]
 en = "SVG color"
@@ -8358,6 +8984,7 @@ ja = "SVGの色"
 "ru" = "Цвет SVG"
 pt = "Cor SVG"
 it = "Colore SVG"
+id = "Warna SVG"
 
 ["Serif"]
 en = "Serif"
@@ -8371,6 +8998,7 @@ ja = "明朝体"
 "ru" = "С засечками"
 pt = "Com serifa"
 it = "Serif"
+id = "Serif"
 
 ["Silhouette"]
 en = "Silhouette"
@@ -8384,6 +9012,7 @@ ja = "シルエット"
 "ru" = "Силуэт"
 pt = "Silhueta"
 it = "Silhouette"
+id = "Siluet"
 
 ["Silhouette + creases"]
 en = "Silhouette + creases"
@@ -8397,6 +9026,7 @@ ja = "シルエット + 折り目"
 "ru" = "Силуэт + складки"
 pt = "Silhueta + vincos"
 it = "Silhouette + pieghe"
+id = "Siluet + lipatan"
 
 ["Slide"]
 en = "Slide"
@@ -8410,6 +9040,7 @@ ja = "スライド"
 "ru" = "Сдвиг"
 pt = "Deslizar"
 it = "Scorrimento"
+id = "Geser"
 
 ["Slide + Fade"]
 en = "Slide + Fade"
@@ -8423,6 +9054,7 @@ ja = "スライド + フェード"
 "ru" = "Сдвиг + растворение"
 pt = "Deslizar + esmaecer"
 it = "Scorrimento + Fade"
+id = "Geser + Fade"
 
 ["Small Capitals"]
 en = "Small Capitals"
@@ -8436,6 +9068,7 @@ ja = "スモールキャップ"
 "ru" = "Капитель"
 pt = "Versaletes"
 it = "Maiuscoletto"
+id = "Kapital Kecil"
 
 ["Soft Refraction"]
 en = "Soft Refraction"
@@ -8449,6 +9082,7 @@ ja = "ソフト屈折"
 "ru" = "Мягкое преломление"
 pt = "Refração suave"
 it = "Rifrazione morbida"
+id = "Bias Lembut"
 
 ["Sphere"]
 en = "Sphere"
@@ -8462,6 +9096,7 @@ ja = "球"
 "ru" = "Сфера"
 pt = "Esfera"
 it = "Sfera"
+id = "Bola"
 
 ["Standard · 12 samples"]
 en = "Standard · 12 samples"
@@ -8475,6 +9110,7 @@ ja = "標準 · 12サンプル"
 "ru" = "Стандартное · 12 сэмплов"
 pt = "Padrão · 12 amostras"
 it = "Standard · 12 campioni"
+id = "Standar · 12 sampel"
 
 ["Standard · 4 probes"]
 en = "Standard · 4 probes"
@@ -8488,6 +9124,7 @@ ja = "標準 · 4プローブ"
 "ru" = "Стандартное · 4 зонда"
 pt = "Padrão · 4 sondas"
 it = "Standard · 4 sonde"
+id = "Standar · 4 probe"
 
 ["Star"]
 en = "Star"
@@ -8501,6 +9138,7 @@ ja = "星"
 "ru" = "Звезда"
 pt = "Estrela"
 it = "Stella"
+id = "Bintang"
 
 ["Streak Wipe"]
 en = "Streak Wipe"
@@ -8514,6 +9152,7 @@ ja = "ストリークワイプ"
 "ru" = "Шторка полосами"
 pt = "Varredura de faixas"
 it = "Streak Wipe"
+id = "Sapuan Garis"
 
 ["Streamline"]
 en = "Streamline"
@@ -8527,6 +9166,7 @@ ja = "流線"
 "ru" = "Линии тока"
 pt = "Linha fluida"
 it = "Streamline"
+id = "Streamline"
 
 ["Stroke Transform"]
 en = "Stroke Transform"
@@ -8540,6 +9180,7 @@ ja = "ストローク変形"
 "ru" = "Преобразование штриха"
 pt = "Transformação de traço"
 it = "Trasformazione tratto"
+id = "Transformasi Goresan"
 
 ["System default"]
 en = "System default"
@@ -8553,6 +9194,7 @@ ja = "システム既定"
 "ru" = "По умолчанию (система)"
 pt = "Padrão do sistema"
 it = "Predefinito di sistema"
+id = "Bawaan sistem"
 
 ["Thinning"]
 en = "Thinning"
@@ -8566,6 +9208,7 @@ ja = "細線化"
 "ru" = "Истончение"
 pt = "Afinamento"
 it = "Assottigliamento"
+id = "Penipisan"
 
 ["Torus"]
 en = "Torus"
@@ -8579,6 +9222,7 @@ ja = "トーラス"
 "ru" = "Тор"
 pt = "Toro"
 it = "Toro"
+id = "Torus"
 
 ["Track %{track} · Item %{item}"]
 en = "Track %{track} · Item %{item}"
@@ -8592,6 +9236,7 @@ ja = "トラック %{track} · 項目 %{item}"
 "ru" = "Дорожка %{track} · Элемент %{item}"
 pt = "Faixa %{track} · Item %{item}"
 it = "Traccia %{track} · Elemento %{item}"
+id = "Trek %{track} · Item %{item}"
 
 ["Triangular Fold"]
 en = "Triangular Fold"
@@ -8605,6 +9250,7 @@ ja = "三角折り"
 "ru" = "Треугольное складывание"
 pt = "Dobra triangular"
 it = "Piega triangolare"
+id = "Lipatan Segitiga"
 
 ["Ultra · 16 probes"]
 en = "Ultra · 16 probes"
@@ -8618,6 +9264,7 @@ ja = "最高 · 16プローブ"
 "ru" = "Ультра · 16 зондов"
 pt = "Ultra · 16 sondas"
 it = "Ultra · 16 sonde"
+id = "Ultra · 16 probe"
 
 ["Ultra · 48 samples"]
 en = "Ultra · 48 samples"
@@ -8631,6 +9278,7 @@ ja = "最高 · 48サンプル"
 "ru" = "Ультра · 48 сэмплов"
 pt = "Ultra · 48 amostras"
 it = "Ultra · 48 campioni"
+id = "Ultra · 48 sampel"
 
 ["Unwrite"]
 en = "Unwrite"
@@ -8644,6 +9292,7 @@ ja = "消去"
 "ru" = "Стереть"
 pt = "Apagar"
 it = "Cancellazione testo"
+id = "Hapus tulisan"
 
 ["Vertical LTR"]
 en = "Vertical LTR"
@@ -8657,6 +9306,7 @@ ja = "縦書き・左から右"
 "ru" = "Вертикальный, слева направо"
 pt = "Vertical da esq. para dir."
 it = "Verticale da sinistra a destra"
+id = "Vertikal LTR"
 
 ["Vertical RTL"]
 en = "Vertical RTL"
@@ -8670,6 +9320,7 @@ ja = "縦書き・右から左"
 "ru" = "Вертикальный, справа налево"
 pt = "Vertical da dir. para esq."
 it = "Verticale da destra a sinistra"
+id = "Vertikal RTL"
 
 ["Video / Render request"]
 en = "Video / Render request"
@@ -8683,6 +9334,7 @@ ja = "ビデオ / レンダリング要求"
 "ru" = "Запрос видео / рендеринга"
 pt = "Solicitação de vídeo / renderização"
 it = "Richiesta video / render"
+id = "Permintaan video / render"
 
 ["Visual track %{number}"]
 en = "Visual track %{number}"
@@ -8696,6 +9348,7 @@ ja = "ビジュアルトラック %{number}"
 "ru" = "Визуальная дорожка %{number}"
 pt = "Faixa visual %{number}"
 it = "Traccia video %{number}"
+id = "Trek visual %{number}"
 
 ["Write"]
 en = "Write"
@@ -8709,6 +9362,7 @@ ja = "書く"
 "ru" = "Писать"
 pt = "Escrever"
 it = "Scrivi"
+id = "Tulis"
 
 ["Writing"]
 en = "Writing"
@@ -8722,6 +9376,7 @@ ja = "書き込み"
 "ru" = "Написание"
 pt = "Escrita"
 it = "Scrittura"
+id = "Menulis"
 
 ["%{axis} variation axis"]
 en = "%{axis} variation axis"
@@ -8735,6 +9390,7 @@ ja = "%{axis} バリエーション軸"
 "ru" = "Ось вариации %{axis}"
 pt = "Eixo de variação %{axis}"
 it = "Asse di variazione %{axis}"
+id = "Sumbu variasi %{axis}"
 
 ["%{name} copied"]
 en = "%{name} copied"
@@ -8748,6 +9404,7 @@ ja = "%{name} をコピーしました"
 "ru" = "%{name} скопировано"
 pt = "%{name} copiado"
 it = "%{name} copiato"
+id = "%{name} disalin"
 
 ["%{label} (Unavailable)"]
 en = "%{label} (Unavailable)"
@@ -8761,6 +9418,7 @@ ja = "%{label}（利用不可）"
 "ru" = "%{label} (недоступно)"
 pt = "%{label} (Indisponível)"
 it = "%{label} (non disponibile)"
+id = "%{label} (Tidak tersedia)"
 
 ["%{message} %{completed}/%{total}"]
 en = "%{message} %{completed}/%{total}"
@@ -8774,6 +9432,7 @@ ja = "%{message} %{completed}/%{total}"
 "ru" = "%{message} %{completed}/%{total}"
 pt = "%{message} %{completed}/%{total}"
 it = "%{message} %{completed}/%{total}"
+id = "%{message} %{completed}/%{total}"
 
 ["Output: %{output}"]
 en = "Output: %{output}"
@@ -8787,6 +9446,7 @@ ja = "出力: %{output}"
 "ru" = "Вывод: %{output}"
 pt = "Saída: %{output}"
 it = "Output: %{output}"
+id = "Output: %{output}"
 
 ["%{strokes} strokes, %{fills} fills"]
 en = "%{strokes} strokes, %{fills} fills"
@@ -8800,6 +9460,7 @@ ja = "%{strokes} ストローク、%{fills} 塗り"
 "ru" = "Штрихов: %{strokes}, заливок: %{fills}"
 pt = "%{strokes} traços, %{fills} preenchimentos"
 it = "%{strokes} tratti, %{fills} riempimenti"
+id = "%{strokes} goresan, %{fills} isian"
 
 ["1 keyframe copied"]
 en = "1 keyframe copied"
@@ -8813,6 +9474,7 @@ ja = "キーフレームを1件コピーしました"
 "ru" = "Скопирован 1 ключевой кадр"
 pt = "1 quadro-chave copiado"
 it = "1 keyframe copiato"
+id = "1 keyframe disalin"
 
 ["1 keyframe pasted"]
 en = "1 keyframe pasted"
@@ -8826,6 +9488,7 @@ ja = "キーフレームを1件貼り付けました"
 "ru" = "Вставлен 1 ключевой кадр"
 pt = "1 quadro-chave colado"
 it = "1 keyframe incollato"
+id = "1 keyframe ditempel"
 
 ["%{count} keyframes copied"]
 en = "%{count} keyframes copied"
@@ -8839,6 +9502,7 @@ ja = "%{count}件のキーフレームをコピーしました"
 "ru" = "Скопировано ключевых кадров: %{count}"
 pt = "%{count} quadros-chave copiados"
 it = "%{count} keyframes copiati"
+id = "%{count} keyframe disalin"
 
 ["%{count} keyframes pasted"]
 en = "%{count} keyframes pasted"
@@ -8852,6 +9516,7 @@ ja = "%{count}件のキーフレームを貼り付けました"
 "ru" = "Вставлено ключевых кадров: %{count}"
 pt = "%{count} quadros-chave colados"
 it = "%{count} keyframes incollati"
+id = "%{count} keyframe ditempel"
 
 ["Analysis starts as source-time chunks are viewed"]
 en = "Analysis starts as source-time chunks are viewed"
@@ -8865,6 +9530,7 @@ ja = "ソース時間チャンクの表示時に解析を開始"
 "ru" = "Анализ начинается при просмотре фрагментов исходного времени"
 pt = "A análise inicia conforme os trechos temporais de origem são visualizados"
 it = "L'analisi inizia quando si visualizzano i frammenti della sequenza sorgente"
+id = "Analisis dimulai saat potongan waktu sumber dilihat"
 
 ["Benchmark report copied"]
 en = "Benchmark report copied"
@@ -8878,6 +9544,7 @@ ja = "ベンチマークレポートをコピーしました"
 "ru" = "Отчёт о бенчмарке скопирован"
 pt = "Relatório de benchmark copiado"
 it = "Rapporto prestazioni copiato"
+id = "Laporan tolok ukur disalin"
 
 ["Checking compute server..."]
 en = "Checking compute server..."
@@ -8891,6 +9558,7 @@ ja = "計算サーバーを確認中..."
 "ru" = "Проверка вычислительного сервера..."
 pt = "Verificando servidor de computação..."
 it = "Controllo del server di calcolo..."
+id = "Memeriksa server komputasi..."
 
 ["Choose a compatible Blender binary in Preferences"]
 en = "Choose a compatible Blender binary in Preferences"
@@ -8904,6 +9572,7 @@ ja = "設定で互換性のあるBlender実行ファイルを選択してくだ�
 "ru" = "Выберите совместимый исполняемый файл Blender в настройках"
 pt = "Escolha um executável compatível do Blender nas Preferências"
 it = "Scegli un binario Blender compatibile nelle Preferenze"
+id = "Pilih biner Blender yang kompatibel di Preferensi"
 
 ["Expression output unavailable"]
 en = "Expression output unavailable"
@@ -8917,6 +9586,7 @@ ja = "式の出力を利用できません"
 "ru" = "Вывод выражения недоступен"
 pt = "Saída de expressão indisponível"
 it = "Output dell'espressione non disponibile"
+id = "Output ekspresi tidak tersedia"
 
 ["Jacobi passes used to minimize the MeshFlow energy"]
 en = "Jacobi passes used to minimize the MeshFlow energy"
@@ -8930,6 +9600,7 @@ ja = "MeshFlowエネルギーを最小化するJacobiパス数"
 "ru" = "Проходы Якоби для минимизации энергии MeshFlow"
 pt = "Passos de Jacobi usados para minimizar a energia do MeshFlow"
 it = "Passaggi Jacobi usati per minimizzare l'energia di MeshFlow"
+id = "Lulusan Jacobi digunakan untuk meminimalkan energi MeshFlow"
 
 ["Ready (%{count} samples)"]
 en = "Ready (%{count} samples)"
@@ -8943,6 +9614,7 @@ ja = "準備完了（%{count}サンプル）"
 "ru" = "Готово (%{count} сэмплов)"
 pt = "Pronto (%{count} amostras)"
 it = "Pronto (%{count} campioni)"
+id = "Siap (%{count} sampel)"
 
 ["Selected tracking method is unavailable"]
 en = "Selected tracking method is unavailable"
@@ -8956,6 +9628,7 @@ ja = "選択したトラッキング方式は利用できません"
 "ru" = "Выбранный метод отслеживания недоступен"
 pt = "O método de rastreamento selecionado está indisponível"
 it = "Il metodo di tracking selezionato non è disponibile"
+id = "Metode pelacakan yang dipilih tidak tersedia"
 
 ["Source track is empty"]
 en = "Source track is empty"
@@ -8969,6 +9642,7 @@ ja = "ソーストラックが空です"
 "ru" = "Исходная дорожка пуста"
 pt = "A faixa de origem está vazia"
 it = "La traccia sorgente è vuota"
+id = "Trek sumber kosong"
 
 ["Source track unavailable"]
 en = "Source track unavailable"
@@ -8982,6 +9656,7 @@ ja = "ソーストラックを利用できません"
 "ru" = "Исходная дорожка недоступна"
 pt = "Faixa de origem indisponível"
 it = "Traccia sorgente non disponibile"
+id = "Trek sumber tidak tersedia"
 
 ["3-band EQ"]
 en = "3-band EQ"
@@ -8995,6 +9670,7 @@ ja = "3バンドEQ"
 "ru" = "3-полосный эквалайзер"
 pt = "Equalizador de 3 bandas"
 it = "Equalizzatore a 3 bande"
+id = "EQ 3-band"
 
 ["3D Object"]
 en = "3D Object"
@@ -9008,6 +9684,7 @@ ja = "3Dオブジェクト"
 "ru" = "3D-объект"
 pt = "Objeto 3D"
 it = "Oggetto 3D"
+id = "Objek 3D"
 
 ["3D Shape"]
 en = "3D Shape"
@@ -9021,6 +9698,7 @@ ja = "3D図形"
 "ru" = "3D-форма"
 pt = "Forma 3D"
 it = "Forma 3D"
+id = "Bentuk 3D"
 
 ["3D Text"]
 en = "3D Text"
@@ -9034,6 +9712,7 @@ ja = "3Dテキスト"
 "ru" = "3D-текст"
 pt = "Texto 3D"
 it = "Testo 3D"
+id = "Teks 3D"
 
 ["Alpha outline"]
 en = "Alpha outline"
@@ -9047,6 +9726,7 @@ ja = "アルファアウトライン"
 "ru" = "Альфа-контур"
 pt = "Contorno alfa"
 it = "Contorno alpha"
+id = "Garis luar alfa"
 
 ["Append"]
 en = "Append"
@@ -9060,6 +9740,7 @@ ja = "末尾に追加"
 "ru" = "Добавить в конец"
 pt = "Anexar ao final"
 it = "Aggiungi alla fine"
+id = "Tambahkan di akhir"
 
 ["Bitcrusher"]
 en = "Bitcrusher"
@@ -9073,6 +9754,7 @@ ja = "ビットクラッシャー"
 "ru" = "Биткрашер"
 pt = "Bitcrusher"
 it = "Bitcrusher"
+id = "Bitcrusher"
 
 ["Bulge"]
 en = "Bulge"
@@ -9086,6 +9768,7 @@ ja = "膨張"
 "ru" = "Выпуклость"
 pt = "Abaulamento"
 it = "Rigonfiamento"
+id = "Cembung"
 
 ["Cache"]
 en = "Cache"
@@ -9099,6 +9782,7 @@ ja = "キャッシュ"
 "ru" = "Кэш"
 pt = "Cache"
 it = "Cache"
+id = "Cache"
 
 ["Channel mixer"]
 en = "Channel mixer"
@@ -9112,6 +9796,7 @@ ja = "チャンネルミキサー"
 "ru" = "Микшер каналов"
 pt = "Misturador de canais"
 it = "Mixer di canali"
+id = "Mixer saluran"
 
 ["Chorus"]
 en = "Chorus"
@@ -9125,6 +9810,7 @@ ja = "コーラス"
 "ru" = "Хорус"
 pt = "Chorus"
 it = "Coro"
+id = "Chorus"
 
 ["Chroma key"]
 en = "Chroma key"
@@ -9138,6 +9824,7 @@ ja = "クロマキー"
 "ru" = "Хромакей"
 pt = "Chroma key"
 it = "Chroma key"
+id = "Chroma key"
 
 ["Chromatic aberration"]
 en = "Chromatic aberration"
@@ -9151,6 +9838,7 @@ ja = "色収差"
 "ru" = "Хроматическая аберрация"
 pt = "Aberração cromática"
 it = "Aberrazione cromatica"
+id = "Aberasi kromatik"
 
 ["Close up"]
 en = "Close up"
@@ -9164,6 +9852,7 @@ ja = "クローズアップ"
 "ru" = "Крупный план"
 pt = "Primeiro plano"
 it = "Primo piano"
+id = "Close up"
 
 ["Color correction"]
 en = "Color correction"
@@ -9177,6 +9866,7 @@ ja = "色補正"
 "ru" = "Цветокоррекция"
 pt = "Correção de cor"
 it = "Correzione colore"
+id = "Koreksi warna"
 
 ["Compressor"]
 en = "Compressor"
@@ -9190,6 +9880,7 @@ ja = "コンプレッサー"
 "ru" = "Компрессор"
 pt = "Compressor"
 it = "Compressore"
+id = "Kompresor"
 
 ["Corner Pin"]
 en = "Corner Pin"
@@ -9203,6 +9894,7 @@ ja = "コーナーピン"
 "ru" = "Закрепление углов"
 pt = "Deformação de cantos"
 it = "Ancoraggio angoli"
+id = "Corner Pin"
 
 ["Crop"]
 en = "Crop"
@@ -9216,6 +9908,7 @@ ja = "クロップ"
 "ru" = "Кадрирование"
 pt = "Recortar"
 it = "Ritaglio"
+id = "Pangkas"
 
 ["Decode"]
 en = "Decode"
@@ -9229,6 +9922,7 @@ ja = "デコード"
 "ru" = "Декодирование"
 pt = "Decodificar"
 it = "Decodifica"
+id = "Dekode"
 
 ["Denoise"]
 en = "Denoise"
@@ -9242,6 +9936,7 @@ ja = "ノイズ除去"
 "ru" = "Шумоподавление"
 pt = "Redução de ruído"
 it = "Riduzione rumore"
+id = "Denoise"
 
 ["Directional blur"]
 en = "Directional blur"
@@ -9255,6 +9950,7 @@ ja = "方向ぼかし"
 "ru" = "Направленное размытие"
 pt = "Desfoque direcional"
 it = "Sfocatura direzionale"
+id = "Buram terarah"
 
 ["Displacement map"]
 en = "Displacement map"
@@ -9268,6 +9964,7 @@ ja = "ディスプレイスメントマップ"
 "ru" = "Карта смещения"
 pt = "Mapa de deslocamento"
 it = "Mappa di spostamento"
+id = "Displacement map"
 
 ["Dithering"]
 en = "Dithering"
@@ -9281,6 +9978,7 @@ ja = "ディザリング"
 "ru" = "Дизеринг"
 pt = "Dithering"
 it = "Dithering"
+id = "Dithering"
 
 ["Drop shadow"]
 en = "Drop shadow"
@@ -9294,6 +9992,7 @@ ja = "ドロップシャドウ"
 "ru" = "Падающая тень"
 pt = "Sombra projetada"
 it = "Ombra esterna"
+id = "Bayangan luar"
 
 ["Duotone"]
 en = "Duotone"
@@ -9307,6 +10006,7 @@ ja = "デュオトーン"
 "ru" = "Дуотон"
 pt = "Duotono"
 it = "Duotono"
+id = "Duotone"
 
 ["Echo"]
 en = "Echo"
@@ -9320,6 +10020,7 @@ ja = "エコー"
 "ru" = "Эхо"
 pt = "Eco"
 it = "Eco"
+id = "Gema"
 
 ["Edge detection"]
 en = "Edge detection"
@@ -9333,6 +10034,7 @@ ja = "エッジ検出"
 "ru" = "Обнаружение краёв"
 pt = "Detecção de bordas"
 it = "Rilevamento bordi"
+id = "Deteksi tepi"
 
 ["Emboss"]
 en = "Emboss"
@@ -9346,6 +10048,7 @@ ja = "エンボス"
 "ru" = "Тиснение"
 pt = "Relevo"
 it = "Rilievo"
+id = "Embos"
 
 ["Erode"]
 en = "Erode"
@@ -9359,6 +10062,7 @@ ja = "収縮"
 "ru" = "Эрозия"
 pt = "Erosão"
 it = "Erosione"
+id = "Erosi"
 
 ["Filter"]
 en = "Filter"
@@ -9372,6 +10076,7 @@ ja = "フィルター"
 "ru" = "Фильтр"
 pt = "Filtro"
 it = "Filtro"
+id = "Filter"
 
 ["Fisheye"]
 en = "Fisheye"
@@ -9385,6 +10090,7 @@ ja = "魚眼"
 "ru" = "Рыбий глаз"
 pt = "Olho-de-peixe"
 it = "Fisheye"
+id = "Fisheye"
 
 ["Gain"]
 en = "Gain"
@@ -9398,6 +10104,7 @@ ja = "ゲイン"
 "ru" = "Усиление"
 pt = "Ganho"
 it = "Guadagno"
+id = "Gain"
 
 ["Gaussian blur"]
 en = "Gaussian blur"
@@ -9411,6 +10118,7 @@ ja = "ガウスぼかし"
 "ru" = "Гауссово размытие"
 pt = "Desfoque gaussiano"
 it = "Sfocatura gaussiana"
+id = "Buram Gaussian"
 
 ["Glow"]
 en = "Glow"
@@ -9424,6 +10132,7 @@ ja = "グロー"
 "ru" = "Свечение"
 pt = "Brilho"
 it = "Bagliore"
+id = "Pijar"
 
 ["Ground"]
 en = "Ground"
@@ -9437,6 +10146,7 @@ ja = "地面"
 "ru" = "Земля"
 pt = "Chão"
 it = "Suolo"
+id = "Dasar"
 
 ["Halftone"]
 en = "Halftone"
@@ -9450,6 +10160,7 @@ ja = "ハーフトーン"
 "ru" = "Полутон"
 pt = "Meio-tom"
 it = "Semitono"
+id = "Halftone"
 
 ["Insert"]
 en = "Insert"
@@ -9463,6 +10174,7 @@ ja = "挿入"
 "ru" = "Вставить"
 pt = "Inserir"
 it = "Inserisci"
+id = "Sisipkan"
 
 ["Jump"]
 en = "Jump"
@@ -9476,6 +10188,7 @@ ja = "ジャンプ"
 "ru" = "Перескок"
 pt = "Salto"
 it = "Salto"
+id = "Lompat"
 
 ["Kaleidoscope"]
 en = "Kaleidoscope"
@@ -9489,6 +10202,7 @@ ja = "万華鏡"
 "ru" = "Калейдоскоп"
 pt = "Caleidoscópio"
 it = "Caleidoscopio"
+id = "Kaleidoskop"
 
 ["Kuwahara"]
 en = "Kuwahara"
@@ -9502,6 +10216,7 @@ ja = "Kuwahara"
 "ru" = "Kuwahara"
 pt = "Kuwahara"
 it = "Kuwahara"
+id = "Kuwahara"
 
 ["Lens distortion"]
 en = "Lens distortion"
@@ -9515,6 +10230,7 @@ ja = "レンズ歪み"
 "ru" = "Дисторсия объектива"
 pt = "Distorção de lente"
 it = "Distorsione lente"
+id = "Distorsi lensa"
 
 ["Limiter"]
 en = "Limiter"
@@ -9528,6 +10244,7 @@ ja = "リミッター"
 "ru" = "Лимитер"
 pt = "Limitador"
 it = "Limitatore"
+id = "Limiter"
 
 ["Luma key"]
 en = "Luma key"
@@ -9541,6 +10258,7 @@ ja = "ルマキー"
 "ru" = "Люма-ключ"
 pt = "Chave de luma"
 it = "Luma key"
+id = "Luma key"
 
 ["Manim Smooth"]
 en = "Manim Smooth"
@@ -9554,6 +10272,7 @@ ja = "Manimスムーズ"
 "ru" = "Плавность Manim"
 pt = "Suavização do Manim"
 it = "Smussamento Manim"
+id = "Halus Manim"
 
 ["Mosaic"]
 en = "Mosaic"
@@ -9567,6 +10286,7 @@ ja = "モザイク"
 "ru" = "Мозаика"
 pt = "Mosaico"
 it = "Mosaico"
+id = "Mosaik"
 
 ["Noise"]
 en = "Noise"
@@ -9580,6 +10300,7 @@ ja = "ノイズ"
 "ru" = "Шум"
 pt = "Ruído"
 it = "Rumore"
+id = "Derau"
 
 ["Noise gate"]
 en = "Noise gate"
@@ -9593,6 +10314,7 @@ ja = "ノイズゲート"
 "ru" = "Шумовой гейт"
 pt = "Gate de ruído"
 it = "Noise gate"
+id = "Gerbang derau"
 
 ["Pan"]
 en = "Pan"
@@ -9606,6 +10328,7 @@ ja = "パン"
 "ru" = "Панорамирование"
 pt = "Panorâmica"
 it = "Panoramica"
+id = "Pan"
 
 ["Path offset"]
 en = "Path offset"
@@ -9619,6 +10342,7 @@ ja = "パスオフセット"
 "ru" = "Смещение пути"
 pt = "Deslocamento do caminho"
 it = "Offset del percorso"
+id = "Ofset jalur"
 
 ["Phone mic"]
 en = "Phone mic"
@@ -9632,6 +10356,7 @@ ja = "電話マイク"
 "ru" = "Телефонный микрофон"
 pt = "Microfone de telefone"
 it = "Microfono telefono"
+id = "Mikrofon ponsel"
 
 ["Point Light"]
 en = "Point Light"
@@ -9645,6 +10370,7 @@ ja = "ポイントライト"
 "ru" = "Точечный свет"
 pt = "Luz pontual"
 it = "Luce puntiforme"
+id = "Cahaya Titik"
 
 ["Posterize"]
 en = "Posterize"
@@ -9658,6 +10384,7 @@ ja = "ポスタリゼーション"
 "ru" = "Постеризация"
 pt = "Posterizar"
 it = "Posterizza"
+id = "Posterisasi"
 
 ["Radial blur"]
 en = "Radial blur"
@@ -9671,6 +10398,7 @@ ja = "放射状ぼかし"
 "ru" = "Радиальное размытие"
 pt = "Desfoque radial"
 it = "Blur radiale"
+id = "Buram radial"
 
 ["Rasterize"]
 en = "Rasterize"
@@ -9684,6 +10412,7 @@ ja = "ラスタライズ"
 "ru" = "Растеризация"
 pt = "Rasterizar"
 it = "Rasterizza"
+id = "Rasterisasi"
 
 ["Reverb"]
 en = "Reverb"
@@ -9697,6 +10426,7 @@ ja = "リバーブ"
 "ru" = "Реверберация"
 pt = "Reverberação"
 it = "Riverbero"
+id = "Reverb"
 
 ["Rewrite"]
 en = "Rewrite"
@@ -9710,6 +10440,7 @@ ja = "書き直し"
 "ru" = "Переписать"
 pt = "Reescrever"
 it = "Riscrivi"
+id = "Tulis ulang"
 
 ["Sampling"]
 en = "Sampling"
@@ -9723,6 +10454,7 @@ ja = "サンプリング"
 "ru" = "Семплирование"
 pt = "Amostragem"
 it = "Campionamento"
+id = "Pengambilan sampel"
 
 ["Shaky path"]
 en = "Shaky path"
@@ -9736,6 +10468,7 @@ ja = "揺れるパス"
 "ru" = "Трясущийся путь"
 pt = "Caminho trêmulo"
 it = "Tracciato tremolante"
+id = "Jalur bergetar"
 
 ["Sharpen"]
 en = "Sharpen"
@@ -9749,6 +10482,7 @@ ja = "シャープ"
 "ru" = "Повысить резкость"
 pt = "Nitidez"
 it = "Nitidezza"
+id = "Pertajam"
 
 ["Stereo width"]
 en = "Stereo width"
@@ -9762,6 +10496,7 @@ ja = "ステレオ幅"
 "ru" = "Ширина стерео"
 pt = "Largura estéreo"
 it = "Larghezza stereo"
+id = "Lebar stereo"
 
 ["Sun"]
 en = "Sun"
@@ -9775,6 +10510,7 @@ ja = "太陽"
 "ru" = "Солнце"
 pt = "Sol"
 it = "Sole"
+id = "Matahari"
 
 ["Text mask"]
 en = "Text mask"
@@ -9788,6 +10524,7 @@ ja = "テキストマスク"
 "ru" = "Текстовая маска"
 pt = "Máscara de texto"
 it = "Maschera di testo"
+id = "Masker teks"
 
 ["Texture bounds"]
 en = "Texture bounds"
@@ -9801,6 +10538,7 @@ ja = "テクスチャ境界"
 "ru" = "Границы текстуры"
 pt = "Limites da textura"
 it = "Limiti della texture"
+id = "Batas tekstur"
 
 ["Transparent Fill"]
 en = "Transparent Fill"
@@ -9814,6 +10552,7 @@ ja = "透明塗り"
 "ru" = "Прозрачная заливка"
 pt = "Preenchimento transparente"
 it = "Riempimento trasparente"
+id = "Isian Transparan"
 
 ["Tremolo"]
 en = "Tremolo"
@@ -9827,6 +10566,7 @@ ja = "トレモロ"
 "ru" = "Тремоло"
 pt = "Trêmolo"
 it = "Tremolo"
+id = "Tremolo"
 
 ["Twirl"]
 en = "Twirl"
@@ -9840,6 +10580,7 @@ ja = "渦巻き"
 "ru" = "Закручивание"
 pt = "Redemoinho"
 it = "Vortice"
+id = "Pusaran"
 
 ["Vectorize"]
 en = "Vectorize"
@@ -9853,6 +10594,7 @@ ja = "ベクター化"
 "ru" = "Векторизация"
 pt = "Vetorizar"
 it = "Vettorizza"
+id = "Vektorisasi"
 
 ["Vignette"]
 en = "Vignette"
@@ -9866,6 +10608,7 @@ ja = "ビネット"
 "ru" = "Виньетка"
 pt = "Vinheta"
 it = "Vignettatura"
+id = "Vinyet"
 
 ["Voice Change"]
 en = "Voice Change"
@@ -9879,6 +10622,7 @@ ja = "ボイスチェンジ"
 "ru" = "Смена голоса"
 pt = "Mudança de voz"
 it = "Modifica voce"
+id = "Ubah Suara"
 
 ["Wave"]
 en = "Wave"
@@ -9892,6 +10636,7 @@ ja = "波"
 "ru" = "Волна"
 pt = "Onda"
 it = "Onda"
+id = "Gelombang"
 
 ["Zoom blur"]
 en = "Zoom blur"
@@ -9905,6 +10650,7 @@ ja = "ズームぼかし"
 "ru" = "Размытие с увеличением"
 pt = "Desfoque de zoom"
 it = "Blur zoom"
+id = "Buram zoom"
 
 ["Diff"]
 en = "Diff"
@@ -9918,6 +10664,7 @@ ja = "差分"
 "ru" = "Различия"
 pt = "Diferença"
 it = "Differenza"
+id = "Diff"
 
 ["Back In"]
 en = "Back In"
@@ -9931,6 +10678,7 @@ ja = "バック・イン"
 "ru" = "С возвратом, вход"
 pt = "Recuo de entrada"
 it = "Back In"
+id = "Mundur Masuk"
 
 ["Back Out"]
 en = "Back Out"
@@ -9944,6 +10692,7 @@ ja = "バック・アウト"
 "ru" = "С возвратом, выход"
 pt = "Recuo de saída"
 it = "Back Out"
+id = "Mundur Keluar"
 
 ["Back In Out"]
 en = "Back In Out"
@@ -9957,6 +10706,7 @@ ja = "バック・インアウト"
 "ru" = "С возвратом, вход-выход"
 pt = "Recuo de entrada e saída"
 it = "Back In Out"
+id = "Mundur Masuk Keluar"
 
 ["Bounce In"]
 en = "Bounce In"
@@ -9970,6 +10720,7 @@ ja = "バウンス・イン"
 "ru" = "Отскок, вход"
 pt = "Rebote de entrada"
 it = "Bounce In"
+id = "Pantul Masuk"
 
 ["Bounce Out"]
 en = "Bounce Out"
@@ -9983,6 +10734,7 @@ ja = "バウンス・アウト"
 "ru" = "Отскок, выход"
 pt = "Rebote de saída"
 it = "Bounce Out"
+id = "Pantul Keluar"
 
 ["Bounce In Out"]
 en = "Bounce In Out"
@@ -9996,6 +10748,7 @@ ja = "バウンス・インアウト"
 "ru" = "Отскок, вход-выход"
 pt = "Rebote de entrada e saída"
 it = "Bounce In Out"
+id = "Pantul Masuk Keluar"
 
 ["Circular In"]
 en = "Circular In"
@@ -10009,6 +10762,7 @@ ja = "円・イン"
 "ru" = "Круговой, вход"
 pt = "Circular de entrada"
 it = "Circular In"
+id = "Melingkar Masuk"
 
 ["Circular Out"]
 en = "Circular Out"
@@ -10022,6 +10776,7 @@ ja = "円・アウト"
 "ru" = "Круговой, выход"
 pt = "Circular de saída"
 it = "Circular Out"
+id = "Melingkar Keluar"
 
 ["Circular In Out"]
 en = "Circular In Out"
@@ -10035,6 +10790,7 @@ ja = "円・インアウト"
 "ru" = "Круговой, вход-выход"
 pt = "Circular de entrada e saída"
 it = "Circular In Out"
+id = "Melingkar Masuk Keluar"
 
 ["Cubic In"]
 en = "Cubic In"
@@ -10048,6 +10804,7 @@ ja = "3次・イン"
 "ru" = "Кубический, вход"
 pt = "Cúbica de entrada"
 it = "Cubic In"
+id = "Kubik Masuk"
 
 ["Cubic Out"]
 en = "Cubic Out"
@@ -10061,6 +10818,7 @@ ja = "3次・アウト"
 "ru" = "Кубический, выход"
 pt = "Cúbica de saída"
 it = "Cubic Out"
+id = "Kubik Keluar"
 
 ["Cubic In Out"]
 en = "Cubic In Out"
@@ -10074,6 +10832,7 @@ ja = "3次・インアウト"
 "ru" = "Кубический, вход-выход"
 pt = "Cúbica de entrada e saída"
 it = "Cubic In Out"
+id = "Kubik Masuk Keluar"
 
 ["Elastic In"]
 en = "Elastic In"
@@ -10087,6 +10846,7 @@ ja = "弾性・イン"
 "ru" = "Упругий, вход"
 pt = "Elástica de entrada"
 it = "Elastic In"
+id = "Elastis Masuk"
 
 ["Elastic Out"]
 en = "Elastic Out"
@@ -10100,6 +10860,7 @@ ja = "弾性・アウト"
 "ru" = "Упругий, выход"
 pt = "Elástica de saída"
 it = "Elastic Out"
+id = "Elastis Keluar"
 
 ["Elastic In Out"]
 en = "Elastic In Out"
@@ -10113,6 +10874,7 @@ ja = "弾性・インアウト"
 "ru" = "Упругий, вход-выход"
 pt = "Elástica de entrada e saída"
 it = "Elastic In Out"
+id = "Elastis Masuk Keluar"
 
 ["Exponential In"]
 en = "Exponential In"
@@ -10126,6 +10888,7 @@ ja = "指数・イン"
 "ru" = "Экспоненциальный, вход"
 pt = "Exponencial de entrada"
 it = "Exponential In"
+id = "Eksponensial Masuk"
 
 ["Exponential Out"]
 en = "Exponential Out"
@@ -10139,6 +10902,7 @@ ja = "指数・アウト"
 "ru" = "Экспоненциальный, выход"
 pt = "Exponencial de saída"
 it = "Exponential Out"
+id = "Eksponensial Keluar"
 
 ["Exponential In Out"]
 en = "Exponential In Out"
@@ -10152,6 +10916,7 @@ ja = "指数・インアウト"
 "ru" = "Экспоненциальный, вход-выход"
 pt = "Exponencial de entrada e saída"
 it = "Exponential In Out"
+id = "Eksponensial Masuk Keluar"
 
 ["Quad In"]
 en = "Quad In"
@@ -10165,6 +10930,7 @@ ja = "2次・イン"
 "ru" = "Квадратичный, вход"
 pt = "Quadrática de entrada"
 it = "Quad In"
+id = "Kuadratik Masuk"
 
 ["Quad Out"]
 en = "Quad Out"
@@ -10178,6 +10944,7 @@ ja = "2次・アウト"
 "ru" = "Квадратичный, выход"
 pt = "Quadrática de saída"
 it = "Quad Out"
+id = "Kuadratik Keluar"
 
 ["Quad In Out"]
 en = "Quad In Out"
@@ -10191,6 +10958,7 @@ ja = "2次・インアウト"
 "ru" = "Квадратичный, вход-выход"
 pt = "Quadrática de entrada e saída"
 it = "Quad In Out"
+id = "Kuadratik Masuk Keluar"
 
 ["Quart In"]
 en = "Quart In"
@@ -10204,6 +10972,7 @@ ja = "4次・イン"
 "ru" = "Квартичный, вход"
 pt = "Quártica de entrada"
 it = "Quart In"
+id = "Kuartik Masuk"
 
 ["Quart Out"]
 en = "Quart Out"
@@ -10217,6 +10986,7 @@ ja = "4次・アウト"
 "ru" = "Квартичный, выход"
 pt = "Quártica de saída"
 it = "Quart Out"
+id = "Kuartik Keluar"
 
 ["Quart In Out"]
 en = "Quart In Out"
@@ -10230,6 +11000,7 @@ ja = "4次・インアウト"
 "ru" = "Квартичный, вход-выход"
 pt = "Quártica de entrada e saída"
 it = "Quart In Out"
+id = "Kuartik Masuk Keluar"
 
 ["Quint In"]
 en = "Quint In"
@@ -10243,6 +11014,7 @@ ja = "5次・イン"
 "ru" = "Квинтический, вход"
 pt = "Quíntica de entrada"
 it = "Quint In"
+id = "Kuintik Masuk"
 
 ["Quint Out"]
 en = "Quint Out"
@@ -10256,6 +11028,7 @@ ja = "5次・アウト"
 "ru" = "Квинтический, выход"
 pt = "Quíntica de saída"
 it = "Quint Out"
+id = "Kuintik Keluar"
 
 ["Quint In Out"]
 en = "Quint In Out"
@@ -10269,6 +11042,7 @@ ja = "5次・インアウト"
 "ru" = "Квинтический, вход-выход"
 pt = "Quíntica de entrada e saída"
 it = "Quint In Out"
+id = "Kuintik Masuk Keluar"
 
 ["Sine In"]
 en = "Sine In"
@@ -10282,6 +11056,7 @@ ja = "サイン・イン"
 "ru" = "Синусоидальный, вход"
 pt = "Seno de entrada"
 it = "Sine In"
+id = "Sinus Masuk"
 
 ["Sine Out"]
 en = "Sine Out"
@@ -10295,6 +11070,7 @@ ja = "サイン・アウト"
 "ru" = "Синусоидальный, выход"
 pt = "Seno de saída"
 it = "Sine Out"
+id = "Sinus Keluar"
 
 ["Sine In Out"]
 en = "Sine In Out"
@@ -10308,6 +11084,7 @@ ja = "サイン・インアウト"
 "ru" = "Синусоидальный, вход-выход"
 pt = "Seno de entrada e saída"
 it = "Sine In Out"
+id = "Sinus Masuk Keluar"
 
 ["1 video track"]
 en = "1 video track"
@@ -10321,6 +11098,7 @@ ja = "ビデオトラック1本"
 "ru" = "1 видеодорожка"
 pt = "1 faixa de vídeo"
 it = "1 traccia video"
+id = "1 trek video"
 
 ["%{count} video tracks"]
 en = "%{count} video tracks"
@@ -10334,6 +11112,7 @@ ja = "ビデオトラック%{count}本"
 "ru" = "Видеодорожек: %{count}"
 pt = "%{count} faixas de vídeo"
 it = "%{count} tracce video"
+id = "%{count} trek video"
 
 ["1 audio track"]
 en = "1 audio track"
@@ -10347,6 +11126,7 @@ ja = "オーディオトラック1本"
 "ru" = "1 аудиодорожка"
 pt = "1 faixa de áudio"
 it = "1 traccia audio"
+id = "1 trek audio"
 
 ["%{count} audio tracks"]
 en = "%{count} audio tracks"
@@ -10360,6 +11140,7 @@ ja = "オーディオトラック%{count}本"
 "ru" = "Аудиодорожек: %{count}"
 pt = "%{count} faixas de áudio"
 it = "%{count} tracce audio"
+id = "%{count} trek audio"
 
 ["1 caption track"]
 en = "1 caption track"
@@ -10373,6 +11154,7 @@ ja = "字幕トラック1本"
 "ru" = "1 дорожка субтитров"
 pt = "1 faixa de legendas"
 it = "1 traccia sottotitoli"
+id = "1 trek takarir"
 
 ["%{count} caption tracks"]
 en = "%{count} caption tracks"
@@ -10386,6 +11168,7 @@ ja = "字幕トラック%{count}本"
 "ru" = "Дорожек субтитров: %{count}"
 pt = "%{count} faixas de legendas"
 it = "%{count} tracce sottotitoli"
+id = "%{count} trek takarir"
 
 ["1 page"]
 en = "1 page"
@@ -10399,6 +11182,7 @@ ja = "1ページ"
 "ru" = "1 страница"
 pt = "1 página"
 it = "1 pagina"
+id = "1 halaman"
 
 ["%{count} pages"]
 en = "%{count} pages"
@@ -10412,6 +11196,7 @@ ja = "%{count}ページ"
 "ru" = "Страниц: %{count}"
 pt = "%{count} páginas"
 it = "%{count} pagine"
+id = "%{count} halaman"
 
 ["3D models"]
 en = "3D models"
@@ -10425,6 +11210,7 @@ ja = "3Dモデル"
 "ru" = "3D-модели"
 pt = "Modelos 3D"
 it = "Modelli 3D"
+id = "Model 3D"
 
 ["OptiX denoiser"]
 en = "OptiX denoiser"
@@ -10438,6 +11224,7 @@ ja = "OptiX デノイザー"
 "ru" = "Денойзер OptiX"
 pt = "Redutor de ruído OptiX"
 it = "Riduzione del rumore OptiX"
+id = "Pereduksi derau OptiX"
 
 ["2× rotated grid"]
 en = "2× rotated grid"
@@ -10451,6 +11238,7 @@ ja = "2倍回転グリッド"
 "ru" = "Сетка 2× повёрнутая"
 pt = "Grade rotacionada 2×"
 it = "Griglia ruotata 2×"
+id = "Kisi diputar 2×"
 
 ["4× grid"]
 en = "4× grid"
@@ -10464,6 +11252,7 @@ ja = "4倍グリッド"
 "ru" = "Сетка 4×"
 pt = "Grade 4×"
 it = "Griglia 4×"
+id = "Kisi 4×"
 
 ["8× stochastic"]
 en = "8× stochastic"
@@ -10477,6 +11266,7 @@ ja = "8倍確率的"
 "ru" = "8× стохастический"
 pt = "Estocástico 8×"
 it = "Stocastico 8×"
+id = "Stokastik 8×"
 
 ["FLAC · Lossless"]
 en = "FLAC · Lossless"
@@ -10490,6 +11280,7 @@ ja = "FLAC · ロスレス"
 "ru" = "FLAC · Без потерь"
 pt = "FLAC · Sem perdas"
 it = "FLAC · Lossless"
+id = "FLAC · Lossless"
 
 ["H.265 · Balanced"]
 en = "H.265 · Balanced"
@@ -10503,6 +11294,7 @@ ja = "H.265 · バランス"
 "ru" = "H.265 · Сбалансированный"
 pt = "H.265 · Equilibrado"
 it = "H.265 · Bilanciato"
+id = "H.265 · Seimbang"
 
 ["H.265 · Compact"]
 en = "H.265 · Compact"
@@ -10516,6 +11308,7 @@ ja = "H.265 · コンパクト"
 "ru" = "H.265 · Компактный"
 pt = "H.265 · Compacto"
 it = "H.265 · Compatto"
+id = "H.265 · Ringkas"
 
 ["H.265 · High"]
 en = "H.265 · High"
@@ -10529,6 +11322,7 @@ ja = "H.265 · 高品質"
 "ru" = "H.265 · Высокое"
 pt = "H.265 · Alto"
 it = "H.265 · Alto"
+id = "H.265 · Tinggi"
 
 ["H.265 · Lossless"]
 en = "H.265 · Lossless"
@@ -10542,6 +11336,7 @@ ja = "H.265 · ロスレス"
 "ru" = "H.265 · Без потерь"
 pt = "H.265 · Sem perdas"
 it = "H.265 · Lossless"
+id = "H.265 · Lossless"
 
 ["Monospace Sans"]
 en = "Monospace Sans"
@@ -10555,6 +11350,7 @@ ja = "等幅サンセリフ"
 "ru" = "Моноширинный гротеск"
 pt = "Monoespaçada sem serifa"
 it = "Monospace Sans"
+id = "Monospace Sans"
 
 ["Monospace Serif"]
 en = "Monospace Serif"
@@ -10568,6 +11364,7 @@ ja = "等幅セリフ"
 "ru" = "Моноширинный с засечками"
 pt = "Monoespaçada com serifa"
 it = "Monospace Serif"
+id = "Monospace Serif"
 
 ["Opus · Balanced"]
 en = "Opus · Balanced"
@@ -10581,6 +11378,7 @@ ja = "Opus · バランス"
 "ru" = "Opus · Сбалансированный"
 pt = "Opus · Equilibrado"
 it = "Opus · Bilanciato"
+id = "Opus · Seimbang"
 
 ["Opus · Compact"]
 en = "Opus · Compact"
@@ -10594,6 +11392,7 @@ ja = "Opus · コンパクト"
 "ru" = "Opus · Компактный"
 pt = "Opus · Compacto"
 it = "Opus · Compatto"
+id = "Opus · Ringkas"
 
 ["Opus · High"]
 en = "Opus · High"
@@ -10607,3 +11406,4 @@ ja = "Opus · 高品質"
 "ru" = "Opus · Высокое"
 pt = "Opus · Alto"
 it = "Opus · Alto"
+id = "Opus · Tinggi"
