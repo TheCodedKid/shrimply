@@ -12,7 +12,7 @@ ja = "シンプルな動画エディター"
 "ru" = "Простой видео редактор"
 pt = "Um editor de vídeo simples"
 tr = "Basit bir video düzenleyicisi"
-it = "Un semplice video edito"
+it = "Un semplice video editor"
 
 ["About Shrimply"]
 en = "About Shrimply"
@@ -152,7 +152,7 @@ ja = "協力"
 "ru" = "Разработан с помощью"
 pt = "Desenvolvido com a ajuda de"
 tr = "Katkıda bulunanlar"
-it = "Creato con l'aiuto di"
+it = "Creato con l’aiuto di"
 
 ["Caption background color"]
 en = "Caption background color"
@@ -208,7 +208,7 @@ ja = "サーバー URL を確認中"
 "ru" = "Проверка URL сервера"
 pt = "Verificando URL do servidor"
 tr = "Sunucu URL'si kontrol ediliyor"
-it = "Controllo URL del server"
+it = "Verificando URL del server"
 
 ["Checking…"]
 en = "Checking…"
@@ -236,7 +236,7 @@ ja = "Blender 実行ファイルを選択"
 "ru" = "Выберите исполняемый файл Blender"
 pt = "Escolher executável do Blender"
 tr = "Blender Yürütülebilir Dosyası Seçin"
-it = "Scegli il binadio di Blender"
+it = "Scegli il binario di Blender"
 
 ["Clear Blender binary"]
 en = "Clear Blender binary"
@@ -320,7 +320,7 @@ ko = "변환"
 ru = "Преобразовать"
 pt = "Converter"
 tr = "Dönüştür"
-it = "COnverti"
+it = "Converti"
 
 ["Convert Kdenlive Project?"]
 en = "Convert Kdenlive Project?"
@@ -362,7 +362,7 @@ ko = "프로젝트 타이밍을 수정해야 합니다"
 ru = "Тайминг проекта требует исправления"
 pt = "A temporização do projeto precisa de correção"
 tr = "Proje Zamanlamasında Düzeltme Gerekiyor"
-it = "La tempistica del progetto richiede una correzione"
+it = "La tempistica del progetto richiede una riparazione"
 
 ["Save Fixed Project"]
 en = "Save Fixed Project"
@@ -390,7 +390,7 @@ ko = "일부 클립이 프로젝트 프레임 격자에 맞지 않습니다. 수
 ru = "Некоторые клипы не выровнены по сетке кадров проекта. Исправление привяжет и минимально сдвинет их границы, а затем сохранит новый проект без изменения исходного."
 pt = "Alguns clipes não estão alinhados à grade de quadros do projeto. A correção ajustará e deslocará minimamente os limites dos clipes e salvará um novo projeto sem alterar o original."
 tr = "Bazı klipler proje kare ızgarasıyla hizalı değil. Düzeltme işlemi klip sınırlarını ızgaraya oturtup mümkün olduğunca az kaydıracak, ardından özgün projeyi değiştirmeden yeni bir proje kaydedecektir."
-it = "Alcune clip non sono allineate alla griglia dei fotogrammi del progetto. La correzione aggancerà e sposterà leggermente i bordi delle clip, salvando un nuovo progetto senza modificare l'originale."
+it = "Alcune clip non sono allineate alla griglia dei fotogrammi del progetto. La correzione aggancerà e sposterà leggermente i bordi delle clip, salvando un nuovo progetto senza modificare l’originale."
 
 ["Compute"]
 en = "Compute"
@@ -614,7 +614,7 @@ ja = "既定のテキストフォント"
 "ru" = "Шрифт текста по умолчанию"
 pt = "Fonte de texto padrão"
 tr = "Varsayılan Metin Yazı Tipi"
-it = "Font di testo predefinito"
+it = "Font predefinito del testo"
 
 ["Default Visual Duration"]
 en = "Default Visual Duration"
@@ -684,7 +684,7 @@ ja = "タイムライン、ビート、プレビューのスナップ距離（�
 "ru" = "Расстояние в пикселях для привязки таймлайна, битов и предпросмотра"
 pt = "Distância em pixels para encaixe na linha do tempo, batidas e pré-visualização"
 tr = "Zaman akışı, vuruş ve önizleme hizalaması için piksel cinsinden mesafe"
-it = "Distanza in pixel per l'aggancio a sequenza, beat e anteprima"
+it = "Distanza in pixel per l’aggancio a sequenza, beat e anteprima"
 
 ["Drop shadow extent around the video frame in pixels"]
 en = "Drop shadow extent around the video frame in pixels"
@@ -698,7 +698,7 @@ ja = "動画フレーム周囲のドロップシャドウの大きさ（ピク�
 "ru" = "Размер тени вокруг кадра видео в пикселях"
 pt = "Extensão da sombra projetada ao redor do quadro de vídeo em pixels"
 tr = "Piksel cinsinden video çerçevesinin etrafındaki gölge genişliği"
-it = "Estensione in pixel dell'ombra esterna attorno al fotogramma video"
+it = "Estensione in pixel dell’ombra esterna attorno al fotogramma video"
 
 ["Edit Server"]
 en = "Edit Server"
@@ -852,7 +852,7 @@ ja = "GPU ホストメモリ予算"
 "ru" = "Бюджет системной памяти GPU"
 pt = "Limite de memória do host para GPU"
 tr = "GPU Ana Bellek Bütçesi"
-it = "Limite memoria host per GPU"
+it = "Limite memoria di sistema per la GPU"
 
 ["Import Kdenlive as Shrimply Project"]
 en = "Import Kdenlive as Shrimply Project"
@@ -908,7 +908,7 @@ ja = "推論サーバー"
 "ru" = "Серверы инференса"
 pt = "Servidores de inferência"
 tr = "Çıkarım Sunucuları"
-it = "Server d'inferenza"
+it = "Server d’inferenza"
 
 ["Jobs"]
 en = "Jobs"
@@ -964,7 +964,7 @@ ja = "最終編集"
 "ru" = "Последнее изменение"
 pt = "Última edição"
 tr = "En Son Düzenlenen"
-it = "Ultimo modificato"
+it = "Ultima modifica"
 
 ["Last edited time unavailable"]
 en = "Last edited time unavailable"
@@ -978,7 +978,7 @@ ja = "最終編集日時を取得できません"
 "ru" = "Время последнего изменения недоступно"
 pt = "Data da última edição indisponível"
 tr = "En son düzenleme zamanı mevcut değil"
-it = "Data dell'ultima modifica non disponibile"
+it = "Data dell’ultima modifica non disponibile"
 
 ["Learn more"]
 en = "Learn more"
@@ -1006,7 +1006,7 @@ ja = "明るい青"
 "ru" = "Светло-голубой"
 pt = "Azul-claro"
 tr = "Açık Mavi"
-it = "Azzurro"
+it = "Blu chiaro"
 
 ["Light Brown"]
 en = "Light Brown"
@@ -1314,7 +1314,7 @@ ja = "プロジェクトを開く…"
 "ru" = "Открыть проект…"
 pt = "Abrir projeto…"
 tr = "Proje Aç…"
-it = "Apertura progetto..."
+it = "Apri progetto..."
 
 ["Open the GTK color picker"]
 en = "Open the GTK color picker"
@@ -1594,7 +1594,7 @@ ja = "リップルカット"
 "ru" = "Разрез с уплотнением"
 pt = "Corte com ondulação"
 tr = "Ardışık kesim"
-it = "Taglia e salda"
+it = "Taglia e scorri"
 
 ["Ripple trim selected clip to playhead"]
 en = "Ripple trim selected clip to playhead"
@@ -1608,7 +1608,7 @@ ja = "選択したクリップを再生ヘッドまでリップルトリム"
 "ru" = "Подрезать выбранный клип до курсора с уплотнением"
 pt = "Aparar com ondulação o clipe selecionado até o indicador de reprodução"
 tr = "Seçilen klibi oynatma imlecine kadar ardışık kırp"
-it = "Taglia e salda la clip selezionata alla testina di riproduzione"
+it = "Taglia e scorri la clip selezionata fino alla testina di riproduzione"
 
 ["Saturation and value"]
 en = "Saturation and value"
@@ -1692,7 +1692,7 @@ ja = "履歴を検索"
 "ru" = "Поиск по истории"
 pt = "Pesquisar histórico"
 tr = "Arama geçmişi"
-it = "Cerca nella cronologia"
+it = "Cerca cronologia"
 
 ["Select color"]
 en = "Select color"
@@ -1706,7 +1706,7 @@ ja = "色を選択"
 "ru" = "Выбрать цвет"
 pt = "Selecionar cor"
 tr = "Renk seç"
-it = "Seleziona un colore"
+it = "Seleziona colore"
 
 ["Selected Server"]
 en = "Selected Server"
@@ -1776,7 +1776,7 @@ ja = "影のサイズ"
 "ru" = "Размер тени"
 pt = "Tamanho da sombra"
 tr = "Gölge Boyutu"
-it = "Dimensione dell'ombra"
+it = "Dimensione dell’ombra"
 
 ["Show Keyboard Shortcuts"]
 en = "Show Keyboard Shortcuts"
@@ -1818,7 +1818,7 @@ ja = "Shrimply プロジェクト"
 "ru" = "Проекты Shrimply"
 pt = "Projetos do Shrimply"
 tr = "Shrimply projeleri"
-it = "Progetti di Shrimply"
+it = "Progetti Shrimply"
 
 ["Shrimply supports only some Kdenlive features. Unsupported content may be changed or omitted."]
 en = "Shrimply supports only some Kdenlive features. Unsupported content may be changed or omitted."
@@ -1902,7 +1902,7 @@ ja = "CUDA の退避と再構築可能な GPU リソースに使用できるシ�
 "ru" = "Максимальный объем системной RAM, доступный для выгрузки CUDA и реконструируемых ресурсов GPU"
 pt = "RAM máxima do sistema disponível para transbordamento de CUDA e recursos reconstruíveis da GPU"
 tr = "CUDA taşması ve yeniden oluşturulabilir GPU kaynakları için kullanılabilir azami sistem RAM'i"
-it = "RAM di sistema massima disponibile per overflow CUDA e risorse GPU ricostruibili"
+it = "RAM di sistema massima disponibile per spillover CUDA e risorse GPU ricostruibili"
 
 ["Step playback"]
 en = "Step playback"
@@ -1930,7 +1930,7 @@ ja = "別のエディターを停止"
 "ru" = "Остановить другой редактор"
 pt = "Parar outro editor"
 tr = "Diğer Düzenleyiciyi Durdur"
-it = "Ferma l'altro editor"
+it = "Ferma l’altro editor"
 
 ["Temporal Decoder Pool Size"]
 en = "Temporal Decoder Pool Size"
@@ -1958,7 +1958,7 @@ ja = "タイムライン"
 "ru" = "Таймлайн"
 pt = "Linha do tempo"
 tr = "Zaman Çizelgesi"
-it = "Sequenza temporale"
+it = "Sequenza"
 
 ["Toggle Inspector"]
 en = "Toggle Inspector"
@@ -2210,7 +2210,7 @@ ja = "ごく明るい青"
 "ru" = "Очень светло-голубой"
 pt = "Azul muito claro"
 tr = "Çok Açık Mavi"
-it = "Azzurro molto chiaro"
+it = "Blu molto chiaro"
 
 ["Very Light Brown"]
 en = "Very Light Brown"
@@ -2434,7 +2434,7 @@ ja = "待機中 %{queued} · 実行中 %{active}"
 "ru" = "%{queued} в очереди · %{active} активных"
 pt = "%{queued} na fila · %{active} ativas"
 tr = "%{queued} kuyrukta · %{active} aktif"
-it = "%{queued} accodato · %{active} active"
+it = "%{queued} accodato · %{active} attivi"
 
 ["Project is in use"]
 en = "Project is in use"
@@ -2504,7 +2504,7 @@ ja = "プレビューが動画より大きい場合に使用するフィルタ�
 "ru" = "Фильтр, используемый, когда предпросмотр больше видео"
 pt = "Filtro usado quando a pré-visualização é maior que o vídeo"
 tr = "Önizleme videodan daha büyük olduğunda kullanılan filtre"
-it = "Filtro utilizzato quando l'anteprima è più grande del video"
+it = "Filtro utilizzato quando l’anteprima è più grande del video"
 
 ["Filter used when the preview is smaller than the video"]
 en = "Filter used when the preview is smaller than the video"
@@ -2518,7 +2518,7 @@ ja = "プレビューが動画より小さい場合に使用するフィルタ�
 "ru" = "Фильтр, используемый, когда предпросмотр меньше видео"
 pt = "Filtro usado quando a pré-visualização é menor que o vídeo"
 tr = "Önizleme videodan daha küçük olduğunda kullanılan filtre"
-it = "Filtro utilizzato quando l'anteprima è più piccola del video"
+it = "Filtro utilizzato quando l’anteprima è più piccola del video"
 
 ["Nearest"]
 en = "Nearest"
@@ -2546,7 +2546,7 @@ ja = "プレビューのダウンサンプリング方式"
 "ru" = "Метод уменьшения предпросмотра"
 pt = "Método de redução da pré-visualização"
 tr = "Önizleme Alt Örnekleme Yöntemi"
-it = "Metodo di downsampling dell'anteprima"
+it = "Metodo di downsampling dell’anteprima"
 
 ["Preview Upsample Method"]
 en = "Preview Upsample Method"
@@ -2560,7 +2560,7 @@ ja = "プレビューのアップサンプリング方式"
 "ru" = "Метод увеличения предпросмотра"
 pt = "Método de ampliação da pré-visualização"
 tr = "Önizleme Üst Örnekleme Yöntemi"
-it = "Metodo di upsample dell'anteprima"
+it = "Metodo di upsample dell’anteprima"
 
 ["Trilinear"]
 en = "Trilinear"
