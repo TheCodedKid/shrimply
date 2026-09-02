@@ -118,6 +118,10 @@ pub fn commit_coalesced_edit(project: &Project, group: &str) -> bool {
     commit(project, group, Some(group))
 }
 
+pub fn finish_coalesced_edit() {
+    memory::finish_coalesced_edit();
+}
+
 pub fn undo(project: &mut Project) -> bool {
     if memory::undo(project).is_none() {
         return false;

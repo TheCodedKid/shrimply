@@ -42,6 +42,14 @@ pub(super) fn commit(project: &Project, coalesce_group: Option<&str>) {
     });
 }
 
+pub(super) fn finish_coalesced_edit() {
+    HISTORY.with(|slot| {
+        if let Some(history) = slot.borrow_mut().as_mut() {
+            history.last_coalesce_group = None;
+        }
+    });
+}
+
 pub(super) fn undo(project: &mut Project) -> Option<usize> {
     HISTORY.with(|slot| slot.borrow_mut().as_mut()?.undo(project))
 }

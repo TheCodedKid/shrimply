@@ -4,8 +4,8 @@ use std::borrow::Cow;
 rust_i18n::i18n!("locales", fallback = "en");
 
 const DEFAULT_LOCALE: &str = "en";
-const SUPPORTED_LOCALES: [&str; 14] = [
-    "en", "es", "fr", "de", "ja", "zh-CN", "zh-TW", "ko", "pt", "ru", "tr", "it", "id", "ar",
+const SUPPORTED_LOCALES: [&str; 15] = [
+    "en", "es", "fr", "de", "ja", "zh-CN", "zh-TW", "ko", "pt", "ru", "tr", "it", "id", "pl", "ar",
 ];
 
 pub fn init_system_locale() {

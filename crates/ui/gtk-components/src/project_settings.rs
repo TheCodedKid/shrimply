@@ -3,7 +3,9 @@ use std::rc::Rc;
 
 use adw::prelude::*;
 use shrimply_component_core::project_settings::{CUSTOM_PRESET_INDEX, ProjectSettings};
-use shrimply_project_core::{COMMON_FRAME_RATES, PROJECT_PRESETS};
+use shrimply_project_core::{
+    COMMON_FRAME_RATES, MAX_CANVAS_DIMENSION, MIN_CANVAS_DIMENSION, PROJECT_PRESETS,
+};
 
 pub struct ProjectSettingsSelector {
     pub preset: adw::ComboRow,
@@ -34,11 +36,19 @@ impl ProjectSettingsSelector {
             .model(&gtk::StringList::new(&preset_labels))
             .selected(initial.preset as u32)
             .build();
-        let width = adw::SpinRow::with_range(1.0, 16_384.0, 1.0);
+        let width = adw::SpinRow::with_range(
+            f64::from(MIN_CANVAS_DIMENSION),
+            f64::from(MAX_CANVAS_DIMENSION),
+            1.0,
+        );
         width.set_title(crate::i18n::text("Width").as_ref());
         width.set_value(f64::from(initial.width));
         width.set_digits(0);
-        let height = adw::SpinRow::with_range(1.0, 16_384.0, 1.0);
+        let height = adw::SpinRow::with_range(
+            f64::from(MIN_CANVAS_DIMENSION),
+            f64::from(MAX_CANVAS_DIMENSION),
+            1.0,
+        );
         height.set_title(crate::i18n::text("Height").as_ref());
         height.set_value(f64::from(initial.height));
         height.set_digits(0);

@@ -9,6 +9,7 @@ Button {
     id: root
     property var values: []
     property var labels: []
+    property var searchTerms: labels
     signal selected(string value)
     text: qsTr("Add modifier")
     flat: true
@@ -31,6 +32,7 @@ Button {
         id: menu
         width: 280
         labels: root.labels
+        searchTerms: root.searchTerms
         placeholderText: qsTr("Search modifiers")
         onActivated: function(index) {
             const value = backend.valueAt(root.values, index)

@@ -1,6 +1,6 @@
 use shrimply_gtk_components::tr;
 use std::cell::{Cell, RefCell};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::mpsc::{self, TryRecvError};
@@ -10,20 +10,18 @@ use std::time::Duration;
 use gtk::prelude::*;
 use gtk::{gio, glib};
 use shrimply_gtk_components::ui;
-use shrimply_math_core::{
-    fraction_as_f64, fraction_denominator, fraction_numerator, fraction_snapped,
-};
+use shrimply_inspector_core::tts::{TtsGeneration, TtsInputEdit};
+use shrimply_math_core::fraction_as_f64;
 use shrimply_project::project::Time;
 use shrimply_state::preferences as preferences_store;
 use shrimply_tts::{
     Fraction, InputDefinition, Speech, TableColumn, TtsModel, TtsSettings, TtsValue, is_visible,
-    speech_request, sync_settings,
 };
 use uuid::Uuid;
 
 enum GenerationMessage {
     Progress(String),
-    Done(Result<(PathBuf, Time, Fraction), String>),
+    Done(Result<TtsGeneration, String>),
 }
 
 type VisibilityRefresh = Rc<RefCell<Option<Rc<dyn Fn()>>>>;
@@ -32,7 +30,7 @@ type VisibilityRefresh = Rc<RefCell<Option<Rc<dyn Fn()>>>>;
 struct EditorCallbacks {
     on_changed: Rc<dyn Fn(TtsSettings)>,
     on_commit: Rc<dyn Fn()>,
-    on_generated: Rc<dyn Fn(PathBuf, Time)>,
+    on_generated: Rc<dyn Fn(TtsGeneration, TtsModel)>,
 }
 
 struct CachedEditor {
@@ -54,7 +52,7 @@ pub fn editor(
     value: &TtsSettings,
     on_changed: impl Fn(TtsSettings) + 'static,
     on_commit: impl Fn() + 'static,
-    on_generated: impl Fn(PathBuf, Time) + 'static,
+    on_generated: impl Fn(TtsGeneration, TtsModel) + 'static,
 ) -> gtk::Widget {
     let server_url = preferences_store::snapshot(&preferences).compute_server_url;
     let callbacks = EditorCallbacks {
@@ -93,9 +91,9 @@ pub fn editor(
         let callbacks = callbacks.clone();
         Rc::new(move || (callbacks.borrow().on_commit)())
     };
-    let on_generated: Rc<dyn Fn(PathBuf, Time)> = {
+    let on_generated: Rc<dyn Fn(TtsGeneration, TtsModel)> = {
         let callbacks = callbacks.clone();
-        Rc::new(move |path, duration| (callbacks.borrow().on_generated)(path, duration))
+        Rc::new(move |generation, model| (callbacks.borrow().on_generated)(generation, model))
     };
     let configuration = configuration(
         preferences.clone(),
@@ -180,7 +178,6 @@ pub fn editor(
         let spinner = spinner.clone();
         let cancel = cancel.clone();
         let active_generation = active_generation.clone();
-        let on_changed = on_changed.clone();
         generate.clone().connect_clicked(move |button| {
             let value = settings.borrow().clone();
             let Some(selected) = value.model.as_ref().and_then(|id| {
@@ -213,18 +210,16 @@ pub fn editor(
             let (sender, receiver) = mpsc::channel();
             let request_model = selected.clone();
             thread::spawn(move || {
-                let result = speech_request(
+                let result = shrimply_inspector_core::tts::generate(
+                    &server_url,
+                    &cancellation,
                     &request_model,
                     &value,
-                    shrimply_audio::recording::transcode_to_wav,
-                )
-                .and_then(|request| {
-                    shrimply_tts::synthesize(&server_url, &cancellation, &request, |message| {
+                    |message| {
                         let _ = sender.send(GenerationMessage::Progress(message.to_string()));
                         !cancellation.is_cancelled()
-                    })
-                })
-                .and_then(save_speech);
+                    },
+                );
                 let _ = sender.send(GenerationMessage::Done(result));
             });
 
@@ -233,8 +228,6 @@ pub fn editor(
             let generate = button.clone();
             let cancel = cancel.clone();
             let active_generation = active_generation.clone();
-            let settings = settings.clone();
-            let on_changed = on_changed.clone();
             let on_generated = on_generated.clone();
             glib::timeout_add_local(Duration::from_millis(50), move || {
                 loop {
@@ -251,18 +244,10 @@ pub fn editor(
                                 .is_some_and(|cancellation| cancellation.is_cancelled());
                             active_generation.borrow_mut().take();
                             match result {
-                                Ok((path, duration, speed)) => {
+                                Ok(generation) => {
                                     generate.set_label(tr!("Regenerate").as_ref());
-                                    if settings.borrow().model.as_ref() == Some(&selected.id) {
-                                        shrimply_tts::apply_speed_factor(
-                                            &mut settings.borrow_mut(),
-                                            &selected,
-                                            speed,
-                                        );
-                                        on_changed(settings.borrow().clone());
-                                    }
                                     status.set_label(tr!("Generated").as_ref());
-                                    on_generated(path, duration);
+                                    on_generated(generation, selected.clone());
                                 }
                                 Err(_) if cancelled => {
                                     status.set_label(tr!("Cancelled").as_ref())
@@ -368,6 +353,7 @@ fn configuration_for(
     let update_visibility = Rc::new(RefCell::new(None::<Rc<dyn Fn()>>));
     let input = InputContext {
         settings: settings.clone(),
+        models: models.clone(),
         on_changed: on_changed.clone(),
         on_commit: on_commit.clone(),
         update_visibility: update_visibility.clone(),
@@ -403,7 +389,11 @@ fn configuration_for(
             let Some(model) = models.borrow().iter().find(|model| model.id == id).cloned() else {
                 return;
             };
-            sync_settings(&mut field_state.input.settings.borrow_mut(), &model);
+            let synchronized = shrimply_inspector_core::tts::synchronized_settings(
+                &field_state.input.settings.borrow(),
+                &model,
+            );
+            *field_state.input.settings.borrow_mut() = synchronized;
             (field_state.input.on_changed)(field_state.input.settings.borrow().clone());
             (field_state.input.on_commit)();
             preferences_store::set_last_tts_model(&preferences, &model.id);
@@ -461,6 +451,7 @@ enum ConfigurationKind {
 #[derive(Clone)]
 struct InputContext {
     settings: Rc<RefCell<TtsSettings>>,
+    models: Rc<RefCell<Vec<TtsModel>>>,
     on_changed: Rc<dyn Fn(TtsSettings)>,
     on_commit: Rc<dyn Fn()>,
     update_visibility: VisibilityRefresh,
@@ -474,14 +465,14 @@ fn apply_models(configuration: &ConfigurationState, mut available: Vec<TtsModel>
         return;
     }
     let previous = configuration.models.borrow().clone();
-    let saved = configuration.fields.input.settings.borrow().model.clone();
     let remembered = preferences_store::snapshot(&configuration.preferences).last_tts_model;
-    let selected = saved
-        .as_ref()
-        .and_then(|id| available.iter().position(|model| &model.id == id))
-        .or_else(|| available.iter().position(|model| model.id == remembered))
-        .unwrap_or(0);
-    let model = available[selected].clone();
+    let model = shrimply_inspector_core::tts::selected_model(
+        &available,
+        &configuration.fields.input.settings.borrow(),
+        &remembered,
+    )
+    .expect("nonempty TTS model list must have a selection")
+    .clone();
     let choices_changed = previous
         .iter()
         .map(|model| (&model.id, &model.label))
@@ -503,10 +494,11 @@ fn apply_models(configuration: &ConfigurationState, mut available: Vec<TtsModel>
     configuration.model_selector.set_sensitive(true);
 
     let original = configuration.fields.input.settings.borrow().clone();
-    sync_settings(
-        &mut configuration.fields.input.settings.borrow_mut(),
+    let synchronized = shrimply_inspector_core::tts::synchronized_settings(
+        &configuration.fields.input.settings.borrow(),
         &model,
     );
+    *configuration.fields.input.settings.borrow_mut() = synchronized;
     if *configuration.fields.input.settings.borrow() != original {
         (configuration.fields.input.on_changed)(
             configuration.fields.input.settings.borrow().clone(),
@@ -544,18 +536,7 @@ fn refresh_models(
 }
 
 fn available_models(server_url: &str) -> Result<Vec<TtsModel>, String> {
-    let advertised = shrimply_server_client::server_status(server_url)?
-        .capabilities
-        .into_iter()
-        .filter_map(|capability| capability.strip_prefix("tts:").map(str::to_string))
-        .collect::<Vec<_>>();
-    if advertised.is_empty() {
-        return Err("Server does not advertise text-to-speech support".to_string());
-    }
-    shrimply_tts::models(server_url).map(|mut models| {
-        models.retain(|model| advertised.contains(&model.id));
-        models
-    })
+    shrimply_inspector_core::tts::available_models(server_url)
 }
 
 fn reconcile_fields(state: &FieldState, model: &TtsModel) {
@@ -646,9 +627,10 @@ fn input_widget(definition: &InputDefinition, input: &InputContext) -> gtk::Widg
                 })
                 .collect();
             ui::labeled_string_selector(label, &selected, choices, move |value| {
-                set_input(&input, &key, TtsValue::Select { value });
-                (input.on_commit)();
-                refresh_visibility(&input);
+                if edit_input(&input, &key, TtsInputEdit::Select(value)) {
+                    (input.on_commit)();
+                    refresh_visibility(&input);
+                }
             })
             .widget()
             .clone()
@@ -673,9 +655,10 @@ fn input_widget(definition: &InputDefinition, input: &InputContext) -> gtk::Widg
             let key = key.clone();
             let input = input.clone();
             ui::switch_row(label, None, active, move |active| {
-                set_input(&input, &key, TtsValue::Toggle { value: active });
-                (input.on_commit)();
-                refresh_visibility(&input);
+                if edit_input(&input, &key, TtsInputEdit::Toggle(active)) {
+                    (input.on_commit)();
+                    refresh_visibility(&input);
+                }
             })
         }
         InputDefinition::Number { .. } => number_widget(definition, input.clone()),
@@ -688,13 +671,35 @@ fn input_widget(definition: &InputDefinition, input: &InputContext) -> gtk::Widg
     }
 }
 
-fn set_input(input: &InputContext, key: &str, value: TtsValue) {
-    input
-        .settings
-        .borrow_mut()
-        .inputs
-        .insert(key.to_string(), value);
-    notify_changed(input);
+fn edit_input(input: &InputContext, key: &str, edit: TtsInputEdit) -> bool {
+    let model = {
+        let settings = input.settings.borrow();
+        let models = input.models.borrow();
+        settings
+            .model
+            .as_ref()
+            .and_then(|id| models.iter().find(|model| &model.id == id))
+            .cloned()
+    };
+    let Some(model) = model else {
+        return false;
+    };
+    let result = shrimply_inspector_core::tts::edit_input(
+        &mut input.settings.borrow_mut(),
+        &model,
+        key,
+        edit,
+    );
+    match result {
+        Ok(_) => {
+            notify_changed(input);
+            true
+        }
+        Err(error) => {
+            tracing::error!(%error, %key, "Could not edit TTS input");
+            false
+        }
+    }
 }
 
 fn notify_changed(input: &InputContext) {
@@ -729,7 +734,9 @@ fn text_widget(
         let changed = input.clone();
         let entry = ui::SingleLineTextInput::builder(value)
             .max_length(max_length)
-            .on_change(move |value| set_input(&changed, &key, TtsValue::Text { value }))
+            .on_change(move |value| {
+                edit_input(&changed, &key, TtsInputEdit::Text(value));
+            })
             .on_commit(move |_| (input.on_commit)())
             .build();
         return ui::control_row(label, &entry);
@@ -739,10 +746,7 @@ fn text_widget(
     let changed = input.clone();
     let editor = ui::MultilineTextInput::builder(value)
         .max_length(max_length)
-        .on_change(move |value| {
-            set_input(&changed, &key, TtsValue::Text { value });
-            true
-        })
+        .on_change(move |value| edit_input(&changed, &key, TtsInputEdit::Text(value)))
         .on_commit(move || (input.on_commit)())
         .build();
     let row = ui::control_row(label, editor.widget());
@@ -819,13 +823,12 @@ fn audio_widget(key: &str, label: &str, input: InputContext) -> gtk::Widget {
         let path_label = path_label.clone();
         let show = show.clone();
         clear.connect_clicked(move |button| {
-            if input.settings.borrow_mut().inputs.remove(&key).is_none() {
+            if !edit_input(&input, &key, TtsInputEdit::Audio(None)) {
                 return;
             }
             path_label.set_label(tr!("Choose an audio file").as_ref());
             button.set_sensitive(false);
             show.set_sensitive(false);
-            notify_changed(&input);
             (input.on_commit)();
             if let Some(popover) = button
                 .ancestor(gtk::Popover::static_type())
@@ -887,7 +890,9 @@ fn audio_widget(key: &str, label: &str, input: InputContext) -> gtk::Widget {
                     return;
                 };
                 path_label.set_label(&path.display().to_string());
-                set_input(&input, &key, TtsValue::Audio { value: path.into() });
+                if !edit_input(&input, &key, TtsInputEdit::Audio(Some(path))) {
+                    return;
+                }
                 clear.set_sensitive(true);
                 show.set_sensitive(true);
                 (input.on_commit)();
@@ -913,52 +918,30 @@ fn number_widget(definition: &InputDefinition, input: InputContext) -> gtk::Widg
     else {
         unreachable!("number_widget requires a number definition");
     };
-    let value = fraction_as_f64(
-        input
-            .settings
-            .borrow()
-            .inputs
-            .get(key)
-            .and_then(|value| match value {
-                TtsValue::Number { value } => Some(*value),
-                _ => None,
-            })
-            .unwrap_or(*default),
-    );
+    let value = input
+        .settings
+        .borrow()
+        .inputs
+        .get(key)
+        .and_then(|value| match value {
+            TtsValue::Number { value } => Some(*value),
+            _ => None,
+        })
+        .unwrap_or(*default);
     let key = key.clone();
-    let minimum = *minimum;
-    let step = *step;
-    let control = ui::NumberPicker::builder(value)
-        .accepted_range(fraction_as_f64(minimum), fraction_as_f64(*maximum))
-        .drag_step(fraction_as_f64(step))
-        .digits(decimal_places(step) as usize)
-        .on_change({
+    let control = ui::NumberPicker::fraction_builder(value)
+        .accepted_range(fraction_as_f64(*minimum), fraction_as_f64(*maximum))
+        .drag_step(fraction_as_f64(*step))
+        .digits(shrimply_inspector_core::tts::decimal_places(*step))
+        .on_change_fraction({
             let input = input.clone();
             move |value| {
-                set_input(
-                    &input,
-                    &key,
-                    TtsValue::Number {
-                        value: fraction_snapped(value, minimum, step),
-                    },
-                );
+                edit_input(&input, &key, TtsInputEdit::Number(value));
             }
         })
         .on_commit(move |_| (input.on_commit)())
         .build();
     ui::control_row(label, &control)
-}
-
-fn decimal_places(step: Fraction) -> u32 {
-    let mut scaled = fraction_numerator(step).unsigned_abs();
-    let denominator = fraction_denominator(step).unsigned_abs();
-    for digits in 0..=6 {
-        if scaled.is_multiple_of(denominator) {
-            return digits;
-        }
-        scaled = scaled.saturating_mul(10);
-    }
-    6
 }
 
 fn table_widget(
@@ -989,13 +972,9 @@ fn table_widget(
     {
         let state = state.clone();
         add.connect_clicked(move |_| {
-            let mut values = state.input.settings.borrow_mut();
-            let Some(TtsValue::Table { rows }) = values.inputs.get_mut(&state.key) else {
+            if !edit_input(&state.input, &state.key, TtsInputEdit::AddTableRow) {
                 return;
-            };
-            rows.push(BTreeMap::new());
-            drop(values);
-            notify_changed(&state.input);
+            }
             (state.input.on_commit)();
             rebuild_table(&state);
         });
@@ -1028,7 +1007,7 @@ fn rebuild_table(state: &TableEditor) {
         .unwrap_or_default();
     for index in 0..count {
         let row = gtk::Box::new(gtk::Orientation::Horizontal, 6);
-        for column in &state.columns {
+        for (column_index, column) in state.columns.iter().enumerate() {
             let value = state
                 .input
                 .settings
@@ -1043,22 +1022,20 @@ fn rebuild_table(state: &TableEditor) {
                 .cloned()
                 .unwrap_or_default();
             let changed = state.clone();
-            let column_key = column.key.clone();
             let input = state.input.clone();
             let entry = ui::SingleLineTextInput::builder(value)
                 .placeholder(&column.label)
                 .max_length(column.max_length)
                 .on_change(move |value| {
-                    let mut values = changed.input.settings.borrow_mut();
-                    let Some(TtsValue::Table { rows }) = values.inputs.get_mut(&changed.key) else {
-                        return;
-                    };
-                    let Some(row) = rows.get_mut(index) else {
-                        return;
-                    };
-                    row.insert(column_key.clone(), value);
-                    drop(values);
-                    notify_changed(&changed.input);
+                    edit_input(
+                        &changed.input,
+                        &changed.key,
+                        TtsInputEdit::TableCell {
+                            row: index,
+                            column: column_index,
+                            value,
+                        },
+                    );
                 })
                 .on_commit(move |_| (input.on_commit)())
                 .build();
@@ -1071,16 +1048,13 @@ fn rebuild_table(state: &TableEditor) {
         {
             let state = state.clone();
             remove.connect_clicked(move |_| {
-                let mut values = state.input.settings.borrow_mut();
-                let Some(TtsValue::Table { rows }) = values.inputs.get_mut(&state.key) else {
-                    return;
-                };
-                if index >= rows.len() {
+                if !edit_input(
+                    &state.input,
+                    &state.key,
+                    TtsInputEdit::RemoveTableRow(index),
+                ) {
                     return;
                 }
-                rows.remove(index);
-                drop(values);
-                notify_changed(&state.input);
                 (state.input.on_commit)();
                 rebuild_table(&state);
             });
@@ -1091,8 +1065,11 @@ fn rebuild_table(state: &TableEditor) {
 }
 
 pub fn save_speech(speech: Speech) -> Result<(PathBuf, Time, Fraction), String> {
-    let directory = shrimply_project::project::project_directory().join("media/tts");
-    let output = directory.join(format!("{}.opus", Uuid::new_v4()));
-    shrimply_audio::recording::save_wav_as_opus(&speech.wav, &output)
-        .map(|duration| (output, duration, speech.speed_factor))
+    shrimply_inspector_core::tts::save_speech(speech).map(|generation| {
+        (
+            generation.path,
+            generation.duration,
+            generation.speed_factor,
+        )
+    })
 }

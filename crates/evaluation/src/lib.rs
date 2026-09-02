@@ -15,10 +15,11 @@ pub use shrimply_math_media::FrameVolumeMixer;
 
 use shrimply_core::timeline_value::*;
 use shrimply_project::project::{
-    CanvasSize, PaintDrawing, PaintFillOptions, PaintStrokeEndOptions, PaintStrokeOptions,
-    PaintTextureOptions, Project, ResolvedPaintFillOptions, ResolvedPaintStrokeEndOptions,
-    ResolvedPaintStrokeOptions, ResolvedPaintTextureOptions, ResolvedTransform, Time, Transform,
-    VideoItem, generated_item_animation_time, generated_item_keyframe_span, generated_item_time,
+    AudioItem, CanvasSize, PaintDrawing, PaintFillOptions, PaintStrokeEndOptions,
+    PaintStrokeOptions, PaintTextureOptions, Project, ResolvedPaintFillOptions,
+    ResolvedPaintStrokeEndOptions, ResolvedPaintStrokeOptions, ResolvedPaintTextureOptions,
+    ResolvedTransform, Time, Transform, VideoItem, generated_item_animation_time,
+    generated_item_keyframe_span, generated_item_time,
 };
 
 #[derive(Clone)]
@@ -71,6 +72,33 @@ impl VisualEvaluation {
     pub fn for_item_local_time(project: &Project, item: &VideoItem, local_time: Time) -> Self {
         let audio = FrameAudioAnalysis::silent(project.audio_tracks.len());
         Self::for_item_local_time_with_audio(project, item, local_time, &audio)
+    }
+
+    pub fn for_audio_item_local_time(
+        project: &Project,
+        item: &AudioItem,
+        local_time: Time,
+    ) -> Self {
+        let expression_nanos = local_time.as_nanos_i128() as u64;
+        Self {
+            item_id: item.id,
+            local_time,
+            expression_time: local_time,
+            duration: item
+                .end
+                .saturating_sub(item.start)
+                .max(item.start.saturating_sub(item.end)),
+            item_start: item.start,
+            item_end: item.end,
+            fps: project.fps,
+            canvas_size: project.canvas_size,
+            source_width: 0,
+            source_height: 0,
+            volume_mixer: FrameVolumeMixer::silent(project.audio_tracks.len()),
+            mouth_mixer: FrameMouthMixer::silent(project.audio_tracks.len()),
+            seed: expression_nanos ^ item.id.as_u128() as u64,
+            item_seed: item.id.as_u128() as u64,
+        }
     }
 
     pub fn for_item_local_time_with_volume_mixer(

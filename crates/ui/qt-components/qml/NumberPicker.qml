@@ -19,14 +19,26 @@ Item {
     property string suffix: ""
     property string unitName: ""
     property int widthCharacters: 8
+    property string fractionNumerator: ""
+    property string fractionDenominator: ""
     signal edited(real value)
     signal committed(real value)
+    signal fractionEdited(var numerator, var denominator)
+    signal fractionCommitted(var numerator, var denominator)
 
     implicitWidth: widthCharacters * 12
     implicitHeight: Math.max(displayButton.implicitHeight, editor.implicitHeight)
 
     function configureBackend() {
         backend.configure(value, minimum, maximum, dragStep, dragPixels, digits)
+        updateBackendValue()
+    }
+
+    function updateBackendValue() {
+        if (fractionNumerator.length > 0 && fractionDenominator.length > 0)
+            backend.setExternalFraction(fractionNumerator, fractionDenominator)
+        else
+            backend.setExternalValue(value)
     }
 
     NumberInputBackend {
@@ -35,6 +47,12 @@ Item {
             root.edited(next)
         }
         onCommitted: function(next) { root.committed(next) }
+        onFractionEdited: function(numerator, denominator) {
+            root.fractionEdited(numerator, denominator)
+        }
+        onFractionCommitted: function(numerator, denominator) {
+            root.fractionCommitted(numerator, denominator)
+        }
     }
 
     Component.onCompleted: configureBackend()
@@ -43,7 +61,9 @@ Item {
     onDragStepChanged: configureBackend()
     onDragPixelsChanged: configureBackend()
     onDigitsChanged: configureBackend()
-    onValueChanged: backend.setExternalValue(value)
+    onValueChanged: updateBackendValue()
+    onFractionNumeratorChanged: updateBackendValue()
+    onFractionDenominatorChanged: updateBackendValue()
 
     Button {
         id: displayButton

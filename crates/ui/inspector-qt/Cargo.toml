@@ -1,0 +1,36 @@
+[package]
+name = "shrimply-inspector-qt"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+base64.workspace = true
+cxx.workspace = true
+cxx-qt.workspace = true
+cxx-qt-lib = { workspace = true, features = ["qt_full"] }
+shrimply-audio = { path = "../../audio/audio" }
+shrimply-audio-modifiers = { path = "../../audio/audio-modifiers" }
+shrimply-blender = { path = "../../blender/blender-bridge" }
+shrimply-core = { path = "../../core" }
+shrimply-cross-ui-core = { path = "../cross-ui-core" }
+shrimply-cross-ui-theme = { path = "../cross-ui-theme" }
+shrimply-inspector-core = { path = "../inspector-core" }
+shrimply-i18n-qt = { path = "../i18n-qt" }
+shrimply-keyframe-graph-ui = { path = "../../timeline/keyframe-graph-ui" }
+shrimply-math-core = { path = "../../math/core" }
+shrimply-media-info = { path = "../../media-info" }
+shrimply-manim-parser = { path = "../../manim/manim-parser" }
+shrimply-preview-core = { path = "../../preview/preview-core" }
+shrimply-property-transfer = { path = "../../property-transfer" }
+shrimply-project = { path = "../../project/project" }
+shrimply-qt-components = { path = "../qt-components" }
+shrimply-state = { path = "../../state" }
+shrimply-server-client = { path = "../../server-client" }
+shrimply-timeline = { path = "../../timeline/timeline" }
+shrimply-tts = { path = "../../audio/tts" }
+shrimply-video-modifiers = { path = "../../video/video-modifiers" }
+serde_json.workspace = true
+uuid.workspace = true
+
+[build-dependencies]
+cxx-qt-build = { workspace = true, features = ["link_qt_object_files"] }

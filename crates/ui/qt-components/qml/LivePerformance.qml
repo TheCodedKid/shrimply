@@ -7,7 +7,7 @@ import QtQuick.Layouts
 
 Frame {
     id: root
-    property bool expanded: true
+    property bool expanded: false
     padding: 0
     implicitHeight: content.implicitHeight
 
@@ -51,7 +51,7 @@ Frame {
                 spacing: 4
 
                 Label {
-                    text: qsTr("Live Performance")
+                    text: ComponentTranslations.text("Live Performance")
                     Layout.fillWidth: true
                 }
                 ToolButton {
@@ -60,7 +60,7 @@ Frame {
                     display: AbstractButton.IconOnly
                     background: Item {}
                     ToolTip.visible: hovered
-                    ToolTip.text: qsTr("Copy JSON")
+                    ToolTip.text: ComponentTranslations.text("Copy JSON")
                     onClicked: {
                         clipboard.text = backend.reportJson()
                         clipboard.selectAll()
@@ -74,8 +74,12 @@ Frame {
                     display: AbstractButton.IconOnly
                     background: Item {}
                     ToolTip.visible: hovered
-                    ToolTip.text: qsTr("Clear")
-                    onClicked: backend.clear()
+                    ToolTip.text: ComponentTranslations.text("Clear")
+                    onClicked: {
+                        backend.clear()
+                        if (root.expanded)
+                            backend.refresh()
+                    }
                 }
                 ToolButton {
                     icon.source: "qrc:/qt/qml/dev/shrimply/components/icons/disclosure.svg"
@@ -85,7 +89,9 @@ Frame {
                     rotation: root.expanded ? 270 : 90
                     Behavior on rotation { NumberAnimation { duration: 180 } }
                     ToolTip.visible: hovered
-                    ToolTip.text: root.expanded ? qsTr("Collapse") : qsTr("Expand")
+                    ToolTip.text: root.expanded
+                        ? ComponentTranslations.text("Collapse")
+                        : ComponentTranslations.text("Expand")
                     onClicked: root.expanded = !root.expanded
                 }
             }

@@ -535,8 +535,12 @@ fn add_drag(
     drag.connect_drag_end({
         let area = area.clone();
         let state = state.clone();
+        let handler = handler.clone();
         move |_, _, _| {
-            state.borrow_mut().end_pointer();
+            let actions = state
+                .borrow_mut()
+                .active_actions(FrameGraphState::end_pointer);
+            dispatch(&handler, actions);
             area.queue_render();
         }
     });

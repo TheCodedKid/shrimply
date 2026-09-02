@@ -6,21 +6,40 @@ import QtQuick.Layouts
 RowLayout {
     id: root
     property string label: ""
+    property string subtitle: ""
     default property alias control: holder.data
     spacing: 6
+    Layout.fillWidth: true
 
-    Label {
-        text: ComponentTranslations.text(root.label)
-        opacity: 0.72
-        horizontalAlignment: Text.AlignLeft
-        verticalAlignment: Text.AlignVCenter
+    ColumnLayout {
+        spacing: 1
         Layout.preferredWidth: 156
+        Layout.minimumWidth: Math.min(96, root.width * 0.4)
+        Layout.maximumWidth: Math.max(96, root.width * 0.4)
+        Label {
+            text: ComponentTranslations.text(root.label)
+            opacity: 0.72
+            horizontalAlignment: Text.AlignLeft
+            verticalAlignment: Text.AlignVCenter
+            elide: Text.ElideRight
+            Layout.fillWidth: true
+        }
+        Label {
+            visible: root.subtitle.length > 0
+            text: ComponentTranslations.text(root.subtitle)
+            opacity: 0.56
+            wrapMode: Text.Wrap
+            font.pixelSize: Math.max(9, Application.font.pixelSize - 2)
+            Layout.fillWidth: true
+        }
     }
 
     Item {
         id: holder
         Layout.fillWidth: true
+        Layout.minimumWidth: 0
         implicitHeight: childrenRect.height
+        clip: true
         onChildrenChanged: {
             for (let index = 0; index < children.length; ++index)
                 children[index].width = Qt.binding(function() { return holder.width })

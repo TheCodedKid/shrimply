@@ -7,6 +7,8 @@ fn main() -> ExitCode {
     shrimply_support::crash::install();
     shrimply_support::diagnostics::init();
     shrimply_i18n_qt::init_system_locale();
+    shrimply_qt_components::init();
+    shrimply_inspector_qt::init();
     let mut paths = std::env::args_os().skip(1);
     if paths.next().is_none() || paths.next().is_some() {
         eprintln!(

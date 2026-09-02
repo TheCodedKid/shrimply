@@ -12,7 +12,7 @@ TextField {
 
     TextInputBackend {
         id: backend
-        onChanged: function(value) { root.value = value; root.edited(value) }
+        onChanged: function(value) { root.edited(value) }
         onCommitted: function(value) { root.committed(value) }
     }
     Component.onCompleted: {

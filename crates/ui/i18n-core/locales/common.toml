@@ -14,6 +14,7 @@ pt = "%{count} efeitos colados"
 tr = "%{count} efekt yapıştırıldı"
 it = "%{count} effetti incollati"
 id = "%{count} efek ditempel"
+pl = "Wklejono efektów: %{count}"
 ar = "تم لصق %{count} من التأثيرات"
 
 ["1 effect pasted"]
@@ -30,6 +31,7 @@ pt = "1 efeito colado"
 tr = "1 efekt yapıştırıldı"
 it = "1 effetto incollato"
 id = "1 efek ditempel"
+pl = "Wklejono 1 efekt"
 ar = "تم لصق تأثير واحد"
 
 ["Alpha"]
@@ -46,6 +48,7 @@ pt = "Alfa"
 tr = "Alfa"
 it = "Alfa"
 id = "Alfa"
+pl = "Alfa"
 ar = "ألفا"
 
 ["Appearance"]
@@ -62,6 +65,7 @@ pt = "Aparência"
 tr = "Görünüm"
 it = "Aspetto"
 id = "Tampilan"
+pl = "Wygląd"
 ar = "المظهر"
 
 ["Apply"]
@@ -78,6 +82,7 @@ pt = "Aplicar"
 tr = "Uygula"
 it = "Applica"
 id = "Terapkan"
+pl = "Zastosuj"
 ar = "تطبيق"
 
 ["Audio"]
@@ -94,6 +99,7 @@ pt = "Áudio"
 tr = "Ses"
 it = "Audio"
 id = "Audio"
+pl = "Dźwięk"
 ar = "الصوت"
 
 ["Audio Generator"]
@@ -110,6 +116,7 @@ pt = "Gerador de áudio"
 tr = "Ses Üreteci"
 it = "Generatore audio"
 id = "Generator Audio"
+pl = "Generator dźwięku"
 ar = "مولد الصوت"
 
 ["Audio Track"]
@@ -126,6 +133,7 @@ pt = "Faixa de áudio"
 tr = "Ses İzi"
 it = "Traccia audio"
 id = "Track Audio"
+pl = "Ścieżka dźwiękowa"
 ar = "مسار الصوت"
 
 ["Background"]
@@ -142,6 +150,7 @@ pt = "Fundo"
 tr = "Arka Plan"
 it = "Sfondo"
 id = "Latar Belakang"
+pl = "Tło"
 ar = "الخلفية"
 
 ["Cancel"]
@@ -158,6 +167,7 @@ pt = "Cancelar"
 tr = "İptal"
 it = "Cancella"
 id = "Batal"
+pl = "Anuluj"
 ar = "إلغاء"
 
 ["Cancelled"]
@@ -174,6 +184,7 @@ pt = "Cancelado"
 tr = "İptal Edildi"
 it = "Annullato"
 id = "Dibatalkan"
+pl = "Anulowano"
 ar = "تم الإلغاء"
 
 ["Cancelling…"]
@@ -190,6 +201,7 @@ pt = "Cancelando…"
 tr = "İptal Ediliyor"
 it = "Annullando..."
 id = "Membatalkan…"
+pl = "Anulowanie…"
 ar = "جارٍ الإلغاء…"
 
 ["Caption"]
@@ -206,6 +218,7 @@ pt = "Legenda"
 tr = "Altyazı"
 it = "Sottotitolo"
 id = "Subtitel"
+pl = "Napisy"
 ar = "تسمية توضيحية"
 
 ["Caption Track"]
@@ -222,6 +235,7 @@ pt = "Faixa de legendas"
 tr = "Altyazı İzi"
 it = "Traccia dei sottotitoli"
 id = "Track Subtitel"
+pl = "Ścieżka napisów"
 ar = "مسار التسميات التوضيحية"
 
 ["Choose…"]
@@ -238,6 +252,7 @@ pt = "Escolher…"
 tr = "Seç…"
 it = "Scegli..."
 id = "Pilih…"
+pl = "Wybierz…"
 ar = "اختيار…"
 
 ["Clear"]
@@ -254,6 +269,7 @@ pt = "Limpar"
 tr = "Temizle"
 it = "Pulisci"
 id = "Bersihkan"
+pl = "Wyczyść"
 ar = "مسح"
 
 ["Close"]
@@ -270,6 +286,7 @@ pt = "Fechar"
 tr = "Kapat"
 it = "Chiudi"
 id = "Tutup"
+pl = "Zamknij"
 ar = "إغلاق"
 
 ["Copy"]
@@ -286,6 +303,7 @@ pt = "Copiar"
 tr = "Kopyala"
 it = "Copia"
 id = "Salin"
+pl = "Kopiuj"
 ar = "نسخ"
 
 ["Custom"]
@@ -302,6 +320,7 @@ pt = "Personalizado"
 tr = "Özel"
 it = "Personalizzato"
 id = "Kustom"
+pl = "Niestandardowe"
 ar = "مخصص"
 
 ["Delete"]
@@ -318,6 +337,7 @@ pt = "Excluir"
 tr = "Sil"
 it = "Elimina"
 id = "Hapus"
+pl = "Usuń"
 ar = "حذف"
 
 ["Discard"]
@@ -334,6 +354,7 @@ pt = "Descartar"
 tr = "Vazgeç"
 it = "Scarta"
 id = "Buang"
+pl = "Odrzuć"
 ar = "تجاهل"
 
 ["File"]
@@ -350,6 +371,7 @@ pt = "Arquivo"
 tr = "Dosya"
 it = "File"
 id = "Berkas"
+pl = "Plik"
 ar = "ملف"
 
 ["Format"]
@@ -366,6 +388,7 @@ pt = "Formato"
 tr = "Biçim"
 it = "Formato"
 id = "Format"
+pl = "Format"
 ar = "التنسيق"
 
 ["Frame Rate"]
@@ -382,6 +405,7 @@ pt = "Taxa de quadros"
 tr = "Kare Hızı"
 it = "Frequenza fotogrammi"
 id = "Frame Rate"
+pl = "Klatki na sekundę"
 ar = "معدل الإطارات"
 
 ["Frame rate"]
@@ -398,6 +422,7 @@ pt = "Taxa de quadros"
 tr = "Kare hızı"
 it = "Frequenza fotogrammi"
 id = "Frame rate"
+pl = "Klatki na sekundę"
 ar = "معدل الإطارات"
 
 ["Hue"]
@@ -414,6 +439,7 @@ pt = "Matiz"
 tr = "Ton"
 it = "Tonalità"
 id = "Hue"
+pl = "Odcień"
 ar = "تدرج اللون"
 
 ["Info"]
@@ -430,6 +456,7 @@ pt = "Informações"
 tr = "Bilgi"
 it = "Informazioni"
 id = "Info"
+pl = "Informacje"
 ar = "معلومات"
 
 ["Model"]
@@ -446,6 +473,7 @@ pt = "Modelo"
 tr = "Model"
 it = "Modello"
 id = "Model"
+pl = "Model"
 ar = "النموذج"
 
 ["New Track"]
@@ -462,6 +490,7 @@ pt = "Nova faixa"
 tr = "Yeni İz"
 it = "Nuova traccia"
 id = "Track Baru"
+pl = "Nowa ścieżka"
 ar = "مسار جديد"
 
 ["None"]
@@ -478,6 +507,7 @@ pt = "Nenhum"
 tr = "Hiçbiri"
 it = "Nessuno"
 id = "Tidak Ada"
+pl = "Brak"
 ar = "بلا"
 
 ["Output"]
@@ -494,6 +524,7 @@ pt = "Saída"
 tr = "Çıktı"
 it = "Uscita"
 id = "Output"
+pl = "Wyjście"
 ar = "المخرجات"
 
 ["Padding"]
@@ -510,6 +541,7 @@ pt = "Preenchimento"
 tr = "İç Boşluk"
 it = "Spaziatura"
 id = "Padding"
+pl = "Odstęp"
 ar = "الهامش الداخلي"
 
 ["Paint"]
@@ -526,6 +558,7 @@ pt = "Pintura"
 tr = "Çizim"
 it = "Pittura"
 id = "Lukis"
+pl = "Malowanie"
 ar = "رسم"
 
 ["Performance"]
@@ -542,6 +575,7 @@ pt = "Desempenho"
 tr = "Performans"
 it = "Prestazioni"
 id = "Performa"
+pl = "Wydajność"
 ar = "الأداء"
 
 ["Preset"]
@@ -558,6 +592,7 @@ pt = "Predefinição"
 tr = "Önayar"
 it = "Preimpostato"
 id = "Preset"
+pl = "Preset"
 ar = "إعداد مسبق"
 
 ["Sending request…"]
@@ -574,6 +609,7 @@ pt = "Enviando solicitação…"
 tr = "İstek gönderiliyor…"
 it = "Inviando richiesta..."
 id = "Mengirim permintaan…"
+pl = "Wysyłanie żądania…"
 ar = "جارٍ إرسال الطلب…"
 
 ["Shape"]
@@ -590,6 +626,7 @@ pt = "Forma"
 tr = "Şekil"
 it = "Forma"
 id = "Bentuk"
+pl = "Kształt"
 ar = "الشكل"
 
 ["Speed"]
@@ -606,6 +643,7 @@ pt = "Velocidade"
 tr = "Hız"
 it = "Velocità"
 id = "Kecepatan"
+pl = "Prędkość"
 ar = "السرعة"
 
 ["Text"]
@@ -622,6 +660,7 @@ pt = "Texto"
 tr = "Metin"
 it = "Testo"
 id = "Teks"
+pl = "Tekst"
 ar = "النص"
 
 ["Text to Speech"]
@@ -638,6 +677,7 @@ pt = "Texto para fala"
 tr = "Metinden Sese"
 it = "Sintesi vocale"
 id = "Teks ke Suara"
+pl = "Zamiana tekstu na mowę"
 ar = "تحويل النص إلى كلام"
 
 ["Version"]
@@ -654,6 +694,7 @@ pt = "Versão"
 tr = "Sürüm"
 it = "Versione"
 id = "Versi"
+pl = "Wersja"
 ar = "الإصدار"
 
 ["Video"]
@@ -670,6 +711,7 @@ pt = "Vídeo"
 tr = "Video"
 it = "Video"
 id = "Video"
+pl = "Wideo"
 ar = "الفيديو"
 
 ["Video Generation"]
@@ -686,6 +728,7 @@ pt = "Geração de vídeo"
 tr = "Video Üreteci"
 it = "Generazione video"
 id = "Pembuatan Video"
+pl = "Generowanie wideo"
 ar = "توليد الفيديو"
 
 ["Video Track"]
@@ -702,6 +745,7 @@ pt = "Faixa de vídeo"
 tr = "Video İzi"
 it = "Traccia video"
 id = "Track Video"
+pl = "Ścieżka wideo"
 ar = "مسار الفيديو"
 
 ["Width"]
@@ -718,4 +762,5 @@ pt = "Largura"
 tr = "Genişlik"
 it = "Larghezza"
 id = "Lebar"
+pl = "Szerokość"
 ar = "العرض"

@@ -292,6 +292,9 @@ fn write_track_add_text(index: usize, output: *mut u8, capacity: usize, icon: bo
 }
 
 #[unsafe(no_mangle)]
+/// # Safety
+///
+/// When `capacity` is nonzero, `output` must point to `capacity` writable bytes.
 pub unsafe extern "C" fn shrimply_qt_timeline_track_add_menu_label(
     index: usize,
     output: *mut u8,
@@ -301,6 +304,9 @@ pub unsafe extern "C" fn shrimply_qt_timeline_track_add_menu_label(
 }
 
 #[unsafe(no_mangle)]
+/// # Safety
+///
+/// When `capacity` is nonzero, `output` must point to `capacity` writable bytes.
 pub unsafe extern "C" fn shrimply_qt_timeline_track_add_menu_icon(
     index: usize,
     output: *mut u8,
@@ -324,6 +330,9 @@ pub extern "C" fn shrimply_qt_timeline_activate_track_add_menu_item(index: usize
 }
 
 #[unsafe(no_mangle)]
+/// # Safety
+///
+/// `path` must point to `length` readable bytes.
 pub unsafe extern "C" fn shrimply_qt_timeline_import_track_file(
     path: *const u8,
     length: usize,
@@ -483,7 +492,11 @@ pub extern "C" fn shrimply_qt_timeline_pointer_release(
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn shrimply_qt_timeline_begin_pointer_lock(
+/// # Safety
+///
+/// The pointers must be valid Wayland display, surface, and seat handles for the duration of the
+/// call.
+pub unsafe extern "C" fn shrimply_qt_timeline_begin_pointer_lock(
     display: *mut c_void,
     surface: *mut c_void,
     seat: *mut c_void,
@@ -540,6 +553,9 @@ pub extern "C" fn shrimply_qt_timeline_prepare_context_menu(x: f32, y: f32) -> u
 }
 
 #[unsafe(no_mangle)]
+/// # Safety
+///
+/// When `capacity` is nonzero, `output` must point to `capacity` writable bytes.
 pub unsafe extern "C" fn shrimply_qt_timeline_context_menu_label(
     index: usize,
     output: *mut u8,
@@ -733,6 +749,9 @@ pub extern "C" fn shrimply_qt_timeline_activate_context_menu_item(index: usize) 
 }
 
 #[unsafe(no_mangle)]
+/// # Safety
+///
+/// When `output` is non-null and `capacity` is nonzero, it must point to `capacity` writable bytes.
 pub unsafe extern "C" fn shrimply_qt_timeline_clipboard_marker(
     output: *mut u8,
     capacity: usize,
@@ -749,6 +768,9 @@ pub unsafe extern "C" fn shrimply_qt_timeline_clipboard_marker(
 }
 
 #[unsafe(no_mangle)]
+/// # Safety
+///
+/// When `text` is non-null, it must point to `length` readable bytes.
 pub unsafe extern "C" fn shrimply_qt_timeline_paste_clipboard_text(text: *const u8, length: usize) {
     if text.is_null() {
         return;
@@ -785,6 +807,9 @@ pub extern "C" fn shrimply_qt_timeline_delete_context_folded_track() {
 }
 
 #[unsafe(no_mangle)]
+/// # Safety
+///
+/// When `output` is non-null, it must point to `capacity` writable bytes.
 pub unsafe extern "C" fn shrimply_qt_timeline_context_open_path(
     output: *mut u8,
     capacity: usize,
@@ -822,6 +847,9 @@ pub extern "C" fn shrimply_qt_timeline_context_frame_height() -> i32 {
 }
 
 #[unsafe(no_mangle)]
+/// # Safety
+///
+/// When `output` is non-null, it must point to `capacity` writable bytes.
 pub unsafe extern "C" fn shrimply_qt_timeline_copy_context_frame(
     output: *mut u8,
     capacity: usize,
@@ -842,6 +870,9 @@ pub unsafe extern "C" fn shrimply_qt_timeline_copy_context_frame(
 }
 
 #[unsafe(no_mangle)]
+/// # Safety
+///
+/// When `output` is non-null and `capacity` is nonzero, it must point to `capacity` writable bytes.
 pub unsafe extern "C" fn shrimply_qt_timeline_context_action_error(
     output: *mut u8,
     capacity: usize,

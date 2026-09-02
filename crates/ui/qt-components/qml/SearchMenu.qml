@@ -8,12 +8,15 @@ import QtQuick.Layouts
 Menu {
     id: root
     property var labels: []
+    property var searchTerms: labels
     property int selectedIndex: -1
     property bool searchEnabled: true
     property string placeholderText: ComponentTranslations.text("Search")
     property real minimumListHeight: 0
     property real maximumListHeight: 280
     property bool navigationActive: false
+    readonly property var matchingIndices: backend.rankedMatchingIndices(
+        labels, searchTerms, search.text)
     signal activated(int index)
 
     width: 280
@@ -22,29 +25,29 @@ Menu {
     popupType: Popup.Window
     closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutsideParent
 
-    function choose(index) {
-        if (index < 0 || index >= labels.length)
+    function choose(row) {
+        if (row < 0 || row >= matchingIndices.length)
             return
-        activated(index)
+        activated(Number(matchingIndices[row]))
         close()
     }
 
     function moveSelection(direction) {
         navigationActive = true
-        const next = backend.nextMatchingIndex(
-            root.labels, search.text, choices.currentIndex, direction)
-        if (next >= 0) {
-            choices.currentIndex = next
-            choices.positionViewAtIndex(next, ListView.Contain)
-        }
+        if (root.matchingIndices.length === 0)
+            return
+        const next = (choices.currentIndex + direction
+            + root.matchingIndices.length) % root.matchingIndices.length
+        choices.currentIndex = next
+        choices.positionViewAtIndex(next, ListView.Contain)
     }
 
     onOpened: {
         search.clear()
         navigationActive = false
         choices.currentIndex = selectedIndex >= 0
-            ? selectedIndex
-            : backend.nextMatchingIndex(root.labels, "", -1, 1)
+            ? backend.matchingIndex(root.matchingIndices, String(selectedIndex))
+            : root.matchingIndices.length > 0 ? 0 : -1
         if (searchEnabled)
             search.forceActiveFocus(Qt.PopupFocusReason)
         else
@@ -64,20 +67,17 @@ Menu {
             selectByMouse: true
             onTextChanged: {
                 root.navigationActive = false
-                choices.currentIndex = backend.nextMatchingIndex(
-                    root.labels, text, -1, 1)
+                choices.currentIndex = root.matchingIndices.length > 0 ? 0 : -1
             }
             Keys.onDownPressed: function(event) {
                 root.navigationActive = true
-                choices.currentIndex = backend.nextMatchingIndex(
-                    root.labels, search.text, -1, 1)
+                choices.currentIndex = root.matchingIndices.length > 0 ? 0 : -1
                 choices.forceActiveFocus(Qt.TabFocusReason)
                 event.accepted = true
             }
             Keys.onUpPressed: function(event) {
                 root.navigationActive = true
-                choices.currentIndex = backend.nextMatchingIndex(
-                    root.labels, search.text, -1, -1)
+                choices.currentIndex = root.matchingIndices.length - 1
                 choices.forceActiveFocus(Qt.TabFocusReason)
                 event.accepted = true
             }
@@ -95,15 +95,15 @@ Menu {
                 root.maximumListHeight,
                 Math.max(root.minimumListHeight, contentHeight))
             clip: true
-            model: root.labels
+            model: root.matchingIndices
             keyNavigationEnabled: false
             delegate: ItemDelegate {
                 required property int index
+                required property string modelData
+                readonly property int sourceIndex: Number(modelData)
                 width: choices.width
-                text: root.labels[index]
-                visible: backend.matchesQuery(text, search.text)
-                height: visible ? implicitHeight : 0
-                icon.source: root.selectedIndex === index
+                text: root.labels[sourceIndex]
+                icon.source: root.selectedIndex === sourceIndex
                     ? "qrc:/qt/qml/dev/shrimply/components/icons/object-select.svg"
                     : ""
                 icon.color: palette.buttonText

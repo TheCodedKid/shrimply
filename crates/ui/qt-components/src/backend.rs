@@ -4,9 +4,12 @@ use cxx_qt_lib::{QColor, QString, QStringList};
 use shrimply_component_core::{color, layered, number, project_settings, selector, text};
 use shrimply_math_color::Color;
 use shrimply_math_core::{
-    Fraction, fraction_as_f64, fraction_denominator, fraction_from_f64, fraction_numerator,
+    Fraction, fraction_as_f64, fraction_as_label, fraction_denominator, fraction_from_f64,
+    fraction_is_finite, fraction_new, fraction_numerator,
 };
-use shrimply_project_core::{COMMON_FRAME_RATES, PROJECT_PRESETS};
+use shrimply_project_core::{
+    COMMON_FRAME_RATES, CanvasSize, MAX_CANVAS_DIMENSION, MIN_CANVAS_DIMENSION, PROJECT_PRESETS,
+};
 use std::cell::RefCell;
 
 thread_local! {
@@ -61,6 +64,13 @@ pub mod qobject {
         #[cxx_name = "setExternalValue"]
         fn set_external_value(self: Pin<&mut NumberInputBackend>, value: f64);
         #[qinvokable]
+        #[cxx_name = "setExternalFraction"]
+        fn set_external_fraction(
+            self: Pin<&mut NumberInputBackend>,
+            numerator: &QString,
+            denominator: &QString,
+        );
+        #[qinvokable]
         #[cxx_name = "beginEdit"]
         fn begin_edit(self: Pin<&mut NumberInputBackend>);
         #[qinvokable]
@@ -82,6 +92,12 @@ pub mod qobject {
         fn edited(self: Pin<&mut NumberInputBackend>, value: f64);
         #[qsignal]
         fn committed(self: Pin<&mut NumberInputBackend>, value: f64);
+        #[qsignal]
+        #[cxx_name = "fractionEdited"]
+        fn fraction_edited(self: Pin<&mut NumberInputBackend>, numerator: i64, denominator: i64);
+        #[qsignal]
+        #[cxx_name = "fractionCommitted"]
+        fn fraction_committed(self: Pin<&mut NumberInputBackend>, numerator: i64, denominator: i64);
 
         #[qobject]
         #[qml_element]
@@ -243,6 +259,14 @@ pub mod qobject {
             direction: i32,
         ) -> i32;
         #[qinvokable]
+        #[cxx_name = "rankedMatchingIndices"]
+        fn ranked_matching_indices(
+            self: &SelectorBackend,
+            labels: &QStringList,
+            keyword_groups: &QStringList,
+            query: &QString,
+        ) -> QStringList;
+        #[qinvokable]
         #[cxx_name = "valueAt"]
         fn value_at(self: &SelectorBackend, values: &QStringList, index: i32) -> QString;
         #[qinvokable]
@@ -259,11 +283,25 @@ pub mod qobject {
         type ProjectSettingsBackend = super::ProjectSettingsBackendRust;
 
         #[qinvokable]
+        fn configure(
+            self: Pin<&mut ProjectSettingsBackend>,
+            width: i32,
+            height: i32,
+            fps_numerator: &QString,
+            fps_denominator: &QString,
+        );
+        #[qinvokable]
         #[cxx_name = "presetLabel"]
         fn preset_label(self: &ProjectSettingsBackend, index: i32) -> QString;
         #[qinvokable]
         #[cxx_name = "frameRateLabel"]
         fn frame_rate_label(self: &ProjectSettingsBackend, index: i32) -> QString;
+        #[qinvokable]
+        #[cxx_name = "frameRateValues"]
+        fn frame_rate_values(self: &ProjectSettingsBackend) -> QStringList;
+        #[qinvokable]
+        #[cxx_name = "frameRateLabels"]
+        fn frame_rate_labels(self: &ProjectSettingsBackend) -> QStringList;
         #[qinvokable]
         #[cxx_name = "selectPreset"]
         fn select_preset(self: Pin<&mut ProjectSettingsBackend>, index: i32);
@@ -278,10 +316,16 @@ pub mod qobject {
         fn set_frame_rate_value(self: Pin<&mut ProjectSettingsBackend>, index: i32);
         #[qinvokable]
         #[cxx_name = "fpsNumerator"]
-        fn fps_numerator(self: &ProjectSettingsBackend) -> i32;
+        fn fps_numerator(self: &ProjectSettingsBackend) -> QString;
         #[qinvokable]
         #[cxx_name = "fpsDenominator"]
-        fn fps_denominator(self: &ProjectSettingsBackend) -> i32;
+        fn fps_denominator(self: &ProjectSettingsBackend) -> QString;
+        #[qinvokable]
+        #[cxx_name = "minimumDimension"]
+        fn minimum_dimension(self: &ProjectSettingsBackend) -> i32;
+        #[qinvokable]
+        #[cxx_name = "maximumDimension"]
+        fn maximum_dimension(self: &ProjectSettingsBackend) -> i32;
 
         #[qobject]
         #[qml_element]
@@ -433,6 +477,23 @@ impl qobject::NumberInputBackend {
         }
     }
 
+    pub fn set_external_fraction(
+        mut self: Pin<&mut Self>,
+        numerator: &QString,
+        denominator: &QString,
+    ) {
+        let (Ok(numerator), Ok(denominator)) = (
+            numerator.to_string().parse::<i64>(),
+            denominator.to_string().parse::<i64>(),
+        ) else {
+            return;
+        };
+        let value = fraction_new(numerator, denominator);
+        if fraction_is_finite(value) && !self.editing() {
+            self.as_mut().set_accepted(value, false, false);
+        }
+    }
+
     pub fn begin_edit(mut self: Pin<&mut Self>) {
         self.as_mut().set_editing(true);
         let text = number::format_value(&self.rust().config, self.rust().accepted);
@@ -445,6 +506,8 @@ impl qobject::NumberInputBackend {
         };
         let value = number::accepted_value(&self.rust().config, value);
         self.as_mut().edited(fraction_as_f64(value));
+        self.as_mut()
+            .fraction_edited(fraction_numerator(value), fraction_denominator(value));
         true
     }
 
@@ -476,8 +539,10 @@ impl qobject::NumberInputBackend {
 
     pub fn end_drag(mut self: Pin<&mut Self>) {
         if self.rust().drag_moved {
-            let value = *self.value();
-            self.as_mut().committed(value);
+            let value = self.rust().accepted;
+            self.as_mut().committed(fraction_as_f64(value));
+            self.as_mut()
+                .fraction_committed(fraction_numerator(value), fraction_denominator(value));
         }
     }
 
@@ -491,9 +556,13 @@ impl qobject::NumberInputBackend {
         self.as_mut().set_display_text(QString::from(display));
         if changed && notify {
             self.as_mut().edited(numeric);
+            self.as_mut()
+                .fraction_edited(fraction_numerator(value), fraction_denominator(value));
         }
         if commit && changed {
             self.as_mut().committed(numeric);
+            self.as_mut()
+                .fraction_committed(fraction_numerator(value), fraction_denominator(value));
         }
     }
 }
@@ -1053,6 +1122,25 @@ impl qobject::SelectorBackend {
         .unwrap_or(-1)
     }
 
+    pub fn ranked_matching_indices(
+        &self,
+        labels: &QStringList,
+        keyword_groups: &QStringList,
+        query: &QString,
+    ) -> QStringList {
+        selector::ranked_matching_indices(
+            &labels.iter().map(ToString::to_string).collect::<Vec<_>>(),
+            &keyword_groups
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>(),
+            &query.to_string(),
+        )
+        .into_iter()
+        .map(|index| QString::from(index.to_string()))
+        .collect()
+    }
+
     pub fn value_at(&self, values: &QStringList, index: i32) -> QString {
         isize::try_from(index)
             .ok()
@@ -1162,9 +1250,7 @@ impl qobject::LayeredPropertyBackend {
 }
 
 impl cxx_qt::Initialize for qobject::LivePerformanceBackend {
-    fn initialize(mut self: Pin<&mut Self>) {
-        self.as_mut().refresh();
-    }
+    fn initialize(self: Pin<&mut Self>) {}
 }
 
 impl qobject::LivePerformanceBackend {
@@ -1182,9 +1268,8 @@ impl qobject::LivePerformanceBackend {
         );
     }
 
-    pub fn clear(mut self: Pin<&mut Self>) {
+    pub fn clear(self: Pin<&mut Self>) {
         shrimply_component_core::performance::clear();
-        self.as_mut().refresh();
     }
 
     pub fn report_json(&self) -> QString {
@@ -1193,6 +1278,14 @@ impl qobject::LivePerformanceBackend {
 }
 
 impl qobject::ProjectSettingsBackend {
+    pub fn minimum_dimension(&self) -> i32 {
+        i32::try_from(MIN_CANVAS_DIMENSION).expect("minimum canvas dimension must fit i32")
+    }
+
+    pub fn maximum_dimension(&self) -> i32 {
+        i32::try_from(MAX_CANVAS_DIMENSION).expect("maximum canvas dimension must fit i32")
+    }
+
     pub fn preset_label(&self, index: i32) -> QString {
         match index_of(index) {
             Some(index) if index == project_settings::CUSTOM_PRESET_INDEX => {
@@ -1208,9 +1301,63 @@ impl qobject::ProjectSettingsBackend {
     }
 
     pub fn frame_rate_label(&self, index: i32) -> QString {
-        index_of(index)
-            .and_then(|index| COMMON_FRAME_RATES.get(index))
-            .map_or_else(QString::default, |rate| QString::from(rate.label))
+        let Some(index) = index_of(index) else {
+            return QString::default();
+        };
+        if let Some(rate) = COMMON_FRAME_RATES.get(index) {
+            return QString::from(rate.label);
+        }
+        self.rust()
+            .settings
+            .custom_frame_rate
+            .filter(|_| index == COMMON_FRAME_RATES.len())
+            .map_or_else(QString::default, |rate| {
+                QString::from(fraction_as_label(rate))
+            })
+    }
+
+    pub fn frame_rate_values(&self) -> QStringList {
+        (0..*self.frame_rate_count())
+            .map(|index| QString::from(index.to_string()))
+            .collect()
+    }
+
+    pub fn frame_rate_labels(&self) -> QStringList {
+        (0..*self.frame_rate_count())
+            .map(|index| self.frame_rate_label(index))
+            .collect()
+    }
+
+    pub fn configure(
+        mut self: Pin<&mut Self>,
+        width: i32,
+        height: i32,
+        fps_numerator: &QString,
+        fps_denominator: &QString,
+    ) {
+        let (Ok(width), Ok(height), Ok(fps_numerator), Ok(fps_denominator)) = (
+            u32::try_from(width),
+            u32::try_from(height),
+            fps_numerator.to_string().parse::<i64>(),
+            fps_denominator.to_string().parse::<i64>(),
+        ) else {
+            return;
+        };
+        if fps_numerator <= 0 || fps_denominator <= 0 {
+            return;
+        }
+        let settings = project_settings::ProjectSettings::from_values(
+            CanvasSize { width, height },
+            fraction_new(fps_numerator, fps_denominator),
+        );
+        self.as_mut().rust_mut().settings = settings;
+        self.as_mut().set_frame_rate_count(
+            i32::try_from(
+                COMMON_FRAME_RATES.len() + usize::from(settings.custom_frame_rate.is_some()),
+            )
+            .expect("project frame-rate option count"),
+        );
+        self.as_mut().publish_settings();
     }
 
     pub fn select_preset(mut self: Pin<&mut Self>, index: i32) {
@@ -1225,7 +1372,7 @@ impl qobject::ProjectSettingsBackend {
         self.as_mut()
             .rust_mut()
             .settings
-            .set_width(width.max(1) as u32);
+            .set_width(u32::try_from(width).expect("project width must be non-negative"));
         self.as_mut().publish_settings();
     }
 
@@ -1233,7 +1380,7 @@ impl qobject::ProjectSettingsBackend {
         self.as_mut()
             .rust_mut()
             .settings
-            .set_height(height.max(1) as u32);
+            .set_height(u32::try_from(height).expect("project height must be non-negative"));
         self.as_mut().publish_settings();
     }
 
@@ -1241,28 +1388,30 @@ impl qobject::ProjectSettingsBackend {
         let Some(index) = index_of(index) else {
             return;
         };
-        self.as_mut().rust_mut().settings.set_frame_rate(index);
+        if index < COMMON_FRAME_RATES.len() {
+            self.as_mut().rust_mut().settings.set_frame_rate(index);
+        } else if index != COMMON_FRAME_RATES.len()
+            || self.rust().settings.custom_frame_rate.is_none()
+        {
+            return;
+        }
         self.as_mut().publish_settings();
     }
 
-    pub fn fps_numerator(&self) -> i32 {
-        self.rate_part(true)
+    pub fn fps_numerator(&self) -> QString {
+        QString::from(fraction_numerator(self.selected_frame_rate()).to_string())
     }
 
-    pub fn fps_denominator(&self) -> i32 {
-        self.rate_part(false)
+    pub fn fps_denominator(&self) -> QString {
+        QString::from(fraction_denominator(self.selected_frame_rate()).to_string())
     }
 
-    fn rate_part(&self, numerator: bool) -> i32 {
-        let Some((_, rate)) = self.rust().settings.settings() else {
-            return 0;
-        };
-        let value = if numerator {
-            fraction_numerator(rate)
-        } else {
-            fraction_denominator(rate)
-        };
-        i32::try_from(value).unwrap_or(if value < 0 { i32::MIN } else { i32::MAX })
+    fn selected_frame_rate(&self) -> Fraction {
+        self.rust()
+            .settings
+            .settings()
+            .expect("project settings must include a frame rate")
+            .1
     }
 
     fn publish_settings(mut self: Pin<&mut Self>) {

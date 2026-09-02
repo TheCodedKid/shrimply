@@ -34,7 +34,7 @@ pub fn show_preferences_dialog(
         .title(tr!("Default Text Font").as_ref())
         .build();
     let default_font =
-        shrimply_inspector_ui::font_family_selector(&snapshot.default_text_font_family, {
+        shrimply_inspector_gtk::font_family_selector(&snapshot.default_text_font_family, {
             let preferences = preferences.clone();
             move |family| preferences_store::set_default_text_font_family(&preferences, family)
         });

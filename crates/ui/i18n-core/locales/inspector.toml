@@ -14,6 +14,7 @@ pt = "Absorção"
 tr = "Soğurma"
 it = "Assorbimento"
 id = "Penyerapan"
+pl = "Absorpcja"
 ar = "امتصاص"
 
 ["Accurate Render Method"]
@@ -30,6 +31,7 @@ pt = "Método de renderização preciso"
 tr = "Hassas İşleme Yöntemi"
 it = "Metodo di rendering preciso"
 id = "Metode Render Akurat"
+pl = "Metoda dokładnego renderowania"
 ar = "طريقة التصيير الدقيقة"
 
 ["Actions"]
@@ -46,6 +48,7 @@ pt = "Ações"
 tr = "Eylemler"
 it = "Azioni"
 id = "Tindakan"
+pl = "Akcje"
 ar = "الإجراءات"
 
 ["Adaptive weights"]
@@ -62,6 +65,7 @@ pt = "Pesos adaptativos"
 tr = "Uyarlamalı ağırlıklar"
 it = "Pesi adattivi"
 id = "Bobot adaptif"
+pl = "Wagi adaptacyjne"
 ar = "أوزان تكيفية"
 
 ["Add"]
@@ -78,6 +82,7 @@ pt = "Adicionar"
 tr = "Ekle"
 it = "Aggiungi"
 id = "Tambah"
+pl = "Dodaj"
 ar = "إضافة"
 
 ["Add color"]
@@ -94,6 +99,7 @@ pt = "Adicionar cor"
 tr = "Renk ekle"
 it = "Aggiungi colore"
 id = "Tambah warna"
+pl = "Dodaj kolor"
 ar = "إضافة لون"
 
 ["Add font"]
@@ -110,6 +116,7 @@ pt = "Adicionar fonte"
 tr = "Yazı tipi ekle"
 it = "Aggiungi font"
 id = "Tambah font"
+pl = "Dodaj czcionkę"
 ar = "إضافة خط"
 
 ["Add keyframe at playhead"]
@@ -126,6 +133,7 @@ pt = "Adicionar quadro-chave no indicador de reprodução"
 tr = "Oynatma imlecine anahtar kare ekle"
 it = "Aggiungi keyframe alla testina di riproduzione"
 id = "Tambah keyframe di playhead"
+pl = "Dodaj klatkę kluczową w miejscu głowicy odtwarzania"
 ar = "إضافة إطار رئيسي عند رأس التشغيل"
 
 ["Add modifier"]
@@ -142,6 +150,7 @@ pt = "Adicionar modificador"
 tr = "Değiştirici ekle"
 it = "Aggiungi modificatore"
 id = "Tambah modifier"
+pl = "Dodaj modyfikator"
 ar = "إضافة معدِّل"
 
 ["Addressing"]
@@ -158,6 +167,7 @@ pt = "Endereçamento"
 tr = "Adresleme"
 it = "Indirizzamento"
 id = "Pengalamatan"
+pl = "Adresowanie"
 ar = "العنونة"
 
 ["Aggressiveness"]
@@ -174,6 +184,7 @@ pt = "Agressividade"
 tr = "Agresiflik"
 it = "Aggressività"
 id = "Agresivitas"
+pl = "Agresywność"
 ar = "الشدة"
 
 ["Align"]
@@ -190,6 +201,7 @@ pt = "Alinhar"
 tr = "Hizala"
 it = "Allinea"
 id = "Ratakan"
+pl = "Wyrównaj"
 ar = "محاذاة"
 
 ["Alpha Mask Stream"]
@@ -206,6 +218,7 @@ pt = "Fluxo de máscara alfa"
 tr = "Alfa Maskesi Akışı"
 it = "Stream della maschera alpha"
 id = "Stream Mask Alfa"
+pl = "Strumień maski alfa"
 ar = "تدفق قناع ألفا"
 
 ["Amount"]
@@ -222,6 +235,7 @@ pt = "Quantidade"
 tr = "Miktar"
 it = "Quantità"
 id = "Jumlah"
+pl = "Ilość"
 ar = "المقدار"
 
 ["Amplitude"]
@@ -238,6 +252,7 @@ pt = "Amplitude"
 tr = "Genlik"
 it = "Ampiezza"
 id = "Amplitudo"
+pl = "Amplituda"
 ar = "السعة"
 
 ["Analysis FPS"]
@@ -254,6 +269,7 @@ pt = "FPS de análise"
 tr = "Analiz FPS'si"
 it = "FPS di analisi"
 id = "FPS Analisis"
+pl = "FPS analizy"
 ar = "معدل إطارات التحليل"
 
 ["Analysis status"]
@@ -270,6 +286,7 @@ pt = "Status da análise"
 tr = "Analiz durumu"
 it = "Stato dell'analisi"
 id = "Status analisis"
+pl = "Status analizy"
 ar = "حالة التحليل"
 
 ["Analyze"]
@@ -286,6 +303,7 @@ pt = "Analisar"
 tr = "Analiz et"
 it = "Analizza"
 id = "Analisis"
+pl = "Analizuj"
 ar = "تحليل"
 
 ["Analyze Again"]
@@ -302,6 +320,7 @@ pt = "Analisar novamente"
 tr = "Tekrar Analiz Et"
 it = "Analizza di nuovo"
 id = "Analisis Ulang"
+pl = "Analizuj ponownie"
 ar = "تحليل مجدداً"
 
 ["Analyze this clip for beat-grid snapping"]
@@ -318,6 +337,7 @@ pt = "Analisar este clipe para encaixe na grade de batidas"
 tr = "Ritim ızgarasına yapışma için bu klibi analiz et"
 it = "Analizza questo clip per l'aggancio alla griglia dei beat"
 id = "Analisis klip ini untuk perataan kisi ketukan"
+pl = "Przeanalizuj ten klip pod kątem przyciągania z siatką rytmiczną"
 ar = "تحليل هذا المقطع للمحاذاة مع شبكة الإيقاع"
 
 ["Analyzing source motion…"]
@@ -334,6 +354,7 @@ pt = "Analisando movimento de origem…"
 tr = "Kaynak hareket analiz ediliyor…"
 it = "Analisi del movimento sorgente…"
 id = "Menganalisis gerakan sumber…"
+pl = "Analizowanie ruchu źródła…"
 ar = "جارٍ تحليل حركة المصدر…"
 
 ["Analyzing…"]
@@ -350,6 +371,7 @@ pt = "Analisando…"
 tr = "Analiz ediliyor…"
 it = "Analisi…"
 id = "Menganalisis…"
+pl = "Analizowanie…"
 ar = "جارٍ التحليل…"
 
 ["Anchor"]
@@ -366,6 +388,7 @@ pt = "Âncora"
 tr = "Çapa"
 it = "Ancora"
 id = "Jangkar"
+pl = "Kotwica"
 ar = "نقطة الارتكاز"
 
 ["Angle"]
@@ -382,6 +405,7 @@ pt = "Ângulo"
 tr = "Açı"
 it = "Angolo"
 id = "Sudut"
+pl = "Kąt"
 ar = "الزاوية"
 
 ["Angular radius"]
@@ -398,6 +422,7 @@ pt = "Raio angular"
 tr = "Açısal yarıçap"
 it = "Raggio angolare"
 id = "Radius sudut"
+pl = "Promień kąta"
 ar = "نصف القطر الزاوي"
 
 ["Angular randomness"]
@@ -414,6 +439,7 @@ pt = "Aleatoriedade angular"
 tr = "Açısal rastgelelik"
 it = "Casualità angolare"
 id = "Keacakan sudut"
+pl = "Losowość kąta"
 ar = "العشوائية الزاوية"
 
 ["Animated"]
@@ -430,6 +456,7 @@ pt = "Animado"
 tr = "Hareketli"
 it = "Animato"
 id = "Dianimasikan"
+pl = "Animowane"
 ar = "متحرك"
 
 ["Anti-aliasing"]
@@ -446,6 +473,7 @@ pt = "Anti-aliasing"
 tr = "Kenar Yumuşatma"
 it = "Anti-aliasing"
 id = "Anti-aliasing"
+pl = "Anty-aliasing"
 ar = "تنعيم الحواف"
 
 ["Aperture"]
@@ -462,6 +490,7 @@ pt = "Abertura"
 tr = "Diyafram"
 it = "Apertura"
 id = "Bukaan"
+pl = "Apertura"
 ar = "فتحة العدسة"
 
 ["Arm thickness"]
@@ -478,6 +507,7 @@ pt = "Espessura do braço"
 tr = "Kol kalınlığı"
 it = "Spessore del braccio"
 id = "Ketebalan lengan"
+pl = "Grubość ramienia"
 ar = "سمك الذراع"
 
 ["Attack"]
@@ -494,6 +524,7 @@ pt = "Ataque"
 tr = "Atak"
 it = "Attacco"
 id = "Attack"
+pl = "Atak"
 ar = "زمن البدء"
 
 ["Audio Stream"]
@@ -510,6 +541,7 @@ pt = "Fluxo de áudio"
 tr = "Ses Akışı"
 it = "Stream audio"
 id = "Stream Audio"
+pl = "Strumień audio"
 ar = "تدفق الصوت"
 
 ["Audio stream %{number}"]
@@ -526,6 +558,7 @@ pt = "Fluxo de áudio %{number}"
 tr = "Ses akışı %{number}"
 it = "Stream audio %{number}"
 id = "Stream audio %{number}"
+pl = "Strumień audio %{number}"
 ar = "تدفق الصوت %{number}"
 
 ["Auto level"]
@@ -542,6 +575,7 @@ pt = "Nível automático"
 tr = "Otomatik düzey"
 it = "Livello automatico"
 id = "Level otomatis"
+pl = "Automatyczny poziom"
 ar = "مستوى تلقائي"
 
 ["B&W threshold"]
@@ -558,6 +592,7 @@ pt = "Limiar P&B"
 tr = "Siyah-Beyaz eşiği"
 it = "Soglia B/N"
 id = "Ambang B/W"
+pl = "Próg C/B"
 ar = "عتبة الأبيض والأسود"
 
 ["Background color"]
@@ -574,6 +609,7 @@ pt = "Cor de fundo"
 tr = "Arka plan rengi"
 it = "Colore di sfondo"
 id = "Warna latar belakang"
+pl = "Kolor tła"
 ar = "لون الخلفية"
 
 ["Background distance"]
@@ -590,6 +626,7 @@ pt = "Distância do fundo"
 tr = "Arka plan uzaklığı"
 it = "Distanza dello sfondo"
 id = "Jarak latar belakang"
+pl = "Odległość tła"
 ar = "مسافة الخلفية"
 
 ["Background fill"]
@@ -606,6 +643,7 @@ pt = "Preenchimento do fundo"
 tr = "Arka plan dolgusu"
 it = "Riempimento dello sfondo"
 id = "Isian latar belakang"
+pl = "Wypełnienie tła"
 ar = "تعبئة الخلفية"
 
 ["Background intensity"]
@@ -622,6 +660,7 @@ pt = "Intensidade do fundo"
 tr = "Arka plan yoğunluğu"
 it = "Intensità dello sfondo"
 id = "Intensitas latar belakang"
+pl = "Intensywność tła"
 ar = "شدة الخلفية"
 
 ["Background padding"]
@@ -638,6 +677,7 @@ pt = "Preenchimento do fundo"
 tr = "Arka plan iç boşluğu"
 it = "Margine dello sfondo"
 id = "Padding latar belakang"
+pl = "Odstęp tła"
 ar = "هامش الخلفية الداخلي"
 
 ["Background plane"]
@@ -654,6 +694,7 @@ pt = "Plano de fundo"
 tr = "Arka plan düzlemi"
 it = "Piano di sfondo"
 id = "Bidang latar belakang"
+pl = "Płaszczyzna tła"
 ar = "مستوى الخلفية"
 
 ["Background roundness"]
@@ -670,6 +711,7 @@ pt = "Arredondamento do fundo"
 tr = "Arka plan yuvarlaklığı"
 it = "Arrotondamento dello sfondo"
 id = "Kebulatan latar belakang"
+pl = "Okrągłość tła"
 ar = "استدارة الخلفية"
 
 ["Background tiling"]
@@ -686,6 +728,7 @@ pt = "Mosaico do fundo"
 tr = "Arka plan döşeme"
 it = "Tassellatura dello sfondo"
 id = "Pengubinan latar belakang"
+pl = "Powtarzanie tła"
 ar = "تكرار الخلفية"
 
 ["Bake"]
@@ -702,6 +745,7 @@ pt = "Pré-computar"
 tr = "Pişir"
 it = "Pre-calcola"
 id = "Bake"
+pl = "Wypal"
 ar = "تثبيت"
 
 ["Baking…"]
@@ -718,6 +762,7 @@ pt = "Pré-computando…"
 tr = "Pişiriliyor…"
 it = "Pre-calcolo…"
 id = "Melakukan baking…"
+pl = "Wypalanie…"
 ar = "جارٍ التثبيت…"
 
 ["Balanced"]
@@ -734,6 +779,7 @@ pt = "Equilibrado"
 tr = "Dengeli"
 it = "Equilibrato"
 id = "Seimbang"
+pl = "Zbalansowane"
 ar = "متوازن"
 
 ["Band count"]
@@ -750,6 +796,7 @@ pt = "Número de bandas"
 tr = "Bant sayısı"
 it = "Numero di bande"
 id = "Jumlah band"
+pl = "Liczba pasm"
 ar = "عدد النطاقات"
 
 ["Band width"]
@@ -766,6 +813,7 @@ pt = "Largura da banda"
 tr = "Bant genişliği"
 it = "Larghezza di banda"
 id = "Lebar band"
+pl = "Szerokość pasm"
 ar = "عرض النطاق"
 
 ["Bands"]
@@ -782,6 +830,7 @@ pt = "Bandas"
 tr = "Bantlar"
 it = "Bande"
 id = "Band"
+pl = "Pasma"
 ar = "النطاقات"
 
 ["Base angle"]
@@ -798,6 +847,7 @@ pt = "Ângulo base"
 tr = "Temel açı"
 it = "Angolo base"
 id = "Sudut dasar"
+pl = "Kąt bazowy"
 ar = "الزاوية الأساسية"
 
 ["Base color"]
@@ -814,6 +864,7 @@ pt = "Cor base"
 tr = "Temel renk"
 it = "Colore base"
 id = "Warna dasar"
+pl = "Kolor bazowy"
 ar = "اللون الأساسي"
 
 ["Beat Detection"]
@@ -830,6 +881,7 @@ pt = "Detecção de batidas"
 tr = "Ritim Tespiti"
 it = "Rilevamento beat"
 id = "Deteksi Ketukan"
+pl = "Detekcja rytmu"
 ar = "اكتشاف الإيقاع"
 
 ["Bevel"]
@@ -846,6 +898,7 @@ pt = "Bisel"
 tr = "Pah"
 it = "Smussatura"
 id = "Bevel"
+pl = "Faza"
 ar = "شطب"
 
 ["Blend curve"]
@@ -862,6 +915,7 @@ pt = "Curva de mesclagem"
 tr = "Karıştırma eğrisi"
 it = "Curva di mescolamento"
 id = "Kurva perpaduan"
+pl = "Krzywa mieszania"
 ar = "منحنى المزج"
 
 ["Blend mode"]
@@ -878,6 +932,7 @@ pt = "Modo de mesclagem"
 tr = "Karıştırma modu"
 it = "Modalità di mescolamento"
 id = "Mode perpaduan"
+pl = "Tryb mieszania"
 ar = "وضع المزج"
 
 ["Block height"]
@@ -894,6 +949,7 @@ pt = "Altura do bloco"
 tr = "Blok yüksekliği"
 it = "Altezza del blocco"
 id = "Tinggi blok"
+pl = "Wysokość bloku"
 ar = "ارتفاع الكتلة"
 
 ["Block width"]
@@ -910,6 +966,7 @@ pt = "Largura do bloco"
 tr = "Blok genişliği"
 it = "Larghezza del blocco"
 id = "Lebar blok"
+pl = "Szerokość bloku"
 ar = "عرض الكتلة"
 
 ["Blur"]
@@ -926,6 +983,7 @@ pt = "Desfoque"
 tr = "Bulanıklaştırma"
 it = "Sfocatura"
 id = "Buram"
+pl = "Rozmazanie"
 ar = "تمويه"
 
 ["Bottom"]
@@ -942,6 +1000,7 @@ pt = "Inferior"
 tr = "Alt"
 it = "In basso"
 id = "Bawah"
+pl = "Dół"
 ar = "أسفل"
 
 ["Bottom left"]
@@ -958,6 +1017,7 @@ pt = "Inferior esquerdo"
 tr = "Sol alt"
 it = "In basso a sinistra"
 id = "Kiri bawah"
+pl = "Lewy dół"
 ar = "أسفل اليسار"
 
 ["Bottom right"]
@@ -974,6 +1034,7 @@ pt = "Inferior direito"
 tr = "Sağ alt"
 it = "In basso a destra"
 id = "Kanan bawah"
+pl = "Prawy dół"
 ar = "أسفل اليمين"
 
 ["Box"]
@@ -990,6 +1051,7 @@ pt = "Caixa"
 tr = "Kutu"
 it = "Riquadro"
 id = "Kotak"
+pl = "Pudło"
 ar = "صندوق"
 
 ["Brightness"]
@@ -1006,6 +1068,7 @@ pt = "Brilho"
 tr = "Parlaklık"
 it = "Luminosità"
 id = "Kecerahan"
+pl = "Jasność"
 ar = "السطوع"
 
 ["Camera"]
@@ -1022,6 +1085,7 @@ pt = "Câmera"
 tr = "Kamera"
 it = "Videocamera"
 id = "Kamera"
+pl = "Kamera"
 ar = "الكاميرا"
 
 ["Camera model"]
@@ -1038,6 +1102,7 @@ pt = "Modelo da câmera"
 tr = "Kamera modeli"
 it = "Modello videocamera"
 id = "Model kamera"
+pl = "Model kamery"
 ar = "نموذج الكاميرا"
 
 ["Camera source"]
@@ -1054,6 +1119,7 @@ pt = "Origem da câmera"
 tr = "Kamera kaynağı"
 it = "Fonte Videocamera"
 id = "Sumber kamera"
+pl = "Źródło kamery"
 ar = "مصدر الكاميرا"
 
 ["Cancelling"]
@@ -1070,6 +1136,7 @@ pt = "Cancelando"
 tr = "İptal ediliyor"
 it = "Annullamento"
 id = "Membatalkan"
+pl = "Anulowanie"
 ar = "جارٍ الإلغاء"
 
 ["Caption text color"]
@@ -1086,6 +1153,7 @@ pt = "Cor do texto da legenda"
 tr = "Altyazı metin rengi"
 it = "Colore del testo dei sottotitoli"
 id = "Warna teks subtitel"
+pl = "Kolor tekstu napisów"
 ar = "لون نص التسميات التوضيحية"
 
 ["Ceiling"]
@@ -1102,6 +1170,7 @@ pt = "Teto"
 tr = "Tavan"
 it = "Limite superiore"
 id = "Batas atas"
+pl = "Górny limit"
 ar = "الحد الأقصى"
 
 ["Cell size"]
@@ -1118,6 +1187,7 @@ pt = "Tamanho da célula"
 tr = "Hücre boyutu"
 it = "Dimensione cella"
 id = "Ukuran sel"
+pl = "Rozmiar komórki"
 ar = "حجم الخلية"
 
 ["Center"]
@@ -1134,6 +1204,7 @@ pt = "Centro"
 tr = "Merkez"
 it = "Centro"
 id = "Tengah"
+pl = "Środek"
 ar = "المركز"
 
 ["Center X"]
@@ -1150,6 +1221,7 @@ pt = "Centro X"
 tr = "Merkez X"
 it = "Centro X"
 id = "Tengah X"
+pl = "Środek X"
 ar = "المركز X"
 
 ["Center Y"]
@@ -1166,6 +1238,7 @@ pt = "Centro Y"
 tr = "Merkez Y"
 it = "Centro Y"
 id = "Tengah Y"
+pl = "Środek Y"
 ar = "المركز Y"
 
 ["Chamfer"]
@@ -1182,6 +1255,7 @@ pt = "Chanfro"
 tr = "Pah Kırma"
 it = "Smusso"
 id = "Chamfer"
+pl = "Fazowanie"
 ar = "شطف الحواف"
 
 ["Change all at once"]
@@ -1198,6 +1272,7 @@ pt = "Alterar tudo de uma vez"
 tr = "Tümünü tek seferde değiştir"
 it = "Modifica tutto in una volta"
 id = "Ubah semua sekaligus"
+pl = "Zmień wszystko na raz"
 ar = "تغيير الكل دفعة واحدة"
 
 ["Change Project Settings?"]
@@ -1214,6 +1289,7 @@ pt = "Alterar configurações do projeto?"
 tr = "Proje ayarları değiştirilsin mi?"
 it = "Modificare le impostazioni del progetto?"
 id = "Ubah Pengaturan Proyek?"
+pl = "Zmienić ustawienia projektu?"
 ar = "هل تريد تغيير إعدادات المشروع؟"
 
 ["Changing the frame rate or resolution can affect timing, visual layout, and rendered output. Existing media and effects may no longer match the project."]
@@ -1230,6 +1306,7 @@ pt = "Alterar a taxa de quadros ou a resolução pode afetar a sincronização, 
 tr = "Kare hızını veya çözünürlüğü değiştirmek zamanlamayı, görsel düzeni ve işlenmiş çıktıyı etkileyebilir. Mevcut medya ve efektler artık bu projeyle eşleşmeyebilir."
 it = "Modificare la frequenza dei fotogrammi o la risoluzione può influire su temporizzazione, layout visivo e l'output renderizzato. I media e gli effetti esistenti potrebbero non corrispondere più al progetto."
 id = "Mengubah frame rate atau resolusi dapat memengaruhi pewaktuan, tata letak visual, dan hasil render. Media dan efek yang ada mungkin tidak lagi cocok dengan proyek."
+pl = "Zmiana liczby klatek na sekundę lub rozdzielczości może wpłynąć na synchronizację, układ wizualny i wynik renderowania. Istniejące materiały i efekty mogą nie być już zgodne z projektem."
 ar = "قد يؤثر تغيير معدل الإطارات أو الدقة على التوقيت والتخطيط المرئي والمخرجات المصيرة. قد لا تتطابق الوسائط والتأثيرات الحالية مع المشروع بعد الآن."
 
 ["Channel angle offset"]
@@ -1246,6 +1323,7 @@ pt = "Deslocamento angular de canais"
 tr = "Kanal açı ofseti"
 it = "Offset angolo canali"
 id = "Ofset sudut saluran"
+pl = "Przesunięcie kąta kanału"
 ar = "إزاحة زاوية القناة"
 
 ["Channel offset"]
@@ -1262,6 +1340,7 @@ pt = "Deslocamento de canais"
 tr = "Kanal ofseti"
 it = "Offset dei canali"
 id = "Ofset saluran"
+pl = "Przesunięcie kanału"
 ar = "إزاحة القناة"
 
 ["Choose font"]
@@ -1278,6 +1357,7 @@ pt = "Escolher fonte"
 tr = "Yazı tipi seç"
 it = "Scegli font"
 id = "Pilih font"
+pl = "Wybierz czcionkę"
 ar = "اختيار الخط"
 
 ["Choose item…"]
@@ -1294,6 +1374,7 @@ pt = "Escolher item…"
 tr = "Öge seç…"
 it = "Scegli elemento…"
 id = "Pilih item…"
+pl = "Wybierz element…"
 ar = "اختيار عنصر…"
 
 ["Circular"]
@@ -1310,6 +1391,7 @@ pt = "Circular"
 tr = "Dairesel"
 it = "Circolare"
 id = "Melingkar"
+pl = "Okrągłe"
 ar = "دائري"
 
 ["Classic"]
@@ -1326,6 +1408,7 @@ pt = "Clássico"
 tr = "Klasik"
 it = "Classico"
 id = "Klasik"
+pl = "Klasyczne"
 ar = "كلاسيكي"
 
 ["Clear and rewrite the whole text"]
@@ -1342,6 +1425,7 @@ pt = "Limpar e reescrever todo o texto"
 tr = "Tüm metni sil ve yeniden yaz"
 it = "Cancella e riscrivi tutto il testo"
 id = "Hapus dan tulis ulang seluruh teks"
+pl = "Wyczyść i napisz ponownie cały tekst"
 ar = "مسح وإعادة كتابة النص بالكامل"
 
 ["Clear image"]
@@ -1358,6 +1442,7 @@ pt = "Remover imagem"
 tr = "Resmi temizle"
 it = "Cancella immagine"
 id = "Hapus gambar"
+pl = "Wyczyść obraz"
 ar = "مسح الصورة"
 
 ["Clear mask source"]
@@ -1374,6 +1459,7 @@ pt = "Remover origem da máscara"
 tr = "Maske kaynağını temizle"
 it = "Cancella origine della maschera"
 id = "Hapus sumber masker"
+pl = "Usuń źródło maski"
 ar = "مسح مصدر القناع"
 
 ["Clear model"]
@@ -1390,6 +1476,7 @@ pt = "Remover modelo"
 tr = "Modeli temizle"
 it = "Cancella modello"
 id = "Hapus model"
+pl = "Usuń model"
 ar = "مسح النموذج"
 
 ["Clear texture"]
@@ -1406,6 +1493,7 @@ pt = "Remover textura"
 tr = "Dokuyu temizle"
 it = "Cancella texture"
 id = "Hapus tekstur"
+pl = "Usuń teksturę"
 ar = "مسح الملمس"
 
 ["Clearcoat"]
@@ -1422,6 +1510,7 @@ pt = "Verniz"
 tr = "Şeffaf Kaplama"
 it = "Vernice trasparente"
 id = "Clearcoat"
+pl = "Lakier bezbarwny"
 ar = "طلاء شفاف"
 
 ["Clockwise"]
@@ -1438,6 +1527,7 @@ pt = "Sentido horário"
 tr = "Saat Yönünde"
 it = "Senso orario"
 id = "Searah jarum jam"
+pl = "Według ruchu zegara"
 ar = "مع اتجاه عقارب الساعة"
 
 ["Coalesce"]
@@ -1454,6 +1544,7 @@ pt = "Unificar"
 tr = "Kaynaştır"
 it = "Unifica"
 id = "Satukan"
+pl = "Połącz"
 ar = "دمج"
 
 ["Collapse"]
@@ -1470,6 +1561,7 @@ pt = "Recolher"
 tr = "Daralt"
 it = "Comprimi"
 id = "Ciutkan"
+pl = "Zwiń"
 ar = "طي"
 
 ["Color"]
@@ -1486,6 +1578,7 @@ pt = "Cor"
 tr = "Renk"
 it = "Colore"
 id = "Warna"
+pl = "Kolor"
 ar = "اللون"
 
 ["Color A"]
@@ -1502,6 +1595,7 @@ pt = "Cor A"
 tr = "Renk A"
 it = "Colore A"
 id = "Warna A"
+pl = "Kolor A"
 ar = "اللون A"
 
 ["Color B"]
@@ -1518,6 +1612,7 @@ pt = "Cor B"
 tr = "Renk B"
 it = "Colore B"
 id = "Warna B"
+pl = "Kolor B"
 ar = "اللون B"
 
 ["Color mode"]
@@ -1534,6 +1629,7 @@ pt = "Modo de cor"
 tr = "Renk modu"
 it = "Modalità colore"
 id = "Mode warna"
+pl = "Tryb koloru"
 ar = "وضع الألوان"
 
 ["Color position"]
@@ -1550,6 +1646,7 @@ pt = "Posição da cor"
 tr = "Renk konumu"
 it = "Posizione colore"
 id = "Posisi warna"
+pl = "Pozycja koloru"
 ar = "موضع اللون"
 
 ["Color precision"]
@@ -1566,6 +1663,7 @@ pt = "Precisão da cor"
 tr = "Renk hassaslığı"
 it = "Precisione colore"
 id = "Presisi warna"
+pl = "Precyzja koloru"
 ar = "دقة الألوان"
 
 ["Color %{number}"]
@@ -1582,6 +1680,7 @@ pt = "Cor %{number}"
 tr = "Renk %{number}"
 it = "Colore %{number}"
 id = "Warna %{number}"
+pl = "Kolor %{number}"
 ar = "اللون %{number}"
 
 ["Coloring"]
@@ -1598,6 +1697,7 @@ pt = "Coloração"
 tr = "Renklendirme"
 it = "Colorazione"
 id = "Pewarnaan"
+pl = "Kolorowanie"
 ar = "التلوين"
 
 ["Completion"]
@@ -1614,6 +1714,7 @@ pt = "Conclusão"
 tr = "Tamamlama"
 it = "Avanzamento"
 id = "Penyelesaian"
+pl = "Postęp"
 ar = "الاكتمال"
 
 ["Complexity"]
@@ -1630,6 +1731,7 @@ pt = "Complexidade"
 tr = "Karmaşıklık"
 it = "Complessità"
 id = "Kompleksitas"
+pl = "Złożność"
 ar = "التعقيد"
 
 ["Composite"]
@@ -1646,6 +1748,7 @@ pt = "Composição"
 tr = "Kompozit"
 it = "Composito"
 id = "Komposit"
+pl = "Kompozycja"
 ar = "مركب"
 
 ["Composite background"]
@@ -1662,6 +1765,7 @@ pt = "Compor fundo"
 tr = "Kompozit arka plan"
 it = "Componi sfondo"
 id = "Latar belakang komposit"
+pl = "Tło kompozycji"
 ar = "خلفية مركبة"
 
 ["Compositing"]
@@ -1678,6 +1782,7 @@ pt = "Composição"
 tr = "Kompozisyon"
 it = "Compositing"
 id = "Pengomposisian"
+pl = "Kompozytowanie"
 ar = "التركيب"
 
 ["Constant high"]
@@ -1694,6 +1799,7 @@ pt = "Constante alto"
 tr = "Sabit yüksek"
 it = "Costante alto"
 id = "Tinggi konstan"
+pl = "Wysokość stałej"
 ar = "ثابت مرتفع"
 
 ["Constant low"]
@@ -1710,6 +1816,7 @@ pt = "Constante baixo"
 tr = "Sabit düşük"
 it = "Costante basso"
 id = "Rendah konstan"
+pl = "Niskość stałej"
 ar = "ثابت منخفض"
 
 ["Constant-acceleration weight"]
@@ -1726,6 +1833,7 @@ pt = "Peso de aceleração constante"
 tr = "Sabit ivme ağırlığı"
 it = "Peso di accelerazione costante"
 id = "Bobot percepatan konstan"
+pl = "Waga stałego przyśpieszenia"
 ar = "وزن التسارع الثابت"
 
 ["Constant-motion weight"]
@@ -1742,6 +1850,7 @@ pt = "Peso de movimento constante"
 tr = "Sabit hareket ağırlığı"
 it = "Peso di movimento costante"
 id = "Bobot gerakan konstan"
+pl = "Waga stałego ruchu"
 ar = "وزن الحركة الثابتة"
 
 ["Continuous"]
@@ -1758,6 +1867,7 @@ pt = "Contínuo"
 tr = "Sürekli"
 it = "Continuo"
 id = "Kontinu"
+pl = "Ciągłe"
 ar = "مستمر"
 
 ["Contrast"]
@@ -1774,6 +1884,7 @@ pt = "Contraste"
 tr = "Kontrast"
 it = "Contrasto"
 id = "Kontras"
+pl = "Kontrast"
 ar = "التباين"
 
 ["Copies X"]
@@ -1790,6 +1901,7 @@ pt = "Cópias X"
 tr = "X Kopya Sayısı"
 it = "Copie X"
 id = "Salinan X"
+pl = "Kopiuje X"
 ar = "النسخ X"
 
 ["Copies Y"]
@@ -1806,6 +1918,7 @@ pt = "Cópias Y"
 tr = "Y Kopya Sayısı"
 it = "Copie Y"
 id = "Salinan Y"
+pl = "Kopiuje Y"
 ar = "النسخ Y"
 
 ["Copy JSON"]
@@ -1822,6 +1935,7 @@ pt = "Copiar JSON"
 tr = "JSON'u kopyala"
 it = "Copia JSON"
 id = "Salin JSON"
+pl = "Kopiuj JSON"
 ar = "نسخ JSON"
 
 ["Corner radius"]
@@ -1838,6 +1952,7 @@ pt = "Raio do canto"
 tr = "Köşe yuvarlaklığı"
 it = "Raggio angoli"
 id = "Radius sudut"
+pl = "Promień krawędzi"
 ar = "نصف قطر الزاوية"
 
 ["Corner rounding"]
@@ -1854,6 +1969,7 @@ pt = "Arredondamento dos cantos"
 tr = "Köşe yuvarlatma"
 it = "Arrotondamento angoli"
 id = "Pembulatan sudut"
+pl = "Zaokrąglanie krawędzi"
 ar = "استدارة الزوايا"
 
 ["Corner threshold"]
@@ -1870,6 +1986,7 @@ pt = "Limiar de canto"
 tr = "Köşe eşiği"
 it = "Soglia angoli"
 id = "Ambang batas sudut"
+pl = "Próg krawędzi"
 ar = "عتبة الزاوية"
 
 ["Counterclockwise"]
@@ -1886,6 +2003,7 @@ pt = "Sentido anti-horário"
 tr = "Saat Yönünün Tersi"
 it = "Senso antiorario"
 id = "Berlawanan arah jarum jam"
+pl = "Odwrotnie od ruchu zegara"
 ar = "عكس اتجاه عقارب الساعة"
 
 ["Create"]
@@ -1902,6 +2020,7 @@ pt = "Criar"
 tr = "Oluştur"
 it = "Crea"
 id = "Buat"
+pl = "Stwórz"
 ar = "إنشاء"
 
 ["Crop ratio"]
@@ -1918,6 +2037,7 @@ pt = "Proporção de corte"
 tr = "Kırpma oranı"
 it = "Proporzione di ritaglio"
 id = "Rasio pemangkasan"
+pl = "Współczynnik przycięcia"
 ar = "نسبة القص"
 
 ["Cross"]
@@ -1934,6 +2054,7 @@ pt = "Cruz"
 tr = "Artı"
 it = "Croce"
 id = "Silang"
+pl = "Krzyż"
 ar = "متقاطع"
 
 ["Crosshatch"]
@@ -1950,6 +2071,7 @@ pt = "Hachura cruzada"
 tr = "Çapraz tarama"
 it = "Tratteggio incrociato"
 id = "Arsir silang"
+pl = "Kreskowanie"
 ar = "تظليل متقاطع"
 
 ["Curvature"]
@@ -1966,6 +2088,7 @@ pt = "Curvatura"
 tr = "Eğrilik"
 it = "Curvatura"
 id = "Kelengkungan"
+pl = "Wykrzywienie"
 ar = "الانحناء"
 
 ["Curve"]
@@ -1982,6 +2105,7 @@ pt = "Curva"
 tr = "Eğri"
 it = "Curva"
 id = "Kurva"
+pl = "Krzywa"
 ar = "المنحنى"
 
 ["Cutoff"]
@@ -1998,6 +2122,7 @@ pt = "Corte"
 tr = "Kesim"
 it = "Cutoff"
 id = "Cutoff"
+pl = "Odcięcie"
 ar = "القطع"
 
 ["Damping"]
@@ -2014,6 +2139,7 @@ pt = "Amortecimento"
 tr = "Sönümleme"
 it = "Smorzamento"
 id = "Peredaman"
+pl = "Tłumienie"
 ar = "التخميد"
 
 ["Darkest tone"]
@@ -2030,6 +2156,7 @@ pt = "Tom mais escuro"
 tr = "En karanlık ton"
 it = "Tono più scuro"
 id = "Warna tergelap"
+pl = "Najciemniejszy ton"
 ar = "الدرجة الأكثر قتامة"
 
 ["Dash gap"]
@@ -2046,6 +2173,7 @@ pt = "Espaço do tracejado"
 tr = "Çizgi aralığı"
 it = "Spazio tratteggio"
 id = "Celah garis putus-putus"
+pl = "Odstęp kreski"
 ar = "فجوة الخط المتقطع"
 
 ["Dash length"]
@@ -2062,6 +2190,7 @@ pt = "Comprimento do traço"
 tr = "Çizgi uzunluğu"
 it = "Lunghezza tratteggio"
 id = "Panjang garis putus-putus"
+pl = "Długość kreski"
 ar = "طول الخط المتقطع"
 
 ["Dash position"]
@@ -2078,6 +2207,7 @@ pt = "Posição do tracejado"
 tr = "Çizgi konumu"
 it = "Posizione tratteggio"
 id = "Posisi garis putus-putus"
+pl = "Pozycja kresek"
 ar = "موضع الخط المتقطع"
 
 ["Decay"]
@@ -2094,6 +2224,7 @@ pt = "Decaimento"
 tr = "Zayıflama"
 it = "Decadimento"
 id = "Decay"
+pl = "Spadek"
 ar = "الاضمحلال"
 
 ["Default outline color"]
@@ -2110,6 +2241,7 @@ pt = "Cor de contorno padrão"
 tr = "Varsayılan kontür rengi"
 it = "Colore contorno predefinito"
 id = "Warna garis luar bawaan"
+pl = "Domyślny kolor konturu"
 ar = "لون المخطط التفصيلي الافتراضي"
 
 ["Delay"]
@@ -2126,6 +2258,7 @@ pt = "Atraso"
 tr = "Gecikme"
 it = "Ritardo"
 id = "Delay"
+pl = "Opóźnienie"
 ar = "التأخير"
 
 ["Delete selected keyframe"]
@@ -2142,6 +2275,7 @@ pt = "Excluir quadro-chave selecionado"
 tr = "Seçilen anahtar karesini sil"
 it = "Elimina keyframe selezionato"
 id = "Hapus keyframe yang dipilih"
+pl = "Usuń zaznaczoną klatkę kluczową"
 ar = "حذف الإطار الرئيسي المحدد"
 
 ["Depth"]
@@ -2158,6 +2292,7 @@ pt = "Profundidade"
 tr = "Derinlik"
 it = "Profondità"
 id = "Kedalaman"
+pl = "Głębia"
 ar = "العمق"
 
 ["Depth edge roundness"]
@@ -2174,6 +2309,7 @@ pt = "Arredondamento de borda de profundidade"
 tr = "Derinlik kenarı yuvarlaklığı"
 it = "Arrotondamento bordo profondità"
 id = "Kebulatan tepi kedalaman"
+pl = "Zaokrąglenie głębi krawędzi"
 ar = "استدارة حافة العمق"
 
 ["Depth threshold"]
@@ -2190,6 +2326,7 @@ pt = "Limiar de profundidade"
 tr = "Derinlik eşiği"
 it = "Soglia profondità"
 id = "Ambang batas kedalaman"
+pl = "Próg głębi"
 ar = "عتبة العمق"
 
 ["Detail"]
@@ -2206,6 +2343,7 @@ pt = "Detalhe"
 tr = "Detay"
 it = "Dettaglio"
 id = "Detail"
+pl = "Detal"
 ar = "التفاصيل"
 
 ["Diamond"]
@@ -2222,6 +2360,7 @@ pt = "Losango"
 tr = "Eşkenar dörtgen"
 it = "Rombo"
 id = "Belah ketupat"
+pl = "Diament"
 ar = "معين"
 
 ["Diffusion"]
@@ -2238,6 +2377,7 @@ pt = "Difusão"
 tr = "Difüzyon"
 it = "Diffusione"
 id = "Difusi"
+pl = "Dyfuzja"
 ar = "الانتشار"
 
 ["Dimensions"]
@@ -2254,6 +2394,7 @@ pt = "Dimensões"
 tr = "Boyutlar"
 it = "Dimensioni"
 id = "Dimensi"
+pl = "Wymiary"
 ar = "الأبعاد"
 
 ["Direction"]
@@ -2270,6 +2411,7 @@ pt = "Direção"
 tr = "Yön"
 it = "Direzione"
 id = "Arah"
+pl = "Kierunek"
 ar = "الاتجاه"
 
 ["Disable modifier"]
@@ -2286,6 +2428,7 @@ pt = "Desabilitar modificador"
 tr = "Değiştiriciyi devre dışı bırak"
 it = "Disattiva modificatore"
 id = "Nonaktifkan modifier"
+pl = "Wyłącz modyfikator"
 ar = "تعطيل المعدِّل"
 
 ["Discard and reanalyze the current source-time chunk"]
@@ -2302,6 +2445,7 @@ pt = "Descartar e reanalisar o trecho temporal de origem atual"
 tr = "Mevcut kaynak-zaman dilimini sil ve yeniden analiz et"
 it = "Scarta e rianalizza il frammento temporale sorgente attuale"
 id = "Buang dan analisis ulang potongan waktu sumber saat ini"
+pl = "Odrzuć i przeanalizuj ponownie obecny przedział czasowy"
 ar = "تجاهل وإعادة تحليل مقطع الوقت المصدري الحالي"
 
 ["Distance"]
@@ -2318,6 +2462,7 @@ pt = "Distância"
 tr = "Uzaklık"
 it = "Distanza"
 id = "Jarak"
+pl = "Dystans"
 ar = "المسافة"
 
 ["Distortion"]
@@ -2334,6 +2479,7 @@ pt = "Distorção"
 tr = "Bozulma"
 it = "Distorsione"
 id = "Distorsi"
+pl = "Zniekształcenie"
 ar = "التشوه"
 
 ["Distribution"]
@@ -2350,6 +2496,7 @@ pt = "Distribuição"
 tr = "Dağılım"
 it = "Distribuzione"
 id = "Distribusi"
+pl = "Rozkład"
 ar = "التوزيع"
 
 ["Distribution randomness"]
@@ -2366,6 +2513,7 @@ pt = "Aleatoriedade da distribuição"
 tr = "Dağıtım rastgeleliği"
 it = "Casualità distribuzione"
 id = "Keacakan distribusi"
+pl = "Losowość rozkładu"
 ar = "عشوائية التوزيع"
 
 ["Dot density"]
@@ -2382,6 +2530,7 @@ pt = "Densidade de pontos"
 tr = "Nokta yoğunluğu"
 it = "Densità punti"
 id = "Kepadatan titik"
+pl = "Gęstość kropek"
 ar = "كثافة النقاط"
 
 ["Dot size"]
@@ -2398,6 +2547,7 @@ pt = "Tamanho do ponto"
 tr = "Nokta büyüklüğü"
 it = "Dimensione punto"
 id = "Ukuran titik"
+pl = "Rozmiar kropek"
 ar = "حجم النقطة"
 
 ["Dots"]
@@ -2414,6 +2564,7 @@ pt = "Pontos"
 tr = "Noktalar"
 it = "Punti"
 id = "Titik-titik"
+pl = "Kropki"
 ar = "نقاط"
 
 ["Downloading font family…"]
@@ -2430,6 +2581,7 @@ pt = "Baixando família de fontes…"
 tr = "Yazı tipi ailesi indiriliyor…"
 it = "Download della famiglia di font…"
 id = "Mengunduh famili font…"
+pl = "Pobieranie rodziny czcionki.."
 ar = "جارٍ تنزيل عائلة الخطوط…"
 
 ["Drag onto a visual clip in the timeline"]
@@ -2446,6 +2598,7 @@ pt = "Arraste sobre um clipe visual na linha do tempo"
 tr = "Zaman çizelgesinde bir görsel klibin üzerine sürükle"
 it = "Trascina su un clip visivo nella timeline"
 id = "Tarik ke klip visual di lini masa"
+pl = "Upuść na klip wizualny w osi czasu"
 ar = "اسحب وأفلت على مقطع مرئي في الخط الزمني"
 
 ["Drag onto a visual clip…"]
@@ -2462,6 +2615,7 @@ pt = "Arraste sobre um clipe visual…"
 tr = "Bir görsel klibin üzerine sürükle…"
 it = "Trascina su un clip visivo…"
 id = "Tarik ke klip visual…"
+pl = "Upuść na klip wizualny…"
 ar = "اسحب وأفلت على مقطع مرئي…"
 
 ["Drawing"]
@@ -2478,6 +2632,7 @@ pt = "Desenho"
 tr = "Çizim"
 it = "Disegno"
 id = "Gambar"
+pl = "Rysowanie"
 ar = "رسم"
 
 ["Drive"]
@@ -2494,6 +2649,7 @@ pt = "Drive"
 tr = "Sürme"
 it = "Drive"
 id = "Drive"
+pl = "Napęd"
 ar = "التحفيز"
 
 ["Duration"]
@@ -2510,6 +2666,7 @@ pt = "Duração"
 tr = "Süre"
 it = "Durata"
 id = "Durasi"
+pl = "Czas trwania"
 ar = "المدة"
 
 ["Edge"]
@@ -2526,6 +2683,7 @@ pt = "Borda"
 tr = "Kenar"
 it = "Bordo"
 id = "Tepi"
+pl = "Krawędź"
 ar = "الحافة"
 
 ["Edge color"]
@@ -2542,6 +2700,7 @@ pt = "Cor da borda"
 tr = "Kenar rengi"
 it = "Colore bordo"
 id = "Warna tepi"
+pl = "Kolor krawędzi"
 ar = "لون الحافة"
 
 ["Edge softness"]
@@ -2558,6 +2717,7 @@ pt = "Suavidade da borda"
 tr = "Kenar yumuşaklığı"
 it = "Morbidezza bordo"
 id = "Kelembutan tepi"
+pl = "Miękkość krawędzi"
 ar = "نعومة الحافة"
 
 ["Edge width"]
@@ -2574,6 +2734,7 @@ pt = "Largura da borda"
 tr = "Kenar genişliği"
 it = "Larghezza bordo"
 id = "Lebar tepi"
+pl = "Szerokość krawędzi"
 ar = "عرض الحافة"
 
 ["Edit after the shared beginning"]
@@ -2590,6 +2751,7 @@ pt = "Editar após o início compartilhado"
 tr = "Ortak giriş kısmından sonra düzenle"
 it = "Modifica dopo l'inizio condiviso"
 id = "Edit setelah awal bersama"
+pl = "Edytuj po wspólnym początku"
 ar = "تعديل بعد البداية المشتركة"
 
 ["Edit between the shared ends"]
@@ -2606,6 +2768,7 @@ pt = "Editar entre as extremidades compartilhadas"
 tr = "Ortak bitişlerin arasında düzenle"
 it = "Modifica tra le estremità condivise"
 id = "Edit di antara akhir bersama"
+pl = "Edytuj między wspólnymi końcami"
 ar = "تعديل بين النهايات المشتركة"
 
 ["Edit only the changed characters"]
@@ -2622,6 +2785,7 @@ pt = "Editar apenas os caracteres alterados"
 tr = "Sadece değişmiş karakterleri düzenle"
 it = "Modifica solo i caratteri cambiati"
 id = "Edit hanya karakter yang berubah"
+pl = "Edytuj tylko znaki, które się zmieniły"
 ar = "تعديل الأحرف المغيرة فقط"
 
 ["Effect strength"]
@@ -2638,6 +2802,7 @@ pt = "Intensidade do efeito"
 tr = "Efekt gücü"
 it = "Intensità effetto"
 id = "Kekuatan efek"
+pl = "Siła efektu"
 ar = "قوة التأثير"
 
 ["Ellipse"]
@@ -2654,6 +2819,7 @@ pt = "Elipse"
 tr = "Elips"
 it = "Ellisse"
 id = "Elips"
+pl = "Elipsa"
 ar = "قطع ناقص"
 
 ["Enable layout"]
@@ -2670,6 +2836,7 @@ pt = "Habilitar layout"
 tr = "Düzeni etkinleştir"
 it = "Attiva layout"
 id = "Aktifkan tata letak"
+pl = "Włącz układ"
 ar = "تمكين التخطيط"
 
 ["Enable modifier"]
@@ -2686,6 +2853,7 @@ pt = "Habilitar modificador"
 tr = "Değiştiriciyi etkinleştir"
 it = "Attiva modificatore"
 id = "Aktifkan modifier"
+pl = "Włącz modyfikator"
 ar = "تمكين المعدِّل"
 
 ["Enable styling"]
@@ -2702,6 +2870,7 @@ pt = "Habilitar estilização"
 tr = "Stilleri etkinleştir"
 it = "Attiva stile"
 id = "Aktifkan gaya"
+pl = "Włącz stylizowanie"
 ar = "تمكين الأنماط"
 
 ["Enabled"]
@@ -2718,6 +2887,7 @@ pt = "Habilitado"
 tr = "Etkin"
 it = "Attivo"
 id = "Diaktifkan"
+pl = "Włączone"
 ar = "مُمكّن"
 
 ["End cap"]
@@ -2734,6 +2904,7 @@ pt = "Extremidade final"
 tr = "Bitiş ucu"
 it = "Estremità finale"
 id = "Ujung akhir"
+pl = "Zakończenie"
 ar = "نهاية الطرف"
 
 ["End taper"]
@@ -2750,6 +2921,7 @@ pt = "Afilamento final"
 tr = "Sona doğru sivriltme"
 it = "Cono finale"
 id = "Pengecilan akhir"
+pl = "Zwężenie końca"
 ar = "تضييق النهاية"
 
 ["End taper distance"]
@@ -2766,6 +2938,7 @@ pt = "Distância do afilamento final"
 tr = "Sona doğru sivriltme uzaklığı"
 it = "Distanza cono finale"
 id = "Jarak pengecilan akhir"
+pl = "Odległość zwężenia końca"
 ar = "مسافة تضييق النهاية"
 
 ["Engine"]
@@ -2782,6 +2955,7 @@ pt = "Motor"
 tr = "Motor"
 it = "Engine"
 id = "Mesin"
+pl = "Silnik"
 ar = "المحرك"
 
 ["Enter a Google font family name"]
@@ -2798,6 +2972,7 @@ pt = "Digite o nome de uma família do Google Fonts"
 tr = "Google Fonts yazı tipi ailesi ismi gir"
 it = "Inserisci il nome di una famiglia Google Fonts"
 id = "Masukkan nama famili Google Fonts"
+pl = "Wpisz nazwę rodziny czcionki Google"
 ar = "أدخل اسم عائلة خطوط Google"
 
 ["Environment"]
@@ -2814,6 +2989,7 @@ pt = "Ambiente"
 tr = "Ortam"
 it = "Ambiente"
 id = "Lingkungan"
+pl = "Środowisko"
 ar = "البيئة"
 
 ["Environment images"]
@@ -2830,6 +3006,7 @@ pt = "Imagens de ambiente"
 tr = "Ortam görselleri"
 it = "Immagini di ambiente"
 id = "Gambar lingkungan"
+pl = "Obrazy środowiska"
 ar = "صور البيئة"
 
 ["Evolution"]
@@ -2846,6 +3023,7 @@ pt = "Evolução"
 tr = "Evrim"
 it = "Evoluzione"
 id = "Evolusi"
+pl = "Ewolucja"
 ar = "التطور"
 
 ["Evolve seed"]
@@ -2862,6 +3040,7 @@ pt = "Evoluir semente"
 tr = "Tohumu değiştir"
 it = "Evolvi seed"
 id = "Evolusikan seed"
+pl = "Ziarno ewolucji"
 ar = "تطوير البذرة"
 
 ["Expand"]
@@ -2878,6 +3057,7 @@ pt = "Expandir"
 tr = "Genişlet"
 it = "Espandi"
 id = "Perluas"
+pl = "Rozwiń"
 ar = "توسيع"
 
 ["Exposure"]
@@ -2894,6 +3074,7 @@ pt = "Exposição"
 tr = "Pozlama"
 it = "Esposizione"
 id = "Eksposur"
+pl = "Ekspozycja"
 ar = "التعريض"
 
 ["Expression"]
@@ -2910,6 +3091,7 @@ pt = "Expressão"
 tr = "İfade"
 it = "Espressione"
 id = "Ekspresi"
+pl = "Wyrażenie"
 ar = "التعبير"
 
 ["Extend edge"]
@@ -2926,6 +3108,7 @@ pt = "Estender borda"
 tr = "Kenarı uzat"
 it = "Estendi bordo"
 id = "Perpanjang tepi"
+pl = "Rozszerz krawędź"
 ar = "تمديد الحافة"
 
 ["FOV"]
@@ -2942,6 +3125,7 @@ pt = "Campo de visão"
 tr = "Görüş Alanı"
 it = "FOV"
 id = "FOV"
+pl = "Pole widzenia (FOV)"
 ar = "مجال الرؤية"
 
 ["FPS"]
@@ -2958,6 +3142,7 @@ pt = "FPS"
 tr = "FPS"
 it = "FPS"
 id = "FPS"
+pl = "FPS"
 ar = "إطار في الثانية"
 
 ["Fade"]
@@ -2974,6 +3159,7 @@ pt = "Esmaecimento"
 tr = "Soldurma"
 it = "Fade"
 id = "Fade"
+pl = "Zanikanie"
 ar = "تلاشي"
 
 ["Fade length"]
@@ -2990,6 +3176,7 @@ pt = "Duração do esmaecimento"
 tr = "Soldurma uzunluğu"
 it = "Lunghezza fade"
 id = "Panjang fade"
+pl = "Długość zanikania"
 ar = "طول التلاشي"
 
 ["Fade one by one"]
@@ -3006,6 +3193,7 @@ pt = "Esmaecer um por um"
 tr = "Tek tek soldur"
 it = "Fade uno per uno"
 id = "Fade satu per satu"
+pl = "Zanikaj jeden po jednym"
 ar = "تلاشي واحداً تلو الآخر"
 
 ["Fade opacity"]
@@ -3022,6 +3210,7 @@ pt = "Opacidade do esmaecimento"
 tr = "Soldurma opaklığı"
 it = "Opacità fade"
 id = "Opasitas fade"
+pl = "Nieprzezroczystość zanikania"
 ar = "شفافية التلاشي"
 
 ["Fade together"]
@@ -3038,6 +3227,7 @@ pt = "Esmaecer juntos"
 tr = "Beraber soldur"
 it = "Fondi insieme"
 id = "Fade bersama"
+pl = "Zanikaj razem"
 ar = "تلاشي معاً"
 
 ["Fade-through color"]
@@ -3054,6 +3244,7 @@ pt = "Cor do esmaecimento"
 tr = "Geçiş rengi"
 it = "Colore di dissolvenza"
 id = "Warna fade-through"
+pl = "Kolor przejścia"
 ar = "لون التلاشي عبر"
 
 ["Feather"]
@@ -3070,6 +3261,7 @@ pt = "Difusão"
 tr = "Yumuşatma"
 it = "Sfumatura"
 id = "Feather"
+pl = "Pióro"
 ar = "تدرج الحواف"
 
 ["Feedback"]
@@ -3086,6 +3278,7 @@ pt = "Realimentação"
 tr = "Geri besleme"
 it = "Feedback"
 id = "Umpan balik"
+pl = "Informacja zwrotna"
 ar = "التغذية الراجعة"
 
 ["File Location"]
@@ -3102,6 +3295,7 @@ pt = "Local do arquivo"
 tr = "Dosya Konumu"
 it = "Posizione file"
 id = "Lokasi Berkas"
+pl = "Lokalizacja pliku"
 ar = "موقع الملف"
 
 ["Fill"]
@@ -3118,6 +3312,7 @@ pt = "Preenchimento"
 tr = "Doldur"
 it = "Riempi"
 id = "Isian"
+pl = "Wypełnienie"
 ar = "تعبئة"
 
 ["Fill color %{number}"]
@@ -3134,6 +3329,7 @@ pt = "Cor de preenchimento %{number}"
 tr = "Dolgu rengi %{number}"
 it = "Colore riempimento %{number}"
 id = "Warna isian %{number}"
+pl = "Kolor wypełnienia %{number}"
 ar = "لون التعبئة %{number}"
 
 ["Flipped"]
@@ -3150,6 +3346,7 @@ pt = "Invertido"
 tr = "Tersine Çevrilmiş"
 it = "Capovolto"
 id = "Dibalik"
+pl = "Odwrócone"
 ar = "معكوس"
 
 ["Focal length"]
@@ -3166,6 +3363,7 @@ pt = "Distância focal"
 tr = "Odak uzaklığı"
 it = "Lunghezza focale"
 id = "Panjang fokus"
+pl = "Ogniskowa"
 ar = "البعد البؤري"
 
 ["Focus distance (0 = off)"]
@@ -3182,6 +3380,7 @@ pt = "Distância de foco (0 = desativado)"
 tr = "Odak mesafesi (0 = kapalı)"
 it = "Distanza messa a fuoco (0 = disattivato)"
 id = "Jarak fokus (0 = mati)"
+pl = "Odległość fokusu (0 = wyłączone)"
 ar = "مسافة التركيز (0 = معطل)"
 
 ["Fold depth"]
@@ -3198,6 +3397,7 @@ pt = "Profundidade da dobra"
 tr = "Katlama derinliği"
 it = "Profondità piegatura"
 id = "Kedalaman lipatan"
+pl = "Głębokość złożenia"
 ar = "عمق الطي"
 
 ["Fold size"]
@@ -3214,6 +3414,7 @@ pt = "Tamanho da dobra"
 tr = "Katlama boyutu"
 it = "Dimensione piegatura"
 id = "Ukuran lipatan"
+pl = "Rozmiar złożenia"
 ar = "حجم الطي"
 
 ["Folded Sequence"]
@@ -3230,6 +3431,7 @@ pt = "Sequência recolhida"
 tr = "Katlanmış sekans"
 it = "Sequenza piegata"
 id = "Urutan Terlipat"
+pl = "Sekwencja zwinięta"
 ar = "تسلسل مطوي"
 
 ["Font"]
@@ -3246,6 +3448,7 @@ pt = "Fonte"
 tr = "Yazı Tipi"
 it = "Font"
 id = "Font"
+pl = "Czcionka"
 ar = "الخط"
 
 ["Font size"]
@@ -3262,6 +3465,7 @@ pt = "Tamanho da fonte"
 tr = "Yazı tipi boyutu"
 it = "Dimensione font"
 id = "Ukuran font"
+pl = "Rozmiar czcionki"
 ar = "حجم الخط"
 
 ["Font weight"]
@@ -3278,6 +3482,7 @@ pt = "Peso da fonte"
 tr = "Yazı tipi kalınlığı"
 it = "Peso font"
 id = "Ketebalan font"
+pl = "Waga czcionki"
 ar = "وزن الخط"
 
 ["Fonts"]
@@ -3294,6 +3499,7 @@ pt = "Fontes"
 tr = "Yazı Tipleri"
 it = "Fonts"
 id = "Font"
+pl = "Czcionki"
 ar = "الخطوط"
 
 ["Formant shift"]
@@ -3310,6 +3516,7 @@ pt = "Deslocamento de formantes"
 tr = "Formant kaydırma"
 it = "Spostamento formanti"
 id = "Pergeseran forman"
+pl = "Przesunięcie formantu"
 ar = "إزاحة النغمة التشكيلية"
 
 ["Frequency"]
@@ -3326,6 +3533,7 @@ pt = "Frequência"
 tr = "Frekans"
 it = "Frequenza"
 id = "Frekuensi"
+pl = "Częstotliwość"
 ar = "التردد"
 
 ["Fresnel contour"]
@@ -3341,6 +3549,7 @@ ja = "フレネル輪郭"
 pt = "Contorno de Fresnel"
 it = "Contorno Fresnel"
 id = "Kontur Fresnel"
+pl = "Kontur Fresnela"
 ar = "محيط فرينل"
 
 ["From inside"]
@@ -3356,6 +3565,7 @@ ja = "内側から"
 pt = "De dentro"
 it = "Da dentro"
 id = "Dari dalam"
+pl = "Ze środka"
 ar = "من الداخل"
 
 ["From outside"]
@@ -3371,6 +3581,7 @@ ja = "外側から"
 pt = "De fora"
 it = "Da fuori"
 id = "Dari luar"
+pl = "Z zewnątrz"
 ar = "من الخارج"
 
 ["Gamma"]
@@ -3386,6 +3597,7 @@ ja = "ガンマ"
 pt = "Gama"
 it = "Gamma"
 id = "Gamma"
+pl = "Gamma"
 ar = "غاما"
 
 ["Generator"]
@@ -3401,6 +3613,7 @@ ja = "ジェネレーター"
 pt = "Gerador"
 it = "Generatore"
 id = "Generator"
+pl = "Generator"
 ar = "المولد"
 
 ["Glow / outline"]
@@ -3416,6 +3629,7 @@ ja = "グロー / アウトライン"
 pt = "Brilho / contorno"
 it = "Bagliore / contorno"
 id = "Pijar / garis luar"
+pl = "Poświata / kontur"
 ar = "توهج / مخطط تفصيلي"
 
 ["Gradient step"]
@@ -3431,6 +3645,7 @@ ja = "グラデーション段階"
 pt = "Passo do gradiente"
 it = "Passo gradiente"
 id = "Langkah gradien"
+pl = "Rozmiar kroku gradientu"
 ar = "خطوة التدرج"
 
 ["Grain size"]
@@ -3446,6 +3661,7 @@ ja = "粒子サイズ"
 pt = "Tamanho do grão"
 it = "Dimensione grana"
 id = "Ukuran butiran"
+pl = "Rozmiar ziarna"
 ar = "حجم الحبيبات"
 
 ["Ground intensity"]
@@ -3461,6 +3677,7 @@ ja = "地面の強度"
 pt = "Intensidade do chão"
 it = "Intensità terreno"
 id = "Intensitas dasar"
+pl = "Intensywność przyziemna"
 ar = "شدة الأرضية"
 
 ["H align"]
@@ -3476,6 +3693,7 @@ ja = "水平揃え"
 pt = "Alinhamento H"
 it = "Allinea H"
 id = "Perataan H"
+pl = "Wyrównanie poziome"
 ar = "محاذاة أفقية"
 
 ["Hard shadow"]
@@ -3491,6 +3709,7 @@ ja = "ハードシャドウ"
 pt = "Sombra dura"
 it = "Ombra dura"
 id = "Bayangan tajam"
+pl = "Ostry cień"
 ar = "ظل حاد"
 
 ["Head length"]
@@ -3506,6 +3725,7 @@ ja = "先端の長さ"
 pt = "Comprimento da ponta"
 it = "Lunghezza punta"
 id = "Panjang kepala"
+pl = "Długość końcówki"
 ar = "طول الرأس"
 
 ["Heart"]
@@ -3521,6 +3741,7 @@ ja = "ハート"
 pt = "Coração"
 it = "Cuore"
 id = "Hati"
+pl = "Serce"
 ar = "قلب"
 
 ["Hexagon"]
@@ -3536,6 +3757,7 @@ ja = "六角形"
 pt = "Hexágono"
 it = "Esagono"
 id = "Heksagon"
+pl = "Sześciokąt"
 ar = "مسدس"
 
 ["Hierarchy"]
@@ -3551,6 +3773,7 @@ ja = "階層"
 pt = "Hierarquia"
 it = "Gerarchia"
 id = "Hierarki"
+pl = "Hierarchia"
 ar = "التسلسل الهرمي"
 
 ["High"]
@@ -3566,6 +3789,7 @@ ja = "高"
 pt = "Alto"
 it = "Alto"
 id = "Tinggi"
+pl = "Wysokie"
 ar = "مرتفع"
 
 ["High color"]
@@ -3581,6 +3805,7 @@ ja = "高域色"
 pt = "Cor alta"
 it = "Colore alto"
 id = "Warna tinggi"
+pl = "Wysoki kolor"
 ar = "لون المرتفعات"
 
 ["High-pass"]
@@ -3596,6 +3821,7 @@ ja = "ハイパス"
 pt = "Passa-altas"
 it = "Passa-alti"
 id = "High-pass"
+pl = "Górno Przepustowość"
 ar = "تمرير عالي"
 
 ["Highlight color"]
@@ -3611,6 +3837,7 @@ ja = "ハイライト色"
 pt = "Cor de destaque"
 it = "Colore evidenziazione"
 id = "Warna sorotan"
+pl = "Kolor podświetlenia"
 ar = "لون الإبراز"
 
 ["Horizontal"]
@@ -3626,6 +3853,7 @@ ja = "水平"
 pt = "Horizontal"
 it = "Orizzontale"
 id = "Horizontal"
+pl = "Poziome"
 ar = "أفقي"
 
 ["Horizontal alignment"]
@@ -3641,6 +3869,7 @@ ja = "水平揃え"
 pt = "Alinhamento horizontal"
 it = "Allineamento orizzontale"
 id = "Perataan horizontal"
+pl = "Wyrównanie poziome"
 ar = "محاذاة أفقية"
 
 ["Hue position"]
@@ -3656,6 +3885,7 @@ ja = "色相位置"
 pt = "Posição do matiz"
 it = "Posizione tono"
 id = "Posisi rona"
+pl = "Pozycja odcienia"
 ar = "موضع تدرج اللون"
 
 ["Image"]
@@ -3671,6 +3901,7 @@ ja = "画像"
 pt = "Imagem"
 it = "Immagine"
 id = "Gambar"
+pl = "Obraz"
 ar = "صورة"
 
 ["Images"]
@@ -3686,6 +3917,7 @@ ja = "画像"
 pt = "Imagens"
 it = "Immagini"
 id = "Gambar"
+pl = "Obrazy"
 ar = "صور"
 
 ["Immediate"]
@@ -3701,6 +3933,7 @@ ja = "即時"
 pt = "Imediato"
 it = "Immediato"
 id = "Langsung"
+pl = "Natychmiastowe"
 ar = "فوري"
 
 ["Include this track in playback and export"]
@@ -3716,6 +3949,7 @@ ja = "再生と書き出しにこのトラックを含める"
 pt = "Incluir esta faixa na reprodução e exportação"
 it = "Includi questa traccia in riproduzione ed esportazione"
 id = "Sertakan trek ini dalam pemutaran dan ekspor"
+pl = "Dodaj tą ścieżkę do odtwarzania i eksportu"
 ar = "تضمين هذا المسار في التشغيل والتصدير"
 
 ["Index of refraction"]
@@ -3731,6 +3965,7 @@ ja = "屈折率"
 pt = "Índice de refração"
 it = "Indice di rifrazione"
 id = "Indeks bias"
+pl = "Indeks refrakcji"
 ar = "معامل الانكسار"
 
 ["Infinite"]
@@ -3746,6 +3981,7 @@ ja = "無限"
 pt = "Infinito"
 it = "Infinito"
 id = "Tak terhingga"
+pl = "Nieskończone"
 ar = "لانهائي"
 
 ["Inner radius"]
@@ -3761,6 +3997,7 @@ ja = "内半径"
 pt = "Raio interno"
 it = "Raggio interno"
 id = "Radius dalam"
+pl = "Promień wewnętrzny"
 ar = "نصف القطر الداخلي"
 
 ["Intensity"]
@@ -3776,6 +4013,7 @@ ja = "強度"
 pt = "Intensidade"
 it = "Intensità"
 id = "Intensitas"
+pl = "Intensywność"
 ar = "الشدة"
 
 ["Intro"]
@@ -3791,6 +4029,7 @@ ja = "イントロ"
 pt = "Introdução"
 it = "Intro"
 id = "Intro"
+pl = "Wstęp"
 ar = "مقدمة"
 
 ["Invert"]
@@ -3806,6 +4045,7 @@ ja = "反転"
 pt = "Inverter"
 it = "Inverti"
 id = "Balikkan"
+pl = "Inwertuj"
 ar = "عكس"
 
 ["Iris"]
@@ -3821,6 +4061,7 @@ ja = "アイリス"
 pt = "Íris"
 it = "Iride"
 id = "Iris"
+pl = "Irys"
 ar = "حدقة"
 
 ["Italic"]
@@ -3836,6 +4077,7 @@ ja = "斜体"
 pt = "Itálico"
 it = "Corsivo"
 id = "Miring"
+pl = "Italika"
 ar = "مائل"
 
 ["Items"]
@@ -3851,6 +4093,7 @@ ja = "項目"
 pt = "Itens"
 it = "Elementi"
 id = "Item"
+pl = "Elementy"
 ar = "العناصر"
 
 ["Jitter"]
@@ -3866,6 +4109,7 @@ ja = "ジッター"
 pt = "Instabilidade"
 it = "Jitter"
 id = "Jitter"
+pl = "Drganie"
 ar = "الارتعاش"
 
 ["Key color"]
@@ -3881,6 +4125,7 @@ ja = "キーカラー"
 pt = "Cor-chave"
 it = "Colore chiave"
 id = "Warna kunci"
+pl = "Kolor kluczowy"
 ar = "لون المفتاح"
 
 ["Keyframes"]
@@ -3896,6 +4141,7 @@ ja = "キーフレーム"
 pt = "Quadros-chave"
 it = "Keyframes"
 id = "Keyframe"
+pl = "Klatki kluczowe"
 ar = "الإطارات الرئيسية"
 
 ["Kind"]
@@ -3911,6 +4157,7 @@ ja = "種類"
 pt = "Tipo"
 it = "Tipo"
 id = "Jenis"
+pl = "Typ"
 ar = "النوع"
 
 ["Kuwahara radius"]
@@ -3926,6 +4173,7 @@ ja = "Kuwahara半径"
 pt = "Raio Kuwahara"
 it = "Raggio Kuwahara"
 id = "Radius Kuwahara"
+pl = "Promień Kuwahara"
 ar = "نصف قطر كواهارا"
 
 ["Kuwahara strength"]
@@ -3941,6 +4189,7 @@ ja = "Kuwahara強度"
 pt = "Intensidade Kuwahara"
 it = "Intensità Kuwahara"
 id = "Kekuatan Kuwahara"
+pl = "Siła Kuwahara"
 ar = "قوة كواهارا"
 
 ["Lacunarity"]
@@ -3956,6 +4205,7 @@ ja = "ラキュナリティ"
 pt = "Lacunaridade"
 it = "Lacunarità"
 id = "Lakunaritas"
+pl = "Lakunarność"
 ar = "الفجوية"
 
 ["Layered Image"]
@@ -3971,6 +4221,7 @@ ja = "レイヤー画像"
 pt = "Imagem em camadas"
 it = "Immagine su livelli"
 id = "Gambar Berlapis"
+pl = "Obraz z warstwami"
 ar = "صورة متعددة الطبقات"
 
 ["Layers"]
@@ -3986,6 +4237,7 @@ ja = "レイヤー"
 pt = "Camadas"
 it = "Livelli"
 id = "Lapisan"
+pl = "Warstwy"
 ar = "الطبقات"
 
 ["Layout"]
@@ -4001,6 +4253,7 @@ ja = "レイアウト"
 pt = "Layout"
 it = "Layout"
 id = "Tata letak"
+pl = "Układ"
 ar = "التخطيط"
 
 ["Language"]
@@ -4016,6 +4269,7 @@ ko = "언어"
 pt = "Idioma"
 it = "Lingua"
 id = "Bahasa"
+pl = "Język"
 ar = "اللغة"
 
 ["Left"]
@@ -4031,6 +4285,7 @@ ja = "左"
 pt = "Esquerda"
 it = "Sinistra"
 id = "Kiri"
+pl = "Lewo"
 ar = "يسار"
 
 ["Length randomness"]
@@ -4046,6 +4301,7 @@ ja = "長さのランダム性"
 pt = "Aleatoriedade do comprimento"
 it = "Casualità lunghezza"
 id = "Keacakan panjang"
+pl = "Losowość długości"
 ar = "عشوائية الطول"
 
 ["Length timing"]
@@ -4061,6 +4317,7 @@ ja = "長さのタイミング"
 pt = "Temporização do comprimento"
 it = "Timing lunghezza"
 id = "Pewaktuan panjang"
+pl = "Wpływ długości na czas"
 ar = "توقيت الطول"
 
 ["Letter"]
@@ -4076,6 +4333,7 @@ ja = "文字"
 pt = "Letra"
 it = "Lettera"
 id = "Huruf"
+pl = "Litera"
 ar = "حرف"
 
 ["Level"]
@@ -4091,6 +4349,7 @@ ja = "レベル"
 pt = "Nível"
 it = "Livello"
 id = "Level"
+pl = "Poziom"
 ar = "المستوى"
 
 ["Levels"]
@@ -4106,6 +4365,7 @@ ja = "レベル"
 pt = "Níveis"
 it = "Livelli"
 id = "Level"
+pl = "Poziomy"
 ar = "المستويات"
 
 ["Light bands"]
@@ -4121,6 +4381,7 @@ ja = "明部バンド"
 pt = "Faixas claras"
 it = "Bande luce"
 id = "Pita cahaya"
+pl = "Jasne pasma"
 ar = "نطاقات الضوء"
 
 ["Line count"]
@@ -4136,6 +4397,7 @@ ja = "ライン数"
 pt = "Número de linhas"
 it = "Numero linee"
 id = "Jumlah garis"
+pl = "Liczba wiersza"
 ar = "عدد الخطوط"
 
 ["Line density"]
@@ -4151,6 +4413,7 @@ ja = "ライン密度"
 pt = "Densidade de linhas"
 it = "Densità linee"
 id = "Kepadatan garis"
+pl = "Zwartość wiersza"
 ar = "كثافة الخطوط"
 
 ["Line direction"]
@@ -4166,6 +4429,7 @@ ja = "ライン方向"
 pt = "Direção das linhas"
 it = "Direzione linee"
 id = "Arah garis"
+pl = "Kierunek wiersza"
 ar = "اتجاه الخط"
 
 ["Line height"]
@@ -4181,6 +4445,7 @@ ja = "行の高さ"
 pt = "Altura da linha"
 it = "Altezza linea"
 id = "Tinggi baris"
+pl = "Wysokość wiersza"
 ar = "ارتفاع السطر"
 
 ["Line length"]
@@ -4196,6 +4461,7 @@ ja = "ライン長"
 pt = "Comprimento da linha"
 it = "Lunghezza linea"
 id = "Panjang garis"
+pl = "Długość wiersza"
 ar = "طول الخط"
 
 ["Line offset"]
@@ -4211,6 +4477,7 @@ ja = "ラインオフセット"
 pt = "Deslocamento de linha"
 it = "Offset linea"
 id = "Ofset garis"
+pl = "Przesunięcie wiersza"
 ar = "إزاحة الخط"
 
 ["Line style"]
@@ -4226,6 +4493,7 @@ ja = "ラインスタイル"
 pt = "Estilo de linha"
 it = "Stile linea"
 id = "Gaya garis"
+pl = "Styl wiersza"
 ar = "نمط الخط"
 
 ["Line width"]
@@ -4241,6 +4509,7 @@ ja = "線幅"
 pt = "Largura da linha"
 it = "Larghezza linea"
 id = "Lebar garis"
+pl = ""
 ar = "عرض الخط"
 
 ["Linear"]
@@ -4256,6 +4525,7 @@ ja = "線形"
 pt = "Linear"
 it = "Lineare"
 id = "Linier"
+pl = "Liniowe"
 ar = "خطي"
 
 ["Lines"]
@@ -4271,6 +4541,7 @@ ja = "ライン"
 pt = "Linhas"
 it = "Linee"
 id = "Garis"
+pl = "Wiersze"
 ar = "خطوط"
 
 ["Link stereo channels"]
@@ -4286,6 +4557,7 @@ ja = "ステレオチャンネルをリンク"
 pt = "Vincular canais estéreo"
 it = "Collega canali stereo"
 id = "Tautkan saluran stereo"
+pl = "Połącz kanały stereo"
 ar = "ربط القناتين الستريو"
 
 ["Loading cached font…"]
@@ -4301,6 +4573,7 @@ ja = "キャッシュ済みフォントを読み込み中…"
 pt = "Carregando fonte em cache…"
 it = "Caricamento font in cache…"
 id = "Memuat font cache…"
+pl = "Ładowanie czcionki z pamięci cache…"
 ar = "جارٍ تحميل الخط المخزن مؤقتاً…"
 
 ["Loading cameras…"]
@@ -4316,6 +4589,7 @@ ja = "カメラを読み込み中…"
 pt = "Carregando câmeras…"
 it = "Caricamento telecamere…"
 id = "Memuat kamera…"
+pl = "Ładowanie kamer…"
 ar = "جارٍ تحميل الكاميرات…"
 
 ["Loading installed fonts…"]
@@ -4331,6 +4605,7 @@ ja = "インストール済みフォントを読み込み中…"
 pt = "Carregando fontes instaladas…"
 it = "Caricamento font installati…"
 id = "Memuat font terpasang…"
+pl = "Ładowanie zainstalowanych czcionek…"
 ar = "جارٍ تحميل الخطوط المثبتة…"
 
 ["Loading scenes..."]
@@ -4346,6 +4621,7 @@ ja = "シーンを読み込み中..."
 pt = "Carregando cenas..."
 it = "Caricamento scene..."
 id = "Memuat adegan..."
+pl = "Ładowanie scen..."
 ar = "جارٍ تحميل المشاهد..."
 
 ["Loading scenes…"]
@@ -4361,6 +4637,7 @@ ja = "シーンを読み込み中…"
 pt = "Carregando cenas…"
 it = "Caricamento scene…"
 id = "Memuat adegan…"
+pl = "Ładowanie scen…"
 ar = "جارٍ تحميل المشاهد…"
 
 ["Loading tracking model"]
@@ -4376,6 +4653,7 @@ ja = "トラッキングモデルを読み込み中"
 pt = "Carregando modelo de rastreamento"
 it = "Caricamento modello tracking"
 id = "Memuat model pelacakan"
+pl = "Ładowanie modelu śledzącego ruch"
 ar = "جارٍ تحميل نموذج التتبع"
 
 ["Loading view layers…"]
@@ -4391,6 +4669,7 @@ ja = "ビューレイヤーを読み込み中…"
 pt = "Carregando camadas de visualização…"
 it = "Caricamento livelli vista…"
 id = "Memuat lapisan tampilan…"
+pl = "Ładowanie warstw widoku…"
 ar = "جارٍ تحميل طبقات العرض…"
 
 ["Low"]
@@ -4406,6 +4685,7 @@ ja = "低"
 pt = "Baixo"
 it = "Basso"
 id = "Rendah"
+pl = "Niskie"
 ar = "منخفض"
 
 ["Low color"]
@@ -4421,6 +4701,7 @@ ja = "低域色"
 pt = "Cor baixa"
 it = "Colore basso"
 id = "Warna rendah"
+pl = "Niski kolor"
 ar = "لون المنخفضات"
 
 ["Low latency"]
@@ -4436,6 +4717,7 @@ ja = "低レイテンシ"
 pt = "Baixa latência"
 it = "Bassa latenza"
 id = "Latensi rendah"
+pl = "Niskie opóźnienie"
 ar = "زمن انتقال منخفض"
 
 ["Low-pass"]
@@ -4451,6 +4733,7 @@ ja = "ローパス"
 pt = "Passa-baixas"
 it = "Passa-bassi"
 id = "Low-pass"
+pl = "Filtr Dolnoprzepustowy"
 ar = "تمرير منخفض"
 
 ["Maintain pitch while changing speed"]
@@ -4466,6 +4749,7 @@ ja = "速度変更時にピッチを維持"
 pt = "Manter o tom ao alterar a velocidade"
 it = "Mantieni l'altezza mentre cambi la velocità"
 id = "Pertahankan titinada saat mengubah kecepatan"
+pl = "Zachowaj wysokość dźwięku podczas zmieniania prędkości"
 ar = "الحفاظ على طبقة الصوت أثناء تغيير السرعة"
 
 ["Makeup"]
@@ -4481,6 +4765,7 @@ ja = "メイクアップ"
 pt = "Compensação"
 it = "Compensazione"
 id = "Makeup"
+pl = "Makijaż"
 ar = "التعويض"
 
 ["Mask"]
@@ -4496,6 +4781,7 @@ ja = "マスク"
 pt = "Máscara"
 it = "Maschera"
 id = "Mask"
+pl = "Maska"
 ar = "قناع"
 
 ["Mask strength"]
@@ -4511,6 +4797,7 @@ ja = "マスク強度"
 pt = "Intensidade da máscara"
 it = "Intensità maschera"
 id = "Kekuatan masker"
+pl = "Siła maski"
 ar = "قوة القناع"
 
 ["Material Preview"]
@@ -4526,6 +4813,7 @@ ja = "マテリアルプレビュー"
 pt = "Pré-visualização de material"
 it = "Anteprima materiale"
 id = "Pratinjau Material"
+pl = "Podgląd materiału"
 ar = "معاينة المادة"
 
 ["Max iterations"]
@@ -4541,6 +4829,7 @@ ja = "最大反復回数"
 pt = "Iterações máximas"
 it = "Iterazioni massime"
 id = "Iterasi maks"
+pl = "Maksymalna ilość iteracji"
 ar = "الحد الأقصى للتكرارات"
 
 ["Maximum block size"]
@@ -4556,6 +4845,7 @@ ja = "最大ブロックサイズ"
 pt = "Tamanho máximo de bloco"
 it = "Dimensione massima blocco"
 id = "Ukuran blok maksimum"
+pl = "Maksymalny rozmiar bloku"
 ar = "أقصى حجم للكتلة"
 
 ["Maximum directions"]
@@ -4571,6 +4861,7 @@ ja = "最大方向数"
 pt = "Direções máximas"
 it = "Direzioni massime"
 id = "Arah maksimum"
+pl = "Maksymalne kierunki"
 ar = "أقصى عدد للاتجاهات"
 
 ["Maximum gap"]
@@ -4586,6 +4877,7 @@ ja = "最大間隔"
 pt = "Espaço máximo"
 it = "Spazio massimo"
 id = "Celah maksimum"
+pl = "Maksymalny odstęp"
 ar = "أقصى فجوة"
 
 ["Maximum radius"]
@@ -4601,6 +4893,7 @@ ja = "最大半径"
 pt = "Raio máximo"
 it = "Raggio massimo"
 id = "Radius maksimum"
+pl = "Maksymalny promień"
 ar = "أقصى نصف قطر"
 
 ["Mesh columns"]
@@ -4616,6 +4909,7 @@ ja = "メッシュ列"
 pt = "Colunas da malha"
 it = "Colonne mesh"
 id = "Kolom mesh"
+pl = "Kolumny siatki"
 ar = "أعمدة الشبكة"
 
 ["Mesh rows"]
@@ -4631,6 +4925,7 @@ ja = "メッシュ行"
 pt = "Linhas da malha"
 it = "Righe mesh"
 id = "Baris mesh"
+pl = "Wiersze siatki"
 ar = "صفوف الشبكة"
 
 ["Metallic"]
@@ -4646,6 +4941,7 @@ ja = "メタリック"
 pt = "Metálico"
 it = "Metallico"
 id = "Metalik"
+pl = "Metaliczne"
 ar = "معدني"
 
 ["Method"]
@@ -4661,6 +4957,7 @@ ja = "方式"
 pt = "Método"
 it = "Metodo"
 id = "Metode"
+pl = "Metoda"
 ar = "الطريقة"
 
 ["Metric"]
@@ -4676,6 +4973,7 @@ ja = "メトリック"
 pt = "Métrica"
 it = "Metrica"
 id = "Metrik"
+pl = "Metryczne"
 ar = "المقياس"
 
 ["Mid"]
@@ -4691,6 +4989,7 @@ ja = "中域"
 pt = "Médios"
 it = "Medie"
 id = "Tengah"
+pl = "Średnie"
 ar = "المتوسط"
 
 ["Middle"]
@@ -4706,6 +5005,7 @@ ja = "中央"
 pt = "Meio"
 it = "Centro"
 id = "Tengah"
+pl = "Środek"
 ar = "الوسط"
 
 ["Middle padding"]
@@ -4721,6 +5021,7 @@ ja = "中央余白"
 pt = "Preenchimento central"
 it = "Margine centrale"
 id = "Padding tengah"
+pl = "Odstęp środka"
 ar = "الهامش الداخلي الأوسط"
 
 ["Midpoint"]
@@ -4736,6 +5037,7 @@ ja = "中間点"
 pt = "Ponto médio"
 it = "Punto medio"
 id = "Titik tengah"
+pl = "Punkt środkowy"
 ar = "نقطة المنتصف"
 
 ["Mirror"]
@@ -4751,6 +5053,7 @@ ja = "ミラー"
 pt = "Espelhar"
 it = "Specchia"
 id = "Cermin"
+pl = "Lustro"
 ar = "مرآة"
 
 ["Mix"]
@@ -4766,6 +5069,7 @@ ja = "ミックス"
 pt = "Mistura"
 it = "Miscola"
 id = "Mix"
+pl = "Miks"
 ar = "مزج"
 
 ["Mode"]
@@ -4781,6 +5085,7 @@ ja = "モード"
 pt = "Modo"
 it = "Modalità"
 id = "Mode"
+pl = "Tryb"
 ar = "الوضع"
 
 ["Morph"]
@@ -4796,6 +5101,7 @@ ja = "モーフ"
 pt = "Morph"
 it = "Morph"
 id = "Morph"
+pl = "Przekształć"
 ar = "تحول"
 
 ["Morph by"]
@@ -4811,6 +5117,7 @@ ja = "モーフ単位"
 pt = "Transformar por"
 it = "Morph per"
 id = "Morph berdasarkan"
+pl = "Przekształć o"
 ar = "تحول بواسطة"
 
 ["Motion amount"]
@@ -4826,6 +5133,7 @@ ja = "モーション量"
 pt = "Quantidade de movimento"
 it = "Quantità movimento"
 id = "Jumlah gerakan"
+pl = "Ilość ruchu"
 ar = "مقدار الحركة"
 
 ["Motion blur"]
@@ -4841,6 +5149,7 @@ ja = "モーションブラー"
 pt = "Desfoque de movimento"
 it = "Motion blur"
 id = "Motion blur"
+pl = "Rozmycie ruchu"
 ar = "ضبابية الحركة"
 
 ["Motion position"]
@@ -4856,6 +5165,7 @@ ja = "モーション位置"
 pt = "Posição do movimento"
 it = "Posizione movimento"
 id = "Posisi gerakan"
+pl = "Pozycja ruchu"
 ar = "موضع الحركة"
 
 ["Motion-dependent temporal smoothing model"]
@@ -4871,6 +5181,7 @@ ja = "動きに応じた時間平滑化モデル"
 pt = "Modelo de suavização temporal dependente de movimento"
 it = "Modello di smoothing temporale dipendente dal movimento"
 id = "Model penghalusan temporal bergantung gerakan"
+pl = "Model wygładzania temporalnego zależy od ruchu"
 ar = "نموذج تنعيم زمني يعتمد على الحركة"
 
 ["Move down"]
@@ -4886,6 +5197,7 @@ ja = "下へ移動"
 pt = "Mover para baixo"
 it = "Sposta in basso"
 id = "Pindahkan ke bawah"
+pl = "Przenieś do dołu"
 ar = "تحريك لأسفل"
 
 ["Move up"]
@@ -4901,6 +5213,7 @@ ja = "上へ移動"
 pt = "Mover para cima"
 it = "Sposta in alto"
 id = "Pindahkan ke atas"
+pl = "Przenieś do góry"
 ar = "تحريك لأعلى"
 
 ["Name"]
@@ -4916,6 +5229,7 @@ ja = "名前"
 pt = "Nome"
 it = "Nome"
 id = "Nama"
+pl = "Imię"
 ar = "الاسم"
 
 ["Natural Duration"]
@@ -4931,6 +5245,7 @@ ja = "元の長さ"
 pt = "Duração natural"
 it = "Durata naturale"
 id = "Durasi Alami"
+pl = "Czas trwania naturalny"
 ar = "المدة الطبيعية"
 
 ["Neighboring frames considered on each side"]
@@ -4946,6 +5261,7 @@ ja = "両側で考慮する隣接フレーム"
 pt = "Quadros vizinhos considerados em cada lado"
 it = "Fotogrammi adiacenti considerati su ciascun lato"
 id = "Bingkai tetangga yang dipertimbangkan di setiap sisi"
+pl = "Sąsiadujące klatki brane pod uwagę z obu stron"
 ar = "الإطارات المجاورة المأخوذة في الاعتبار على كل جانب"
 
 ["Next keyframe"]
@@ -4961,6 +5277,7 @@ ja = "次のキーフレーム"
 pt = "Próximo quadro-chave"
 it = "Keyframe successivo"
 id = "Keyframe berikutnya"
+pl = "Następna klatka kluczowa"
 ar = "الإطار الرئيسي التالي"
 
 ["Noise evolution"]
@@ -4976,6 +5293,7 @@ ja = "ノイズ変化"
 pt = "Evolução do ruído"
 it = "Evoluzione rumore"
 id = "Evolusi derau"
+pl = "Ewolucja szumu"
 ar = "تطور الضوضاء"
 
 ["Noise seed"]
@@ -4991,6 +5309,7 @@ ja = "ノイズシード"
 pt = "Semente do ruído"
 it = "Seed rumore"
 id = "Seed derau"
+pl = "Ziarno szumu"
 ar = "بذرة الضوضاء"
 
 ["Normal"]
@@ -5006,6 +5325,7 @@ ja = "標準"
 pt = "Normal"
 it = "Normale"
 id = "Normal"
+pl = "Normalne"
 ar = "عادي"
 
 ["Normal angle"]
@@ -5021,6 +5341,7 @@ ja = "法線角度"
 pt = "Ângulo da normal"
 it = "Angolo normale"
 id = "Sudut normal"
+pl = "Normalny kąt"
 ar = "الزاوية العمودية"
 
 ["Normals"]
@@ -5036,6 +5357,7 @@ ja = "法線"
 pt = "Normais"
 it = "Normali"
 id = "Normal"
+pl = "Normalne"
 ar = "المتجهات العمودية"
 
 ["Not analyzed"]
@@ -5051,6 +5373,7 @@ ja = "未解析"
 pt = "Não analisado"
 it = "Non analizzato"
 id = "Belum dianalisis"
+pl = "Nie przeanalizowane"
 ar = "لم يتم التحليل"
 
 ["Number of independently moving cell columns"]
@@ -5066,6 +5389,7 @@ ja = "独立して動くセル列の数"
 pt = "Número de colunas de células com movimento independente"
 it = "Numero di colonne di celle con movimento indipendente"
 id = "Jumlah kolom sel yang bergerak independen"
+pl = "Ilość niezależnie ruszających się kolumn komórek"
 ar = "عدد أعمدة الخلايا التي تتحرك بشكل مستقل"
 
 ["Number of independently moving cell rows"]
@@ -5081,6 +5405,7 @@ ja = "独立して動くセル行の数"
 pt = "Número de linhas de células com movimento independente"
 it = "Numero di righe di celle con movimento indipendente"
 id = "Jumlah baris sel yang bergerak independen"
+pl = "Ilość niezależnie ruszających się wierszy komórek"
 ar = "عدد صفوف الخلايا التي تتحرك بشكل مستقل"
 
 ["Octagon"]
@@ -5096,6 +5421,7 @@ ja = "八角形"
 pt = "Octógono"
 it = "Ottagono"
 id = "Oktagon"
+pl = "Ośmiokąt"
 ar = "مثمن"
 
 ["Octaves"]
@@ -5111,6 +5437,7 @@ ja = "オクターブ"
 pt = "Oitavas"
 it = "Ottave"
 id = "Oktaf"
+pl = "Oktawy"
 ar = "الطبقات التوافقية (Octaves)"
 
 ["Off"]
@@ -5126,6 +5453,7 @@ ja = "オフ"
 pt = "Desativado"
 it = "Spento"
 id = "Mati"
+pl = "Wyłączone"
 ar = "معطل"
 
 ["Offset"]
@@ -5141,6 +5469,7 @@ ja = "オフセット"
 pt = "Deslocamento"
 it = "Offset"
 id = "Ofset"
+pl = "Przesunięcie"
 ar = "الإزاحة"
 
 ["Offset axis"]
@@ -5156,6 +5485,7 @@ ja = "オフセット軸"
 pt = "Eixo de deslocamento"
 it = "Asse offset"
 id = "Sumbu ofset"
+pl = "Przesunięcie osi"
 ar = "محور الإزاحة"
 
 ["Offset frequency"]
@@ -5171,6 +5501,7 @@ ja = "オフセット周波数"
 pt = "Frequência de deslocamento"
 it = "Frequenza offset"
 id = "Frekuensi ofset"
+pl = "Częstotliwość przesunięcia"
 ar = "تردد الإزاحة"
 
 ["Offset randomness"]
@@ -5186,6 +5517,7 @@ ja = "オフセットのランダム性"
 pt = "Aleatoriedade de deslocamento"
 it = "Casualità offset"
 id = "Keacakan ofset"
+pl = "Losowość przesunięcia"
 ar = "عشوائية الإزاحة"
 
 ["Offset variation"]
@@ -5201,6 +5533,7 @@ ja = "オフセット変化"
 pt = "Variação de deslocamento"
 it = "Variazione offset"
 id = "Variasi ofset"
+pl = "Zmienność przesunięcia"
 ar = "تباين الإزاحة"
 
 ["On"]
@@ -5216,6 +5549,7 @@ ja = "オン"
 pt = "Ativado"
 it = "Acceso"
 id = "Hidup"
+pl = "Włączone"
 ar = "مُمكّن"
 
 ["Opacity"]
@@ -5231,6 +5565,7 @@ ja = "不透明度"
 pt = "Opacidade"
 it = "Opacità"
 id = "Opacity"
+pl = "Nieprzezroczystość"
 ar = "العتامة"
 
 ["Open larger editor"]
@@ -5246,6 +5581,7 @@ ja = "大きなエディターを開く"
 pt = "Abrir editor ampliado"
 it = "Apri editor più grande"
 id = "Buka editor lebih besar"
+pl = "Otwórz większy edytor"
 ar = "فتح محرر أكبر"
 
 ["Operation"]
@@ -5261,6 +5597,7 @@ ja = "処理"
 pt = "Operação"
 it = "Operazione"
 id = "Operasi"
+pl = "Operacja"
 ar = "العملية"
 
 ["Optimization iterations"]
@@ -5276,6 +5613,7 @@ ja = "最適化の反復回数"
 pt = "Iterações de otimização"
 it = "Iterazioni di ottimizzazione"
 id = "Iterasi pengoptimalan"
+pl = "Iteracje optymalizacji"
 ar = "تكرارات التحسين"
 
 ["Ordering"]
@@ -5291,6 +5629,7 @@ ja = "順序"
 pt = "Ordenação"
 it = "Ordine"
 id = "Pengurutan"
+pl = "Kolejność"
 ar = "الترتيب"
 
 ["Original"]
@@ -5306,6 +5645,7 @@ ja = "オリジナル"
 pt = "Original"
 it = "Originale"
 id = "Asli"
+pl = "Oryginalne"
 ar = "الأصلي"
 
 ["Orthographic height"]
@@ -5321,6 +5661,7 @@ ja = "平行投影の高さ"
 pt = "Altura ortográfica"
 it = "Altezza ortografica"
 id = "Tinggi ortografis"
+pl = "Wysokość ortograficzna"
 ar = "الارتفاع الإسقاطي"
 
 ["Out of date"]
@@ -5336,6 +5677,7 @@ ja = "期限切れ"
 pt = "Desatualizado"
 it = "Non aggiornato"
 id = "Kedaluwarsa"
+pl = "Przestarzałe"
 ar = "غير محدث"
 
 ["Outline"]
@@ -5351,6 +5693,7 @@ ja = "アウトライン"
 pt = "Contorno"
 it = "Contorno"
 id = "Garis luar"
+pl = "Kontur"
 ar = "المخطط التفصيلي"
 
 ["Outline method"]
@@ -5366,6 +5709,7 @@ ja = "アウトライン方式"
 pt = "Método de contorno"
 it = "Metodo contorno"
 id = "Metode garis luar"
+pl = "Metoda konturu"
 ar = "طريقة المخطط التفصيلي"
 
 ["Outline opacity"]
@@ -5381,6 +5725,7 @@ ja = "アウトライン不透明度"
 pt = "Opacidade do contorno"
 it = "Opacità contorno"
 id = "Opasitas garis luar"
+pl = "Nieprzezroczystość konturu"
 ar = "شفافية المخطط التفصيلي"
 
 ["Outline quality"]
@@ -5396,6 +5741,7 @@ ja = "アウトライン品質"
 pt = "Qualidade do contorno"
 it = "Qualità contorno"
 id = "Kualitas garis luar"
+pl = "Jakość konturu"
 ar = "جودة المخطط التفصيلي"
 
 ["Outline width"]
@@ -5411,6 +5757,7 @@ ja = "アウトライン幅"
 pt = "Largura do contorno"
 it = "Larghezza contorno"
 id = "Lebar garis luar"
+pl = "Szerokość konturu"
 ar = "عرض المخطط التفصيلي"
 
 ["Outro"]
@@ -5426,6 +5773,7 @@ ja = "アウトロ"
 pt = "Encerramento"
 it = "Outro"
 id = "Outro"
+pl = "Zakończenie"
 ar = "خاتمة"
 
 ["Padding randomness"]
@@ -5441,6 +5789,7 @@ ja = "余白のランダム性"
 pt = "Aleatoriedade de preenchimento"
 it = "Casualità margine"
 id = "Keacakan bantalan"
+pl = "Losowość odstępu"
 ar = "عشوائية الهامش الداخلي"
 
 ["Page"]
@@ -5456,6 +5805,7 @@ ja = "ページ"
 pt = "Página"
 it = "Pagina"
 id = "Halaman"
+pl = "Strona"
 ar = "صفحة"
 
 ["Palette levels"]
@@ -5471,6 +5821,7 @@ ja = "パレットレベル"
 pt = "Níveis da paleta"
 it = "Livelli palette"
 id = "Level palet"
+pl = "Poziomy palety"
 ar = "مستويات لوحة الألوان"
 
 ["Parameters"]
@@ -5486,6 +5837,7 @@ ja = "パラメーター"
 pt = "Parâmetros"
 it = "Parametri"
 id = "Parameter"
+pl = "Parametry"
 ar = "المعلمات"
 
 ["Partial mode"]
@@ -5501,6 +5853,7 @@ ja = "部分モード"
 pt = "Modo parcial"
 it = "Modalità parziale"
 id = "Mode parsial"
+pl = "Tryb częściowy"
 ar = "الوضع الجزئي"
 
 ["Paste Modifier"]
@@ -5516,6 +5869,7 @@ ja = "モディファイアを貼り付け"
 pt = "Colar modificador"
 it = "Incolla modificatore"
 id = "Tempel Modifier"
+pl = "Wklej modyfikator"
 ar = "لصق المعدِّل"
 
 ["Path mode"]
@@ -5531,6 +5885,7 @@ ja = "パスモード"
 pt = "Modo de caminho"
 it = "Modalità percorso"
 id = "Mode jalur"
+pl = "Tryb ścieżki"
 ar = "وضع المسار"
 
 ["Path precision"]
@@ -5546,6 +5901,7 @@ ja = "パス精度"
 pt = "Precisão do caminho"
 it = "Precisione percorso"
 id = "Presisi jalur"
+pl = "Precyzja ścieżki"
 ar = "دقة المسار"
 
 ["Pattern"]
@@ -5561,6 +5917,7 @@ ja = "パターン"
 pt = "Padrão"
 it = "Pattern"
 id = "Pola"
+pl = "Wzór"
 ar = "النمط"
 
 ["Pattern softness"]
@@ -5576,6 +5933,7 @@ ja = "パターンの柔らかさ"
 pt = "Suavidade do padrão"
 it = "Morbidezza pattern"
 id = "Kelembutan pola"
+pl = "Miękkość wzoru"
 ar = "نعومة النمط"
 
 ["Pentagon"]
@@ -5591,6 +5949,7 @@ ja = "五角形"
 pt = "Pentágono"
 it = "Pentagono"
 id = "Pentagon"
+pl = "Pięciokąt"
 ar = "مخمس"
 
 ["Percentage"]
@@ -5606,6 +5965,7 @@ ja = "割合"
 pt = "Porcentagem"
 it = "Percentuale"
 id = "Persentase"
+pl = "Procent"
 ar = "النسبة المئوية"
 
 ["Persistence"]
@@ -5621,6 +5981,7 @@ ja = "持続性"
 pt = "Persistência"
 it = "Persistenza"
 id = "Persistensi"
+pl = "Wytrwałość"
 ar = "الاستمرارية"
 
 ["Perspective"]
@@ -5636,6 +5997,7 @@ ja = "透視投影"
 pt = "Perspectiva"
 it = "Prospettiva"
 id = "Perspektif"
+pl = "Perspektywa"
 ar = "منظور"
 
 ["Phase"]
@@ -5651,6 +6013,7 @@ ja = "位相"
 pt = "Fase"
 it = "Fase"
 id = "Fase"
+pl = "Faza"
 ar = "الطور"
 
 ["Picture"]
@@ -5666,6 +6029,7 @@ ja = "ピクチャー"
 pt = "Imagem"
 it = "Immagine"
 id = "Gambar"
+pl = "Zdjęcie"
 ar = "صورة"
 
 ["Ping-pong"]
@@ -5681,6 +6045,7 @@ ja = "ピンポン"
 pt = "Pingue-pongue"
 it = "Ping-pong"
 id = "Ping-pong"
+pl = "Ping-pong"
 ar = "ذهاب وإياب"
 
 ["Pitch"]
@@ -5696,6 +6061,7 @@ ja = "ピッチ"
 pt = "Pitch"
 it = "Pitch"
 id = "Pitch"
+pl = "Wysokość dźwięku"
 ar = "طبقة الصوت"
 
 ["Pitch offset"]
@@ -5711,6 +6077,7 @@ ja = "ピッチオフセット"
 pt = "Deslocamento de pitch"
 it = "Offset pitch"
 id = "Ofset titinada"
+pl = "Przesunięcie wysokości dźwięku"
 ar = "إزاحة طبقة الصوت"
 
 ["Pixel size"]
@@ -5726,6 +6093,7 @@ ja = "ピクセルサイズ"
 pt = "Tamanho do pixel"
 it = "Dimensione pixel"
 id = "Ukuran piksel"
+pl = "Rozmiar pikseli"
 ar = "حجم البكسل"
 
 ["Pixelate"]
@@ -5741,6 +6109,7 @@ ja = "ピクセル化"
 pt = "Pixelizar"
 it = "Pixelizza"
 id = "Pikselasi"
+pl = "Pikselizuj"
 ar = "بكسلة"
 
 ["Pixels"]
@@ -5756,6 +6125,7 @@ ja = "ピクセル"
 pt = "Pixels"
 it = "Pixels"
 id = "Piksel"
+pl = "Piksele"
 ar = "بكسلات"
 
 ["Playback"]
@@ -5771,6 +6141,7 @@ ja = "再生"
 pt = "Reprodução"
 it = "Riproduzione"
 id = "Pemutaran"
+pl = "Odtwarzanie"
 ar = "التشغيل"
 
 ["Point type"]
@@ -5786,6 +6157,7 @@ ja = "ポイント種別"
 pt = "Tipo de ponto"
 it = "Tipo di punto"
 id = "Jenis titik"
+pl = "Typ punktu"
 ar = "نوع النقطة"
 
 ["Point %{number}"]
@@ -5801,6 +6173,7 @@ ja = "ポイント %{number}"
 pt = "Ponto %{number}"
 it = "Punto %{number}"
 id = "Titik %{number}"
+pl = "Punkt %{number}"
 ar = "النقطة %{number}"
 
 ["Points"]
@@ -5816,6 +6189,7 @@ ja = "ポイント"
 pt = "Pontos"
 it = "Punti"
 id = "Titik"
+pl = "Punkty"
 ar = "نقاط"
 
 ["Polygon"]
@@ -5831,6 +6205,7 @@ ja = "多角形"
 pt = "Polígono"
 it = "Poligono"
 id = "Poligon"
+pl = "Wielokąt"
 ar = "مضلع"
 
 ["Position"]
@@ -5846,6 +6221,7 @@ ja = "位置"
 pt = "Posição"
 it = "Posizione"
 id = "Posisi"
+pl = "Pozycja"
 ar = "الموضع"
 
 ["Position X"]
@@ -5861,6 +6237,7 @@ ja = "位置 X"
 pt = "Posição X"
 it = "Posizione X"
 id = "Posisi X"
+pl = "Pozycja X"
 ar = "الموضع X"
 
 ["Position Y"]
@@ -5876,6 +6253,7 @@ ja = "位置 Y"
 pt = "Posição Y"
 it = "Posizione Y"
 id = "Posisi Y"
+pl = "Pozycja Y"
 ar = "الموضع Y"
 
 ["Pre-delay"]
@@ -5891,6 +6269,7 @@ ja = "プリディレイ"
 pt = "Pré-atraso"
 it = "Pre-delay"
 id = "Pra-tunda"
+pl = "Przed-opóźnienie"
 ar = "تأخير مسبق"
 
 ["Precompute compact CPU mask frames so normal playback does not run SAM2"]
@@ -5906,6 +6285,7 @@ ja = "通常再生でSAM2を実行しないようCPUマスクを事前計算"
 pt = "Pré-computar quadros de máscara compactos na CPU para que a reprodução normal não execute SAM2"
 it = "Pre-calcola i fotogrammi della maschera CPU compattati così la riproduzione normale non esegue SAM2"
 id = "Hitung awal bingkai masker CPU yang ringkas agar pemutaran normal tidak menjalankan SAM2"
+pl = "Wstępnie oblicz kompaktowe klatki maski CPU, aby normalne odtwarzanie nie używało SAM2"
 ar = "حساب إطارات قناع وحدة المعالجة المركزية المضغوطة مسبقاً حتى لا يشغل التشغيل العادي SAM2"
 
 ["Precompute exact one-bit transparency masks for every frame"]
@@ -5921,6 +6301,7 @@ ja = "全フレームの正確な1ビット透明マスクを事前計算"
 pt = "Pré-computar máscaras de transparência exatas de um bit para cada quadro"
 it = "Pre-calcola maschere di trasparenza esatte a un bit per ogni fotogramma"
 id = "Hitung awal masker transparansi 1-bit yang presisi untuk setiap bingkai"
+pl = "Wstępnie oblicz jednobitowe maski przezroczystości dla każdej klatki"
 ar = "حساب أقنعة شفافية دقيقة بدقة بت واحد مسبقاً لكل إطار"
 
 ["Preference for a steady camera velocity"]
@@ -5936,6 +6317,7 @@ ja = "一定のカメラ速度を優先"
 pt = "Preferência por velocidade constante da câmera"
 it = "Preferenza per una velocità della telecamera costante"
 id = "Preferensi untuk kecepatan kamera yang stabil"
+pl = "Preferencja dla stałej prędkości kamery"
 ar = "تفضيل سرعة كاميرا ثابتة"
 
 ["Preference for frames with no camera motion"]
@@ -5951,6 +6333,7 @@ ja = "カメラが動かないフレームを優先"
 pt = "Preferência por quadros sem movimento da câmera"
 it = "Preferenza per fotogrammi senza movimento di telecamera"
 id = "Preferensi untuk bingkai tanpa gerakan kamera"
+pl = "Preferencja dla klatek bez ruchu kamery"
 ar = "تفضيل الإطارات الخالية من حركة الكاميرا"
 
 ["Preference for smoothly changing camera motion"]
@@ -5966,6 +6349,7 @@ ja = "滑らかに変化するカメラ動作を優先"
 pt = "Preferência por transições suaves de movimento da câmera"
 it = "Preferenza per movimenti di telecamera fluidi"
 id = "Preferensi untuk perubahan gerakan kamera yang mulus"
+pl = "Preferencja dla płynnej zmiany ruchu kamery"
 ar = "تفضيل حركة كاميرا تتغير بسلاسة"
 
 ["Preserve formants"]
@@ -5981,6 +6365,7 @@ ja = "フォルマントを維持"
 pt = "Preservar formantes"
 it = "Preserva formanti"
 id = "Pertahankan forman"
+pl = "Zachowaj formanty"
 ar = "الحفاظ على النغمات التشكيلية"
 
 ["Preserve pitch"]
@@ -5996,6 +6381,7 @@ ja = "ピッチを維持"
 pt = "Preservar tom"
 it = "Preserva pitch"
 id = "Pertahankan titinada"
+pl = "Zachowaj wysokość dźwięku"
 ar = "الحفاظ على طبقة الصوت"
 
 ["Preview Downsampling"]
@@ -6011,6 +6397,7 @@ ja = "プレビューのダウンサンプリング"
 pt = "Redução da pré-visualização"
 it = "Downsampling anteprima"
 id = "Downsampling Pratinjau"
+pl = "Pogląd downsamplingu"
 ar = "تقليل دقة المعاينة"
 
 ["Preview Render Method"]
@@ -6026,6 +6413,7 @@ ja = "プレビューのレンダリング方式"
 pt = "Método de renderização da pré-visualização"
 it = "Metodo rendering anteprima"
 id = "Metode Render Pratinjau"
+pl = "Metoda podglądu renderowania"
 ar = "طريقة تصيير المعاينة"
 
 ["Previous keyframe"]
@@ -6041,6 +6429,7 @@ ja = "前のキーフレーム"
 pt = "Quadro-chave anterior"
 it = "Keyframe precedente"
 id = "Keyframe sebelumnya"
+pl = "Poprzednia klatka kluczowa"
 ar = "الإطار الرئيسي السابق"
 
 ["Project"]
@@ -6056,6 +6445,7 @@ ja = "プロジェクト"
 pt = "Projeto"
 it = "Progetto"
 id = "Proyek"
+pl = "Projekt"
 ar = "المشروع"
 
 ["Project File"]
@@ -6071,6 +6461,7 @@ ja = "プロジェクトファイル"
 pt = "Arquivo do projeto"
 it = "File progetto"
 id = "Berkas Proyek"
+pl = "Plik projektu"
 ar = "ملف المشروع"
 
 ["Projection"]
@@ -6086,6 +6477,7 @@ ja = "投影"
 pt = "Projeção"
 it = "Proiezione"
 id = "Proyeksi"
+pl = "Projekcja"
 ar = "الإسقاط"
 
 ["Pulse width"]
@@ -6101,6 +6493,7 @@ ja = "パルス幅"
 pt = "Largura do pulso"
 it = "Larghezza impulso"
 id = "Lebar pulsa"
+pl = "Szerokość pulsu"
 ar = "عرض النبضة"
 
 ["Quality"]
@@ -6116,6 +6509,7 @@ ja = "品質"
 pt = "Qualidade"
 it = "Qualità"
 id = "Kualitas"
+pl = "Jakość"
 ar = "الجودة"
 
 ["Queued"]
@@ -6131,6 +6525,7 @@ ja = "待機中"
 pt = "Na fila"
 it = "In coda"
 id = "Dalam antrean"
+pl = "W kolejce"
 ar = "في قائمة الانتظار"
 
 ["Radius"]
@@ -6146,6 +6541,7 @@ ja = "半径"
 pt = "Raio"
 it = "Raggio"
 id = "Radius"
+pl = "Promień"
 ar = "نصف القطر"
 
 ["Range"]
@@ -6161,6 +6557,7 @@ ja = "範囲"
 pt = "Intervalo"
 it = "Intervallo"
 id = "Rentang"
+pl = "Zasięg"
 ar = "النطاق"
 
 ["Rate"]
@@ -6176,6 +6573,7 @@ ja = "レート"
 pt = "Taxa"
 it = "Frequenza"
 id = "Laju"
+pl = "Prędkość"
 ar = "المعدل"
 
 ["Ratio"]
@@ -6191,6 +6589,7 @@ ja = "比率"
 pt = "Proporção"
 it = "Rapporto"
 id = "Rasio"
+pl = "Stosunek"
 ar = "النسبة"
 
 ["Ready (%{sample_count} samples)"]
@@ -6206,6 +6605,7 @@ ja = "準備完了（%{sample_count}サンプル）"
 pt = "Pronto (%{sample_count} amostras)"
 it = "Pronto (%{sample_count} campioni)"
 id = "Siap (%{sample_count} sampel)"
+pl = "Gotowe (%{sample_count} próbek)"
 ar = "جاهز (%{sample_count} عينة)"
 
 ["Reanalyze"]
@@ -6221,6 +6621,7 @@ ja = "再解析"
 pt = "Reanalisar"
 it = "Rianalizza"
 id = "Analisis ulang"
+pl = "Przeanalizuj ponownie"
 ar = "إعادة التحليل"
 
 ["Rebake"]
@@ -6236,6 +6637,7 @@ ja = "再ベイク"
 pt = "Pré-computar novamente"
 it = "Ricalcola"
 id = "Bake ulang"
+pl = "Wypal ponownie"
 ar = "إعادة التثبيت"
 
 ["Rebuild"]
@@ -6251,6 +6653,7 @@ ja = "再構築"
 pt = "Reconstruir"
 it = "Ricostruisci"
 id = "Bangun ulang"
+pl = "Przebuduj"
 ar = "إعادة البناء"
 
 ["Rectangle"]
@@ -6266,6 +6669,7 @@ ja = "長方形"
 pt = "Retângulo"
 it = "Rettangolo"
 id = "Persegi panjang"
+pl = "Prostokąt"
 ar = "مستطيل"
 
 ["Reduction"]
@@ -6281,6 +6685,7 @@ ja = "低減"
 pt = "Redução"
 it = "Riduzione"
 id = "Pengurangan"
+pl = "Redukcja"
 ar = "التقليل"
 
 ["Reflection opacity"]
@@ -6296,6 +6701,7 @@ ja = "反射の不透明度"
 pt = "Opacidade do reflexo"
 it = "Opacità riflesso"
 id = "Opasitas pantulan"
+pl = "Nieprzezroczystość odbicia"
 ar = "شفافية الانعكاس"
 
 ["Refresh interval"]
@@ -6311,6 +6717,7 @@ ja = "更新間隔"
 pt = "Intervalo de atualização"
 it = "Intervallo aggiornamento"
 id = "Interval penyegaran"
+pl = "Interwał odświeżania"
 ar = "فترة التحديث"
 
 ["Release"]
@@ -6326,6 +6733,7 @@ ja = "リリース"
 pt = "Liberação"
 it = "Rilascio"
 id = "Release"
+pl = "Publikacja"
 ar = "زمن التلاشي"
 
 ["Reload Blender file and scene metadata"]
@@ -6341,6 +6749,7 @@ ja = "Blenderファイルとシーンメタデータを再読み込み"
 pt = "Recarregar arquivo do Blender e metadados da cena"
 it = "Ricarica file e metadati della scena di Blender"
 id = "Muat ulang berkas Blender dan metadata adegan"
+pl = "Załaduj ponownie plik Blender i metadane sceny"
 ar = "إعادة تحميل ملف Blender والبيانات الوصفية للمشهد"
 
 ["Reload Python source and rebuild Manim scene states"]
@@ -6356,6 +6765,7 @@ ja = "Pythonソースを再読み込みしてManimシーン状態を再構築"
 pt = "Recarregar código Python e reconstruir estados da cena do Manim"
 it = "Ricarica sorgente Python e ricostruisci stati della scena Manim"
 id = "Muat ulang sumber Python dan bangun ulang status adegan Manim"
+pl = "Załaduj ponownie źródło i przebuduj stany scen Manim"
 ar = "إعادة تحميل كود Python المصدري وإعادة بناء حالات مشهد Manim"
 
 ["Remove"]
@@ -6371,6 +6781,7 @@ ja = "削除"
 pt = "Remover"
 it = "Rimuovi"
 id = "Hapus"
+pl = "Usuń"
 ar = "إزالة"
 
 ["Remove box"]
@@ -6386,6 +6797,7 @@ ja = "ボックスを削除"
 pt = "Remover caixa"
 it = "Rimuovi riquadro"
 id = "Hapus kotak"
+pl = "Usun pudło"
 ar = "إزالة الصندوق"
 
 ["Remove color"]
@@ -6401,6 +6813,7 @@ ja = "色を削除"
 pt = "Remover cor"
 it = "Rimuovi colore"
 id = "Hapus warna"
+pl = "Usuń kolor"
 ar = "إزالة اللون"
 
 ["Remove point"]
@@ -6416,6 +6829,7 @@ ja = "ポイントを削除"
 pt = "Remover ponto"
 it = "Rimuovi punto"
 id = "Hapus titik"
+pl = "Usuń punkt"
 ar = "إزالة النقطة"
 
 ["Replace"]
@@ -6431,6 +6845,7 @@ ja = "置換"
 pt = "Substituir"
 it = "Sostituisci"
 id = "Ganti"
+pl = "Zamień"
 ar = "استبدال"
 
 ["Replace image"]
@@ -6446,6 +6861,7 @@ ja = "画像を置換"
 pt = "Substituir imagem"
 it = "Sostituisci immagine"
 id = "Ganti gambar"
+pl = "Zamień obraz"
 ar = "استبدال الصورة"
 
 ["Replace model"]
@@ -6461,6 +6877,7 @@ ja = "モデルを置換"
 pt = "Substituir modelo"
 it = "Sostituisci modello"
 id = "Ganti model"
+pl = "Zamień model"
 ar = "استبدال النموذج"
 
 ["Reset"]
@@ -6476,6 +6893,7 @@ ja = "リセット"
 pt = "Redefinir"
 it = "Reimposta"
 id = "Atur ulang"
+pl = "Zresetuj"
 ar = "إعادة ضبط"
 
 ["Resolution"]
@@ -6491,6 +6909,7 @@ ja = "解像度"
 pt = "Resolução"
 it = "Risoluzione"
 id = "Resolusi"
+pl = "Rozdzielczość"
 ar = "الدقة"
 
 ["Resonance"]
@@ -6506,6 +6925,7 @@ ja = "レゾナンス"
 pt = "Ressonância"
 it = "Risonanza"
 id = "Resonansi"
+pl = "Rezonans"
 ar = "الرنين"
 
 ["Right"]
@@ -6521,6 +6941,7 @@ ja = "右"
 pt = "Direita"
 it = "Destra"
 id = "Kanan"
+pl = "Prawe"
 ar = "يمين"
 
 ["Rim power"]
@@ -6536,6 +6957,7 @@ ja = "リムパワー"
 pt = "Potência do contorno"
 it = "Potenza bordo"
 id = "Daya rim"
+pl = "Moc obręczy"
 ar = "قوة الحافة المضيئة"
 
 ["Rim strength"]
@@ -6551,6 +6973,7 @@ ja = "リム強度"
 pt = "Intensidade do contorno"
 it = "Intensità bordo"
 id = "Kekuatan rim"
+pl = "Siła obręczy"
 ar = "شدة الحافة المضيئة"
 
 ["Rim tint"]
@@ -6566,6 +6989,7 @@ ja = "リム色"
 pt = "Tonalidade do contorno"
 it = "Tinta bordo"
 id = "Tint rim"
+pl = "Barwa obręczy"
 ar = "لون الحافة المضيئة"
 
 ["Room capture"]
@@ -6581,6 +7005,7 @@ ja = "ルームキャプチャー"
 pt = "Captura de sala"
 it = "Acquisizione stanza"
 id = "Tangkapan ruangan"
+pl = "Przechwyt pomieszczenia"
 ar = "التقاط الغرفة"
 
 ["Room scale"]
@@ -6596,6 +7021,7 @@ ja = "部屋の規模"
 pt = "Escala da sala"
 it = "Scala stanza"
 id = "Skala ruangan"
+pl = "Skala pomieszczenia"
 ar = "مقياس الغرفة"
 
 ["Rotation"]
@@ -6611,6 +7037,7 @@ ja = "回転"
 pt = "Rotação"
 it = "Rotazione"
 id = "Rotasi"
+pl = "Obrót"
 ar = "التدوير"
 
 ["Rotation order"]
@@ -6626,6 +7053,7 @@ ja = "回転順序"
 pt = "Ordem de rotação"
 it = "Ordine rotazione"
 id = "Urutan rotasi"
+pl = "Kolejność obrotu"
 ar = "ترتيب التدوير"
 
 ["Roughness"]
@@ -6641,6 +7069,7 @@ ja = "粗さ"
 pt = "Rugosidade"
 it = "Roughness"
 id = "Kekasaran"
+pl = "Szorstkość"
 ar = "الخشونة"
 
 ["Rounded"]
@@ -6656,6 +7085,7 @@ ja = "角丸"
 pt = "Arredondado"
 it = "Arrotondato"
 id = "Membulat"
+pl = "Zaokrąglone"
 ar = "مستدير"
 
 ["Rounding"]
@@ -6671,6 +7101,7 @@ ja = "丸み"
 pt = "Arredondamento"
 it = "Arrotondamento"
 id = "Pembulatan"
+pl = "Zaokrąglenie"
 ar = "الاستدارة"
 
 ["Roundness"]
@@ -6686,6 +7117,7 @@ ja = "丸み"
 pt = "Arredondamento"
 it = "Rotondità"
 id = "Kebulatan"
+pl = "Zaokrąglenie"
 ar = "الاستدارة"
 
 ["Row offset"]
@@ -6701,6 +7133,7 @@ ja = "行オフセット"
 pt = "Deslocamento de linha"
 it = "Offset riga"
 id = "Ofset baris"
+pl = "Przesunięcie wiersza"
 ar = "إزاحة الصف"
 
 ["Sample Rate"]
@@ -6716,6 +7149,7 @@ ja = "サンプルレート"
 pt = "Taxa de amostragem"
 it = "Frequenza campionamento"
 id = "Laju Sampel"
+pl = "Częstotliwość próbkowania"
 ar = "معدل العينات"
 
 ["Sample rate"]
@@ -6731,6 +7165,7 @@ ja = "サンプルレート"
 pt = "Taxa de amostragem"
 it = "Frequenza campionamento"
 id = "Laju sampel"
+pl = "Częstotliwość próbkowania"
 ar = "معدل العينات"
 
 ["Samples"]
@@ -6746,6 +7181,7 @@ ja = "サンプル"
 pt = "Amostras"
 it = "Campioni"
 id = "Sampel"
+pl = "Próbki"
 ar = "العينات"
 
 ["Saturation"]
@@ -6761,6 +7197,7 @@ ja = "彩度"
 pt = "Saturação"
 it = "Saturazione"
 id = "Saturasi"
+pl = "Saturacja"
 ar = "التشبع"
 
 ["Scale"]
@@ -6776,6 +7213,7 @@ ja = "スケール"
 pt = "Escala"
 it = "Scala"
 id = "Skala"
+pl = "Skala"
 ar = "المقياس"
 
 ["Scene"]
@@ -6791,6 +7229,7 @@ ja = "シーン"
 pt = "Cena"
 it = "Scena"
 id = "Adegan"
+pl = "Scena"
 ar = "المشهد"
 
 ["Scene Renderer"]
@@ -6806,6 +7245,7 @@ ja = "シーンレンダラー"
 pt = "Renderizador de cena"
 it = "Renderer scena"
 id = "Renderer Adegan"
+pl = "Renderer sceny"
 ar = "مصير المشهد"
 
 ["Scramble, resize, then reveal the new text"]
@@ -6821,6 +7261,7 @@ ja = "並べ替えとサイズ変更後に新しいテキストを表示"
 pt = "Embaralhar, redimensionar e revelar o novo texto"
 it = "Mescola, ridimensiona, poi mostra il nuovo testo"
 id = "Acak, ubah ukuran, lalu tampilkan teks baru"
+pl = "Pomieszaj, zmień rozmiar, potem pokaż nowy tekst"
 ar = "خلط الحروف، تغيير الحجم، ثم إظهار النص الجديد"
 
 ["Search fonts or paste a Google Fonts specimen URL"]
@@ -6836,6 +7277,7 @@ ja = "フォントを検索、またはGoogle FontsのURLを貼り付け"
 pt = "Pesquisar fontes ou colar URL de amostra do Google Fonts"
 it = "Cerca font o incolla URL campione di Google Fonts"
 id = "Cari font atau tempel URL spesimen Google Fonts"
+pl = "Szukaj czcionek lub wklej URL czcionki z Google Fonts"
 ar = "ابحث عن الخطوط أو الصق عنوان URL لخطوط Google"
 
 ["Search interpolations"]
@@ -6851,6 +7293,7 @@ ja = "補間を検索"
 pt = "Pesquisar interpolações"
 it = "Cerca interpolazioni"
 id = "Cari interpolasi"
+pl = "Szukaj interpolacji"
 ar = "البحث في الاستيفاءات"
 
 ["Search modifiers"]
@@ -6866,6 +7309,7 @@ ja = "モディファイアを検索"
 pt = "Pesquisar modificadores"
 it = "Cerca modificatori"
 id = "Cari modifier"
+pl = "Szukaj modyfikatorów"
 ar = "البحث في المعدِّلات"
 
 ["Searching Google Fonts…"]
@@ -6881,6 +7325,7 @@ ja = "Google Fontsを検索中…"
 pt = "Pesquisando no Google Fonts…"
 it = "Ricerca in Google Fonts…"
 id = "Mencari Google Fonts…"
+pl = "Przeszukiwanie Google Fonts…"
 ar = "جارٍ البحث في خطوط Google…"
 
 ["Seed"]
@@ -6896,6 +7341,7 @@ ja = "シード"
 pt = "Semente"
 it = "Seed"
 id = "Seed"
+pl = "Ziarno"
 ar = "البذرة"
 
 ["Seed frequency"]
@@ -6911,6 +7357,7 @@ ja = "シード周波数"
 pt = "Frequência da semente"
 it = "Frequenza seed"
 id = "Frekuensi seed"
+pl = "Częstotliwość ziarna"
 ar = "تردد البذرة"
 
 ["Segment length"]
@@ -6926,6 +7373,7 @@ ja = "セグメント長"
 pt = "Comprimento do segmento"
 it = "Lunghezza segmento"
 id = "Panjang segmen"
+pl = "Długość segmentu"
 ar = "طول القطعة"
 
 ["Segments"]
@@ -6941,6 +7389,7 @@ ja = "セグメント"
 pt = "Segmentos"
 it = "Segmenti"
 id = "Segmen"
+pl = "Segmenty"
 ar = "القطع"
 
 ["Select"]
@@ -6956,6 +7405,7 @@ ja = "選択"
 pt = "Selecionar"
 it = "Seleziona"
 id = "Pilih"
+pl = "Wybierz"
 ar = "تحديد"
 
 ["Select 3D model"]
@@ -6971,6 +7421,7 @@ ja = "3Dモデルを選択"
 pt = "Selecionar modelo 3D"
 it = "Seleziona modello 3D"
 id = "Pilih model 3D"
+pl = "Wybierz model 3D"
 ar = "تحديد نموذج ثلاثي الأبعاد"
 
 ["Select environment image"]
@@ -6986,6 +7437,7 @@ ja = "環境画像を選択"
 pt = "Selecionar imagem de ambiente"
 it = "Seleziona immagine ambiente"
 id = "Pilih gambar lingkungan"
+pl = "Wybierz obraz środowiska"
 ar = "تحديد صورة البيئة"
 
 ["Select image"]
@@ -7001,6 +7453,7 @@ ja = "画像を選択"
 pt = "Selecionar imagem"
 it = "Seleziona immagine"
 id = "Pilih gambar"
+pl = "Wybierz obraz"
 ar = "تحديد صورة"
 
 ["Select model"]
@@ -7016,6 +7469,7 @@ ja = "モデルを選択"
 pt = "Selecionar modelo"
 it = "Seleziona modello"
 id = "Pilih model"
+pl = "Wybierz model"
 ar = "تحديد نموذج"
 
 ["Select paint texture"]
@@ -7031,6 +7485,7 @@ ja = "ペイントテクスチャを選択"
 pt = "Selecionar textura de pintura"
 it = "Seleziona texture pittura"
 id = "Pilih tekstur lukisan"
+pl = "Wybierz teksturę farby"
 ar = "تحديد ملمس الرسم"
 
 ["Semitones"]
@@ -7046,6 +7501,7 @@ ja = "半音"
 pt = "Semitons"
 it = "Semitoni"
 id = "Seminada"
+pl = "Semitony"
 ar = "أنصاف النغمات"
 
 ["Sensitivity"]
@@ -7061,6 +7517,7 @@ ja = "感度"
 pt = "Sensibilidade"
 it = "Sensibilità"
 id = "Sensitivitas"
+pl = "Wrażliwość"
 ar = "الحساسية"
 
 ["Sequential"]
@@ -7076,6 +7533,7 @@ ja = "順次"
 pt = "Sequencial"
 it = "Sequenziale"
 id = "Berurutan"
+pl = "Sekwencyjny"
 ar = "متتالي"
 
 ["Shader"]
@@ -7091,6 +7549,7 @@ ja = "シェーダー"
 pt = "Shader"
 it = "Shader"
 id = "Shader"
+pl = "Shader"
 ar = "المظلل"
 
 ["Shadow blur"]
@@ -7106,6 +7565,7 @@ ja = "影のぼかし"
 pt = "Desfoque da sombra"
 it = "Sfocatura ombra"
 id = "Buram bayangan"
+pl = "Rozmycie cienia"
 ar = "تمويه الظل"
 
 ["Shadow color"]
@@ -7121,6 +7581,7 @@ ja = "影の色"
 pt = "Cor da sombra"
 it = "Colore ombra"
 id = "Warna bayangan"
+pl = "Kolor cienia"
 ar = "لون الظل"
 
 ["Shadow direction"]
@@ -7136,6 +7597,7 @@ ja = "影の方向"
 pt = "Direção da sombra"
 it = "Direzione ombra"
 id = "Arah bayangan"
+pl = "Kierunek cienia"
 ar = "اتجاه الظل"
 
 ["Shadow distance"]
@@ -7151,6 +7613,7 @@ ja = "影の距離"
 pt = "Distância da sombra"
 it = "Distanza ombra"
 id = "Jarak bayangan"
+pl = "Odległość cienia"
 ar = "مسافة الظل"
 
 ["Shadow kind"]
@@ -7166,6 +7629,7 @@ ja = "影の種類"
 pt = "Tipo de sombra"
 it = "Tipo ombra"
 id = "Jenis bayangan"
+pl = "Typ cienia"
 ar = "نوع الظل"
 
 ["Shadow quality"]
@@ -7181,6 +7645,7 @@ ja = "影の品質"
 pt = "Qualidade da sombra"
 it = "Qualità ombra"
 id = "Kualitas bayangan"
+pl = "Jakość cienia"
 ar = "جودة الظل"
 
 ["Shadow strength"]
@@ -7196,6 +7661,7 @@ ja = "影の強度"
 pt = "Intensidade da sombra"
 it = "Intensità ombra"
 id = "Kekuatan bayangan"
+pl = "Siła cienia"
 ar = "قوة الظل"
 
 ["Shadow width"]
@@ -7211,6 +7677,7 @@ ja = "影の幅"
 pt = "Largura da sombra"
 it = "Larghezza ombra"
 id = "Lebar bayangan"
+pl = "Szerokość cienia"
 ar = "عرض الظل"
 
 ["Shaft width"]
@@ -7226,6 +7693,7 @@ ja = "軸の幅"
 pt = "Largura do corpo"
 it = "Larghezza asta"
 id = "Lebar batang"
+pl = "Szerokość wału"
 ar = "عرض الساق"
 
 ["Sharpness"]
@@ -7241,6 +7709,7 @@ ja = "シャープネス"
 pt = "Nitidez"
 it = "Nitidezza"
 id = "Ketajaman"
+pl = "Ostrość"
 ar = "الحدة"
 
 ["Shear"]
@@ -7256,6 +7725,7 @@ ja = "シアー"
 pt = "Cisalhamento"
 it = "Inclinazione"
 id = "Geser"
+pl = "Ścięcie"
 ar = "إمالة"
 
 ["Sheen"]
@@ -7271,6 +7741,7 @@ ja = "光沢"
 pt = "Brilho suave"
 it = "Lucentezza"
 id = "Sheen"
+pl = "Połysk"
 ar = "اللمعان"
 
 ["Show in folder"]
@@ -7286,6 +7757,7 @@ ja = "フォルダーに表示"
 pt = "Mostrar na pasta"
 it = "Mostra nella cartella"
 id = "Tampilkan di folder"
+pl = "Pokaż w folderze"
 ar = "عرض في المجلد"
 
 ["Show project file in folder"]
@@ -7301,6 +7773,7 @@ ja = "プロジェクトファイルをフォルダーに表示"
 pt = "Mostrar arquivo do projeto na pasta"
 it = "Mostra file progetto nella cartella"
 id = "Tampilkan berkas proyek di folder"
+pl = "Pokaż plik projektu w folderze"
 ar = "عرض ملف المشروع في المجلد"
 
 ["Sigma"]
@@ -7316,6 +7789,7 @@ ja = "シグマ"
 pt = "Sigma"
 it = "Sigma"
 id = "Sigma"
+pl = "Sigma"
 ar = "سيغما"
 
 ["Sigma ratio"]
@@ -7331,6 +7805,7 @@ ja = "シグマ比"
 pt = "Proporção de sigma"
 it = "Rapporto sigma"
 id = "Rasio sigma"
+pl = "Stosunek sigma"
 ar = "نسبة سيغما"
 
 ["Similarity"]
@@ -7346,6 +7821,7 @@ ja = "類似度"
 pt = "Similaridade"
 it = "Similarità"
 id = "Kemiripan"
+pl = "Podobieństwo"
 ar = "التشابه"
 
 ["Simplify tolerance"]
@@ -7361,6 +7837,7 @@ ja = "簡略化許容値"
 pt = "Tolerância de simplificação"
 it = "Tolleranza semplificazione"
 id = "Toleransi penyederhanaan"
+pl = "Tolerancja uproszczenia"
 ar = "تسامح التبسيط"
 
 ["Simultaneous"]
@@ -7376,6 +7853,7 @@ ja = "同時"
 pt = "Simultâneo"
 it = "Simultaneo"
 id = "Simultan"
+pl = "Jednoczesne"
 ar = "متزامن"
 
 ["Size"]
@@ -7391,6 +7869,7 @@ ja = "サイズ"
 pt = "Tamanho"
 it = "Dimensione"
 id = "Ukuran"
+pl = "Rozmiar"
 ar = "الحجم"
 
 ["Size randomness"]
@@ -7406,6 +7885,7 @@ ja = "サイズのランダム性"
 pt = "Aleatoriedade de tamanho"
 it = "Casualità dimensione"
 id = "Keacakan ukuran"
+pl = "Losowość rozmiaru"
 ar = "عشوائية الحجم"
 
 ["Skia drawing"]
@@ -7421,6 +7901,7 @@ ja = "Skia描画"
 pt = "Desenho Skia"
 it = "Disegno Skia"
 id = "Gambar Skia"
+pl = "Rysowanie Skia"
 ar = "رسم Skia"
 
 ["Smoothing"]
@@ -7436,6 +7917,7 @@ ja = "スムージング"
 pt = "Suavização"
 it = "Smussatura"
 id = "Penghalusan"
+pl = "Wygładzanie"
 ar = "التنعيم"
 
 ["Smoothing radius"]
@@ -7451,6 +7933,7 @@ ja = "平滑化半径"
 pt = "Raio de suavização"
 it = "Raggio smussatura"
 id = "Radius penghalusan"
+pl = "Promień wygładzania"
 ar = "نصف قطر التنعيم"
 
 ["Smoothness"]
@@ -7466,6 +7949,7 @@ ja = "滑らかさ"
 pt = "Suavidade"
 it = "Levigatura"
 id = "Kemulusan"
+pl = "Gładkość"
 ar = "السلاسة"
 
 ["Soft shadow"]
@@ -7481,6 +7965,7 @@ ja = "ソフトシャドウ"
 pt = "Sombra suave"
 it = "Ombra morbida"
 id = "Bayangan lembut"
+pl = "Lekki cień"
 ar = "ظل ناعم"
 
 ["Softness"]
@@ -7496,6 +7981,7 @@ ja = "柔らかさ"
 pt = "Suavidade"
 it = "Morbidezza"
 id = "Kelembutan"
+pl = "Lekkość"
 ar = "النعومة"
 
 ["Solid"]
@@ -7511,6 +7997,7 @@ ja = "ソリッド"
 pt = "Sólido"
 it = "Pieno"
 id = "Solid"
+pl = "Solidny"
 ar = "مصمت"
 
 ["Solid color"]
@@ -7526,6 +8013,7 @@ ja = "単色"
 pt = "Cor sólida"
 it = "Colore pieno"
 id = "Warna solid"
+pl = "Kolor solidny"
 ar = "لون خالص"
 
 ["Source"]
@@ -7541,6 +8029,7 @@ ja = "ソース"
 pt = "Origem"
 it = "Sorgente"
 id = "Sumber"
+pl = "Źródło"
 ar = "المصدر"
 
 ["Spacing"]
@@ -7556,6 +8045,7 @@ ja = "間隔"
 pt = "Espaçamento"
 it = "Spaziatura"
 id = "Spasi"
+pl = "Spacjowanie"
 ar = "التباعد"
 
 ["Speckle size"]
@@ -7571,6 +8061,7 @@ ja = "斑点サイズ"
 pt = "Tamanho do granulado"
 it = "Dimensione macchia"
 id = "Ukuran bintik"
+pl = "Rozmiar plamek"
 ar = "حجم التبقع"
 
 ["Specular size"]
@@ -7586,6 +8077,7 @@ ja = "スペキュラーサイズ"
 pt = "Tamanho especular"
 it = "Dimensione speculare"
 id = "Ukuran spekular"
+pl = "Rozmiar odbicia spekularnego"
 ar = "حجم اللمعان المرآوي"
 
 ["Specular strength"]
@@ -7601,6 +8093,7 @@ ja = "スペキュラー強度"
 pt = "Intensidade especular"
 it = "Intensità speculare"
 id = "Kekuatan spekular"
+pl = "Siła odbicia spekularnego"
 ar = "شدة اللمعان المرآوي"
 
 ["Speed method"]
@@ -7616,6 +8109,7 @@ ja = "速度方式"
 pt = "Método de velocidade"
 it = "Metodo velocità"
 id = "Metode kecepatan"
+pl = "Metoda prędkości"
 ar = "طريقة السرعة"
 
 ["Spill"]
@@ -7631,6 +8125,7 @@ ja = "スピル"
 pt = "Vazamento de cor"
 it = "Spill"
 id = "Spill"
+pl = "Rozlanie"
 ar = "الفيض"
 
 ["Spin"]
@@ -7646,6 +8141,7 @@ ja = "スピン"
 pt = "Giro"
 it = "Giro"
 id = "Putar"
+pl = "Kręć"
 ar = "دوران"
 
 ["Splice threshold"]
@@ -7661,6 +8157,7 @@ ja = "スプライスしきい値"
 pt = "Limiar de emenda"
 it = "Soglia giunzione"
 id = "Ambang batas sambungan"
+pl = "Próg splatania"
 ar = "عتبة الربط"
 
 ["Square"]
@@ -7676,6 +8173,7 @@ ja = "正方形"
 pt = "Quadrado"
 it = "Quadrato"
 id = "Persegi"
+pl = "Kwadrat"
 ar = "مربع"
 
 ["Stabilization"]
@@ -7691,6 +8189,7 @@ ja = "手ぶれ補正"
 pt = "Estabilização"
 it = "Stabilizzazione"
 id = "Stabilisasi"
+pl = "Stabilizacja"
 ar = "التثبيت"
 
 ["Stabilization cache"]
@@ -7706,6 +8205,7 @@ ja = "手ぶれ補正キャッシュ"
 pt = "Cache de estabilização"
 it = "Cache stabilizzazione"
 id = "Cache stabilisasi"
+pl = "Cache stabilizacji"
 ar = "ذاكرة التخزين المؤقت للتثبيت"
 
 ["Start cap"]
@@ -7721,6 +8221,7 @@ ja = "始端キャップ"
 pt = "Extremidade inicial"
 it = "Estremità iniziale"
 id = "Ujung awal"
+pl = "Początek"
 ar = "بداية الطرف"
 
 ["Start taper"]
@@ -7736,6 +8237,7 @@ ja = "始端テーパー"
 pt = "Afilamento inicial"
 it = "Cono iniziale"
 id = "Pengecilan awal"
+pl = "Zwężenie początku"
 ar = "تضييق البداية"
 
 ["Start taper distance"]
@@ -7751,6 +8253,7 @@ ja = "始端テーパー距離"
 pt = "Distância do afilamento inicial"
 it = "Distanza cono iniziale"
 id = "Jarak pengecilan awal"
+pl = "Odległość zwężenia początku"
 ar = "مسافة تضييق البداية"
 
 ["Starting angle"]
@@ -7766,6 +8269,7 @@ ja = "開始角度"
 pt = "Ângulo inicial"
 it = "Angolo iniziale"
 id = "Sudut awal"
+pl = "Kąt początkowy"
 ar = "زاوية البداية"
 
 ["Starting scale"]
@@ -7781,6 +8285,7 @@ ja = "開始スケール"
 pt = "Escala inicial"
 it = "Scala iniziale"
 id = "Skala awal"
+pl = "Skala początkowa"
 ar = "المقياس الابتدائي"
 
 ["Static-camera weight"]
@@ -7796,6 +8301,7 @@ ja = "固定カメラウェイト"
 pt = "Peso de câmera estática"
 it = "Peso telecamera statica"
 id = "Bobot kamera statis"
+pl = "Waga kamery statycznej"
 ar = "وزن الكاميرا الثابتة"
 
 ["Step"]
@@ -7811,6 +8317,7 @@ ja = "ステップ"
 pt = "Passo"
 it = "Passo"
 id = "Langkah"
+pl = "Krok"
 ar = "خطوة"
 
 ["Step size"]
@@ -7826,6 +8333,7 @@ ja = "ステップサイズ"
 pt = "Tamanho do passo"
 it = "Dimensione passo"
 id = "Ukuran langkah"
+pl = "Rozmiar kroku"
 ar = "حجم الخطوة"
 
 ["Strategy"]
@@ -7841,6 +8349,7 @@ ja = "方式"
 pt = "Estratégia"
 it = "Strategia"
 id = "Strategi"
+pl = "Strategia"
 ar = "الاستراتيجية"
 
 ["Strength"]
@@ -7856,6 +8365,7 @@ ja = "強度"
 pt = "Intensidade"
 it = "Intensità"
 id = "Kekuatan"
+pl = "Siła"
 ar = "القوة"
 
 ["Stroke color %{number}"]
@@ -7871,6 +8381,7 @@ ja = "線の色 %{number}"
 pt = "Cor do traço %{number}"
 it = "Colore tratto %{number}"
 id = "Warna goresan %{number}"
+pl = "Kolor obrysu %{number}"
 ar = "لون الخط الخارجي %{number}"
 
 ["Stroke overlap"]
@@ -7886,6 +8397,7 @@ ja = "ストロークの重なり"
 pt = "Sobreposição de traços"
 it = "Sovrapposizione tratti"
 id = "Tumpang tindih goresan"
+pl = "Zachodzenie obrysu"
 ar = "تداخل الخطوط الخارجية"
 
 ["Strokes"]
@@ -7901,6 +8413,7 @@ ja = "ストローク"
 pt = "Traços"
 it = "Tratti"
 id = "Goresan"
+pl = "Obrysy"
 ar = "الخطوط الخارجية"
 
 ["Style"]
@@ -7916,6 +8429,7 @@ ja = "スタイル"
 pt = "Estilo"
 it = "Stile"
 id = "Gaya"
+pl = "Styl"
 ar = "النمط"
 
 ["Subdivision spacing"]
@@ -7931,6 +8445,7 @@ ja = "細分化間隔"
 pt = "Espaçamento de subdivisão"
 it = "Spaziatura suddivisione"
 id = "Spasi subdivisi"
+pl = "Odstęp między podziałami"
 ar = "تباعد التقسيمات الفرعية"
 
 ["Subsurface"]
@@ -7946,6 +8461,7 @@ ja = "サブサーフェス"
 pt = "Subsuperfície"
 it = "Subsuperficie"
 id = "Bawah permukaan"
+pl = "Podpowierzchniowe"
 ar = "تحت السطح"
 
 ["Temperature"]
@@ -7961,6 +8477,7 @@ ja = "色温度"
 pt = "Temperatura"
 it = "Temperatura"
 id = "Suhu"
+pl = "Temperatura"
 ar = "درجة الحرارة"
 
 ["Text color"]
@@ -7976,6 +8493,7 @@ ja = "テキスト色"
 pt = "Cor do texto"
 it = "Colore testo"
 id = "Warna teks"
+pl = "Kolor tekstu"
 ar = "لون النص"
 
 ["Texture"]
@@ -7991,6 +8509,7 @@ ja = "テクスチャ"
 pt = "Textura"
 it = "Texture"
 id = "Tekstur"
+pl = "Tekstura"
 ar = "الملمس"
 
 ["Texture filter"]
@@ -8006,6 +8525,7 @@ ja = "テクスチャフィルター"
 pt = "Filtro de textura"
 it = "Filtro texture"
 id = "Filter tekstur"
+pl = "Filtr tekstury"
 ar = "مرشح الملمس"
 
 ["Texture rotation"]
@@ -8021,6 +8541,7 @@ ja = "テクスチャ回転"
 pt = "Rotação da textura"
 it = "Rotazione texture"
 id = "Rotasi tekstur"
+pl = "Obrót rekstury"
 ar = "تدوير الملمس"
 
 ["Texture scale"]
@@ -8036,6 +8557,7 @@ ja = "テクスチャスケール"
 pt = "Escala da textura"
 it = "Scala texture"
 id = "Skala tekstur"
+pl = "Skala tekstury"
 ar = "مقياس الملمس"
 
 ["Textures"]
@@ -8051,6 +8573,7 @@ ja = "テクスチャ"
 pt = "Texturas"
 it = "Textures"
 id = "Tekstur"
+pl = "Tekstury"
 ar = "الملامس"
 
 ["Threshold"]
@@ -8066,6 +8589,7 @@ ja = "しきい値"
 pt = "Limiar"
 it = "Soglia"
 id = "Ambang batas"
+pl = "Próg"
 ar = "العتبة"
 
 ["Timeline Duration"]
@@ -8081,6 +8605,7 @@ ja = "タイムライン上の長さ"
 pt = "Duração na linha do tempo"
 it = "Durata timeline"
 id = "Durasi Lini Masa"
+pl = "Długość trwania osi czasu"
 ar = "مدة الخط الزمني"
 
 ["Tint"]
@@ -8096,6 +8621,7 @@ ja = "色合い"
 pt = "Tonalidade"
 it = "Tinta"
 id = "Tint"
+pl = "Barwa"
 ar = "صبغة"
 
 ["Tolerance"]
@@ -8111,6 +8637,7 @@ ja = "許容値"
 pt = "Tolerância"
 it = "Tolleranza"
 id = "Toleransi"
+pl = "Tolerancja"
 ar = "التسامح"
 
 ["Tone"]
@@ -8126,6 +8653,7 @@ ja = "トーン"
 pt = "Tom"
 it = "Tono"
 id = "Nada"
+pl = "Ton"
 ar = "النغمة"
 
 ["Top"]
@@ -8141,6 +8669,7 @@ ja = "上"
 pt = "Superior"
 it = "In alto"
 id = "Atas"
+pl = "Góra"
 ar = "أعلى"
 
 ["Top left"]
@@ -8156,6 +8685,7 @@ ja = "左上"
 pt = "Superior esquerdo"
 it = "In alto a sinistra"
 id = "Kiri atas"
+pl = "Lewa góra"
 ar = "أعلى اليسار"
 
 ["Top right"]
@@ -8171,6 +8701,7 @@ ja = "右上"
 pt = "Superior direito"
 it = "In alto a destra"
 id = "Kanan atas"
+pl = "Prawa góra"
 ar = "أعلى اليمين"
 
 ["Track"]
@@ -8186,6 +8717,7 @@ ja = "トラック"
 pt = "Faixa"
 it = "Traccia"
 id = "Track"
+pl = "Ścieżka"
 ar = "المسار"
 
 ["Tracking"]
@@ -8201,6 +8733,7 @@ ja = "トラッキング"
 pt = "Rastreamento"
 it = "Tracking"
 id = "Pelacakan"
+pl = "Śledzenie"
 ar = "التتبع"
 
 ["Tracking method"]
@@ -8216,6 +8749,7 @@ ja = "トラッキング方式"
 pt = "Método de rastreamento"
 it = "Metodo tracking"
 id = "Metode pelacakan"
+pl = "Metoda śledzenia"
 ar = "طريقة التتبع"
 
 ["Tracks"]
@@ -8231,6 +8765,7 @@ ja = "トラック"
 pt = "Faixas"
 it = "Tracce"
 id = "Tracks"
+pl = "Ścieżki"
 ar = "المسارات"
 
 ["Trail length"]
@@ -8246,6 +8781,7 @@ ja = "軌跡の長さ"
 pt = "Comprimento do rastro"
 it = "Lunghezza scia"
 id = "Panjang jejak"
+pl = "Długość ścieżki"
 ar = "طول الأثر"
 
 ["Transform"]
@@ -8261,6 +8797,7 @@ ja = "変形"
 pt = "Transformação"
 it = "Trasforma"
 id = "Transformasi"
+pl = "Transformacja"
 ar = "التحويل"
 
 ["Transition"]
@@ -8276,6 +8813,7 @@ ja = "トランジション"
 pt = "Transição"
 it = "Transizione"
 id = "Transisi"
+pl = "Przejście"
 ar = "الانتقال"
 
 ["Transmission"]
@@ -8291,6 +8829,7 @@ ja = "透過"
 pt = "Transmissão"
 it = "Trasmissione"
 id = "Transmisi"
+pl = "Transmisja"
 ar = "النفاذية"
 
 ["Triangle"]
@@ -8306,6 +8845,7 @@ ja = "三角形"
 pt = "Triângulo"
 it = "Triangolo"
 id = "Segitiga"
+pl = "Trójkąt"
 ar = "مثلث"
 
 ["Type"]
@@ -8321,6 +8861,7 @@ ja = "種類"
 pt = "Tipo"
 it = "Tipo"
 id = "Jenis"
+pl = "Typ"
 ar = "النوع"
 
 ["Unavailable (%{id})"]
@@ -8336,6 +8877,7 @@ ja = "利用不可（%{id}）"
 pt = "Indisponível (%{id})"
 it = "Non disponibile (%{id})"
 id = "Tidak tersedia (%{id})"
+pl = "Niedostępne (%{id})"
 ar = "غير متاح (%{id})"
 
 ["Unavailable while an alpha-mask stream is selected"]
@@ -8351,6 +8893,7 @@ ja = "アルファマスクストリーム選択中は利用不可"
 pt = "Indisponível enquanto um fluxo de máscara alfa estiver selecionado"
 it = "Non disponibile con uno stream di maschera alpha selezionato"
 id = "Tidak tersedia saat stream masker alfa dipilih"
+pl = "Niedostępne kiedy strumień maski alfa jest zaznaczony"
 ar = "غير متاح أثناء تحديد تدفق قناع ألفا"
 
 ["Upsampling"]
@@ -8366,6 +8909,7 @@ ja = "アップサンプリング"
 pt = "Sobreamostragem"
 it = "Upsampling"
 id = "Upsampling"
+pl = "Upsampling"
 ar = "رفع الدقة"
 
 ["Using the reusable chunked analysis cache"]
@@ -8381,6 +8925,7 @@ ja = "再利用可能なチャンク解析キャッシュを使用中"
 pt = "Usando cache de análise segmentada reutilizável"
 it = "Uso della cache di analisi a blocchi riutilizzabile"
 id = "Menggunakan cache analisis potongan yang dapat digunakan kembali"
+pl = "Używanie segmentowanej pamięci cache analizy do wielokrotnego użytku"
 ar = "استخدام ذاكرة التخزين المؤقت للتحليل المجزأ القابلة لإعادة الاستخدام"
 
 ["V align"]
@@ -8396,6 +8941,7 @@ ja = "垂直揃え"
 pt = "Alinhamento V"
 it = "Allinea V"
 id = "Perataan V"
+pl = "Wyrównaj pionowo"
 ar = "محاذاة عمودية"
 
 ["Value"]
@@ -8411,6 +8957,7 @@ ja = "値"
 pt = "Valor"
 it = "Valore"
 id = "Nilai"
+pl = "Wartość"
 ar = "القيمة"
 
 ["Variation"]
@@ -8426,6 +8973,7 @@ ja = "変化"
 pt = "Variação"
 it = "Variazione"
 id = "Variasi"
+pl = "Zmienność"
 ar = "التباين"
 
 ["Vertical"]
@@ -8441,6 +8989,7 @@ ja = "垂直"
 pt = "Vertical"
 it = "Verticale"
 id = "Vertikal"
+pl = "Pionowe"
 ar = "عمودي"
 
 ["Vertical FOV"]
@@ -8456,6 +9005,7 @@ ja = "垂直視野角"
 pt = "Campo de visão vertical"
 it = "FOV verticale"
 id = "FOV Vertikal"
+pl = "Pionowe pole widzenia (FOV)"
 ar = "مجال الرؤية العمودي"
 
 ["Vertical alignment"]
@@ -8471,6 +9021,7 @@ ja = "垂直揃え"
 pt = "Alinhamento vertical"
 it = "Allineamento verticale"
 id = "Perataan vertikal"
+pl = "Pionowe wyrównanie"
 ar = "محاذاة عمودية"
 
 ["Video Stream"]
@@ -8486,6 +9037,7 @@ ja = "ビデオストリーム"
 pt = "Fluxo de vídeo"
 it = "Stream video"
 id = "Stream Video"
+pl = "Strumień wideo"
 ar = "تدفق الفيديو"
 
 ["Video stream %{number}"]
@@ -8501,6 +9053,7 @@ ja = "ビデオストリーム %{number}"
 pt = "Fluxo de vídeo %{number}"
 it = "Stream video %{number}"
 id = "Stream video %{number}"
+pl = "Strumień wideo %{number}"
 ar = "تدفق الفيديو %{number}"
 
 ["View Layer"]
@@ -8516,6 +9069,7 @@ ja = "ビューレイヤー"
 pt = "Camada de visualização"
 it = "Livello vista"
 id = "Lapisan Tampilan"
+pl = "Zobacz warstwę"
 ar = "طبقة العرض"
 
 ["Visible"]
@@ -8531,6 +9085,7 @@ ja = "表示"
 pt = "Visível"
 it = "Visibile"
 id = "Terlihat"
+pl = "Widzialne"
 ar = "مرئي"
 
 ["Visible source area after stabilization"]
@@ -8546,6 +9101,7 @@ ja = "手ぶれ補正後に表示されるソース領域"
 pt = "Área de origem visível após estabilização"
 it = "Area sorgente visibile dopo la stabilizzazione"
 id = "Area sumber yang terlihat setelah stabilisasi"
+pl = "Widzialny obszar źródła po stabilizacji"
 ar = "منطقة المصدر المرئية بعد التثبيت"
 
 ["Visual"]
@@ -8561,6 +9117,7 @@ ja = "ビジュアル"
 pt = "Visual"
 it = "Visuale"
 id = "Visual"
+pl = "Wizualne"
 ar = "مرئي"
 
 ["Visual track %{index}"]
@@ -8576,6 +9133,7 @@ ja = "ビジュアルトラック %{index}"
 pt = "Faixa visual %{index}"
 it = "Traccia visuale %{index}"
 id = "Trek visual %{index}"
+pl = "Ścieżka wizualna %{index}"
 ar = "المسار المرئي %{index}"
 
 ["Warp amount"]
@@ -8591,6 +9149,7 @@ ja = "ワープ量"
 pt = "Quantidade de distorção"
 it = "Quantità deformazione"
 id = "Jumlah lengkungan"
+pl = "Siła zniekształcenia"
 ar = "مقدار الالتواء"
 
 ["Warp scale"]
@@ -8606,6 +9165,7 @@ ja = "ワープスケール"
 pt = "Escala de distorção"
 it = "Scala deformazione"
 id = "Skala lengkungan"
+pl = "Skala zniekształcenia"
 ar = "مقياس الالتواء"
 
 ["Waveform"]
@@ -8621,6 +9181,7 @@ ja = "波形"
 pt = "Forma de onda"
 it = "Forma d'onda"
 id = "Bentuk gelombang"
+pl = "Przebieg fali"
 ar = "الشكل الموجي"
 
 ["Wavelength"]
@@ -8636,6 +9197,7 @@ ja = "波長"
 pt = "Comprimento de onda"
 it = "Lunghezza d'onda"
 id = "Panjang gelombang"
+pl = "Długość fali"
 ar = "الطول الموجي"
 
 ["Width frequency"]
@@ -8651,6 +9213,7 @@ ja = "幅の周波数"
 pt = "Frequência da largura"
 it = "Frequenza larghezza"
 id = "Frekuensi lebar"
+pl = "Częstotliwość szerokości"
 ar = "تردد العرض"
 
 ["Width randomness"]
@@ -8666,6 +9229,7 @@ ja = "幅のランダム性"
 pt = "Aleatoriedade da largura"
 it = "Casualità larghezza"
 id = "Keacakan lebar"
+pl = "Losowość szerokości"
 ar = "عشوائية العرض"
 
 ["Width variation"]
@@ -8681,6 +9245,7 @@ ja = "幅の変化"
 pt = "Variação da largura"
 it = "Variazione larghezza"
 id = "Variasi lebar"
+pl = "Zmienność szerokości"
 ar = "تباين العرض"
 
 ["Wipe"]
@@ -8696,6 +9261,7 @@ ja = "ワイプ"
 pt = "Varredura"
 it = "Wipe"
 id = "Wipe"
+pl = "Zamiatanie"
 ar = "مسح"
 
 ["Wobble"]
@@ -8711,6 +9277,7 @@ ja = "揺れ"
 pt = "Oscilação"
 it = "Oscillazione"
 id = "Goyangan"
+pl = "Falowanie"
 ar = "تذبذب"
 
 ["Wobble position"]
@@ -8726,6 +9293,7 @@ ja = "揺れ位置"
 pt = "Posição da oscilação"
 it = "Posizione oscillazione"
 id = "Posisi goyangan"
+pl = "Pozycja falowania"
 ar = "موضع التذبذب"
 
 ["Wobble scale"]
@@ -8741,6 +9309,7 @@ ja = "揺れスケール"
 pt = "Escala da oscilação"
 it = "Scala oscillazione"
 id = "Skala goyangan"
+pl = "Skala falowania"
 ar = "مقياس التذبذب"
 
 ["Word"]
@@ -8756,6 +9325,7 @@ ja = "単語"
 pt = "Palavra"
 it = "Parola"
 id = "Kata"
+pl = "Słowo"
 ar = "كلمة"
 
 ["Zoom"]
@@ -8771,6 +9341,7 @@ ja = "ズーム"
 pt = "Zoom"
 it = "Zoom"
 id = "Zoom"
+pl = "Przybliżenie"
 ar = "تكبير/تصغير"
 
 ["Arrow"]
@@ -8786,6 +9357,7 @@ ja = "矢印"
 pt = "Seta"
 it = "Freccia"
 id = "Panah"
+pl = "Strzałka"
 ar = "سهم"
 
 ["Blue X"]
@@ -8801,6 +9373,7 @@ ja = "青 X"
 pt = "Azul X"
 it = "Blu X"
 id = "Biru X"
+pl = "Niebieskie X"
 ar = "أزرق X"
 
 ["Blue Y"]
@@ -8816,6 +9389,7 @@ ja = "青 Y"
 pt = "Azul Y"
 it = "Blu Y"
 id = "Biru Y"
+pl = "Niebieskie Y"
 ar = "أزرق Y"
 
 ["Blue ← blue"]
@@ -8831,6 +9405,7 @@ ja = "青 ← 青"
 pt = "Azul ← azul"
 it = "Blu ← blu"
 id = "Biru ← biru"
+pl = "Niebieski ← niebieski"
 ar = "أزرق ← أزرق"
 
 ["Blue ← green"]
@@ -8846,6 +9421,7 @@ ja = "青 ← 緑"
 pt = "Azul ← verde"
 it = "Blu ← verde"
 id = "Biru ← hijau"
+pl = "Niebieski ← zielony"
 ar = "أزرق ← أخضر"
 
 ["Blue ← red"]
@@ -8861,6 +9437,7 @@ ja = "青 ← 赤"
 pt = "Azul ← vermelho"
 it = "Blu ← rosso"
 id = "Biru ← merah"
+pl = "Niebieski ← czerwony"
 ar = "أزرق ← أحمر"
 
 ["Capsule"]
@@ -8876,6 +9453,7 @@ ja = "カプセル"
 pt = "Cápsula"
 it = "Capsula"
 id = "Kapsul"
+pl = "Kapsuła"
 ar = "كبسولة"
 
 ["Casual"]
@@ -8891,6 +9469,7 @@ ja = "カジュアル"
 pt = "Casual"
 it = "Casual"
 id = "Santai"
+pl = "Zwykłe"
 ar = "غير رسمي"
 
 ["Clock Wipe"]
@@ -8906,6 +9485,7 @@ ja = "クロックワイプ"
 pt = "Varredura de relógio"
 it = "Wipe orario"
 id = "Clock Wipe"
+pl = "Zamiatanie zegarowe"
 ar = "مسح ساعي"
 
 ["Cone"]
@@ -8921,6 +9501,7 @@ ja = "円錐"
 pt = "Cone"
 it = "Cono"
 id = "Kerucut"
+pl = "Stożek"
 ar = "مخروط"
 
 ["Contour Current"]
@@ -8936,6 +9517,7 @@ ja = "輪郭電流"
 pt = "Corrente de contorno"
 it = "Corrente contorno"
 id = "Arus Kontur"
+pl = "Przebieg konturu"
 ar = "التيار الكنتوري"
 
 ["Cross Fade"]
@@ -8951,6 +9533,7 @@ ja = "クロスフェード"
 pt = "Fade cruzado"
 it = "Crossfade"
 id = "Cross Fade"
+pl = "Przejście krzyżowe"
 ar = "تلاشي متقاطع"
 
 ["Cursive"]
@@ -8966,6 +9549,7 @@ ja = "筆記体"
 pt = "Cursiva"
 it = "Cursivo"
 id = "Kursif"
+pl = "Kursywa"
 ar = "متصل"
 
 ["Direct"]
@@ -8981,6 +9565,7 @@ ja = "直接"
 pt = "Direto"
 it = "Diretta"
 id = "Langsung"
+pl = "Bezpośrednie"
 ar = "مباشر"
 
 ["Disk / cylinder"]
@@ -8996,6 +9581,7 @@ ja = "円盤 / 円柱"
 pt = "Disco / cilindro"
 it = "Disco / cilindro"
 id = "Cakram / silinder"
+pl = "Dysk / cylinder"
 ar = "قرص / أسطوانة"
 
 ["Dissolve"]
@@ -9011,6 +9597,7 @@ ja = "ディゾルブ"
 pt = "Dissolvência"
 it = "Dissolvenza"
 id = "Dissolve"
+pl = "Rozpuść"
 ar = "ذوبان"
 
 ["Equal Power"]
@@ -9026,6 +9613,7 @@ ja = "等パワー"
 pt = "Potência igual"
 it = "Potenza uguale"
 id = "Daya Seimbang"
+pl = "Równa moc"
 ar = "طاقة متساوية"
 
 ["F0 method"]
@@ -9041,6 +9629,7 @@ ja = "F0方式"
 pt = "Método F0"
 it = "Metodo F0"
 id = "Metode F0"
+pl = "Metoda F0"
 ar = "طريقة F0"
 
 ["Facet Assembly"]
@@ -9056,6 +9645,7 @@ ja = "ファセット構成"
 pt = "Montagem de facetas"
 it = "Assemblaggio faccette"
 id = "Perakitan Faset"
+pl = "Składanie faset"
 ar = "تجميع الأوجه"
 
 ["Fade Through Color"]
@@ -9071,6 +9661,7 @@ ja = "カラーフェード"
 pt = "Esmaecer para cor"
 it = "Fade attraverso colore"
 id = "Fade Lewat Warna"
+pl = "Przejście przez kolor"
 ar = "تلاشي عبر اللون"
 
 ["Feature contours · multipass"]
@@ -9086,6 +9677,7 @@ ja = "特徴輪郭 · マルチパス"
 pt = "Contornos de feições · múltiplos passos"
 it = "Contorni elementi · multipass"
 id = "Kontur fitur · multipass"
+pl = "Kontury cech · wieloprzebiegowo"
 ar = "كنتورات الميزات · متعدد التمريرات"
 
 ["Google"]
@@ -9101,6 +9693,7 @@ ja = "Google"
 pt = "Google"
 it = "Google"
 id = "Google"
+pl = "Google"
 ar = "Google"
 
 ["Green ← blue"]
@@ -9116,6 +9709,7 @@ ja = "緑 ← 青"
 pt = "Verde ← azul"
 it = "Verde ← blu"
 id = "Hijau ← biru"
+pl = "Zielony ← niebieski"
 ar = "أخضر ← أزرق"
 
 ["Green ← green"]
@@ -9131,6 +9725,7 @@ ja = "緑 ← 緑"
 pt = "Verde ← verde"
 it = "Verde ← verde"
 id = "Hijau ← hijau"
+pl = "Zielony ← zielony"
 ar = "أخضر ← أخضر"
 
 ["Green ← red"]
@@ -9146,6 +9741,7 @@ ja = "緑 ← 赤"
 pt = "Verde ← vermelho"
 it = "Verde ← rosso"
 id = "Hijau ← merah"
+pl = "Zielony ← czerwony"
 ar = "أخضر ← أحمر"
 
 ["High · 24 samples"]
@@ -9161,6 +9757,7 @@ ja = "高 · 24サンプル"
 pt = "Alta · 24 amostras"
 it = "Alta · 24 campioni"
 id = "Tinggi · 24 sampel"
+pl = "Wysokie · 24 próbki"
 ar = "عالي · 24 عينة"
 
 ["High · 8 probes"]
@@ -9176,6 +9773,7 @@ ja = "高 · 8プローブ"
 pt = "Alta · 8 sondas"
 it = "Alta · 8 sonde"
 id = "Tinggi · 8 probe"
+pl = "Wysokie · 8 próbek"
 ar = "عالي · 8 مجسات"
 
 ["Kuwahara · painterly"]
@@ -9191,6 +9789,7 @@ ja = "Kuwahara · 絵画調"
 pt = "Kuwahara · pictórico"
 it = "Kuwahara · pittorico"
 id = "Kuwahara · lukisan"
+pl = "Kuwahara · malarski"
 ar = "كواهارا · تصويري"
 
 ["Live Performance"]
@@ -9206,6 +9805,7 @@ ja = "ライブパフォーマンス"
 pt = "Desempenho em tempo real"
 it = "Prestazione live"
 id = "Performa Langsung"
+pl = "Wydajność na żywo"
 ar = "الأداء الحي"
 
 ["Last %{last} · Avg %{average} · Min %{minimum} · Max %{maximum} · %{samples} samples%{percentage}"]
@@ -9221,6 +9821,7 @@ ja = "直近 %{last} · 平均 %{average} · 最小 %{minimum} · 最大 %{maxim
 pt = "Último %{last} · Méd. %{average} · Mín. %{minimum} · Máx. %{maximum} · %{samples} amostras%{percentage}"
 it = "Ultimo %{last} · Medio %{average} · Min %{minimum} · Max %{maximum} · %{samples} campioni%{percentage}"
 id = "Terakhir %{last} · Rata-rata %{average} · Min %{minimum} · Maks %{maximum} · %{samples} sampel%{percentage}"
+pl = "Ostatnie %{last} · Śred. %{average} · Min. %{minimum} · Maks. %{maximum} · %{samples} próbek%{percentage}"
 ar = "الأخير %{last} · المتوسط %{average} · الأدنى %{minimum} · الأقصى %{maximum} · %{samples} عينة%{percentage}"
 
 ["Living Fill"]
@@ -9236,6 +9837,7 @@ ja = "リビングフィル"
 pt = "Preenchimento vivo"
 it = "Riempimento dinamico"
 id = "Isian Hidup"
+pl = "Żywe wypełnienie"
 ar = "تعبئة حية"
 
 ["Caption markup: **bold**, *italic*, __underline__, {milliseconds} karaoke, [base/ruby]"]
@@ -9251,6 +9853,7 @@ ja = "キャプションマークアップ: **太字**、*斜体*、__下線__�
 pt = "Marcação de legenda: **negrito**, *itálico*, __sublinhado__, {milissegundos} karaokê, [base/ruby]"
 it = "Marcatura sottotitoli: **grassetto**, *corsivo*, __sottolineato__, {milliseconds} karaoke, [base/ruby]"
 id = "Markup subtitel: **tebal**, *miring*, __garis bawah__, {milliseconds} karaoke, [dasar/ruby]"
+pl = "Znaczniki napisów: **pogrubienie**, *kursywa*, __podkreślenie__, {milisekundy} karaoke, [baza/ruby]"
 ar = "تنسيق التسميات التوضيحية: **غامق**، *مائل*، __مسطر__، {milliseconds} كاريوكي، [base/ruby]"
 
 ["Missing item"]
@@ -9266,6 +9869,7 @@ ja = "項目がありません"
 pt = "Item ausente"
 it = "Elemento mancante"
 id = "Item hilang"
+pl = "Brakujący element"
 ar = "عنصر مفقود"
 
 ["Morphological Resolve"]
@@ -9281,6 +9885,7 @@ ja = "形態学的解決"
 pt = "Resolução morfológica"
 it = "Morphological Resolve"
 id = "Resolusi Morfologis"
+pl = "Przekształcenie morfologiczne"
 ar = "حل صرفي"
 
 ["Naive"]
@@ -9296,6 +9901,7 @@ ja = "単純"
 pt = "Simples"
 it = "Naive"
 id = "Sederhana"
+pl = "Naiwne"
 ar = "بسيط"
 
 ["Native"]
@@ -9311,6 +9917,7 @@ ja = "ネイティブ"
 pt = "Nativo"
 it = "Nativo"
 id = "Asli"
+pl = "Natywne"
 ar = "أصلي"
 
 ["Oblique"]
@@ -9326,6 +9933,7 @@ ja = "斜体"
 pt = "Oblíquo"
 it = "Obliquo"
 id = "Oblik"
+pl = "Pochyła"
 ar = "مائل"
 
 ["Off (Full Resolution)"]
@@ -9341,6 +9949,7 @@ ja = "オフ（フル解像度）"
 pt = "Desativado (resolução máxima)"
 it = "Off (risoluzione completa)"
 id = "Mati (Resolusi Penuh)"
+pl = "Wyłączone (pełna rozdzielczość)"
 ar = "معطل (دقة كاملة)"
 
 ["Origami"]
@@ -9356,6 +9965,7 @@ ja = "折り紙"
 pt = "Origami"
 it = "Origami"
 id = "Origami"
+pl = "Origami"
 ar = "أوريغامي"
 
 ["Path tracing"]
@@ -9371,6 +9981,7 @@ ja = "パストレーシング"
 pt = "Traçado de caminhos"
 it = "Path tracing"
 id = "Path tracing"
+pl = "Śledzenie ścieżek"
 ar = "تتبع المسار"
 
 ["Pools"]
@@ -9386,6 +9997,7 @@ ja = "プール"
 pt = "Pools"
 it = "Pool"
 id = "Kolam"
+pl = "Pule"
 ar = "المجمعات"
 
 ["Push"]
@@ -9401,6 +10013,7 @@ ja = "プッシュ"
 pt = "Empurrar"
 it = "Push"
 id = "Dorong"
+pl = "Wypychanie"
 ar = "دفع"
 
 ["Radial + Fresnel"]
@@ -9416,6 +10029,7 @@ ja = "放射 + フレネル"
 pt = "Radial + Fresnel"
 it = "Radiale + Fresnel"
 id = "Radial + Fresnel"
+pl = "Radialne + Fresnel"
 ar = "شعاعي + فرينل"
 
 ["Radial probes"]
@@ -9431,6 +10045,7 @@ ja = "放射プローブ"
 pt = "Sondas radiais"
 it = "Probes radiali"
 id = "Probe radial"
+pl = "Próbki radialne"
 ar = "مجسات شعاعية"
 
 ["Red X"]
@@ -9446,6 +10061,7 @@ ja = "赤 X"
 pt = "Vermelho X"
 it = "Rosso X"
 id = "Merah X"
+pl = "Czerwony X"
 ar = "أحمر X"
 
 ["Red Y"]
@@ -9461,6 +10077,7 @@ ja = "赤 Y"
 pt = "Vermelho Y"
 it = "Rosso Y"
 id = "Merah Y"
+pl = "Czerwony Y"
 ar = "أحمر Y"
 
 ["Red ← blue"]
@@ -9476,6 +10093,7 @@ ja = "赤 ← 青"
 pt = "Vermelho ← azul"
 it = "Rosso ← blu"
 id = "Merah ← biru"
+pl = "Czerwony ← niebieski"
 ar = "أحمر ← أزرق"
 
 ["Red ← green"]
@@ -9491,6 +10109,7 @@ ja = "赤 ← 緑"
 pt = "Vermelho ← verde"
 it = "Rosso ← verde"
 id = "Merah ← hijau"
+pl = "Czerwony ← zielony"
 ar = "أحمر ← أخضر"
 
 ["Red ← red"]
@@ -9506,6 +10125,7 @@ ja = "赤 ← 赤"
 pt = "Vermelho ← vermelho"
 it = "Rosso ← rosso"
 id = "Merah ← merah"
+pl = "Czerwony ← czerwony"
 ar = "أحمر ← أحمر"
 
 ["Render Style"]
@@ -9521,6 +10141,7 @@ ja = "レンダリングスタイル"
 pt = "Estilo de renderização"
 it = "Stile di render"
 id = "Gaya Render"
+pl = "Styl renderowania"
 ar = "نمط التصيير"
 
 ["Repeat"]
@@ -9536,6 +10157,7 @@ ja = "繰り返し"
 pt = "Repetir"
 it = "Ripeti"
 id = "Ulangi"
+pl = "Powtórz"
 ar = "تكرار"
 
 ["Reverse Diffusion"]
@@ -9551,6 +10173,7 @@ ja = "逆拡散"
 pt = "Difusão reversa"
 it = "Diffusione inversa"
 id = "Difusi Terbalik"
+pl = "Odwrotna dyfuzja"
 ar = "انتشار عكسي"
 
 ["Rotated LTR"]
@@ -9566,6 +10189,7 @@ ja = "回転・左から右"
 pt = "Girado da esq. para dir."
 it = "Ruotato LTR"
 id = "Diputar LTR"
+pl = "Obrócone od lewej do prawej"
 ar = "مدور من اليسار إلى اليمين"
 
 ["Rotated RTL"]
@@ -9581,6 +10205,7 @@ ja = "回転・右から左"
 pt = "Girado da dir. para esq."
 it = "Ruotato RTL"
 id = "Diputar RTL"
+pl = "Obrócone od prawej do lewej"
 ar = "مدور من اليمين إلى اليسار"
 
 ["SVG Colors"]
@@ -9596,6 +10221,7 @@ ja = "SVGの色"
 pt = "Cores SVG"
 it = "Colori SVG"
 id = "Warna SVG"
+pl = "Kolory SVG"
 ar = "ألوان SVG"
 
 ["SVG color"]
@@ -9611,6 +10237,7 @@ ja = "SVGの色"
 pt = "Cor SVG"
 it = "Colore SVG"
 id = "Warna SVG"
+pl = "Kolor SVG"
 ar = "لون SVG"
 
 ["Serif"]
@@ -9626,6 +10253,7 @@ ja = "明朝体"
 pt = "Com serifa"
 it = "Serif"
 id = "Serif"
+pl = "Szeryfowa"
 ar = "مذيل (Serif)"
 
 ["Silhouette"]
@@ -9641,6 +10269,7 @@ ja = "シルエット"
 pt = "Silhueta"
 it = "Silhouette"
 id = "Siluet"
+pl = "Sylwetka"
 ar = "صورة ظلية"
 
 ["Silhouette + creases"]
@@ -9656,6 +10285,7 @@ ja = "シルエット + 折り目"
 pt = "Silhueta + vincos"
 it = "Silhouette + pieghe"
 id = "Siluet + lipatan"
+pl = "Sylwetka + zagięcia"
 ar = "صورة ظلية + ثنيات"
 
 ["Slide"]
@@ -9671,6 +10301,7 @@ ja = "スライド"
 pt = "Deslizar"
 it = "Scorrimento"
 id = "Geser"
+pl = "Przesuwanie"
 ar = "انزلاق"
 
 ["Slide + Fade"]
@@ -9686,6 +10317,7 @@ ja = "スライド + フェード"
 pt = "Deslizar + esmaecer"
 it = "Scorrimento + Fade"
 id = "Geser + Fade"
+pl = "Przesuwanie + zanikanie"
 ar = "انزلاق + تلاشي"
 
 ["Small Capitals"]
@@ -9701,6 +10333,7 @@ ja = "スモールキャップ"
 pt = "Versaletes"
 it = "Maiuscoletto"
 id = "Kapital Kecil"
+pl = "Kapitaliki"
 ar = "أحرف استهلالية صغيرة"
 
 ["Soft Refraction"]
@@ -9716,6 +10349,7 @@ ja = "ソフト屈折"
 pt = "Refração suave"
 it = "Rifrazione morbida"
 id = "Bias Lembut"
+pl = "Miękkie załamanie"
 ar = "انكسار ناعم"
 
 ["Sphere"]
@@ -9731,6 +10365,7 @@ ja = "球"
 pt = "Esfera"
 it = "Sfera"
 id = "Bola"
+pl = "Kula"
 ar = "كرة"
 
 ["Standard · 12 samples"]
@@ -9746,6 +10381,7 @@ ja = "標準 · 12サンプル"
 pt = "Padrão · 12 amostras"
 it = "Standard · 12 campioni"
 id = "Standar · 12 sampel"
+pl = "Standardowe · 12 próbek"
 ar = "قياسي · 12 عينة"
 
 ["Standard · 4 probes"]
@@ -9761,6 +10397,7 @@ ja = "標準 · 4プローブ"
 pt = "Padrão · 4 sondas"
 it = "Standard · 4 sonde"
 id = "Standar · 4 probe"
+pl = "Standardowe · 4 próbki"
 ar = "قياسي · 4 مجسات"
 
 ["Star"]
@@ -9776,6 +10413,7 @@ ja = "星"
 pt = "Estrela"
 it = "Stella"
 id = "Bintang"
+pl = "Gwiazda"
 ar = "نجمة"
 
 ["Streak Wipe"]
@@ -9791,6 +10429,7 @@ ja = "ストリークワイプ"
 pt = "Varredura de faixas"
 it = "Streak Wipe"
 id = "Sapuan Garis"
+pl = "Zamiatanie smugą"
 ar = "مسح تخطيطي"
 
 ["Streamline"]
@@ -9806,6 +10445,7 @@ ja = "流線"
 pt = "Linha fluida"
 it = "Streamline"
 id = "Streamline"
+pl = "Linia opływowa"
 ar = "انسيابي"
 
 ["Stroke Transform"]
@@ -9821,6 +10461,7 @@ ja = "ストローク変形"
 pt = "Transformação de traço"
 it = "Trasformazione tratto"
 id = "Transformasi Goresan"
+pl = "Transformacja obrysu"
 ar = "تحويل الخط الخارجي"
 
 ["System default"]
@@ -9836,6 +10477,7 @@ ja = "システム既定"
 pt = "Padrão do sistema"
 it = "Predefinito di sistema"
 id = "Bawaan sistem"
+pl = "Domyślne systemowe"
 ar = "افتراضي النظام"
 
 ["Thinning"]
@@ -9851,6 +10493,7 @@ ja = "細線化"
 pt = "Afinamento"
 it = "Assottigliamento"
 id = "Penipisan"
+pl = "Ścienianie"
 ar = "ترقيق"
 
 ["Torus"]
@@ -9866,6 +10509,7 @@ ja = "トーラス"
 pt = "Toro"
 it = "Toro"
 id = "Torus"
+pl = "Torus"
 ar = "طارة"
 
 ["Track %{track} · Item %{item}"]
@@ -9881,6 +10525,7 @@ ja = "トラック %{track} · 項目 %{item}"
 pt = "Faixa %{track} · Item %{item}"
 it = "Traccia %{track} · Elemento %{item}"
 id = "Trek %{track} · Item %{item}"
+pl = "Ścieżka %{track} · Element %{item}"
 ar = "المسار %{track} · العنصر %{item}"
 
 ["Triangular Fold"]
@@ -9896,6 +10541,7 @@ ja = "三角折り"
 pt = "Dobra triangular"
 it = "Piega triangolare"
 id = "Lipatan Segitiga"
+pl = "Trójkątne zagięcie"
 ar = "طي مثلث"
 
 ["Ultra · 16 probes"]
@@ -9911,6 +10557,7 @@ ja = "最高 · 16プローブ"
 pt = "Ultra · 16 sondas"
 it = "Ultra · 16 sonde"
 id = "Ultra · 16 probe"
+pl = "Ultra · 16 próbek"
 ar = "فائق · 16 مجس"
 
 ["Ultra · 48 samples"]
@@ -9926,6 +10573,7 @@ ja = "最高 · 48サンプル"
 pt = "Ultra · 48 amostras"
 it = "Ultra · 48 campioni"
 id = "Ultra · 48 sampel"
+pl = "Ultra · 48 próbek"
 ar = "فائق · 48 عينة"
 
 ["Unwrite"]
@@ -9941,6 +10589,7 @@ ja = "消去"
 pt = "Apagar"
 it = "Cancellazione testo"
 id = "Hapus tulisan"
+pl = "Cofanie pisania"
 ar = "عكس الكتابة"
 
 ["Vertical LTR"]
@@ -9956,6 +10605,7 @@ ja = "縦書き・左から右"
 pt = "Vertical da esq. para dir."
 it = "Verticale da sinistra a destra"
 id = "Vertikal LTR"
+pl = "Pionowe od lewej do prawej"
 ar = "عمودي من اليسار إلى اليمين"
 
 ["Vertical RTL"]
@@ -9971,6 +10621,7 @@ ja = "縦書き・右から左"
 pt = "Vertical da dir. para esq."
 it = "Verticale da destra a sinistra"
 id = "Vertikal RTL"
+pl = "Pionowe od prawej do lewej"
 ar = "عمودي من اليمين إلى اليسار"
 
 ["Video / Render request"]
@@ -9986,6 +10637,7 @@ ja = "ビデオ / レンダリング要求"
 pt = "Solicitação de vídeo / renderização"
 it = "Richiesta video / render"
 id = "Permintaan video / render"
+pl = "Żądanie wideo / renderowania"
 ar = "طلب فيديو / تصيير"
 
 ["Visual track %{number}"]
@@ -10001,6 +10653,7 @@ ja = "ビジュアルトラック %{number}"
 pt = "Faixa visual %{number}"
 it = "Traccia video %{number}"
 id = "Trek visual %{number}"
+pl = "Ścieżka wizualna %{number}"
 ar = "المسار المرئي %{number}"
 
 ["Write"]
@@ -10016,6 +10669,7 @@ ja = "書く"
 pt = "Escrever"
 it = "Scrivi"
 id = "Tulis"
+pl = "Pisanie"
 ar = "كتابة"
 
 ["Writing"]
@@ -10031,6 +10685,7 @@ ja = "書き込み"
 pt = "Escrita"
 it = "Scrittura"
 id = "Menulis"
+pl = "Pismo"
 ar = "جارٍ الكتابة"
 
 ["%{axis} variation axis"]
@@ -10046,6 +10701,7 @@ ja = "%{axis} バリエーション軸"
 pt = "Eixo de variação %{axis}"
 it = "Asse di variazione %{axis}"
 id = "Sumbu variasi %{axis}"
+pl = "Oś zmienności %{axis}"
 ar = "محور التباين %{axis}"
 
 ["%{name} copied"]
@@ -10061,6 +10717,7 @@ ja = "%{name} をコピーしました"
 pt = "%{name} copiado"
 it = "%{name} copiato"
 id = "%{name} disalin"
+pl = "Skopiowano %{name}"
 ar = "تم نسخ %{name}"
 
 ["%{label} (Unavailable)"]
@@ -10076,6 +10733,7 @@ ja = "%{label}（利用不可）"
 pt = "%{label} (Indisponível)"
 it = "%{label} (non disponibile)"
 id = "%{label} (Tidak tersedia)"
+pl = "%{label} (niedostępne)"
 ar = "%{label} (غير متاح)"
 
 ["%{message} %{completed}/%{total}"]
@@ -10091,6 +10749,7 @@ ja = "%{message} %{completed}/%{total}"
 pt = "%{message} %{completed}/%{total}"
 it = "%{message} %{completed}/%{total}"
 id = "%{message} %{completed}/%{total}"
+pl = "%{message} %{completed}/%{total}"
 ar = "%{message} %{completed}/%{total}"
 
 ["Output: %{output}"]
@@ -10106,6 +10765,7 @@ ja = "出力: %{output}"
 pt = "Saída: %{output}"
 it = "Output: %{output}"
 id = "Output: %{output}"
+pl = "Wyjście: %{output}"
 ar = "المخرجات: %{output}"
 
 ["%{strokes} strokes, %{fills} fills"]
@@ -10121,6 +10781,7 @@ ja = "%{strokes} ストローク、%{fills} 塗り"
 pt = "%{strokes} traços, %{fills} preenchimentos"
 it = "%{strokes} tratti, %{fills} riempimenti"
 id = "%{strokes} goresan, %{fills} isian"
+pl = "%{strokes} obrysów, %{fills} wypełnień"
 ar = "%{strokes} خطوط خارجية، %{fills} تعبئات"
 
 ["1 keyframe copied"]
@@ -10136,6 +10797,7 @@ ja = "キーフレームを1件コピーしました"
 pt = "1 quadro-chave copiado"
 it = "1 keyframe copiato"
 id = "1 keyframe disalin"
+pl = "Skopiowano 1 klatkę kluczową"
 ar = "تم نسخ إطار رئيسي واحد"
 
 ["1 keyframe pasted"]
@@ -10151,6 +10813,7 @@ ja = "キーフレームを1件貼り付けました"
 pt = "1 quadro-chave colado"
 it = "1 keyframe incollato"
 id = "1 keyframe ditempel"
+pl = "Wklejono 1 klatkę kluczową"
 ar = "تم لصق إطار رئيسي واحد"
 
 ["%{count} keyframes copied"]
@@ -10166,6 +10829,7 @@ ja = "%{count}件のキーフレームをコピーしました"
 pt = "%{count} quadros-chave copiados"
 it = "%{count} keyframes copiati"
 id = "%{count} keyframe disalin"
+pl = "Skopiowano klatek kluczowych: %{count}"
 ar = "تم نسخ %{count} من الإطارات الرئيسية"
 
 ["%{count} keyframes pasted"]
@@ -10181,6 +10845,7 @@ ja = "%{count}件のキーフレームを貼り付けました"
 pt = "%{count} quadros-chave colados"
 it = "%{count} keyframes incollati"
 id = "%{count} keyframe ditempel"
+pl = "Wklejono klatek kluczowych: %{count}"
 ar = "تم لصق %{count} من الإطارات الرئيسية"
 
 ["Analysis starts as source-time chunks are viewed"]
@@ -10196,6 +10861,7 @@ ja = "ソース時間チャンクの表示時に解析を開始"
 pt = "A análise inicia conforme os trechos temporais de origem são visualizados"
 it = "L'analisi inizia quando si visualizzano i frammenti della sequenza sorgente"
 id = "Analisis dimulai saat potongan waktu sumber dilihat"
+pl = "Analiza rozpoczyna się podczas przeglądania fragmentów czasu źródłowego"
 ar = "يبدأ التحليل عند عرض مقاطع الوقت المصدري"
 
 ["Benchmark report copied"]
@@ -10211,6 +10877,7 @@ ja = "ベンチマークレポートをコピーしました"
 pt = "Relatório de benchmark copiado"
 it = "Rapporto prestazioni copiato"
 id = "Laporan tolok ukur disalin"
+pl = "Skopiowano raport testu wydajności"
 ar = "تم نسخ تقرير قياس الأداء"
 
 ["Checking compute server..."]
@@ -10226,6 +10893,7 @@ ja = "計算サーバーを確認中..."
 pt = "Verificando servidor de computação..."
 it = "Controllo del server di calcolo..."
 id = "Memeriksa server komputasi..."
+pl = "Sprawdzanie serwera obliczeniowego..."
 ar = "جارٍ التحقق من خادم الحوسبة..."
 
 ["Choose a compatible Blender binary in Preferences"]
@@ -10241,6 +10909,7 @@ ja = "設定で互換性のあるBlender実行ファイルを選択してくだ�
 pt = "Escolha um executável compatível do Blender nas Preferências"
 it = "Scegli un binario Blender compatibile nelle Preferenze"
 id = "Pilih biner Blender yang kompatibel di Preferensi"
+pl = "Wybierz zgodny plik wykonywalny Blender w Preferencjach"
 ar = "اختر ملفاً تنفيذياً متوافقاً لـ Blender في التفضيلات"
 
 ["Expression output unavailable"]
@@ -10256,6 +10925,7 @@ ja = "式の出力を利用できません"
 pt = "Saída de expressão indisponível"
 it = "Output dell'espressione non disponibile"
 id = "Output ekspresi tidak tersedia"
+pl = "Wynik wyrażenia niedostępny"
 ar = "مخرجات التعبير غير متاحة"
 
 ["Jacobi passes used to minimize the MeshFlow energy"]
@@ -10271,6 +10941,7 @@ ja = "MeshFlowエネルギーを最小化するJacobiパス数"
 pt = "Passos de Jacobi usados para minimizar a energia do MeshFlow"
 it = "Passaggi Jacobi usati per minimizzare l'energia di MeshFlow"
 id = "Lulusan Jacobi digunakan untuk meminimalkan energi MeshFlow"
+pl = "Przebiegi Jacobiego użyte do minimalizacji energii MeshFlow"
 ar = "تمريرات جاكوبي المستخدمة لتقليل طاقة MeshFlow"
 
 ["Ready (%{count} samples)"]
@@ -10286,6 +10957,7 @@ ja = "準備完了（%{count}サンプル）"
 pt = "Pronto (%{count} amostras)"
 it = "Pronto (%{count} campioni)"
 id = "Siap (%{count} sampel)"
+pl = "Gotowe (%{count} próbek)"
 ar = "جاهز (%{count} عينة)"
 
 ["Selected tracking method is unavailable"]
@@ -10301,6 +10973,7 @@ ja = "選択したトラッキング方式は利用できません"
 pt = "O método de rastreamento selecionado está indisponível"
 it = "Il metodo di tracking selezionato non è disponibile"
 id = "Metode pelacakan yang dipilih tidak tersedia"
+pl = "Wybrana metoda śledzenia jest niedostępna"
 ar = "طريقة التتبع المحددة غير متاحة"
 
 ["Source track is empty"]
@@ -10316,6 +10989,7 @@ ja = "ソーストラックが空です"
 pt = "A faixa de origem está vazia"
 it = "La traccia sorgente è vuota"
 id = "Trek sumber kosong"
+pl = "Ścieżka źródłowa jest pusta"
 ar = "المسار المصدري فارغ"
 
 ["Source track unavailable"]
@@ -10331,6 +11005,7 @@ ja = "ソーストラックを利用できません"
 pt = "Faixa de origem indisponível"
 it = "Traccia sorgente non disponibile"
 id = "Trek sumber tidak tersedia"
+pl = "Ścieżka źródłowa niedostępna"
 ar = "المسار المصدري غير متاح"
 
 ["3-band EQ"]
@@ -10346,6 +11021,7 @@ ja = "3バンドEQ"
 pt = "Equalizador de 3 bandas"
 it = "Equalizzatore a 3 bande"
 id = "EQ 3-band"
+pl = "3-pasmowy EQ"
 ar = "معادل صوتي ثلاثي النطاقات"
 
 ["3D Object"]
@@ -10361,6 +11037,7 @@ ja = "3Dオブジェクト"
 pt = "Objeto 3D"
 it = "Oggetto 3D"
 id = "Objek 3D"
+pl = "Obiekt 3D"
 ar = "كائن ثلاثي الأبعاد"
 
 ["3D Shape"]
@@ -10376,6 +11053,7 @@ ja = "3D図形"
 pt = "Forma 3D"
 it = "Forma 3D"
 id = "Bentuk 3D"
+pl = "Kształt 3D"
 ar = "شكل ثلاثي الأبعاد"
 
 ["3D Text"]
@@ -10391,6 +11069,7 @@ ja = "3Dテキスト"
 pt = "Texto 3D"
 it = "Testo 3D"
 id = "Teks 3D"
+pl = "Tekst 3D"
 ar = "نص ثلاثي الأبعاد"
 
 ["Alpha outline"]
@@ -10406,6 +11085,7 @@ ja = "アルファアウトライン"
 pt = "Contorno alfa"
 it = "Contorno alpha"
 id = "Garis luar alfa"
+pl = "Kontur alfa"
 ar = "مخطط ألفا التفصيلي"
 
 ["Append"]
@@ -10421,6 +11101,7 @@ ja = "末尾に追加"
 pt = "Anexar ao final"
 it = "Aggiungi alla fine"
 id = "Tambahkan di akhir"
+pl = "Dołącz"
 ar = "إلحاق"
 
 ["Bitcrusher"]
@@ -10436,6 +11117,7 @@ ja = "ビットクラッシャー"
 pt = "Bitcrusher"
 it = "Bitcrusher"
 id = "Bitcrusher"
+pl = "Bitcrusher"
 ar = "مخفض عمق البت"
 
 ["Bulge"]
@@ -10451,6 +11133,7 @@ ja = "膨張"
 pt = "Abaulamento"
 it = "Rigonfiamento"
 id = "Cembung"
+pl = "Wybrzuszenie"
 ar = "انتفاخ"
 
 ["Cache"]
@@ -10466,6 +11149,7 @@ ja = "キャッシュ"
 pt = "Cache"
 it = "Cache"
 id = "Cache"
+pl = "Cache"
 ar = "ذاكرة التخزين المؤقت"
 
 ["Channel mixer"]
@@ -10481,6 +11165,7 @@ ja = "チャンネルミキサー"
 pt = "Misturador de canais"
 it = "Mixer di canali"
 id = "Mixer saluran"
+pl = "Mikser kanałów"
 ar = "مازج القنوات"
 
 ["Chorus"]
@@ -10496,6 +11181,7 @@ ja = "コーラス"
 pt = "Chorus"
 it = "Coro"
 id = "Chorus"
+pl = "Chorus"
 ar = "كورس"
 
 ["Chroma key"]
@@ -10511,6 +11197,7 @@ ja = "クロマキー"
 pt = "Chroma key"
 it = "Chroma key"
 id = "Chroma key"
+pl = "Klucz chroma"
 ar = "كروما"
 
 ["Chromatic aberration"]
@@ -10526,6 +11213,7 @@ ja = "色収差"
 pt = "Aberração cromática"
 it = "Aberrazione cromatica"
 id = "Aberasi kromatik"
+pl = "Aberracja chromatyczna"
 ar = "زوغان لوني"
 
 ["Close up"]
@@ -10541,6 +11229,7 @@ ja = "クローズアップ"
 pt = "Primeiro plano"
 it = "Primo piano"
 id = "Close up"
+pl = "Zbliżenie"
 ar = "لقطة مقربة"
 
 ["Color correction"]
@@ -10556,6 +11245,7 @@ ja = "色補正"
 pt = "Correção de cor"
 it = "Correzione colore"
 id = "Koreksi warna"
+pl = "Korekcja koloru"
 ar = "تصحيح الألوان"
 
 ["Compressor"]
@@ -10571,6 +11261,7 @@ ja = "コンプレッサー"
 pt = "Compressor"
 it = "Compressore"
 id = "Kompresor"
+pl = "Kompresor"
 ar = "ضاغط الصوت"
 
 ["Corner Pin"]
@@ -10586,6 +11277,7 @@ ja = "コーナーピン"
 pt = "Deformação de cantos"
 it = "Ancoraggio angoli"
 id = "Corner Pin"
+pl = "Przypięcie narożników"
 ar = "تثبيت الزوايا"
 
 ["Crop"]
@@ -10601,6 +11293,7 @@ ja = "クロップ"
 pt = "Recortar"
 it = "Ritaglio"
 id = "Pangkas"
+pl = "Przycinanie"
 ar = "قص"
 
 ["Decode"]
@@ -10616,6 +11309,7 @@ ja = "デコード"
 pt = "Decodificar"
 it = "Decodifica"
 id = "Dekode"
+pl = "Dekodowanie"
 ar = "فك الترميز"
 
 ["Denoise"]
@@ -10631,6 +11325,7 @@ ja = "ノイズ除去"
 pt = "Redução de ruído"
 it = "Riduzione rumore"
 id = "Denoise"
+pl = "Redukcja szumów"
 ar = "إزالة الضوضاء"
 
 ["Directional blur"]
@@ -10646,6 +11341,7 @@ ja = "方向ぼかし"
 pt = "Desfoque direcional"
 it = "Sfocatura direzionale"
 id = "Buram terarah"
+pl = "Rozmycie kierunkowe"
 ar = "تمويه اتجاهي"
 
 ["Displacement map"]
@@ -10661,6 +11357,7 @@ ja = "ディスプレイスメントマップ"
 pt = "Mapa de deslocamento"
 it = "Mappa di spostamento"
 id = "Displacement map"
+pl = "Mapa przemieszczenia"
 ar = "خريطة الإزاحة"
 
 ["Dithering"]
@@ -10676,6 +11373,7 @@ ja = "ディザリング"
 pt = "Dithering"
 it = "Dithering"
 id = "Dithering"
+pl = "Dithering"
 ar = "تشتيت لوني"
 
 ["Drop shadow"]
@@ -10691,6 +11389,7 @@ ja = "ドロップシャドウ"
 pt = "Sombra projetada"
 it = "Ombra esterna"
 id = "Bayangan luar"
+pl = "Cień rzucany"
 ar = "ظل ساقط"
 
 ["Duotone"]
@@ -10706,6 +11405,7 @@ ja = "デュオトーン"
 pt = "Duotono"
 it = "Duotono"
 id = "Duotone"
+pl = "Duoton"
 ar = "ثنائي اللون"
 
 ["Echo"]
@@ -10721,6 +11421,7 @@ ja = "エコー"
 pt = "Eco"
 it = "Eco"
 id = "Gema"
+pl = "Echo"
 ar = "صدى"
 
 ["Edge detection"]
@@ -10736,6 +11437,7 @@ ja = "エッジ検出"
 pt = "Detecção de bordas"
 it = "Rilevamento bordi"
 id = "Deteksi tepi"
+pl = "Wykrywanie krawędzi"
 ar = "اكتشاف الحواف"
 
 ["Emboss"]
@@ -10751,6 +11453,7 @@ ja = "エンボス"
 pt = "Relevo"
 it = "Rilievo"
 id = "Embos"
+pl = "Wytłoczenie"
 ar = "تجسيم بارز"
 
 ["Erode"]
@@ -10766,6 +11469,7 @@ ja = "収縮"
 pt = "Erosão"
 it = "Erosione"
 id = "Erosi"
+pl = "Erozja"
 ar = "تآكل"
 
 ["Filter"]
@@ -10781,6 +11485,7 @@ ja = "フィルター"
 pt = "Filtro"
 it = "Filtro"
 id = "Filter"
+pl = "Filtr"
 ar = "مرشح"
 
 ["Fisheye"]
@@ -10796,6 +11501,7 @@ ja = "魚眼"
 pt = "Olho-de-peixe"
 it = "Fisheye"
 id = "Fisheye"
+pl = "Rybie oko"
 ar = "عين السمكة"
 
 ["Gain"]
@@ -10811,6 +11517,7 @@ ja = "ゲイン"
 pt = "Ganho"
 it = "Guadagno"
 id = "Gain"
+pl = "Wzmocnienie"
 ar = "الكسب"
 
 ["Gaussian blur"]
@@ -10826,6 +11533,7 @@ ja = "ガウスぼかし"
 pt = "Desfoque gaussiano"
 it = "Sfocatura gaussiana"
 id = "Buram Gaussian"
+pl = "Rozmycie gaussowskie"
 ar = "تمويه غاوسي"
 
 ["Glow"]
@@ -10841,6 +11549,7 @@ ja = "グロー"
 pt = "Brilho"
 it = "Bagliore"
 id = "Pijar"
+pl = "Poświata"
 ar = "توهج"
 
 ["Ground"]
@@ -10856,6 +11565,7 @@ ja = "地面"
 pt = "Chão"
 it = "Suolo"
 id = "Dasar"
+pl = "Podłoże"
 ar = "الأرضية"
 
 ["Halftone"]
@@ -10871,6 +11581,7 @@ ja = "ハーフトーン"
 pt = "Meio-tom"
 it = "Semitono"
 id = "Halftone"
+pl = "Półton"
 ar = "نصف نغمة"
 
 ["Insert"]
@@ -10886,6 +11597,7 @@ ja = "挿入"
 pt = "Inserir"
 it = "Inserisci"
 id = "Sisipkan"
+pl = "Wstaw"
 ar = "إدراج"
 
 ["Jump"]
@@ -10901,6 +11613,7 @@ ja = "ジャンプ"
 pt = "Salto"
 it = "Salto"
 id = "Lompat"
+pl = "Skok"
 ar = "قفز"
 
 ["Kaleidoscope"]
@@ -10916,6 +11629,7 @@ ja = "万華鏡"
 pt = "Caleidoscópio"
 it = "Caleidoscopio"
 id = "Kaleidoskop"
+pl = "Kalejdoskop"
 ar = "مشكال"
 
 ["Kuwahara"]
@@ -10931,6 +11645,7 @@ ja = "Kuwahara"
 pt = "Kuwahara"
 it = "Kuwahara"
 id = "Kuwahara"
+pl = "Kuwahara"
 ar = "كواهارا"
 
 ["Lens distortion"]
@@ -10946,6 +11661,7 @@ ja = "レンズ歪み"
 pt = "Distorção de lente"
 it = "Distorsione lente"
 id = "Distorsi lensa"
+pl = "Zniekształcenie obiektywu"
 ar = "تشوه العدسة"
 
 ["Limiter"]
@@ -10961,6 +11677,7 @@ ja = "リミッター"
 pt = "Limitador"
 it = "Limitatore"
 id = "Limiter"
+pl = "Limiter"
 ar = "محدد الصوت"
 
 ["Luma key"]
@@ -10976,6 +11693,7 @@ ja = "ルマキー"
 pt = "Chave de luma"
 it = "Luma key"
 id = "Luma key"
+pl = "Klucz luma"
 ar = "مفتاح الإضاءة (Luma)"
 
 ["Manim Smooth"]
@@ -10991,6 +11709,7 @@ ja = "Manimスムーズ"
 pt = "Suavização do Manim"
 it = "Smussamento Manim"
 id = "Halus Manim"
+pl = "Wygładzanie Manim"
 ar = "سلاسة Manim"
 
 ["Mosaic"]
@@ -11006,6 +11725,7 @@ ja = "モザイク"
 pt = "Mosaico"
 it = "Mosaico"
 id = "Mosaik"
+pl = "Mozaika"
 ar = "فسيفساء"
 
 ["Noise"]
@@ -11021,6 +11741,7 @@ ja = "ノイズ"
 pt = "Ruído"
 it = "Rumore"
 id = "Derau"
+pl = "Szum"
 ar = "ضوضاء"
 
 ["Noise gate"]
@@ -11036,6 +11757,7 @@ ja = "ノイズゲート"
 pt = "Gate de ruído"
 it = "Noise gate"
 id = "Gerbang derau"
+pl = "Bramka szumów"
 ar = "بوابة الضوضاء"
 
 ["Pan"]
@@ -11051,6 +11773,7 @@ ja = "パン"
 pt = "Panorâmica"
 it = "Panoramica"
 id = "Pan"
+pl = "Panoramowanie"
 ar = "تحريك أفقي"
 
 ["Path offset"]
@@ -11066,6 +11789,7 @@ ja = "パスオフセット"
 pt = "Deslocamento do caminho"
 it = "Offset del percorso"
 id = "Ofset jalur"
+pl = "Przesunięcie ścieżki"
 ar = "إزاحة المسار"
 
 ["Phone mic"]
@@ -11081,6 +11805,7 @@ ja = "電話マイク"
 pt = "Microfone de telefone"
 it = "Microfono telefono"
 id = "Mikrofon ponsel"
+pl = "Mikrofon telefonu"
 ar = "ميكروفون الهاتف"
 
 ["Point Light"]
@@ -11096,6 +11821,7 @@ ja = "ポイントライト"
 pt = "Luz pontual"
 it = "Luce puntiforme"
 id = "Cahaya Titik"
+pl = "Światło punktowe"
 ar = "ضوء نقطي"
 
 ["Posterize"]
@@ -11111,6 +11837,7 @@ ja = "ポスタリゼーション"
 pt = "Posterizar"
 it = "Posterizza"
 id = "Posterisasi"
+pl = "Posteryzacja"
 ar = "تبسيط لوني (Posterize)"
 
 ["Radial blur"]
@@ -11126,6 +11853,7 @@ ja = "放射状ぼかし"
 pt = "Desfoque radial"
 it = "Blur radiale"
 id = "Buram radial"
+pl = "Rozmycie radialne"
 ar = "تمويه شعاعي"
 
 ["Rasterize"]
@@ -11141,6 +11869,7 @@ ja = "ラスタライズ"
 pt = "Rasterizar"
 it = "Rasterizza"
 id = "Rasterisasi"
+pl = "Rasteryzacja"
 ar = "تنقيط"
 
 ["Reverb"]
@@ -11156,6 +11885,7 @@ ja = "リバーブ"
 pt = "Reverberação"
 it = "Riverbero"
 id = "Reverb"
+pl = "Pogłos"
 ar = "تردد الصدى"
 
 ["Rewrite"]
@@ -11171,6 +11901,7 @@ ja = "書き直し"
 pt = "Reescrever"
 it = "Riscrivi"
 id = "Tulis ulang"
+pl = "Przepisać"
 ar = "إعادة كتابة"
 
 ["Sampling"]
@@ -11186,6 +11917,7 @@ ja = "サンプリング"
 pt = "Amostragem"
 it = "Campionamento"
 id = "Pengambilan sampel"
+pl = "Próbkowanie"
 ar = "أخذ العينات"
 
 ["Shaky path"]
@@ -11201,6 +11933,7 @@ ja = "揺れるパス"
 pt = "Caminho trêmulo"
 it = "Tracciato tremolante"
 id = "Jalur bergetar"
+pl = "Drżąca ścieżka"
 ar = "مسار مهتز"
 
 ["Sharpen"]
@@ -11216,6 +11949,7 @@ ja = "シャープ"
 pt = "Nitidez"
 it = "Nitidezza"
 id = "Pertajam"
+pl = "Wyostrzanie"
 ar = "زيادة الحدة"
 
 ["Stereo width"]
@@ -11231,6 +11965,7 @@ ja = "ステレオ幅"
 pt = "Largura estéreo"
 it = "Larghezza stereo"
 id = "Lebar stereo"
+pl = "Szerokość stereo"
 ar = "عرض الستريو"
 
 ["Sun"]
@@ -11246,6 +11981,7 @@ ja = "太陽"
 pt = "Sol"
 it = "Sole"
 id = "Matahari"
+pl = "Słońce"
 ar = "الشمس"
 
 ["Text mask"]
@@ -11261,6 +11997,7 @@ ja = "テキストマスク"
 pt = "Máscara de texto"
 it = "Maschera di testo"
 id = "Mask teks"
+pl = "Maska tekstowa"
 ar = "قناع النص"
 
 ["Texture bounds"]
@@ -11276,6 +12013,7 @@ ja = "テクスチャ境界"
 pt = "Limites da textura"
 it = "Limiti della texture"
 id = "Batas tekstur"
+pl = "Granice tekstury"
 ar = "حدود الملمس"
 
 ["Transparent Fill"]
@@ -11291,6 +12029,7 @@ ja = "透明塗り"
 pt = "Preenchimento transparente"
 it = "Riempimento trasparente"
 id = "Isian Transparan"
+pl = "Przezroczyste wypełnienie"
 ar = "تعبئة شفافة"
 
 ["Tremolo"]
@@ -11306,6 +12045,7 @@ ja = "トレモロ"
 pt = "Trêmolo"
 it = "Tremolo"
 id = "Tremolo"
+pl = "Tremolo"
 ar = "تريمولو"
 
 ["Twirl"]
@@ -11321,6 +12061,7 @@ ja = "渦巻き"
 pt = "Redemoinho"
 it = "Vortice"
 id = "Pusaran"
+pl = "Zawirowanie"
 ar = "دوامة"
 
 ["Vectorize"]
@@ -11336,6 +12077,7 @@ ja = "ベクター化"
 pt = "Vetorizar"
 it = "Vettorizza"
 id = "Vektorisasi"
+pl = "Wektoryzacja"
 ar = "تحويل لمتجهات"
 
 ["Vignette"]
@@ -11351,6 +12093,7 @@ ja = "ビネット"
 pt = "Vinheta"
 it = "Vignettatura"
 id = "Vinyet"
+pl = "Winieta"
 ar = "تظليل الحواف (Vignette)"
 
 ["Voice Change"]
@@ -11366,6 +12109,7 @@ ja = "ボイスチェンジ"
 pt = "Mudança de voz"
 it = "Modifica voce"
 id = "Ubah Suara"
+pl = "Zmiana głosu"
 ar = "تغيير الصوت"
 
 ["Wave"]
@@ -11381,6 +12125,7 @@ ja = "波"
 pt = "Onda"
 it = "Onda"
 id = "Gelombang"
+pl = "Fala"
 ar = "موجة"
 
 ["Zoom blur"]
@@ -11396,6 +12141,7 @@ ja = "ズームぼかし"
 pt = "Desfoque de zoom"
 it = "Blur zoom"
 id = "Buram zoom"
+pl = "Rozmycie zbliżeniowe"
 ar = "تمويه التكبير"
 
 ["Diff"]
@@ -11411,6 +12157,7 @@ ja = "差分"
 pt = "Diferença"
 it = "Differenza"
 id = "Diff"
+pl = "Różnica"
 ar = "الفروق"
 
 ["Back In"]
@@ -11426,6 +12173,7 @@ ja = "バック・イン"
 pt = "Recuo de entrada"
 it = "Back In"
 id = "Mundur Masuk"
+pl = "Wsteczne wejście"
 ar = "رجوع للداخل"
 
 ["Back Out"]
@@ -11441,6 +12189,7 @@ ja = "バック・アウト"
 pt = "Recuo de saída"
 it = "Back Out"
 id = "Mundur Keluar"
+pl = "Wsteczne wyjście"
 ar = "رجوع للخارج"
 
 ["Back In Out"]
@@ -11456,6 +12205,7 @@ ja = "バック・インアウト"
 pt = "Recuo de entrada e saída"
 it = "Back In Out"
 id = "Mundur Masuk Keluar"
+pl = "Wsteczne wejście i wyjście"
 ar = "رجوع للداخل والخارج"
 
 ["Bounce In"]
@@ -11471,6 +12221,7 @@ ja = "バウンス・イン"
 pt = "Rebote de entrada"
 it = "Bounce In"
 id = "Pantul Masuk"
+pl = "Odbijające wejście"
 ar = "ارتداد للداخل"
 
 ["Bounce Out"]
@@ -11486,6 +12237,7 @@ ja = "バウンス・アウト"
 pt = "Rebote de saída"
 it = "Bounce Out"
 id = "Pantul Keluar"
+pl = "Odbijające wyjście"
 ar = "ارتداد للخارج"
 
 ["Bounce In Out"]
@@ -11501,6 +12253,7 @@ ja = "バウンス・インアウト"
 pt = "Rebote de entrada e saída"
 it = "Bounce In Out"
 id = "Pantul Masuk Keluar"
+pl = "Odbijające wejście i wyjście"
 ar = "ارتداد للداخل والخارج"
 
 ["Circular In"]
@@ -11516,6 +12269,7 @@ ja = "円・イン"
 pt = "Circular de entrada"
 it = "Circular In"
 id = "Melingkar Masuk"
+pl = "Kołowe wejście"
 ar = "دائري للداخل"
 
 ["Circular Out"]
@@ -11531,6 +12285,7 @@ ja = "円・アウト"
 pt = "Circular de saída"
 it = "Circular Out"
 id = "Melingkar Keluar"
+pl = "Kołowe wyjście"
 ar = "دائري للخارج"
 
 ["Circular In Out"]
@@ -11546,6 +12301,7 @@ ja = "円・インアウト"
 pt = "Circular de entrada e saída"
 it = "Circular In Out"
 id = "Melingkar Masuk Keluar"
+pl = "Kołowe wejście i wyjście"
 ar = "دائري للداخل والخارج"
 
 ["Cubic In"]
@@ -11561,6 +12317,7 @@ ja = "3次・イン"
 pt = "Cúbica de entrada"
 it = "Cubic In"
 id = "Kubik Masuk"
+pl = "Sześcienne wejście"
 ar = "تكعيبي للداخل"
 
 ["Cubic Out"]
@@ -11576,6 +12333,7 @@ ja = "3次・アウト"
 pt = "Cúbica de saída"
 it = "Cubic Out"
 id = "Kubik Keluar"
+pl = "Sześcienne wyjście"
 ar = "تكعيبي للخارج"
 
 ["Cubic In Out"]
@@ -11591,6 +12349,7 @@ ja = "3次・インアウト"
 pt = "Cúbica de entrada e saída"
 it = "Cubic In Out"
 id = "Kubik Masuk Keluar"
+pl = "Sześcienne wejście i wyjście"
 ar = "تكعيبي للداخل والخارج"
 
 ["Elastic In"]
@@ -11606,6 +12365,7 @@ ja = "弾性・イン"
 pt = "Elástica de entrada"
 it = "Elastic In"
 id = "Elastis Masuk"
+pl = "Elastyczne wejście"
 ar = "مرن للداخل"
 
 ["Elastic Out"]
@@ -11621,6 +12381,7 @@ ja = "弾性・アウト"
 pt = "Elástica de saída"
 it = "Elastic Out"
 id = "Elastis Keluar"
+pl = "Elastyczne wyjście"
 ar = "مرن للخارج"
 
 ["Elastic In Out"]
@@ -11636,6 +12397,7 @@ ja = "弾性・インアウト"
 pt = "Elástica de entrada e saída"
 it = "Elastic In Out"
 id = "Elastis Masuk Keluar"
+pl = "Elastyczne wejście i wyjście"
 ar = "مرن للداخل والخارج"
 
 ["Exponential In"]
@@ -11651,6 +12413,7 @@ ja = "指数・イン"
 pt = "Exponencial de entrada"
 it = "Exponential In"
 id = "Eksponensial Masuk"
+pl = "Wykładnicze wejście"
 ar = "أسي للداخل"
 
 ["Exponential Out"]
@@ -11666,6 +12429,7 @@ ja = "指数・アウト"
 pt = "Exponencial de saída"
 it = "Exponential Out"
 id = "Eksponensial Keluar"
+pl = "Wykładnicze wyjście"
 ar = "أسي للخارج"
 
 ["Exponential In Out"]
@@ -11681,6 +12445,7 @@ ja = "指数・インアウト"
 pt = "Exponencial de entrada e saída"
 it = "Exponential In Out"
 id = "Eksponensial Masuk Keluar"
+pl = "Wykładnicze wejście i wyjście"
 ar = "أسي للداخل والخارج"
 
 ["Quad In"]
@@ -11696,6 +12461,7 @@ ja = "2次・イン"
 pt = "Quadrática de entrada"
 it = "Quad In"
 id = "Kuadratik Masuk"
+pl = "Kwadratowe wejście"
 ar = "تربيعي للداخل"
 
 ["Quad Out"]
@@ -11711,6 +12477,7 @@ ja = "2次・アウト"
 pt = "Quadrática de saída"
 it = "Quad Out"
 id = "Kuadratik Keluar"
+pl = "Kwadratowe wyjście"
 ar = "تربيعي للخارج"
 
 ["Quad In Out"]
@@ -11726,6 +12493,7 @@ ja = "2次・インアウト"
 pt = "Quadrática de entrada e saída"
 it = "Quad In Out"
 id = "Kuadratik Masuk Keluar"
+pl = "Kwadratowe wejście i wyjście"
 ar = "تربيعي للداخل والخارج"
 
 ["Quart In"]
@@ -11741,6 +12509,7 @@ ja = "4次・イン"
 pt = "Quártica de entrada"
 it = "Quart In"
 id = "Kuartik Masuk"
+pl = "Kwartyczne wejście"
 ar = "درجة رابعة للداخل"
 
 ["Quart Out"]
@@ -11756,6 +12525,7 @@ ja = "4次・アウト"
 pt = "Quártica de saída"
 it = "Quart Out"
 id = "Kuartik Keluar"
+pl = "Kwartyczne wyjście"
 ar = "درجة رابعة للخارج"
 
 ["Quart In Out"]
@@ -11771,6 +12541,7 @@ ja = "4次・インアウト"
 pt = "Quártica de entrada e saída"
 it = "Quart In Out"
 id = "Kuartik Masuk Keluar"
+pl = "Kwartyczne wejście i wyjście"
 ar = "درجة رابعة للداخل والخارج"
 
 ["Quint In"]
@@ -11786,6 +12557,7 @@ ja = "5次・イン"
 pt = "Quíntica de entrada"
 it = "Quint In"
 id = "Kuintik Masuk"
+pl = "Kwintyczne wejście"
 ar = "درجة خامسة للداخل"
 
 ["Quint Out"]
@@ -11801,6 +12573,7 @@ ja = "5次・アウト"
 pt = "Quíntica de saída"
 it = "Quint Out"
 id = "Kuintik Keluar"
+pl = "Kwintyczne wyjście"
 ar = "درجة خامسة للخارج"
 
 ["Quint In Out"]
@@ -11816,6 +12589,7 @@ ja = "5次・インアウト"
 pt = "Quíntica de entrada e saída"
 it = "Quint In Out"
 id = "Kuintik Masuk Keluar"
+pl = "Kwintyczne wejście i wyjście"
 ar = "درجة خامسة للداخل والخارج"
 
 ["Sine In"]
@@ -11831,6 +12605,7 @@ ja = "サイン・イン"
 pt = "Seno de entrada"
 it = "Sine In"
 id = "Sinus Masuk"
+pl = "Sinusoidalne wejście"
 ar = "جيبي للداخل"
 
 ["Sine Out"]
@@ -11846,6 +12621,7 @@ ja = "サイン・アウト"
 pt = "Seno de saída"
 it = "Sine Out"
 id = "Sinus Keluar"
+pl = "Sinusoidalne wyjście"
 ar = "جيبي للخارج"
 
 ["Sine In Out"]
@@ -11861,6 +12637,7 @@ ja = "サイン・インアウト"
 pt = "Seno de entrada e saída"
 it = "Sine In Out"
 id = "Sinus Masuk Keluar"
+pl = "Sinusoidalne wejście i wyjście"
 ar = "جيبي للداخل والخارج"
 
 ["1 video track"]
@@ -11876,6 +12653,7 @@ ja = "ビデオトラック1本"
 pt = "1 faixa de vídeo"
 it = "1 traccia video"
 id = "1 trek video"
+pl = "1 ścieżka wideo"
 ar = "مسار فيديو واحد"
 
 ["%{count} video tracks"]
@@ -11891,6 +12669,7 @@ ja = "ビデオトラック%{count}本"
 pt = "%{count} faixas de vídeo"
 it = "%{count} tracce video"
 id = "%{count} trek video"
+pl = "%{count} ścieżek wideo"
 ar = "%{count} مسارات فيديو"
 
 ["1 audio track"]
@@ -11906,6 +12685,7 @@ ja = "オーディオトラック1本"
 pt = "1 faixa de áudio"
 it = "1 traccia audio"
 id = "1 trek audio"
+pl = "1 ścieżka dźwiękowa"
 ar = "مسار صوت واحد"
 
 ["%{count} audio tracks"]
@@ -11921,6 +12701,7 @@ ja = "オーディオトラック%{count}本"
 pt = "%{count} faixas de áudio"
 it = "%{count} tracce audio"
 id = "%{count} trek audio"
+pl = "%{count} ścieżek dźwiękowych"
 ar = "%{count} مسارات صوت"
 
 ["1 caption track"]
@@ -11936,6 +12717,7 @@ ja = "字幕トラック1本"
 pt = "1 faixa de legendas"
 it = "1 traccia sottotitoli"
 id = "1 track subtitel"
+pl = "1 ścieżka napisów"
 ar = "مسار تسميات توضيحية واحد"
 
 ["%{count} caption tracks"]
@@ -11951,6 +12733,7 @@ ja = "字幕トラック%{count}本"
 pt = "%{count} faixas de legendas"
 it = "%{count} tracce sottotitoli"
 id = "%{count} track subtitel"
+pl = "%{count} ścieżek napisów"
 ar = "%{count} مسارات تسميات توضيحية"
 
 ["1 page"]
@@ -11966,6 +12749,7 @@ ja = "1ページ"
 pt = "1 página"
 it = "1 pagina"
 id = "1 halaman"
+pl = "1 strona"
 ar = "صفحة واحدة"
 
 ["%{count} pages"]
@@ -11981,6 +12765,7 @@ ja = "%{count}ページ"
 pt = "%{count} páginas"
 it = "%{count} pagine"
 id = "%{count} halaman"
+pl = "%{count} stron"
 ar = "%{count} صفحات"
 
 ["3D models"]
@@ -11996,6 +12781,7 @@ ja = "3Dモデル"
 pt = "Modelos 3D"
 it = "Modelli 3D"
 id = "Model 3D"
+pl = "Modele 3D"
 ar = "نماذج ثلاثية الأبعاد"
 
 ["OptiX denoiser"]
@@ -12011,6 +12797,7 @@ ja = "OptiX デノイザー"
 pt = "Redutor de ruído OptiX"
 it = "Riduzione del rumore OptiX"
 id = "Pereduksi derau OptiX"
+pl = "Redukcja szumów OptiX"
 ar = "مزيل ضوضاء OptiX"
 
 ["2× rotated grid"]
@@ -12026,6 +12813,7 @@ ja = "2倍回転グリッド"
 pt = "Grade rotacionada 2×"
 it = "Griglia ruotata 2×"
 id = "Kisi diputar 2×"
+pl = "Siatka obrócona 2×"
 ar = "شبكة مدورة 2×"
 
 ["4× grid"]
@@ -12041,6 +12829,7 @@ ja = "4倍グリッド"
 pt = "Grade 4×"
 it = "Griglia 4×"
 id = "Kisi 4×"
+pl = "Siatka 4×"
 ar = "شبكة 4×"
 
 ["8× stochastic"]
@@ -12056,6 +12845,7 @@ ja = "8倍確率的"
 pt = "Estocástico 8×"
 it = "Stocastico 8×"
 id = "Stokastik 8×"
+pl = "8× stochastyczne"
 ar = "عشوائي 8×"
 
 ["FLAC · Lossless"]
@@ -12071,6 +12861,7 @@ ja = "FLAC · ロスレス"
 pt = "FLAC · Sem perdas"
 it = "FLAC · Lossless"
 id = "FLAC · Lossless"
+pl = "FLAC · Bezstratne"
 ar = "FLAC · بدون فقدان"
 
 ["H.265 · Balanced"]
@@ -12086,6 +12877,7 @@ ja = "H.265 · バランス"
 pt = "H.265 · Equilibrado"
 it = "H.265 · Bilanciato"
 id = "H.265 · Seimbang"
+pl = "H.265 · Zrównoważone"
 ar = "H.265 · متوازن"
 
 ["H.265 · Compact"]
@@ -12101,6 +12893,7 @@ ja = "H.265 · コンパクト"
 pt = "H.265 · Compacto"
 it = "H.265 · Compatto"
 id = "H.265 · Ringkas"
+pl = "H.265 · Kompaktowe"
 ar = "H.265 · مضغوط"
 
 ["H.265 · High"]
@@ -12116,6 +12909,7 @@ ja = "H.265 · 高品質"
 pt = "H.265 · Alto"
 it = "H.265 · Alto"
 id = "H.265 · Tinggi"
+pl = "H.265 · Wysokie"
 ar = "H.265 · عالي"
 
 ["H.265 · Lossless"]
@@ -12131,6 +12925,7 @@ ja = "H.265 · ロスレス"
 pt = "H.265 · Sem perdas"
 it = "H.265 · Lossless"
 id = "H.265 · Lossless"
+pl = "H.265 · Bezstratne"
 ar = "H.265 · بدون فقدان"
 
 ["Monospace Sans"]
@@ -12146,6 +12941,7 @@ ja = "等幅サンセリフ"
 pt = "Monoespaçada sem serifa"
 it = "Monospace Sans"
 id = "Monospace Sans"
+pl = "Monospace bezszeryfowe"
 ar = "أحادي المسافة بدون تذييل"
 
 ["Monospace Serif"]
@@ -12161,6 +12957,7 @@ ja = "等幅セリフ"
 pt = "Monoespaçada com serifa"
 it = "Monospace Serif"
 id = "Monospace Serif"
+pl = "Monospace szeryfowe"
 ar = "أحادي المسافة مذيل"
 
 ["Opus · Balanced"]
@@ -12176,6 +12973,7 @@ ja = "Opus · バランス"
 pt = "Opus · Equilibrado"
 it = "Opus · Bilanciato"
 id = "Opus · Seimbang"
+pl = "Opus · Zrównoważone"
 ar = "Opus · متوازن"
 
 ["Opus · Compact"]
@@ -12191,6 +12989,7 @@ ja = "Opus · コンパクト"
 pt = "Opus · Compacto"
 it = "Opus · Compatto"
 id = "Opus · Ringkas"
+pl = "Opus · Kompaktowe"
 ar = "Opus · مضغوط"
 
 ["Opus · High"]
@@ -12206,4 +13005,5 @@ ja = "Opus · 高品質"
 pt = "Opus · Alto"
 it = "Opus · Alto"
 id = "Opus · Tinggi"
+pl = "Opus · Wysokie"
 ar = "Opus · عالي"
