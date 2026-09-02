@@ -13,6 +13,7 @@ ja = "%{count}件のエフェクトを貼り付けました"
 pt = "%{count} efeitos colados"
 tr = "%{count} efekt yapıştırıldı"
 it = "%{count} effetti incollati"
+id = "%{count} efek ditempel"
 
 ["1 effect pasted"]
 en = "1 effect pasted"
@@ -27,6 +28,7 @@ ja = "エフェクトを1件貼り付けました"
 pt = "1 efeito colado"
 tr = "1 efekt yapıştırıldı"
 it = "1 effetto incollato"
+id = "1 efek ditempel"
 
 ["Alpha"]
 en = "Alpha"
@@ -41,6 +43,7 @@ ja = "アルファ"
 pt = "Alfa"
 tr = "Alfa"
 it = "Alfa"
+id = "Alfa"
 
 ["Appearance"]
 en = "Appearance"
@@ -55,6 +58,7 @@ ja = "外観"
 pt = "Aparência"
 tr = "Görünüm"
 it = "Aspetto"
+id = "Tampilan"
 
 ["Apply"]
 en = "Apply"
@@ -69,6 +73,7 @@ ja = "適用"
 pt = "Aplicar"
 tr = "Uygula"
 it = "Applica"
+id = "Terapkan"
 
 ["Audio"]
 en = "Audio"
@@ -83,6 +88,7 @@ ja = "オーディオ"
 pt = "Áudio"
 tr = "Ses"
 it = "Audio"
+id = "Audio"
 
 ["Audio Generator"]
 en = "Audio Generator"
@@ -97,6 +103,7 @@ ja = "オーディオジェネレーター"
 pt = "Gerador de áudio"
 tr = "Ses Üreteci"
 it = "Generatore audio"
+id = "Generator Audio"
 
 ["Audio Track"]
 en = "Audio Track"
@@ -111,6 +118,7 @@ ja = "オーディオトラック"
 pt = "Faixa de áudio"
 tr = "Ses İzi"
 it = "Traccia audio"
+id = "Track Audio"
 
 ["Background"]
 en = "Background"
@@ -125,6 +133,7 @@ ja = "背景"
 pt = "Fundo"
 tr = "Arka Plan"
 it = "Sfondo"
+id = "Latar Belakang"
 
 ["Cancel"]
 en = "Cancel"
@@ -139,6 +148,7 @@ ja = "キャンセル"
 pt = "Cancelar"
 tr = "İptal"
 it = "Cancella"
+id = "Batal"
 
 ["Cancelled"]
 en = "Cancelled"
@@ -153,6 +163,7 @@ ja = "キャンセル済み"
 pt = "Cancelado"
 tr = "İptal Edildi"
 it = "Annullato"
+id = "Dibatalkan"
 
 ["Cancelling…"]
 en = "Cancelling…"
@@ -167,6 +178,7 @@ ja = "キャンセル中…"
 pt = "Cancelando…"
 tr = "İptal Ediliyor"
 it = "Annullando..."
+id = "Membatalkan…"
 
 ["Caption"]
 en = "Caption"
@@ -181,6 +193,7 @@ ja = "字幕"
 pt = "Legenda"
 tr = "Altyazı"
 it = "Sottotitolo"
+id = "Subtitel"
 
 ["Caption Track"]
 en = "Caption Track"
@@ -195,6 +208,7 @@ ja = "字幕トラック"
 pt = "Faixa de legendas"
 tr = "Altyazı İzi"
 it = "Traccia dei sottotitoli"
+id = "Track Subtitel"
 
 ["Choose…"]
 en = "Choose…"
@@ -209,6 +223,7 @@ ja = "選択…"
 pt = "Escolher…"
 tr = "Seç…"
 it = "Scegli..."
+id = "Pilih…"
 
 ["Clear"]
 en = "Clear"
@@ -223,6 +238,7 @@ ja = "クリア"
 pt = "Limpar"
 tr = "Temizle"
 it = "Pulisci"
+id = "Bersihkan"
 
 ["Close"]
 en = "Close"
@@ -237,6 +253,7 @@ ja = "閉じる"
 pt = "Fechar"
 tr = "Kapat"
 it = "Chiudi"
+id = "Tutup"
 
 ["Copy"]
 en = "Copy"
@@ -251,6 +268,7 @@ ja = "コピー"
 pt = "Copiar"
 tr = "Kopyala"
 it = "Copia"
+id = "Salin"
 
 ["Custom"]
 en = "Custom"
@@ -265,6 +283,7 @@ ja = "カスタム"
 pt = "Personalizado"
 tr = "Özel"
 it = "Personalizzato"
+id = "Kustom"
 
 ["Delete"]
 en = "Delete"
@@ -279,6 +298,7 @@ ja = "削除"
 pt = "Excluir"
 tr = "Sil"
 it = "Elimina"
+id = "Hapus"
 
 ["Discard"]
 en = "Discard"
@@ -293,6 +313,7 @@ ja = "破棄"
 pt = "Descartar"
 tr = "Vazgeç"
 it = "Scarta"
+id = "Buang"
 
 ["File"]
 en = "File"
@@ -307,6 +328,7 @@ ru = "Файл"
 pt = "Arquivo"
 tr = "Dosya"
 it = "File"
+id = "Berkas"
 
 ["Format"]
 en = "Format"
@@ -321,6 +343,7 @@ ja = "形式"
 pt = "Formato"
 tr = "Biçim"
 it = "Formato"
+id = "Format"
 
 ["Frame Rate"]
 en = "Frame Rate"
@@ -335,6 +358,7 @@ ja = "フレームレート"
 pt = "Taxa de quadros"
 tr = "Kare Hızı"
 it = "Frequenza fotogrammi"
+id = "Frame Rate"
 
 ["Frame rate"]
 en = "Frame rate"
@@ -349,6 +373,7 @@ ja = "フレームレート"
 pt = "Taxa de quadros"
 tr = "Kare hızı"
 it = "Frequenza fotogrammi"
+id = "Frame rate"
 
 ["Hue"]
 en = "Hue"
@@ -363,6 +388,7 @@ ja = "色相"
 pt = "Matiz"
 tr = "Ton"
 it = "Tonalità"
+id = "Hue"
 
 ["Info"]
 en = "Info"
@@ -377,6 +403,7 @@ ja = "情報"
 pt = "Informações"
 tr = "Bilgi"
 it = "Informazioni"
+id = "Info"
 
 ["Model"]
 en = "Model"
@@ -391,6 +418,7 @@ ja = "モデル"
 pt = "Modelo"
 tr = "Model"
 it = "Modello"
+id = "Model"
 
 ["New Track"]
 en = "New Track"
@@ -405,6 +433,7 @@ ja = "新規トラック"
 pt = "Nova faixa"
 tr = "Yeni İz"
 it = "Nuova traccia"
+id = "Track Baru"
 
 ["None"]
 en = "None"
@@ -419,6 +448,7 @@ ja = "なし"
 pt = "Nenhum"
 tr = "Hiçbiri"
 it = "Nessuno"
+id = "Tidak Ada"
 
 ["Output"]
 en = "Output"
@@ -433,6 +463,7 @@ ja = "出力"
 pt = "Saída"
 tr = "Çıktı"
 it = "Uscita"
+id = "Output"
 
 ["Padding"]
 en = "Padding"
@@ -447,6 +478,7 @@ ja = "余白"
 pt = "Preenchimento"
 tr = "İç Boşluk"
 it = "Spaziatura"
+id = "Padding"
 
 ["Paint"]
 en = "Paint"
@@ -461,6 +493,7 @@ ja = "ペイント"
 pt = "Pintura"
 tr = "Çizim"
 it = "Pittura"
+id = "Lukis"
 
 ["Performance"]
 en = "Performance"
@@ -475,6 +508,7 @@ ja = "パフォーマンス"
 pt = "Desempenho"
 tr = "Performans"
 it = "Prestazioni"
+id = "Performa"
 
 ["Preset"]
 en = "Preset"
@@ -489,6 +523,7 @@ ja = "プリセット"
 pt = "Predefinição"
 tr = "Önayar"
 it = "Preimpostato"
+id = "Preset"
 
 ["Sending request…"]
 en = "Sending request…"
@@ -503,6 +538,7 @@ ja = "リクエストを送信中…"
 pt = "Enviando solicitação…"
 tr = "İstek gönderiliyor…"
 it = "Inviando richiesta..."
+id = "Mengirim permintaan…"
 
 ["Shape"]
 en = "Shape"
@@ -517,6 +553,7 @@ ja = "図形"
 pt = "Forma"
 tr = "Şekil"
 it = "Forma"
+id = "Bentuk"
 
 ["Speed"]
 en = "Speed"
@@ -531,6 +568,7 @@ ja = "速度"
 pt = "Velocidade"
 tr = "Hız"
 it = "Velocità"
+id = "Kecepatan"
 
 ["Text"]
 en = "Text"
@@ -545,6 +583,7 @@ ja = "テキスト"
 pt = "Texto"
 tr = "Metin"
 it = "Testo"
+id = "Teks"
 
 ["Text to Speech"]
 en = "Text to Speech"
@@ -559,6 +598,7 @@ ja = "音声読み上げ"
 pt = "Texto para fala"
 tr = "Metinden Sese"
 it = "Sintesi vocale"
+id = "Teks ke Suara"
 
 ["Version"]
 en = "Version"
@@ -573,6 +613,7 @@ ja = "バージョン"
 pt = "Versão"
 tr = "Sürüm"
 it = "Versione"
+id = "Versi"
 
 ["Video"]
 en = "Video"
@@ -587,6 +628,7 @@ ja = "ビデオ"
 pt = "Vídeo"
 tr = "Video"
 it = "Video"
+id = "Video"
 
 ["Video Generation"]
 en = "Video Generation"
@@ -601,6 +643,7 @@ ja = "ビデオ生成"
 pt = "Geração de vídeo"
 tr = "Video Üreteci"
 it = "Generazione video"
+id = "Pembuatan Video"
 
 ["Video Track"]
 en = "Video Track"
@@ -615,6 +658,7 @@ ja = "ビデオトラック"
 pt = "Faixa de vídeo"
 tr = "Video İzi"
 it = "Traccia video"
+id = "Track Video"
 
 ["Width"]
 en = "Width"
@@ -629,3 +673,4 @@ ja = "幅"
 pt = "Largura"
 tr = "Genişlik"
 it = "Larghezza"
+id = "Lebar"
