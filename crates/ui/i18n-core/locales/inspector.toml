@@ -983,7 +983,7 @@ pt = "Desfoque"
 tr = "Bulanıklaştırma"
 it = "Sfocatura"
 id = "Buram"
-pl = "Rozmazanie"
+pl = "Rozmycie"
 ar = "تمويه"
 
 ["Bottom"]
@@ -2581,7 +2581,7 @@ pt = "Baixando família de fontes…"
 tr = "Yazı tipi ailesi indiriliyor…"
 it = "Download della famiglia di font…"
 id = "Mengunduh famili font…"
-pl = "Pobieranie rodziny czcionki.."
+pl = "Pobieranie rodziny czcionki…"
 ar = "جارٍ تنزيل عائلة الخطوط…"
 
 ["Drag onto a visual clip in the timeline"]
@@ -4397,7 +4397,7 @@ ja = "ライン数"
 pt = "Número de linhas"
 it = "Numero linee"
 id = "Jumlah garis"
-pl = "Liczba wiersza"
+pl = "Liczba linii"
 ar = "عدد الخطوط"
 
 ["Line density"]
@@ -4413,7 +4413,7 @@ ja = "ライン密度"
 pt = "Densidade de linhas"
 it = "Densità linee"
 id = "Kepadatan garis"
-pl = "Zwartość wiersza"
+pl = "Gęstość linii"
 ar = "كثافة الخطوط"
 
 ["Line direction"]
@@ -4429,7 +4429,7 @@ ja = "ライン方向"
 pt = "Direção das linhas"
 it = "Direzione linee"
 id = "Arah garis"
-pl = "Kierunek wiersza"
+pl = "Kierunek linii"
 ar = "اتجاه الخط"
 
 ["Line height"]
@@ -4445,7 +4445,7 @@ ja = "行の高さ"
 pt = "Altura da linha"
 it = "Altezza linea"
 id = "Tinggi baris"
-pl = "Wysokość wiersza"
+pl = "Wysokość linii"
 ar = "ارتفاع السطر"
 
 ["Line length"]
@@ -4461,7 +4461,7 @@ ja = "ライン長"
 pt = "Comprimento da linha"
 it = "Lunghezza linea"
 id = "Panjang garis"
-pl = "Długość wiersza"
+pl = "Długość linii"
 ar = "طول الخط"
 
 ["Line offset"]
@@ -4477,7 +4477,7 @@ ja = "ラインオフセット"
 pt = "Deslocamento de linha"
 it = "Offset linea"
 id = "Ofset garis"
-pl = "Przesunięcie wiersza"
+pl = "Przesunięcie linii"
 ar = "إزاحة الخط"
 
 ["Line style"]
@@ -4493,7 +4493,7 @@ ja = "ラインスタイル"
 pt = "Estilo de linha"
 it = "Stile linea"
 id = "Gaya garis"
-pl = "Styl wiersza"
+pl = "Styl linii"
 ar = "نمط الخط"
 
 ["Line width"]
@@ -4509,7 +4509,7 @@ ja = "線幅"
 pt = "Largura da linha"
 it = "Larghezza linea"
 id = "Lebar garis"
-pl = ""
+pl = "Szerokość linii"
 ar = "عرض الخط"
 
 ["Linear"]
@@ -4541,7 +4541,7 @@ ja = "ライン"
 pt = "Linhas"
 it = "Linee"
 id = "Garis"
-pl = "Wiersze"
+pl = "Linie"
 ar = "خطوط"
 
 ["Link stereo channels"]
@@ -6797,7 +6797,7 @@ ja = "ボックスを削除"
 pt = "Remover caixa"
 it = "Rimuovi riquadro"
 id = "Hapus kotak"
-pl = "Usun pudło"
+pl = "Usuń pudło"
 ar = "إزالة الصندوق"
 
 ["Remove color"]
@@ -8541,7 +8541,7 @@ ja = "テクスチャ回転"
 pt = "Rotação da textura"
 it = "Rotazione texture"
 id = "Rotasi tekstur"
-pl = "Obrót rekstury"
+pl = "Obrót tekstury"
 ar = "تدوير الملمس"
 
 ["Texture scale"]
