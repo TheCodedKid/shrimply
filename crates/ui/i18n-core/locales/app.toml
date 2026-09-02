@@ -14,6 +14,7 @@ pt = "Um editor de vídeo simples"
 tr = "Basit bir video düzenleyicisi"
 it = "Un semplice video editor"
 id = "Editor video sederhana"
+pl = "Prosty edytor wideo"
 
 ["About Shrimply"]
 en = "About Shrimply"
@@ -29,6 +30,7 @@ pt = "Sobre o Shrimply"
 tr = "Shrimply Hakkında"
 it = "Riguardo Shrimply"
 id = "Tentang Shrimply"
+pl = "O Shrimply"
 
 ["Add Server"]
 en = "Add Server"
@@ -44,6 +46,7 @@ pt = "Adicionar servidor"
 tr = "Sunucu Ekle"
 it = "Aggiungi server"
 id = "Tambah Server"
+pl = "Dodaj serwer"
 
 ["Available"]
 en = "Available"
@@ -59,6 +62,7 @@ pt = "Disponível"
 tr = "Mevcut"
 it = "Disponibile"
 id = "Tersedia"
+pl = "Dostępne"
 
 ["Background Color"]
 en = "Background Color"
@@ -74,6 +78,7 @@ pt = "Cor de fundo"
 tr = "Arka Plan Rengi"
 it = "Colore dello sfondo"
 id = "Warna Latar Belakang"
+pl = "Kolor tła"
 
 ["Black"]
 en = "Black"
@@ -89,6 +94,7 @@ pt = "Preto"
 tr = "Siyah"
 it = "Nero"
 id = "Hitam"
+pl = "Czarny"
 
 ["Blender Binary"]
 en = "Blender Binary"
@@ -104,6 +110,7 @@ pt = "Executável do Blender"
 tr = "Blender Yürütülebilir Dosyası"
 it = "Binario di Blender"
 id = "File Biner Blender"
+pl = "Plik wykonywalny Blender"
 
 ["Blender"]
 en = "Blender"
@@ -119,6 +126,7 @@ pt = "Blender"
 tr = "Blender"
 it = "Blender"
 id = "Blender"
+pl = "Blender"
 
 ["Blue"]
 en = "Blue"
@@ -134,6 +142,7 @@ pt = "Azul"
 tr = "Mavi"
 it = "Blu"
 id = "Biru"
+pl = "Niebieski"
 
 ["Brown"]
 en = "Brown"
@@ -149,6 +158,7 @@ pt = "Marrom"
 tr = "Kahverengi"
 it = "Marrone"
 id = "Cokelat"
+pl = "Brązowy"
 
 ["Built with help from"]
 en = "Built with help from"
@@ -164,6 +174,7 @@ pt = "Desenvolvido com a ajuda de"
 tr = "Katkıda bulunanlar"
 it = "Creato con l’aiuto di"
 id = "Dibuat dengan bantuan dari"
+pl = "Stworzone z pomocą"
 
 ["Caption background color"]
 en = "Caption background color"
@@ -179,6 +190,7 @@ pt = "Cor de fundo da legenda"
 tr = "Altyazı arka plan rengi"
 it = "Colore sfondo sottotitoli"
 id = "Warna latar belakang subtitel"
+pl = "Kolor tła napisów"
 
 ["Captions"]
 en = "Captions"
@@ -194,6 +206,7 @@ pt = "Legendas"
 tr = "Altyazılar"
 it = "Sottotitoli"
 id = "Subtitel"
+pl = "Napisy"
 
 ["CUDA"]
 en = "CUDA"
@@ -209,6 +222,7 @@ pt = "CUDA"
 tr = "CUDA"
 it = "CUDA"
 id = "CUDA"
+pl = "CUDA"
 
 ["Checking server URL"]
 en = "Checking server URL"
@@ -224,6 +238,7 @@ pt = "Verificando URL do servidor"
 tr = "Sunucu URL'si kontrol ediliyor"
 it = "Verificando URL del server"
 id = "Memeriksa URL server"
+pl = "Sprawdzanie URL serwera"
 
 ["Checking…"]
 en = "Checking…"
@@ -239,6 +254,7 @@ pt = "Verificando…"
 tr = "Kontrol ediliyor…"
 it = "Verficando..."
 id = "Memeriksa…"
+pl = "Sprawdzanie…"
 
 ["Choose Blender Binary"]
 en = "Choose Blender Binary"
@@ -254,6 +270,7 @@ pt = "Escolher executável do Blender"
 tr = "Blender Yürütülebilir Dosyası Seçin"
 it = "Scegli il binario di Blender"
 id = "Pilih Biner Blender"
+pl = "Wybierz plik wykonywalny Blender"
 
 ["Clear Blender binary"]
 en = "Clear Blender binary"
@@ -269,6 +286,7 @@ pt = "Limpar executável do Blender"
 tr = "Blender yürütülebilir dosyasını temizle"
 it = "Rimuovi il binario di Blender"
 id = "Hapus biner Blender"
+pl = "Wyczyść plik wykonywalny Blender"
 
 ["Clear History"]
 en = "Clear History"
@@ -284,6 +302,7 @@ pt = "Limpar histórico"
 tr = "Geçmişi Temizle"
 it = "Cancella la cronologia"
 id = "Bersihkan Riwayat"
+pl = "Wyczyść historię"
 
 ["Click to type, drag horizontally to adjust"]
 en = "Click to type, drag horizontally to adjust"
@@ -299,6 +318,7 @@ pt = "Clique para digitar, arraste horizontalmente para ajustar"
 tr = "Yazmak için tıklayın, ayarlamak için yatay olarak sürükleyin"
 it = "Clicca per scrivere, trascina orizzontalmente per aggiustare"
 id = "Klik untuk mengetik, seret horizontal untuk menyesuaikan"
+pl = "Kliknij, aby pisać, przeciągnij poziomo, aby dopasować"
 
 ["Compatibility Notice"]
 en = "Compatibility Notice"
@@ -314,6 +334,7 @@ pt = "Aviso de compatibilidade"
 tr = "Uyumluluk Notu"
 it = "Nota di compatibilità"
 id = "Pemberitahuan Kompatibilitas"
+pl = "Uwaga dotycząca kompatybilności"
 
 ["Abort"]
 en = "Abort"
@@ -329,6 +350,7 @@ pt = "Abortar"
 tr = "Sonlandır"
 it = "Cancella"
 id = "Batalkan"
+pl = "Przerwij"
 
 ["Convert"]
 en = "Convert"
@@ -344,6 +366,7 @@ pt = "Converter"
 tr = "Dönüştür"
 it = "Converti"
 id = "Konversi"
+pl = "Konwertuj"
 
 ["Convert Kdenlive Project?"]
 en = "Convert Kdenlive Project?"
@@ -359,6 +382,7 @@ pt = "Converter projeto do Kdenlive?"
 tr = "Kdenlive Projesi Dönüştürülsün Mü?"
 it = "Convertire progetto Kdenlive?"
 id = "Konversi Proyek Kdenlive?"
+pl = "Przekonwertować projekt Kdenlive?"
 
 ["Fix"]
 en = "Fix"
@@ -374,6 +398,7 @@ pt = "Corrigir"
 tr = "Düzelt"
 it = "Correggi"
 id = "Perbaiki"
+pl = "Napraw"
 
 ["Project Timing Needs Repair"]
 en = "Project Timing Needs Repair"
@@ -389,6 +414,7 @@ pt = "A temporização do projeto precisa de correção"
 tr = "Proje Zamanlamasında Düzeltme Gerekiyor"
 it = "La tempistica del progetto richiede una riparazione"
 id = "Timing Proyek Perlu Diperbaiki"
+pl = "Synchronizacja projektu wymaga naprawy"
 
 ["Save Fixed Project"]
 en = "Save Fixed Project"
@@ -404,6 +430,7 @@ pt = "Salvar projeto corrigido"
 tr = "Düzeltilmiş Projeyi Kaydet"
 it = "Salva progetto corretto"
 id = "Simpan Proyek yang Diperbaiki"
+pl = "Zapisz naprawiony projekt"
 
 ["Some clips are not aligned to the project frame grid. Fixing them will snap and minimally shift clip boundaries, then save a new project without changing the original."]
 en = "Some clips are not aligned to the project frame grid. Fixing them will snap and minimally shift clip boundaries, then save a new project without changing the original."
@@ -419,6 +446,7 @@ pt = "Alguns clipes não estão alinhados à grade de quadros do projeto. A corr
 tr = "Bazı klipler proje kare ızgarasıyla hizalı değil. Düzeltme işlemi klip sınırlarını ızgaraya oturtup mümkün olduğunca az kaydıracak, ardından özgün projeyi değiştirmeden yeni bir proje kaydedecektir."
 it = "Alcune clip non sono allineate alla griglia dei fotogrammi del progetto. La correzione aggancerà e sposterà leggermente i bordi delle clip, salvando un nuovo progetto senza modificare l’originale."
 id = "Beberapa klip tidak sejajar dengan kisi bingkai proyek. Memperbaikinya akan mengunci dan sedikit menggeser batas klip, lalu menyimpan proyek baru tanpa mengubah aslinya."
+pl = "Niektóre klipy nie są wyrównane z siatką klatek projektu. Naprawienie ich skoryguje i lekko przesunie granice klipów, a następnie zapisze nowy projekt bez zmieniania oryginału."
 
 ["Compute"]
 en = "Compute"
@@ -434,6 +462,7 @@ pt = "Computação"
 tr = "Hesapla"
 it = "Calcola"
 id = "Komputasi"
+pl = "Obliczenia"
 
 ["Confirm color"]
 en = "Confirm color"
@@ -449,6 +478,7 @@ pt = "Confirmar cor"
 tr = "Rengi doğrula"
 it = "Conferma colore"
 id = "Konfirmasi warna"
+pl = "Zatwierdź kolor"
 
 ["Create Project"]
 en = "Create Project"
@@ -464,6 +494,7 @@ pt = "Criar projeto"
 tr = "Proje Oluştur"
 it = "Crea progetto"
 id = "Buat Proyek"
+pl = "Stwórz projekt"
 
 ["Cut selection"]
 en = "Cut selection"
@@ -479,6 +510,7 @@ pt = "Cortar seleção"
 tr = "Seçimi kes"
 it = "Taglia la selezione"
 id = "Potong pilihan"
+pl = "Wytnij zaznaczenie"
 
 ["Dark Blue"]
 en = "Dark Blue"
@@ -494,6 +526,7 @@ pt = "Azul-escuro"
 tr = "Koyu Mavi"
 it = "Blu scuro"
 id = "Biru Tua"
+pl = "Ciemny niebieski"
 
 ["Dark Brown"]
 en = "Dark Brown"
@@ -509,6 +542,7 @@ pt = "Marrom-escuro"
 tr = "Koyu Kahverengi"
 it = "Marrone chiaro"
 id = "Cokelat Tua"
+pl = "Ciemny brązowy"
 
 ["Dark Gray 1"]
 en = "Dark Gray 1"
@@ -524,6 +558,7 @@ pt = "Cinza-escuro 1"
 tr = "Koyu Gri 1"
 it = "Grigio scuro 1"
 id = "Abu-abu Tua 1"
+pl = "Ciemny szary 1"
 
 ["Dark Gray 2"]
 en = "Dark Gray 2"
@@ -539,6 +574,7 @@ pt = "Cinza-escuro 2"
 tr = "Koyu Gri 2"
 it = "Grigio scuro 2"
 id = "Abu-abu Tua 2"
+pl = "Ciemny szary 2"
 
 ["Dark Gray 3"]
 en = "Dark Gray 3"
@@ -554,6 +590,7 @@ pt = "Cinza-escuro 3"
 tr = "Koyu Gri 3"
 it = "Grigio scuro 3"
 id = "Abu-abu Tua 3"
+pl = "Ciemny szary 3"
 
 ["Dark Gray 4"]
 en = "Dark Gray 4"
@@ -569,6 +606,7 @@ pt = "Cinza-escuro 4"
 tr = "Koyu Gri 4"
 it = "Grigio scuro 4"
 id = "Abu-abu Tua 4"
+pl = "Ciemny szary 4"
 
 ["Dark Green"]
 en = "Dark Green"
@@ -584,6 +622,7 @@ pt = "Verde-escuro"
 tr = "Koyu Yeşil"
 it = "Verde scuro"
 id = "Hijau Tua"
+pl = "Ciemny zielony"
 
 ["Dark Orange"]
 en = "Dark Orange"
@@ -599,6 +638,7 @@ pt = "Laranja-escuro"
 tr = "Koyu Turuncu"
 it = "Arancione scuro"
 id = "Oranye Tua"
+pl = "Ciemny pomarańczowy"
 
 ["Dark Purple"]
 en = "Dark Purple"
@@ -614,6 +654,7 @@ pt = "Roxo-escuro"
 tr = "Koyu Mor"
 it = "Viola scuro"
 id = "Ungu Tua"
+pl = "Ciemny fioletowy"
 
 ["Dark Red"]
 en = "Dark Red"
@@ -629,6 +670,7 @@ pt = "Vermelho-escuro"
 tr = "Koyu Kırmızı"
 it = "Rosso scuro"
 id = "Merah Tua"
+pl = "Ciemny czerwony"
 
 ["Dark Yellow"]
 en = "Dark Yellow"
@@ -644,6 +686,7 @@ pt = "Amarelo-escuro"
 tr = "Koyu Sarı"
 it = "Giallo scuro"
 id = "Kuning Tua"
+pl = "Ciemny żółty"
 
 ["Default Text Font"]
 en = "Default Text Font"
@@ -659,6 +702,7 @@ pt = "Fonte de texto padrão"
 tr = "Varsayılan Metin Yazı Tipi"
 it = "Font predefinito del testo"
 id = "Font Teks Default"
+pl = "Domyślna czcionka tekstu"
 
 ["Default Visual Duration"]
 en = "Default Visual Duration"
@@ -674,6 +718,7 @@ pt = "Duração visual padrão"
 tr = "Varsayılan Görsel Süresi"
 it = "Durata visuale predefinita"
 id = "Durasi Visual Default"
+pl = "Domyślny czas trwania elementu wizualnego"
 
 ["Delete Server"]
 en = "Delete Server"
@@ -689,6 +734,7 @@ pt = "Excluir servidor"
 tr = "Sunucuyu Sil"
 it = "Elimina server"
 id = "Hapus Server"
+pl = "Usuń serwer"
 
 ["Delete selection"]
 en = "Delete selection"
@@ -704,6 +750,7 @@ pt = "Excluir seleção"
 tr = "Seçimi sil"
 it = "Elimina selezione"
 id = "Hapus pilihan"
+pl = "Usuń zaznaczenie"
 
 ["Device"]
 en = "Device"
@@ -719,6 +766,7 @@ pt = "Dispositivo"
 tr = "Cihaz"
 it = "Dispositivo"
 id = "Perangkat"
+pl = "Urządzenie"
 
 ["Distance in pixels for timeline, beat, and preview snapping"]
 en = "Distance in pixels for timeline, beat, and preview snapping"
@@ -734,6 +782,7 @@ pt = "Distância em pixels para encaixe na linha do tempo, batidas e pré-visual
 tr = "Zaman akışı, vuruş ve önizleme hizalaması için piksel cinsinden mesafe"
 it = "Distanza in pixel per l’aggancio a sequenza, beat e anteprima"
 id = "Jarak dalam piksel untuk snap timeline, ketukan, dan pratinjau"
+pl = "Odległość przyciągania dla osi czasu, rytmu i podglądu (w pikselach)"
 
 ["Drop shadow extent around the video frame in pixels"]
 en = "Drop shadow extent around the video frame in pixels"
@@ -749,6 +798,7 @@ pt = "Extensão da sombra projetada ao redor do quadro de vídeo em pixels"
 tr = "Piksel cinsinden video çerçevesinin etrafındaki gölge genişliği"
 it = "Estensione in pixel dell’ombra esterna attorno al fotogramma video"
 id = "Rentang drop shadow di sekitar frame video dalam piksel"
+pl = "Zasięg cienia wokół klatki wideo (w pikselach)"
 
 ["Edit Server"]
 en = "Edit Server"
@@ -764,6 +814,7 @@ pt = "Editar servidor"
 tr = "Sunucuyu Düzenle"
 it = "Modifica server"
 id = "Edit Server"
+pl = "Edytuj serwer"
 
 ["External"]
 en = "External"
@@ -779,6 +830,7 @@ pt = "Externo"
 tr = "Harici"
 it = "Esterno"
 id = "Eksternal"
+pl = "Zewnętrzne"
 
 ["Features"]
 en = "Features"
@@ -794,6 +846,7 @@ pt = "Recursos"
 tr = "Özellikler"
 it = "Funzioni"
 id = "Fitur"
+pl = "Funkcje"
 
 ["Fix typo: %{correction}"]
 en = "Fix typo: %{correction}"
@@ -809,6 +862,7 @@ pt = "Corrigir erro de digitação: %{correction}"
 tr = "Yazım hatasını düzelt: %{correction}"
 it = "Correggi refuso: %{correction}"
 id = "Perbaiki kesalahan ketik: %{correction}"
+pl = "Napraw literówkę: %{correction}"
 
 ["Font Size"]
 en = "Font Size"
@@ -824,6 +878,7 @@ pt = "Tamanho da fonte"
 tr = "Yazı Tipi Boyutu"
 it = "Grandezza font"
 id = "Ukuran Font"
+pl = "Rozmiar czcionki"
 
 ["General"]
 en = "General"
@@ -839,6 +894,7 @@ pt = "Geral"
 tr = "Genel"
 it = "Generale"
 id = "Umum"
+pl = "Ogólne"
 
 ["Green"]
 en = "Green"
@@ -854,6 +910,7 @@ pt = "Verde"
 tr = "Yeşil"
 it = "Verde"
 id = "Hijau"
+pl = "Zielony"
 
 ["Height"]
 en = "Height"
@@ -869,6 +926,7 @@ pt = "Altura"
 tr = "Yükseklik"
 it = "Altezza"
 id = "Tinggi"
+pl = "Wysokość"
 
 ["Hexadecimal color"]
 en = "Hexadecimal color"
@@ -884,6 +942,7 @@ pt = "Cor hexadecimal"
 tr = "Onaltılık renk"
 it = "Colore esadecimale"
 id = "Warna heksadesimal"
+pl = "Kolor szesnastkowy"
 
 ["History"]
 en = "History"
@@ -899,6 +958,7 @@ pt = "Histórico"
 tr = "Geçmiş"
 it = "Cronologia"
 id = "Riwayat"
+pl = "Historia"
 
 ["GPU Host Memory Budget"]
 en = "GPU Host Memory Budget"
@@ -914,6 +974,7 @@ pt = "Limite de memória do host para GPU"
 tr = "GPU Ana Bellek Bütçesi"
 it = "Limite memoria di sistema per la GPU"
 id = "Anggaran Memori Host GPU"
+pl = "Limit pamięci hosta dla GPU"
 
 ["Import Kdenlive as Shrimply Project"]
 en = "Import Kdenlive as Shrimply Project"
@@ -929,6 +990,7 @@ pt = "Importar Kdenlive como projeto do Shrimply"
 tr = "Kdenlive'ı Shrimply Projesi Olarak İçe Aktar"
 it = "Importa Kdenlive come progetto Shrimply"
 id = "Impor Kdenlive sebagai Proyek Shrimply"
+pl = "Importuj Kdenlive jako projekt Shrimply"
 
 ["Import OTIO as Shrimply Project"]
 en = "Import OTIO as Shrimply Project"
@@ -944,6 +1006,7 @@ pt = "Importar OTIO como projeto do Shrimply"
 tr = "OTIO'yu Shrimply Projesi Olarak İçe Aktar"
 it = "Importa OTIO come progetto Shrimply"
 id = "Impor OTIO sebagai Proyek Shrimply"
+pl = "Importuj OTIO jako projekt Shrimply"
 
 ["Import"]
 en = "Import"
@@ -959,6 +1022,7 @@ pt = "Importar"
 tr = "İçe Aktar"
 it = "Importa"
 id = "Impor"
+pl = "Importuj"
 
 ["Inference Servers"]
 en = "Inference Servers"
@@ -974,6 +1038,7 @@ pt = "Servidores de inferência"
 tr = "Çıkarım Sunucuları"
 it = "Server d’inferenza"
 id = "Server Inferensi"
+pl = "Serwery inferencji"
 
 ["Jobs"]
 en = "Jobs"
@@ -989,6 +1054,7 @@ pt = "Tarefas"
 tr = "İşler"
 it = "Processi"
 id = "Tugas"
+pl = "Prace"
 
 ["Keyboard Shortcuts"]
 en = "Keyboard Shortcuts"
@@ -1004,6 +1070,7 @@ pt = "Atalhos de teclado"
 tr = "Klavye Kısayolları"
 it = "Scorciatoie da tastiera"
 id = "Pintasan Papan Tombol"
+pl = "Skróty klawiszowe"
 
 ["Last edited %{date}"]
 en = "Last edited %{date}"
@@ -1019,6 +1086,7 @@ pt = "Última edição em %{date}"
 tr = "En son %{date} tarihinde düzenlendi"
 it = "Ultima modifica il %{date}"
 id = "Terakhir diedit %{date}"
+pl = "Ostatnio edytowano: %{date}"
 
 ["Last Edited"]
 en = "Last Edited"
@@ -1034,6 +1102,7 @@ pt = "Última edição"
 tr = "En Son Düzenlenen"
 it = "Ultima modifica"
 id = "Terakhir Diedit"
+pl = "Ostatnia modyfikacja"
 
 ["Last edited time unavailable"]
 en = "Last edited time unavailable"
@@ -1049,6 +1118,7 @@ pt = "Data da última edição indisponível"
 tr = "En son düzenleme zamanı mevcut değil"
 it = "Data dell’ultima modifica non disponibile"
 id = "Waktu edit terakhir tidak tersedia"
+pl = "Data ostatniej modyfikacji niedostępna"
 
 ["Learn more"]
 en = "Learn more"
@@ -1064,6 +1134,7 @@ pt = "Saiba mais"
 tr = "Daha Fazla Bilgi"
 it = "Scopri di più"
 id = "Pelajari lebih lanjut"
+pl = "Dowiedz się więcej"
 
 ["Light Blue"]
 en = "Light Blue"
@@ -1079,6 +1150,7 @@ pt = "Azul-claro"
 tr = "Açık Mavi"
 it = "Blu chiaro"
 id = "Biru Muda"
+pl = "Jasny niebieski"
 
 ["Light Brown"]
 en = "Light Brown"
@@ -1094,6 +1166,7 @@ pt = "Marrom-claro"
 tr = "Açık Kahverengi"
 it = "Marrone chiaro"
 id = "Cokelat Muda"
+pl = "Jasny brązowy"
 
 ["Light Gray 1"]
 en = "Light Gray 1"
@@ -1109,6 +1182,7 @@ pt = "Cinza-claro 1"
 tr = "Açık Gri 1"
 it = "Grigio chiaro 1"
 id = "Abu-abu Muda 1"
+pl = "Jasny szary 1"
 
 ["Light Gray 2"]
 en = "Light Gray 2"
@@ -1124,6 +1198,7 @@ pt = "Cinza-claro 2"
 tr = "Açık Gri 2"
 it = "Grigio chiaro 2"
 id = "Abu-abu Muda 2"
+pl = "Jasny szary 2"
 
 ["Light Gray 3"]
 en = "Light Gray 3"
@@ -1139,6 +1214,7 @@ pt = "Cinza-claro 3"
 tr = "Açık Gri 3"
 it = "Grigio chiaro 3"
 id = "Abu-abu Muda 3"
+pl = "Jasny szary 3"
 
 ["Light Gray 4"]
 en = "Light Gray 4"
@@ -1154,6 +1230,7 @@ pt = "Cinza-claro 4"
 tr = "Açık Gri 4"
 it = "Grigio chiaro 4"
 id = "Abu-abu Muda 4"
+pl = "Jasny szary 4"
 
 ["Light Green"]
 en = "Light Green"
@@ -1169,6 +1246,7 @@ pt = "Verde-claro"
 tr = "Açık Yeşil"
 it = "Verde chiaro"
 id = "Hijau Muda"
+pl = "Jasny zielony"
 
 ["Light Orange"]
 en = "Light Orange"
@@ -1184,6 +1262,7 @@ pt = "Laranja-claro"
 tr = "Açık Turuncu"
 it = "Arancione chiaro"
 id = "Oranye Muda"
+pl = "Jasny pomarańczowy"
 
 ["Light Purple"]
 en = "Light Purple"
@@ -1199,6 +1278,7 @@ pt = "Roxo-claro"
 tr = "Açık Mor"
 it = "Viola chiaro"
 id = "Ungu Muda"
+pl = "Jasny fioletowy"
 
 ["Light Red"]
 en = "Light Red"
@@ -1214,6 +1294,7 @@ pt = "Vermelho-claro"
 tr = "Açık Kırmızı"
 it = "Rosso chiaro"
 id = "Merah Muda"
+pl = "Jasny czerwony"
 
 ["Light Yellow"]
 en = "Light Yellow"
@@ -1229,6 +1310,7 @@ pt = "Amarelo-claro"
 tr = "Açık Sarı"
 it = "Giallo chiaro"
 id = "Kuning Muda"
+pl = "Jasny żółty"
 
 ["Loading project…"]
 en = "Loading project…"
@@ -1244,6 +1326,7 @@ pt = "Carregando projeto…"
 tr = "Proje yükleniyor…"
 it = "Caricamento del progetto..."
 id = "Memuat proyek…"
+pl = "Ładowanie projektu…"
 
 ["Lock ratio"]
 en = "Lock ratio"
@@ -1259,6 +1342,7 @@ pt = "Bloquear proporção"
 tr = "Oranı kilitle"
 it = "Blocca proporzioni"
 id = "Kunci rasio"
+pl = "Zablokuj proporcje"
 
 ["Maximum number of active video decoder sessions"]
 en = "Maximum number of active video decoder sessions"
@@ -1274,6 +1358,7 @@ pt = "Número máximo de sessões ativas do decodificador de vídeo"
 tr = "Etkin video kod çözücü oturumlarının azami sayısı"
 it = "Numero massimo di sessioni di decodifica video attive"
 id = "Jumlah maksimum sesi dekoder video aktif"
+pl = "Maksymalna liczba aktywnych sesji dekodera wideo"
 
 ["New Project"]
 en = "New Project"
@@ -1289,6 +1374,7 @@ pt = "Novo projeto"
 tr = "Yeni Proje"
 it = "Nuovo progetto"
 id = "Proyek Baru"
+pl = "Nowy projekt"
 
 ["No Matching Projects"]
 en = "No Matching Projects"
@@ -1304,6 +1390,7 @@ pt = "Nenhum projeto correspondente"
 tr = "Eşleşen Proje Yok"
 it = "Nessun progetto corrispondente"
 id = "Tidak Ada Proyek yang Cocok"
+pl = "Brak pasujących projektów"
 
 ["No Recent Projects"]
 en = "No Recent Projects"
@@ -1319,6 +1406,7 @@ pt = "Nenhum projeto recente"
 tr = "Son Kullanılan Proje Yok"
 it = "Nessun progetto recente"
 id = "Tidak Ada Proyek Terkini"
+pl = "Brak ostatnich projektów"
 
 ["Not configured"]
 en = "Not configured"
@@ -1334,6 +1422,7 @@ pt = "Não configurado"
 tr = "Yapılandırılmadı"
 it = "Non configurato"
 id = "Belum dikonfigurasi"
+pl = "Nie skonfigurowano"
 
 ["OTIO Project Settings"]
 en = "OTIO Project Settings"
@@ -1349,6 +1438,7 @@ pt = "Configurações de projeto OTIO"
 tr = "OTIO Proje Ayarları"
 it = "Configurazione del progetto OTIO"
 id = "Pengaturan Proyek OTIO"
+pl = "Ustawienia projektu OTIO"
 
 ["OTIO does not include the Kdenlive project profile."]
 en = "OTIO does not include the Kdenlive project profile."
@@ -1364,6 +1454,7 @@ pt = "O OTIO não inclui o perfil do projeto do Kdenlive."
 tr = "OTIO, Kdenlive proje profilini içermez."
 it = "OTIO non include il profilo del progetto Kdenlive"
 id = "OTIO tidak menyertakan profil proyek Kdenlive."
+pl = "OTIO nie zawiera profilu projektu Kdenlive."
 
 ["OTIO imported with limitations"]
 en = "OTIO imported with limitations"
@@ -1379,6 +1470,7 @@ pt = "OTIO importado com limitações"
 tr = "OTIO kısıtlamalarla içe aktarıldı"
 it = "OTIO importato con limitazioni"
 id = "OTIO diimpor dengan batasan"
+pl = "OTIO zimportowane z ograniczeniami"
 
 ["Open Project"]
 en = "Open Project"
@@ -1394,6 +1486,7 @@ pt = "Abrir projeto"
 tr = "Proje Aç"
 it = "Apri progetto"
 id = "Buka Proyek"
+pl = "Otwórz projekt"
 
 ["Open Project…"]
 en = "Open Project…"
@@ -1409,6 +1502,7 @@ pt = "Abrir projeto…"
 tr = "Proje Aç…"
 it = "Apri progetto..."
 id = "Buka Proyek…"
+pl = "Otwórz projekt…"
 
 ["Open the GTK color picker"]
 en = "Open the GTK color picker"
@@ -1424,6 +1518,7 @@ pt = "Abrir o seletor de cores do GTK"
 tr = "GTK renk seçiciyi aç"
 it = "Apri il selettore colore GTK"
 id = "Buka pemilih warna GTK"
+pl = "Otwórz okno wyboru koloru GTK"
 
 ["Orange"]
 en = "Orange"
@@ -1439,6 +1534,7 @@ pt = "Laranja"
 tr = "Turuncu"
 it = "Arancione"
 id = "Oranye"
+pl = "Pomarańczowy"
 
 ["Pick a color from the screen"]
 en = "Pick a color from the screen"
@@ -1454,6 +1550,7 @@ pt = "Selecionar uma cor da tela"
 tr = "Ekrandan bir renk seç"
 it = "Seleziona un colore dallo schermo"
 id = "Pilih warna dari layar"
+pl = "Wybierz kolor z ekranu"
 
 ["Play / Pause"]
 en = "Play / Pause"
@@ -1469,6 +1566,7 @@ pt = "Reproduzir / Pausar"
 tr = "Oynat / Duraklat"
 it = "Riproduci / Pausa"
 id = "Putar / Jeda"
+pl = "Odtwórz / Wstrzymaj"
 
 ["Preferences"]
 en = "Preferences"
@@ -1484,6 +1582,7 @@ pt = "Preferências"
 tr = "Tercihler"
 it = "Preferenze"
 id = "Preferensi"
+pl = "Preferencje"
 
 ["Preview"]
 en = "Preview"
@@ -1499,6 +1598,7 @@ pt = "Pré-visualização"
 tr = "Önizleme"
 it = "Anteprima"
 id = "Pratinjau"
+pl = "Podgląd"
 
 ["Project Name"]
 en = "Project Name"
@@ -1514,6 +1614,7 @@ pt = "Nome do projeto"
 tr = "Proje Adı"
 it = "Nome del progetto"
 id = "Nama Proyek"
+pl = "Nazwa projektu"
 
 ["Project Settings"]
 en = "Project Settings"
@@ -1529,6 +1630,7 @@ pt = "Configurações do projeto"
 tr = "Proje Ayarları"
 it = "Impostazioni del progetto"
 id = "Pengaturan Proyek"
+pl = "Ustawienia projektu"
 
 ["Project options"]
 en = "Project options"
@@ -1544,6 +1646,7 @@ pt = "Opções do projeto"
 tr = "Proje seçenekleri"
 it = "Opzioni del progetto"
 id = "Opsi proyek"
+pl = "Opcje projektu"
 
 ["Project saved to the new location"]
 en = "Project saved to the new location"
@@ -1559,6 +1662,7 @@ pt = "Projeto salvo no novo local"
 tr = "Proje yeni konuma kaydedildi"
 it = "Progetto salvato nella nuova destinazione"
 id = "Proyek disimpan ke lokasi baru"
+pl = "Zapisano projekt w nowym miejscu"
 
 ["Protocol"]
 en = "Protocol"
@@ -1574,6 +1678,7 @@ pt = "Protocolo"
 tr = "Protokol"
 it = "Protocollo"
 id = "Protokol"
+pl = "Protokół"
 
 ["Purple"]
 en = "Purple"
@@ -1589,6 +1694,7 @@ pt = "Roxo"
 tr = "Mor"
 it = "Viola"
 id = "Ungu"
+pl = "Fioletowy"
 
 ["Reading and converting Kdenlive timeline…"]
 en = "Reading and converting Kdenlive timeline…"
@@ -1604,6 +1710,7 @@ pt = "Lendo e convertendo linha do tempo do Kdenlive…"
 tr = "Kdenlive zaman çizelgesi okunup dönüştürülüyor…"
 it = "Leggendo e convertendo la sequenza di Kdenlive"
 id = "Membaca dan mengonversi timeline Kdenlive…"
+pl = "Odczytywanie i konwertowanie osi czasu Kdenlive…"
 
 ["Recent"]
 en = "Recent"
@@ -1619,6 +1726,7 @@ pt = "Recentes"
 tr = "Son Kullanılanlar"
 it = "Recenti"
 id = "Terkini"
+pl = "Ostatnie"
 
 ["Red"]
 en = "Red"
@@ -1634,6 +1742,7 @@ pt = "Vermelho"
 tr = "Kırmızı"
 it = "Rosso"
 id = "Merah"
+pl = "Czerwony"
 
 ["Redo"]
 en = "Redo"
@@ -1649,6 +1758,7 @@ pt = "Refazer"
 tr = "İleri Al"
 it = "Ripeti"
 id = "Ulangi"
+pl = "Ponów"
 
 ["Replace selected item properties"]
 en = "Replace selected item properties"
@@ -1664,6 +1774,7 @@ pt = "Substituir propriedades do item selecionado"
 tr = "Seçilen ögenin özelliklerini değiştir"
 it = "Sostituisci le propietà degli oggetti selezionati"
 id = "Ganti properti item yang dipilih"
+pl = "Zastąp właściwości zaznaczonego elementu"
 
 ["Reserved memory"]
 en = "Reserved memory"
@@ -1679,6 +1790,7 @@ pt = "Memória reservada"
 tr = "Ayrılmış bellek"
 it = "Memoria riservata"
 id = "Memori yang dicadangkan"
+pl = "Pamięć zarezerwowana"
 
 ["Retry"]
 en = "Retry"
@@ -1694,6 +1806,7 @@ pt = "Repetir"
 tr = "Tekrar dene"
 it = "Riprova"
 id = "Coba lagi"
+pl = "Spróbuj ponownie"
 
 ["Ripple cut"]
 en = "Ripple cut"
@@ -1709,6 +1822,7 @@ pt = "Corte com ondulação"
 tr = "Ardışık kesim"
 it = "Taglia e scorri"
 id = "Potong ripple"
+pl = "Cięcie z przesunięciem"
 
 ["Ripple trim selected clip to playhead"]
 en = "Ripple trim selected clip to playhead"
@@ -1724,6 +1838,7 @@ pt = "Aparar com ondulação o clipe selecionado até o indicador de reproduçã
 tr = "Seçilen klibi oynatma imlecine kadar ardışık kırp"
 it = "Taglia e scorri la clip selezionata fino alla testina di riproduzione"
 id = "Pangkas ripple klip yang dipilih ke playhead"
+pl = "Przytnij wybrany klip z przesunięciem do głowicy odtwarzania"
 
 ["Saturation and value"]
 en = "Saturation and value"
@@ -1739,6 +1854,7 @@ pt = "Saturação e valor"
 tr = "Doygunluk ve parlaklık"
 it = "Saturazione e valore"
 id = "Saturasi dan nilai"
+pl = "Nasycenie i wartość"
 
 ["Save As"]
 en = "Save As"
@@ -1754,6 +1870,7 @@ pt = "Salvar como"
 tr = "Farklı Kaydet"
 it = "Salva come"
 id = "Simpan Sebagai"
+pl = "Zapisz jako"
 
 ["Save As…"]
 en = "Save As…"
@@ -1769,6 +1886,7 @@ pt = "Salvar como…"
 tr = "Farklı Kaydet…"
 it = "Salva come..."
 id = "Simpan Sebagai…"
+pl = "Zapisz jako…"
 
 ["Save Project As"]
 en = "Save Project As"
@@ -1784,6 +1902,7 @@ pt = "Salvar projeto como"
 tr = "Projeyi Farklı Kaydet"
 it = "Salva il progetto come"
 id = "Simpan Proyek Sebagai"
+pl = "Zapisz projekt jako"
 
 ["Save"]
 en = "Save"
@@ -1799,6 +1918,7 @@ pt = "Salvar"
 tr = "Kaydet"
 it = "Salva"
 id = "Simpan"
+pl = "Zapisz"
 
 ["Search history"]
 en = "Search history"
@@ -1814,6 +1934,7 @@ pt = "Pesquisar histórico"
 tr = "Arama geçmişi"
 it = "Cerca cronologia"
 id = "Cari riwayat"
+pl = "Przeszukaj historię"
 
 ["Select color"]
 en = "Select color"
@@ -1829,6 +1950,7 @@ pt = "Selecionar cor"
 tr = "Renk seç"
 it = "Seleziona colore"
 id = "Pilih warna"
+pl = "Wybierz kolor"
 
 ["Selected Server"]
 en = "Selected Server"
@@ -1844,6 +1966,7 @@ pt = "Servidor selecionado"
 tr = "Seçilen Sunucu"
 it = "Server selezionato"
 id = "Server yang Dipilih"
+pl = "Zaznaczony serwer"
 
 ["Server URL"]
 en = "Server URL"
@@ -1859,6 +1982,7 @@ pt = "URL do servidor"
 tr = "Sunucu URL'si"
 it = "URL del server"
 id = "URL Server"
+pl = "URL serwera"
 
 ["Server does not support device selection"]
 en = "Server does not support device selection"
@@ -1874,6 +1998,7 @@ pt = "O servidor não suporta seleção de dispositivo"
 tr = "Sunucu cihaz seçimini desteklemiyor"
 it = "Il server non supporta la selezione del dispositivo"
 id = "Server tidak mendukung pemilihan perangkat"
+pl = "Serwer nie obsługuje wyboru urządzenia"
 
 ["Server menu"]
 en = "Server menu"
@@ -1889,6 +2014,7 @@ pt = "Menu do servidor"
 tr = "Sunucu menüsü"
 it = "Menu del server"
 id = "Menu server"
+pl = "Menu serwera"
 
 ["Shadow Size"]
 en = "Shadow Size"
@@ -1904,6 +2030,7 @@ pt = "Tamanho da sombra"
 tr = "Gölge Boyutu"
 it = "Dimensione dell’ombra"
 id = "Ukuran Bayangan"
+pl = "Rozmiar cienia"
 
 ["Show Keyboard Shortcuts"]
 en = "Show Keyboard Shortcuts"
@@ -1919,6 +2046,7 @@ pt = "Mostrar atalhos de teclado"
 tr = "Klavye Kısayollarını Göster"
 it = "Mostra le scorciatoie da tastiera"
 id = "Tampilkan Pintasan Papan Tombol"
+pl = "Pokaż skróty klawiszowe"
 
 ["Show in Files"]
 en = "Show in Files"
@@ -1934,6 +2062,7 @@ pt = "Mostrar em Arquivos"
 tr = "Dosyalar'da Göster"
 it = "Mostra nei file"
 id = "Tampilkan di Berkas"
+pl = "Pokaż w plikach"
 
 ["Shrimply projects"]
 en = "Shrimply projects"
@@ -1949,6 +2078,7 @@ pt = "Projetos do Shrimply"
 tr = "Shrimply projeleri"
 it = "Progetti Shrimply"
 id = "Proyek Shrimply"
+pl = "Projekty Shrimply"
 
 ["Shrimply supports only some Kdenlive features. Unsupported content may be changed or omitted."]
 en = "Shrimply supports only some Kdenlive features. Unsupported content may be changed or omitted."
@@ -1964,6 +2094,7 @@ pt = "O Shrimply suporta apenas alguns recursos do Kdenlive. O conteúdo não su
 tr = "Shrimply sadece bazı Kdenlive özelliklerini destekler. Desteklenmeyen içerik değiştirilebilir veya çıkarılabilir."
 it = "Shrimply supporta solo alcune funzioni di Kdenlive. Il contenuto non supportato potrebbe cambiare o essere omesso"
 id = "Shrimply hanya mendukung beberapa fitur Kdenlive. Konten yang tidak didukung dapat diubah atau dihilangkan."
+pl = "Shrimply obsługuje tylko niektóre funkcje Kdenlive. Nieobsługiwana zawartość może zostać zmieniona albo pominięta."
 
 ["Snap Attraction Radius"]
 en = "Snap Attraction Radius"
@@ -1979,6 +2110,7 @@ pt = "Raio de atração do encaixe"
 tr = "Yapışma Çekim Yarıçapı"
 it = "Raggio di attrazione del aggancio"
 id = "Radius Tarikan Snap"
+pl = "Promień przyciągania"
 
 ["Space around the video frame in pixels"]
 en = "Space around the video frame in pixels"
@@ -1994,6 +2126,7 @@ pt = "Espaço ao redor do quadro de vídeo em pixels"
 tr = "Piksel cinsinden video karesinin etrafındaki boşluk"
 it = "Spazio in pixels attorno al frame video"
 id = "Ruang di sekitar bingkai video dalam piksel"
+pl = "Przestrzeń dookoła klatki wideo (w pikselach)"
 
 ["Split all clips and select left"]
 en = "Split all clips and select left"
@@ -2009,6 +2142,7 @@ pt = "Dividir todos os clipes e selecionar à esquerda"
 tr = "Tüm klipleri böl ve sol tarafı seç"
 it = "Dividi tutte le clip e seleziona la parte sinistra"
 id = "Bagi semua klip dan pilih sebelah kiri"
+pl = "Podziel wszystkie klipy i zaznacz lewą stronę"
 
 ["Split all clips at playhead"]
 en = "Split all clips at playhead"
@@ -2024,6 +2158,7 @@ pt = "Dividir todos os clipes no indicador de reprodução"
 tr = "Oynatma imlecinde tüm klipleri böl"
 it = "Dividi tutte le clip alla testina di riproduzione"
 id = "Bagi semua klip di playhead"
+pl = "Podziel wszystkie klipy w miejscu głowicy odtwarzania"
 
 ["Maximum system RAM available for CUDA spill and reconstructible GPU resources"]
 en = "Maximum system RAM available for CUDA spill and reconstructible GPU resources"
@@ -2039,6 +2174,7 @@ pt = "RAM máxima do sistema disponível para transbordamento de CUDA e recursos
 tr = "CUDA taşması ve yeniden oluşturulabilir GPU kaynakları için kullanılabilir azami sistem RAM'i"
 it = "RAM di sistema massima disponibile per spillover CUDA e risorse GPU ricostruibili"
 id = "RAM sistem maksimum yang tersedia untuk limpahan CUDA dan sumber daya GPU yang dapat direkonstruksi"
+pl = "Maksymalna ilość pamięci RAM dostępnej na potrzeby CUDA spill i zasobów GPU możliwych do odtworzenia"
 
 ["Step playback"]
 en = "Step playback"
@@ -2054,6 +2190,7 @@ pt = "Reprodução quadro a quadro"
 tr = "Adım adım oynatma"
 it = "Riproduzione a fotogrammi"
 id = "Putar per bingkai"
+pl = "Odtwarzanie klatka po klatce"
 
 ["Stop Other Editor"]
 en = "Stop Other Editor"
@@ -2069,6 +2206,7 @@ pt = "Parar outro editor"
 tr = "Diğer Düzenleyiciyi Durdur"
 it = "Ferma l’altro editor"
 id = "Hentikan Editor Lain"
+pl = "Zatrzymaj inny edytor"
 
 ["Temporal Decoder Pool Size"]
 en = "Temporal Decoder Pool Size"
@@ -2084,6 +2222,7 @@ pt = "Tamanho do pool de decodificadores temporais"
 tr = "Zamansal Çözücü Havuz Boyutu"
 it = "Dimensione pool della decodifica temporale"
 id = "Ukuran Pool Dekoder Temporal"
+pl = "Rozmiar puli dekoderów temporalnych"
 
 ["Timeline"]
 en = "Timeline"
@@ -2099,6 +2238,7 @@ pt = "Linha do tempo"
 tr = "Zaman Çizelgesi"
 it = "Sequenza"
 id = "Timeline"
+pl = "Oś czasu"
 
 ["Toggle Inspector"]
 en = "Toggle Inspector"
@@ -2114,6 +2254,7 @@ pt = "Alternar inspetor"
 tr = "Denetleyiciyi Aç/Kapat"
 it = "Mostra/nascondi inspector"
 id = "Buka/Tutup Inspector"
+pl = "Pokaż/ukryj inspektor"
 
 ["Toggle Timeline"]
 en = "Toggle Timeline"
@@ -2129,6 +2270,7 @@ pt = "Alternar linha do tempo"
 tr = "Zaman Çizelgesini Aç/Kapat"
 it = "Mostra/nascondi sequenza"
 id = "Buka/Tutup Timeline"
+pl = "Pokaż/ukryj oś czasu"
 
 ["Toggle timeline zoom"]
 en = "Toggle timeline zoom"
@@ -2144,6 +2286,7 @@ pt = "Alternar zoom da linha do tempo"
 tr = "Zaman çizelgesi yakınlaştırmasını aç/kapat"
 it = "Mostra/nascondi lo zoom sulla sequenza"
 id = "Alihkan zoom timeline"
+pl = "Przełącz powiększenie osi czasu"
 
 ["Torch"]
 en = "Torch"
@@ -2159,6 +2302,7 @@ pt = "Torch"
 tr = "Torch"
 it = "Torch"
 id = "Torch"
+pl = "Torch"
 
 ["Unavailable"]
 en = "Unavailable"
@@ -2174,6 +2318,7 @@ pt = "Indisponível"
 tr = "Kullanılamıyor"
 it = "Non disponibile"
 id = "Tidak tersedia"
+pl = "Niedostępne"
 
 ["Undo"]
 en = "Undo"
@@ -2189,6 +2334,7 @@ pt = "Desfazer"
 tr = "Geri Al"
 it = "Annulla"
 id = "Urungkan"
+pl = "Cofnij"
 
 ["Untitled Project"]
 en = "Untitled Project"
@@ -2204,6 +2350,7 @@ pt = "Projeto sem título"
 tr = "Başlıksız Proje"
 it = "Progetto senza titolo"
 id = "Proyek Tanpa Judul"
+pl = "Projekt bez tytułu"
 
 ["Use this server"]
 en = "Use this server"
@@ -2219,6 +2366,7 @@ pt = "Usar este servidor"
 tr = "Bu sunucuyu kullan"
 it = "Usa questo server"
 id = "Gunakan server ini"
+pl = "Użyj tego serwera"
 
 ["Validating imported project…"]
 en = "Validating imported project…"
@@ -2234,6 +2382,7 @@ pt = "Validando projeto importado…"
 tr = "İçe aktarılmış proje doğrulanıyor…"
 it = "Validando progetto importato..."
 id = "Memvalidasi proyek yang diimpor…"
+pl = "Weryfikowanie importowanego projektu…"
 
 ["Version %{version}"]
 en = "Version %{version}"
@@ -2249,6 +2398,7 @@ pt = "Versão %{version}"
 tr = "Sürüm %{version}"
 it = "Versione %{version}"
 id = "Versi %{version}"
+pl = "Wersja %{version}"
 
 ["Very Dark Blue"]
 en = "Very Dark Blue"
@@ -2264,6 +2414,7 @@ pt = "Azul muito escuro"
 tr = "Çok Koyu Mavi"
 it = "Blu molto scuro"
 id = "Biru Sangat Tua"
+pl = "Bardzo ciemny niebieski"
 
 ["Very Dark Brown"]
 en = "Very Dark Brown"
@@ -2279,6 +2430,7 @@ pt = "Marrom muito escuro"
 tr = "Çok Koyu Kahverengi"
 it = "Marrone molto scuro"
 id = "Cokelat Sangat Tua"
+pl = "Bardzo ciemny brązowy"
 
 ["Very Dark Green"]
 en = "Very Dark Green"
@@ -2294,6 +2446,7 @@ pt = "Verde muito escuro"
 tr = "Çok Koyu Yeşil"
 it = "Verde molto scuro"
 id = "Hijau Sangat Tua"
+pl = "Bardzo ciemny zielony"
 
 ["Very Dark Orange"]
 en = "Very Dark Orange"
@@ -2309,6 +2462,7 @@ pt = "Laranja muito escuro"
 tr = "Çok Koyu Turuncu"
 it = "Arancione molto scuro"
 id = "Oranye Sangat Tua"
+pl = "Bardzo ciemny pomarańczowy"
 
 ["Very Dark Purple"]
 en = "Very Dark Purple"
@@ -2324,6 +2478,7 @@ pt = "Roxo muito escuro"
 tr = "Çok Koyu Mor"
 it = "Viola molto scuro"
 id = "Ungu Sangat Tua"
+pl = "Bardzo ciemny fioletowy"
 
 ["Very Dark Red"]
 en = "Very Dark Red"
@@ -2339,6 +2494,7 @@ pt = "Vermelho muito escuro"
 tr = "Çok Koyu Kırmızı"
 it = "Rosso molto scuro"
 id = "Merah Sangat Tua"
+pl = "Bardzo ciemny czerwony"
 
 ["Very Dark Yellow"]
 en = "Very Dark Yellow"
@@ -2354,6 +2510,7 @@ pt = "Amarelo muito escuro"
 tr = "Çok Koyu Sarı"
 it = "Giallo molto scuro"
 id = "Kuning Sangat Tua"
+pl = "Bardzo ciemny żółty"
 
 ["Very Light Blue"]
 en = "Very Light Blue"
@@ -2369,6 +2526,7 @@ pt = "Azul muito claro"
 tr = "Çok Açık Mavi"
 it = "Blu molto chiaro"
 id = "Biru Sangat Muda"
+pl = "Bardzo jasny niebieski"
 
 ["Very Light Brown"]
 en = "Very Light Brown"
@@ -2384,6 +2542,7 @@ pt = "Marrom muito claro"
 tr = "Çok Açık Kahverengi"
 it = "Marrone molto chiaro"
 id = "Cokelat Sangat Muda"
+pl = "Bardzo jasny brązowy"
 
 ["Very Light Green"]
 en = "Very Light Green"
@@ -2399,6 +2558,7 @@ pt = "Verde muito claro"
 tr = "Çok Açık Yeşil"
 it = "Verde molto chiaro"
 id = "Hijau Sangat Muda"
+pl = "Bardzo jasny zielony"
 
 ["Very Light Orange"]
 en = "Very Light Orange"
@@ -2414,6 +2574,7 @@ pt = "Laranja muito claro"
 tr = "Çok Açık Turuncu"
 it = "Arancione molto chiaro"
 id = "Oranye Sangat Muda"
+pl = "Bardzo jasny pomarańczowy"
 
 ["Very Light Purple"]
 en = "Very Light Purple"
@@ -2429,6 +2590,7 @@ pt = "Roxo muito claro"
 tr = "Çok Açık Mor"
 it = "Viola molto chiaro"
 id = "Ungu Sangat Muda"
+pl = "Bardzo jasny fioletowy"
 
 ["Very Light Red"]
 en = "Very Light Red"
@@ -2444,6 +2606,7 @@ pt = "Vermelho muito claro"
 tr = "Çok Açık Kırmızı"
 it = "Rosso molto chiaro"
 id = "Merah Sangat Muda"
+pl = "Bardzo jasny czerwony"
 
 ["Very Light Yellow"]
 en = "Very Light Yellow"
@@ -2459,6 +2622,7 @@ pt = "Amarelo muito claro"
 tr = "Çok Açık Sarı"
 it = "Giallo molto chiaro"
 id = "Kuning Sangat Muda"
+pl = "Bardzo jasny żółty"
 
 ["White"]
 en = "White"
@@ -2474,6 +2638,7 @@ pt = "Branco"
 tr = "Beyaz"
 it = "Bianco"
 id = "Putih"
+pl = "Biały"
 
 ["Workers"]
 en = "Workers"
@@ -2489,6 +2654,7 @@ pt = "Processos de trabalho"
 tr = "İş Parçacıkları"
 it = "Processi"
 id = "Worker"
+pl = "Procesy robocze"
 
 ["Writing Shrimply project…"]
 en = "Writing Shrimply project…"
@@ -2504,6 +2670,7 @@ pt = "Gravando projeto do Shrimply…"
 tr = "Shrimply projesi yazılıyor…"
 it = "Scrittura del progetto Shrimply in corso…"
 id = "Menulis proyek Shrimply…"
+pl = "Zapisywanie projektu Shrimply…"
 
 ["Yellow"]
 en = "Yellow"
@@ -2519,6 +2686,7 @@ pt = "Amarelo"
 tr = "Sarı"
 it = "Giallo"
 id = "Kuning"
+pl = "Żółty"
 
 ["%{project} — %{action}"]
 en = "%{project} — %{action}"
@@ -2534,6 +2702,7 @@ pt = "%{project} — %{action}"
 tr = "%{project} — %{action}"
 it = "%{project} — %{action}"
 id = "%{project} — %{action}"
+pl = "%{project} — %{action}"
 
 ["%{project} — Saving"]
 en = "%{project} — Saving"
@@ -2549,6 +2718,7 @@ pt = "%{project} — Salvando"
 tr = "%{project} — Kaydediliyor"
 it = "%{project} — Salvando"
 id = "%{project} — Menyimpan"
+pl = "%{project} — Zapisywanie"
 
 ["%{project} — Unsaved"]
 en = "%{project} — Unsaved"
@@ -2564,6 +2734,7 @@ pt = "%{project} — Não salvo"
 tr = "%{project} — Kaydedilmemiş"
 it = "%{project} — Non salvato"
 id = "%{project} — Belum Disimpan"
+pl = "%{project} — Nie zapisano"
 
 ["%{project} — Unsaved — Save failed"]
 en = "%{project} — Unsaved — Save failed"
@@ -2579,6 +2750,7 @@ pt = "%{project} — Não salvo — Falha ao salvar"
 tr = "%{project} — Kaydedilmemiş — Kayıt başarısız"
 it = "%{project} — Non salvato — Salvataggio fallito"
 id = "%{project} — Belum Disimpan — Gagal menyimpan"
+pl = "%{project} — Nie zapisano — Zapis nieudany"
 
 ["%{runtime} · Available"]
 en = "%{runtime} · Available"
@@ -2594,6 +2766,7 @@ pt = "%{runtime} · Disponível"
 tr = "%{runtime} · Mevcut"
 it = "%{runtime} · Disponibile"
 id = "%{runtime} · Tersedia"
+pl = "%{runtime} · Dostępne"
 
 ["%{queued} queued · %{active} active"]
 en = "%{queued} queued · %{active} active"
@@ -2609,6 +2782,7 @@ pt = "%{queued} na fila · %{active} ativas"
 tr = "%{queued} kuyrukta · %{active} aktif"
 it = "%{queued} accodato · %{active} attivi"
 id = "%{queued} dalam antrean · %{active} aktif"
+pl = "%{queued} w kolejce · %{active} aktywne"
 
 ["Project is in use"]
 en = "Project is in use"
@@ -2624,6 +2798,7 @@ pt = "O projeto está em uso"
 tr = "Proje kullanımda"
 it = "Il progetto è in uso"
 id = "Proyek sedang digunakan"
+pl = "Projekt jest w użyciu"
 
 ["Shrimply"]
 en = "Shrimply"
@@ -2639,6 +2814,7 @@ pt = "Shrimply"
 tr = "Shrimply"
 it = "Shrimply"
 id = "Shrimply"
+pl = "Shrimply"
 
 ["—"]
 en = "—"
@@ -2654,6 +2830,7 @@ pt = "—"
 tr = "—"
 it = "—"
 id = "—"
+pl = "—"
 
 ["Bilinear"]
 en = "Bilinear"
@@ -2669,6 +2846,7 @@ pt = "Bilinear"
 tr = "Bilineer"
 it = "Bilineare"
 id = "Bilinear"
+pl = "Dwuliniowe"
 
 ["Filter used when the preview is larger than the video"]
 en = "Filter used when the preview is larger than the video"
@@ -2684,6 +2862,7 @@ pt = "Filtro usado quando a pré-visualização é maior que o vídeo"
 tr = "Önizleme videodan daha büyük olduğunda kullanılan filtre"
 it = "Filtro utilizzato quando l’anteprima è più grande del video"
 id = "Filter yang digunakan saat pratinjau lebih besar dari video"
+pl = "Filtr używany, gdy podgląd jest większy niż wideo"
 
 ["Filter used when the preview is smaller than the video"]
 en = "Filter used when the preview is smaller than the video"
@@ -2699,6 +2878,7 @@ pt = "Filtro usado quando a pré-visualização é menor que o vídeo"
 tr = "Önizleme videodan daha küçük olduğunda kullanılan filtre"
 it = "Filtro utilizzato quando l’anteprima è più piccola del video"
 id = "Filter yang digunakan saat pratinjau lebih kecil dari video"
+pl = "Filtr używany, gdy podgląd jest mniejszy niż wideo"
 
 ["Nearest"]
 en = "Nearest"
@@ -2714,6 +2894,7 @@ pt = "Mais próximo"
 tr = "En Yakın Komşu"
 it = "Più vicino"
 id = "Terdekat"
+pl = "Najbliższy sąsiad"
 
 ["Preview Downsample Method"]
 en = "Preview Downsample Method"
@@ -2729,6 +2910,7 @@ pt = "Método de redução da pré-visualização"
 tr = "Önizleme Alt Örnekleme Yöntemi"
 it = "Metodo di downsampling dell’anteprima"
 id = "Metode Downsample Pratinjau"
+pl = "Metoda downsamplowania podglądu"
 
 ["Preview Upsample Method"]
 en = "Preview Upsample Method"
@@ -2744,6 +2926,7 @@ pt = "Método de ampliação da pré-visualização"
 tr = "Önizleme Üst Örnekleme Yöntemi"
 it = "Metodo di upsample dell’anteprima"
 id = "Metode Upsample Pratinjau"
+pl = "Metoda upsamplowania podglądu"
 
 ["Trilinear"]
 en = "Trilinear"
@@ -2759,3 +2942,4 @@ pt = "Trilinear"
 tr = "Trilineer"
 it = "Trilineare"
 id = "Trilinear"
+pl = "Trzyliniowe"
