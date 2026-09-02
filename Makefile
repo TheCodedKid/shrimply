@@ -55,6 +55,7 @@ QT_COMPONENTS_PACKAGE := shrimply-qt-components
 GTK_COMPONENTS_DEMO_PACKAGE := shrimply-gtk-components-demo
 QT_COMPONENTS_DEMO_PACKAGE := shrimply-qt-components-demo
 QT_BIN_NAME := shrimply-qt
+QT_EDITOR_BIN_NAME := shrimply-editor-qt
 MCP_PACKAGE := shrimply-mcp
 MCP_BIN_NAME := shrimply-mcp
 MCP_SERVER_NAME ?= shrimply
