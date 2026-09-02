@@ -13,6 +13,7 @@ ja = "サーバーに接続しています…"
 pt = "Conectando ao servidor…"
 it = "Connessione al server…"
 id = "Menghubungkan ke server…"
+pl = "Łączenie z serwerem…"
 
 ["Generate"]
 en = "Generate"
@@ -27,6 +28,7 @@ ja = "生成"
 pt = "Gerar"
 it = "Genera"
 id = "Hasilkan"
+pl = "Wygeneruj" 
 
 ["Regenerate"]
 en = "Regenerate"
@@ -41,6 +43,7 @@ ja = "再生成"
 pt = "Regenerar"
 it = "Rigenera"
 id = "Hasilkan Ulang"
+pl = "Wygeneruj ponownie"
 
 ["Ready"]
 en = "Ready"
@@ -55,6 +58,7 @@ ja = "準備完了"
 pt = "Pronto"
 it = "Pronto"
 id = "Siap"
+pl = "Gotowe" 
 
 ["Select a model"]
 en = "Select a model"
@@ -69,6 +73,7 @@ ja = "モデルを選択してください"
 pt = "Selecione um modelo"
 it = "Seleziona un modello"
 id = "Pilih model"
+pl = "Wybierz model" 
 
 ["Generated"]
 en = "Generated"
@@ -83,6 +88,7 @@ ja = "生成完了"
 pt = "Gerado"
 it = "Generato"
 id = "Dihasilkan"
+pl = "Wygenerowano" 
 
 ["Add…"]
 en = "Add…"
@@ -97,6 +103,7 @@ ja = "追加…"
 pt = "Adicionar…"
 it = "Aggiungi…"
 id = "Tambah…"
+pl = "Dodaj…" 
 
 ["Show in Folder"]
 en = "Show in Folder"
@@ -111,6 +118,7 @@ ja = "フォルダーに表示"
 pt = "Mostrar na pasta"
 it = "Mostra nella cartella"
 id = "Tampilkan di Folder"
+pl = "Pokaż w folderze" 
 
 ["Choose an audio file"]
 en = "Choose an audio file"
@@ -125,6 +133,7 @@ ja = "音声ファイルを選択"
 pt = "Escolher um arquivo de áudio"
 it = "Scegli un file audio"
 id = "Pilih file audio"
+pl = "Wybierz plik audio" 
 
 ["Reference audio actions"]
 en = "Reference audio actions"
@@ -139,6 +148,7 @@ ja = "参照音声の操作"
 pt = "Ações de áudio de referência"
 it = "Azioni audio di riferimento"
 id = "Tindakan audio referensi"
+pl = "Akcje dźwięku referencyjnego" 
 
 ["Add row"]
 en = "Add row"
@@ -153,6 +163,7 @@ ja = "行を追加"
 pt = "Adicionar linha"
 it = "Aggiungi fila"
 id = "Tambah baris"
+pl = "Dodaj wiersz"
 
 ["Remove row"]
 en = "Remove row"
@@ -167,6 +178,7 @@ ja = "行を削除"
 pt = "Remover linha"
 it = "Rimuovi fila"
 id = "Hapus baris"
+pl = "Usuń wiersz" 
 
 ["Export"]
 en = "Export"
@@ -181,6 +193,7 @@ ja = "書き出し"
 pt = "Exportar"
 it = "Esporta"
 id = "Ekspor"
+pl = "Eksportuj"
 
 ["Export video"]
 en = "Export video"
@@ -195,6 +208,7 @@ ja = "動画を書き出す"
 pt = "Exportar vídeo"
 it = "Esporta video"
 id = "Ekspor video"
+pl = "Eksportuj wideo"
 
 ["Export captions (YTT)"]
 en = "Export captions (YTT)"
@@ -209,6 +223,7 @@ ja = "字幕を書き出す（YTT）"
 pt = "Exportar legendas (YTT)"
 it = "Esporta sottotitoli (YTT)"
 id = "Ekspor subtitel (YTT)"
+pl = "Eksportuj napisy (YTT)"
 
 ["Export JSON"]
 en = "Export JSON"
@@ -223,6 +238,7 @@ ja = "JSONを書き出す"
 pt = "Exportar JSON"
 it = "Esporta JSON"
 id = "Ekspor JSON"
+pl = "Eksportuj JSON" 
 
 ["Merge into one file"]
 en = "Merge into one file"
@@ -237,6 +253,7 @@ ja = "1つのファイルに結合"
 pt = "Mesclar em um único arquivo"
 it = "Unisci in un unico file"
 id = "Gabungkan ke satu file"
+pl = "Połącz w jeden plik" 
 
 ["Export each track separately"]
 en = "Export each track separately"
@@ -251,6 +268,7 @@ ja = "各トラックを個別に書き出す"
 pt = "Exportar cada faixa separadamente"
 it = "Esporta ogni traccia separatamente"
 id = "Ekspor tiap trek secara terpisah"
+pl = "Eksportuj każdą ścieżkę osobno" 
 
 ["Export YTT"]
 en = "Export YTT"
@@ -265,6 +283,7 @@ ja = "YTTを書き出す"
 pt = "Exportar YTT"
 it = "Esporta YTT"
 id = "Ekspor YTT"
+pl = "Eksportuj YTT"
 
 ["Export Captions"]
 en = "Export Captions"
@@ -279,6 +298,7 @@ ja = "字幕を書き出す"
 pt = "Exportar legendas"
 it = "Esporta sottotitoli"
 id = "Ekspor Subtitel"
+pl = "Eksportuj napisy"
 
 ["Export YouTube Captions"]
 en = "Export YouTube Captions"
@@ -293,6 +313,7 @@ ja = "YouTube字幕を書き出す"
 pt = "Exportar legendas do YouTube"
 it = "Esporta sottotitoli YouTube"
 id = "Ekspor Subtitel YouTube"
+pl = "Eksportuj napisy YouTube"
 
 ["Captions exported"]
 en = "Captions exported"
@@ -307,6 +328,7 @@ ja = "字幕を書き出しました"
 pt = "Legendas exportadas"
 it = "Sottotitoli esportati"
 id = "Subtitel diekspor"
+pl = "Napisy wyeksportowane"
 
 ["%{count} caption files exported"]
 en = "%{count} caption files exported"
@@ -321,6 +343,7 @@ ja = "%{count}個の字幕ファイルを書き出しました"
 pt = "%{count} arquivos de legenda exportados"
 it = "%{count} file di sottotitoli esportati"
 id = "%{count} file subtitel diekspor"
+pl = "Wyeksportowano %{count} plików z napisami"
 
 ["Export format"]
 en = "Export format"
@@ -335,6 +358,7 @@ ja = "書き出し形式"
 pt = "Formato de exportação"
 it = "Formato di esportazione"
 id = "Format ekspor"
+pl = "Format eksportu"
 
 ["Container"]
 en = "Container"
@@ -349,6 +373,7 @@ ja = "コンテナ"
 pt = "Contêiner"
 it = "Contenitore"
 id = "Kontainer"
+pl = "Kontener"
 
 ["Background Alpha"]
 en = "Background Alpha"
@@ -363,6 +388,7 @@ ja = "背景のアルファ"
 pt = "Alfa do fundo"
 it = "Alpha dello sfondo"
 id = "Alfa Latar Belakang"
+pl = "Alfa tła"
 
 ["Values below 128 are transparent in GIF output"]
 en = "Values below 128 are transparent in GIF output"
@@ -377,6 +403,7 @@ ja = "128未満の値はGIF出力で透明になります"
 pt = "Valores abaixo de 128 ficam transparentes na saída em GIF"
 it = "I valori inferiori a 128 sono trasparenti nell'output GIF"
 id = "Nilai di bawah 128 transparan pada output GIF"
+pl = "Wartości poniżej 128 są przezroczyste w wyjściowym GIF"
 
 ["Rate Control"]
 en = "Rate Control"
@@ -391,6 +418,7 @@ ja = "レート制御"
 pt = "Controle de taxa"
 it = "Controllo del bitrate"
 id = "Kontrol Bitrate"
+pl = "Kontrola bitrate"
 
 ["Constant QP"]
 en = "Constant QP"
@@ -405,6 +433,7 @@ ja = "固定QP"
 pt = "QP constante"
 it = "QP costante"
 id = "QP Konstan"
+pl = "Stałe QP" 
 
 ["Constant Bitrate"]
 en = "Constant Bitrate"
@@ -419,6 +448,7 @@ ja = "固定ビットレート"
 pt = "Taxa de bits constante"
 it = "Bitrate costante"
 id = "Bitrate Konstan"
+pl = "Stały bitrate"
 
 ["Variable Bitrate"]
 en = "Variable Bitrate"
@@ -433,6 +463,7 @@ ja = "可変ビットレート"
 pt = "Taxa de bits variável"
 it = "Bitrate variabile"
 id = "Bitrate Variabel"
+pl = "Zmienny bitrate"
 
 ["Variable Bitrate with Target Quality"]
 en = "Variable Bitrate with Target Quality"
@@ -447,6 +478,7 @@ ja = "目標品質付き可変ビットレート"
 pt = "Taxa de bits variável com qualidade alvo"
 it = "Bitrate variabile con qualità obiettivo"
 id = "Bitrate Variabel dengan Kualitas Target"
+pl = "Zmienny bitrate z docelową jakością"
 
 ["Lossless"]
 en = "Lossless"
@@ -461,6 +493,7 @@ ja = "可逆"
 pt = "Sem perdas"
 it = "Senza perdite"
 id = "Lossless"
+pl = "Bez utraty danych"
 
 ["Video Bitrate"]
 en = "Video Bitrate"
@@ -475,6 +508,7 @@ ja = "動画ビットレート"
 pt = "Taxa de bits do vídeo"
 it = "Bitrate video"
 id = "Bitrate Video"
+pl = "Bitrate wideo"
 
 ["Kbps for CBR/VBR"]
 en = "Kbps for CBR/VBR"
@@ -489,6 +523,7 @@ ja = "CBR/VBRのKbps"
 pt = "Kbps para CBR/VBR"
 it = "Kbps per CBR/VBR"
 id = "Kbps untuk CBR/VBR"
+pl = "Kbps dla CBR/VBR"
 
 ["Max Video Bitrate"]
 en = "Max Video Bitrate"
@@ -503,6 +538,7 @@ ja = "最大動画ビットレート"
 pt = "Taxa máxima de bits do vídeo"
 it = "Bitrate video massimo"
 id = "Bitrate Video Maksimum"
+pl = "Maksymalny bitrate wideo"
 
 ["Kbps for VBR"]
 en = "Kbps for VBR"
@@ -517,6 +553,7 @@ ja = "VBRのKbps"
 pt = "Kbps para VBR"
 it = "Kbps per VBR"
 id = "Kbps untuk VBR"
+pl = "Kbps dla VBR"
 
 ["Target Quality"]
 en = "Target Quality"
@@ -531,6 +568,7 @@ ja = "目標品質"
 pt = "Qualidade alvo"
 it = "Qualità obiettivo"
 id = "Kualitas Target"
+pl = "Jakość docelowa"
 
 ["Lower values are higher quality"]
 en = "Lower values are higher quality"
@@ -545,6 +583,7 @@ ja = "値が小さいほど高品質です"
 pt = "Valores menores significam maior qualidade"
 it = "Valori più bassi hanno qualità maggiore"
 id = "Nilai yang lebih rendah memiliki kualitas lebih tinggi"
+pl = "Niższe wartości oznaczają wyższą jakość"
 
 ["Keyframe Interval"]
 en = "Keyframe Interval"
@@ -559,6 +598,7 @@ ja = "キーフレーム間隔"
 pt = "Intervalo de quadros-chave"
 it = "Intervallo tra keyframe"
 id = "Interval Keyframe"
+pl = "Odstęp między klatkami kluczowymi"
 
 ["Seconds; 0 lets NVENC choose"]
 en = "Seconds; 0 lets NVENC choose"
@@ -573,6 +613,7 @@ ja = "秒。0の場合はNVENCが選択します"
 pt = "Segundos; 0 permite que o NVENC escolha"
 it = "Secondi; 0 lascia scegliere a NVENC"
 id = "Detik; 0 membiarkan NVENC memilih"
+pl = "Sekundy; 0 pozwala NVENC wybrać automatycznie"
 
 ["P1: Fastest (Lowest Quality)"]
 en = "P1: Fastest (Lowest Quality)"
@@ -587,6 +628,7 @@ ja = "P1: 最速（最低品質）"
 pt = "P1: Mais rápido (Menor qualidade)"
 it = "P1: Il più veloce (qualità minima)"
 id = "P1: Tercepat (Kualitas Terendah)"
+pl = "P1: Najszybsze (Najsłabsza jakość)"
 
 ["P2: Faster (Lower Quality)"]
 en = "P2: Faster (Lower Quality)"
@@ -601,6 +643,7 @@ ja = "P2: 高速（低品質）"
 pt = "P2: Mais rápido (Qualidade inferior)"
 it = "P2: Più veloce (qualità bassa)"
 id = "P2: Lebih Cepat (Kualitas Lebih Rendah)"
+pl = "P2: Szybsze (Słabsza jakość)"
 
 ["P3: Fast (Low Quality)"]
 en = "P3: Fast (Low Quality)"
@@ -615,6 +658,7 @@ ja = "P3: 速い（低品質）"
 pt = "P3: Rápido (Baixa qualidade)"
 it = "P3: Veloce (qualità bassa)"
 id = "P3: Cepat (Kualitas Rendah)"
+pl = "P3: Szybkie (Słaba jakość)"
 
 ["P4: Medium (Medium Quality)"]
 en = "P4: Medium (Medium Quality)"
@@ -629,6 +673,7 @@ ja = "P4: 標準（標準品質）"
 pt = "P4: Médio (Qualidade média)"
 it = "P4: Medio (qualità media)"
 id = "P4: Sedang (Kualitas Sedang)"
+pl = "P4: Średnie (Średnia jakość)"
 
 ["P5: Slow (Good Quality)"]
 en = "P5: Slow (Good Quality)"
@@ -643,6 +688,7 @@ ja = "P5: 低速（高品質）"
 pt = "P5: Lento (Boa qualidade)"
 it = "P5: Lento (buona qualità)"
 id = "P5: Lambat (Kualitas Bagus)"
+pl = "P5: Wolne (Dobra jakość)"
 
 ["P6: Slower (Better Quality)"]
 en = "P6: Slower (Better Quality)"
@@ -657,6 +703,7 @@ ja = "P6: より低速（より高品質）"
 pt = "P6: Mais lento (Melhor qualidade)"
 it = "P6: Più lento (migliore qualità)"
 id = "P6: Lebih Lambat (Kualitas Lebih Baik)"
+pl = "P6: Wolniejsze (Lepsza jakość)"
 
 ["P7: Slowest (Best Quality)"]
 en = "P7: Slowest (Best Quality)"
@@ -671,6 +718,7 @@ ja = "P7: 最低速（最高品質）"
 pt = "P7: O mais lento (Melhor qualidade)"
 it = "P7: Il più lento (qualità massima)"
 id = "P7: Terlambat (Kualitas Terbaik)"
+pl = "P7: Najwolniejsze (Najlepsza jakość)"
 
 ["Tuning"]
 en = "Tuning"
@@ -685,6 +733,7 @@ ja = "チューニング"
 pt = "Ajuste fino"
 it = "Ottimizzazione"
 id = "Penyetelan"
+pl = "Dostrajanie"
 
 ["Ultra High Quality"]
 en = "Ultra High Quality"
@@ -699,6 +748,7 @@ ja = "超高品質"
 pt = "Qualidade ultra-alta"
 it = "Qualità ultra alta"
 id = "Kualitas Sangat Tinggi"
+pl = "Ultra wysoka jakość"
 
 ["High Quality"]
 en = "High Quality"
@@ -713,6 +763,7 @@ ja = "高品質"
 pt = "Alta qualidade"
 it = "Qualità alta"
 id = "Kualitas Tinggi"
+pl = "Wysoka jakość"
 
 ["Low Latency"]
 en = "Low Latency"
@@ -727,6 +778,7 @@ ja = "低遅延"
 pt = "Baixa latência"
 it = "Bassa latenza"
 id = "Latensi Rendah"
+pl = "Niskie opóźnienie"
 
 ["Ultra Low Latency"]
 en = "Ultra Low Latency"
@@ -741,6 +793,7 @@ ja = "超低遅延"
 pt = "Latência ultrabaixa"
 it = "Latenza ultra bassa"
 id = "Latensi Sangat Rendah"
+pl = "Ultra niskie opóźnienie"
 
 ["Multi Pass"]
 en = "Multi Pass"
@@ -755,6 +808,7 @@ ja = "マルチパス"
 pt = "Múltiplas passagens"
 it = "Multi-pass"
 id = "Multi-pass"
+pl = "Wieloprzebiegowe"
 
 ["Single Pass"]
 en = "Single Pass"
@@ -769,6 +823,7 @@ ja = "1パス"
 pt = "Passagem única"
 it = "Passaggio singolo"
 id = "Single-pass"
+pl = "Jednoprzebiegowe"
 
 ["Two Passes (Quarter Resolution)"]
 en = "Two Passes (Quarter Resolution)"
@@ -783,6 +838,7 @@ ja = "2パス（4分の1解像度）"
 pt = "Duas passagens (Um quarto da resolução)"
 it = "Due passaggi (un quarto di risoluzione)"
 id = "Dua Putaran (Seperempat Resolusi)"
+pl = "Dwa przebiegi (ćwierć rozdzielczości)"
 
 ["Two Passes (Full Resolution)"]
 en = "Two Passes (Full Resolution)"
@@ -797,6 +853,7 @@ ja = "2パス（フル解像度）"
 pt = "Duas passagens (resolução máxima)"
 it = "Due passaggi (risoluzione piena)"
 id = "Dua Putaran (Resolusi Penuh)"
+pl = "Dwa przebiegi (pełna rozdzielczość)"
 
 ["Profile"]
 en = "Profile"
@@ -811,6 +868,7 @@ ja = "プロファイル"
 pt = "Perfil"
 it = "Profilo"
 id = "Profil"
+pl = "Profil"
 
 ["Look-ahead"]
 en = "Look-ahead"
@@ -825,6 +883,7 @@ ja = "先読み"
 pt = "Look-ahead"
 it = "Look-ahead"
 id = "Look-ahead"
+pl = "Look-ahead"
 
 ["Adaptive Quantization"]
 en = "Adaptive Quantization"
@@ -839,6 +898,7 @@ ja = "適応量子化"
 pt = "Quantização adaptativa"
 it = "Quantizzazione adattiva"
 id = "Kuantisasi Adaptif"
+pl = "Adaptacyjna kwantyzacja"
 
 ["B Frames"]
 en = "B Frames"
@@ -853,6 +913,7 @@ ja = "Bフレーム"
 pt = "Quadros B"
 it = "B frames"
 id = "Frame B"
+pl = "B-klatki"
 
 ["B Frame as Reference"]
 en = "B Frame as Reference"
@@ -867,6 +928,7 @@ ja = "Bフレームを参照に使用"
 pt = "Quadro B como referência"
 it = "B frames come riferimento"
 id = "Frame B sebagai Referensi"
+pl = "B-klatka jako odniesienie"
 
 ["Audio Encoder"]
 en = "Audio Encoder"
@@ -881,6 +943,7 @@ ja = "音声エンコーダー"
 pt = "Codificador de áudio"
 it = "Encoder audio"
 id = "Enkoder Audio"
+pl = "Enkoder audio"
 
 ["Audio Sample Rate"]
 en = "Audio Sample Rate"
@@ -895,6 +958,7 @@ ja = "音声サンプルレート"
 pt = "Taxa de amostragem de áudio"
 it = "Frequenza di campionamento audio"
 id = "Sample Rate Audio"
+pl = "Częstotliwość próbkowania dźwięku"
 
 ["Audio Bitrate"]
 en = "Audio Bitrate"
@@ -909,6 +973,7 @@ ja = "音声ビットレート"
 pt = "Taxa de bits de áudio"
 it = "Bitrate audio"
 id = "Bitrate Audio"
+pl = "Bitrate audio"
 
 ["Kbps"]
 en = "Kbps"
@@ -923,6 +988,7 @@ ja = "Kbps"
 pt = "Kbps"
 it = "Kbps"
 id = "Kbps"
+pl = "Kbps"
 
 ["Video format"]
 en = "Video format"
@@ -937,6 +1003,7 @@ ja = "動画形式"
 pt = "Formato de vídeo"
 it = "Formato video"
 id = "Format video"
+pl = "Format wideo"
 
 ["Encoder settings"]
 en = "Encoder settings"
@@ -951,6 +1018,7 @@ ja = "エンコーダー設定"
 pt = "Configurações do codificador"
 it = "Impostazioni encoder"
 id = "Pengaturan enkoder"
+pl = "Ustawienia enkodera"
 
 ["Export Video"]
 en = "Export Video"
@@ -965,6 +1033,7 @@ ja = "動画を書き出す"
 pt = "Exportar vídeo"
 it = "Esporta video"
 id = "Ekspor Video"
+pl = "Eksportuj wideo"
 
 ["Video exported in %{duration}"]
 en = "Video exported in %{duration}"
@@ -979,6 +1048,7 @@ ja = "%{duration}で動画を書き出しました"
 pt = "Vídeo exportado em %{duration}"
 it = "Video esportato in %{duration}"
 id = "Video diekspor dalam %{duration}"
+pl = "Wideo wyeksportowane w %{duration}"
 
 ["Exporting Video"]
 en = "Exporting Video"
@@ -993,6 +1063,7 @@ ja = "動画を書き出しています"
 pt = "Exportando vídeo"
 it = "Esportazione video"
 id = "Mengekspor Video"
+pl = "Eksportowanie wideo"
 
 ["Preparing"]
 en = "Preparing"
@@ -1007,6 +1078,7 @@ ja = "準備中"
 pt = "Preparando"
 it = "Preparazione"
 id = "Menyiapkan"
+pl = "Przygotowywanie"
 
 ["Stabilizing source video"]
 en = "Stabilizing source video"
@@ -1021,6 +1093,7 @@ ja = "元の動画を安定化しています"
 pt = "Estabilizando vídeo de origem"
 it = "Stabilizzazione del video sorgente"
 id = "Menstabilkan video sumber"
+pl = "Stabilizowanie źródła wideo"
 
 ["Opening output file"]
 en = "Opening output file"
@@ -1035,6 +1108,7 @@ ja = "出力ファイルを開いています"
 pt = "Abrindo arquivo de saída"
 it = "Apertura del file di output"
 id = "Membuka file output"
+pl = "Otwieranie pliku wyjściowego"
 
 ["Preparing video renderer"]
 en = "Preparing video renderer"
@@ -1049,6 +1123,7 @@ ja = "動画レンダラーを準備しています"
 pt = "Preparando renderizador de vídeo"
 it = "Preparazione del renderer video"
 id = "Menyiapkan perender video"
+pl = "Przygotowywanie renderera wideo"
 
 ["Preparing hardware frames"]
 en = "Preparing hardware frames"
@@ -1063,6 +1138,7 @@ ja = "ハードウェアフレームを準備しています"
 pt = "Preparando quadros de hardware"
 it = "Preparazione dei fotogrammi hardware"
 id = "Menyiapkan frame perangkat keras"
+pl = "Przygotowywanie klatek sprzętowych"
 
 ["Opening video encoder"]
 en = "Opening video encoder"
@@ -1077,6 +1153,7 @@ ja = "動画エンコーダーを開いています"
 pt = "Abrindo codificador de vídeo"
 it = "Apertura dell'encoder video"
 id = "Membuka enkoder video"
+pl = "Otwieranie enkodera wideo"
 
 ["Opening audio encoder"]
 en = "Opening audio encoder"
@@ -1091,6 +1168,7 @@ ja = "音声エンコーダーを開いています"
 pt = "Abrindo codificador de áudio"
 it = "Apertura dell'encoder audio"
 id = "Membuka enkoder audio"
+pl = "Otwieranie enkodera audio"
 
 ["Writing media header"]
 en = "Writing media header"
@@ -1105,6 +1183,7 @@ ja = "メディアヘッダーを書き込んでいます"
 pt = "Gravando cabeçalho de mídia"
 it = "Scrittura dell'intestazione media"
 id = "Menulis header media"
+pl = "Zapisywanie nagłówka multimediów"
 
 ["Preparing audio"]
 en = "Preparing audio"
@@ -1119,6 +1198,7 @@ ja = "音声を準備しています"
 pt = "Preparando áudio"
 it = "Preparazione audio"
 id = "Menyiapkan audio"
+pl = "Przygotowywanie audio"
 
 ["Preparing audio (%{percent}%)"]
 en = "Preparing audio (%{percent}%)"
@@ -1133,6 +1213,7 @@ ja = "音声を準備しています（%{percent}%）"
 pt = "Preparando áudio (%{percent}%)"
 it = "Preparazione audio (%{percent}%)"
 id = "Menyiapkan audio (%{percent}%)"
+pl = "Przygotowywanie audio (%{percent}%)"
 
 ["Encoding audio"]
 en = "Encoding audio"
@@ -1147,6 +1228,7 @@ ja = "音声をエンコードしています"
 pt = "Codificando áudio"
 it = "Codifica audio"
 id = "Mengenkode audio"
+pl = "Kodowanie audio"
 
 ["Encoding audio (%{percent}%)"]
 en = "Encoding audio (%{percent}%)"
@@ -1161,6 +1243,7 @@ ja = "音声をエンコードしています（%{percent}%）"
 pt = "Codificando áudio (%{percent}%)"
 it = "Codifica audio (%{percent}%)"
 id = "Mengenkode audio (%{percent}%)"
+pl = "Kodowanie audio (%{percent}%)"
 
 ["Rendering frames"]
 en = "Rendering frames"
@@ -1175,6 +1258,7 @@ ja = "フレームをレンダリングしています"
 pt = "Renderizando quadros"
 it = "Rendering dei fotogrammi"
 id = "Merender frame"
+pl = "Renderowanie klatek"
 
 ["%{current} of %{total} frames (%{percent}%)"]
 en = "%{current} of %{total} frames (%{percent}%)"
@@ -1189,6 +1273,7 @@ ja = "%{total}フレーム中%{current}（%{percent}%）"
 pt = "%{current} de %{total} quadros (%{percent}%)"
 it = "%{current} di %{total} fotogrammi (%{percent}%)"
 id = "%{current} dari %{total} frame (%{percent}%)"
+pl = "%{current} z %{total} klatek (%{percent}%)"
 
 ["%{current} of %{total} frames (%{percent}%) - %{fps} fps - %{eta} left"]
 en = "%{current} of %{total} frames (%{percent}%) - %{fps} fps - %{eta} left"
@@ -1203,6 +1288,7 @@ ja = "%{total}フレーム中%{current}（%{percent}%）- %{fps} fps - 残り%{e
 pt = "%{current} de %{total} quadros (%{percent}%) - %{fps} fps - %{eta} restantes"
 it = "%{current} di %{total} fotogrammi (%{percent}%) - %{fps} fps - rimanenti %{eta}"
 id = "%{current} dari %{total} frame (%{percent}%) - %{fps} fps - tersisa %{eta}"
+pl = "%{current} z %{total} klatek (%{percent}%) - %{fps} fps - %{eta} pozostało"
 
 ["Finishing file"]
 en = "Finishing file"
@@ -1217,6 +1303,7 @@ ja = "ファイルを仕上げています"
 pt = "Finalizando arquivo"
 it = "Completamento del file"
 id = "Menyelesaikan file"
+pl = "Finalizowanie pliku"
 
 ["Finishing"]
 en = "Finishing"
@@ -1231,6 +1318,7 @@ ja = "仕上げ中"
 pt = "Finalizando"
 it = "Completamento"
 id = "Menyelesaikan"
+pl = "Kończenie"
 
 ["JSON exported"]
 en = "JSON exported"
@@ -1245,6 +1333,7 @@ ja = "JSONを書き出しました"
 pt = "JSON exportado"
 it = "JSON esportato"
 id = "JSON diekspor"
+pl = "JSON wyeksportowane"
 
 ["Step back one frame"]
 en = "Step back one frame"
@@ -1259,6 +1348,7 @@ ja = "1フレーム戻る"
 pt = "Voltar um quadro"
 it = "Indietro di un fotogramma"
 id = "Mundur satu frame"
+pl = "Cofnij się o jedną klatkę"
 
 ["Play"]
 en = "Play"
@@ -1273,6 +1363,7 @@ ja = "再生"
 pt = "Reproduzir"
 it = "Riproduci"
 id = "Putar"
+pl = "Odtwórz"
 
 ["Pause"]
 en = "Pause"
@@ -1287,6 +1378,7 @@ ja = "一時停止"
 pt = "Pausar"
 it = "Pausa"
 id = "Jeda"
+pl = "Wstrzymaj"
 
 ["Step forward one frame"]
 en = "Step forward one frame"
@@ -1301,6 +1393,7 @@ ja = "1フレーム進む"
 pt = "Avançar um quadro"
 it = "Avanti di un fotogramma"
 id = "Maju satu frame"
+pl = "Idź do przodu o jedną klatkę"
 
 ["Fullscreen preview"]
 en = "Fullscreen preview"
@@ -1315,6 +1408,7 @@ ja = "全画面プレビュー"
 pt = "Pré-visualização em tela cheia"
 it = "Anteprima a schermo intero"
 id = "Pratinjau layar penuh"
+pl = "Podgląd pełnoekranowy"
 
 ["Restore preview"]
 en = "Restore preview"
@@ -1329,6 +1423,7 @@ ja = "プレビューを元に戻す"
 pt = "Restaurar pré-visualização"
 it = "Ripristina anteprima"
 id = "Pulihkan pratinjau"
+pl = "Przywróć podgląd"
 
 ["Guide"]
 en = "Guide"
@@ -1343,6 +1438,7 @@ ja = "ガイド"
 pt = "Guia"
 it = "Guida"
 id = "Garis Panduan"
+pl = "Linie pomocnicze"
 
 ["Playback speed"]
 en = "Playback speed"
@@ -1357,6 +1453,7 @@ ja = "再生速度"
 pt = "Velocidade de reprodução"
 it = "Velocità di riproduzione"
 id = "Kecepatan pemutaran"
+pl = "Prędkość odtwarzania"
 
 ["x1"]
 en = "x1"
@@ -1371,6 +1468,7 @@ ja = "x1"
 pt = "1x"
 it = "x1"
 id = "x1"
+pl = "x1"
 
 ["--"]
 en = "--"
@@ -1385,6 +1483,7 @@ ja = "--"
 pt = "--"
 it = "--"
 id = "--"
+pl = "--"
 
 ["Playback speed %{speed}"]
 en = "Playback speed %{speed}"
@@ -1399,6 +1498,7 @@ ja = "再生速度: %{speed}"
 pt = "Velocidade de reprodução %{speed}"
 it = "Velocità di riproduzione %{speed}"
 id = "Kecepatan pemutaran %{speed}"
+pl = "Prędkość odtwarzania %{speed}"
 
 ["Pen (B)"]
 en = "Pen (B)"
@@ -1413,6 +1513,7 @@ ja = "ペン（B）"
 pt = "Caneta (B)"
 it = "Penna (B)"
 id = "Pena (B)"
+pl = "Pióro (B)"
 
 ["Fill (F)"]
 en = "Fill (F)"
@@ -1427,6 +1528,7 @@ ja = "塗りつぶし（F）"
 pt = "Preenchimento (F)"
 it = "Riempi (F)"
 id = "Isi (F)"
+pl = "Wypełnienie (F)"
 
 ["Stroke Transform (T)"]
 en = "Stroke Transform (T)"
@@ -1441,6 +1543,7 @@ ja = "ストローク変形（T）"
 pt = "Transformar traço (T)"
 it = "Trasforma tratto (T)"
 id = "Transformasi Goresan (T)"
+pl = "Transformacja obrysu (T)"
 
 ["Eraser (E)"]
 en = "Eraser (E)"
@@ -1455,6 +1558,7 @@ ja = "消しゴム（E）"
 pt = "Borracha (E)"
 it = "Gomma (E)"
 id = "Penghapus (E)"
+pl = "Gumka (E)"
 
 ["Adjust points (hold Ctrl for temporary adjustment)"]
 en = "Adjust points (hold Ctrl for temporary adjustment)"
@@ -1469,6 +1573,7 @@ ja = "ポイントを調整（Ctrlを押している間だけ一時調整）"
 pt = "Ajustar pontos (segure Ctrl para ajuste temporário)"
 it = "Regola i punti (tieni premuto Ctrl per la regolazione temporanea)"
 id = "Sesuaikan titik (tahan Ctrl untuk penyesuaian sementara)"
+pl = "Dostosuj punkty (przytrzymaj Ctrl, aby tymczasowo dostosować)"
 
 ["Pen width scale"]
 en = "Pen width scale"
@@ -1483,6 +1588,7 @@ ja = "ペン幅の倍率"
 pt = "Escala da largura da caneta"
 it = "Scala spessore penna"
 id = "Skala lebar pena"
+pl = "Skala szerokości pióra"
 
 ["Eraser width scale"]
 en = "Eraser width scale"
@@ -1497,6 +1603,7 @@ ja = "消しゴム幅の倍率"
 pt = "Escala da largura da borracha"
 it = "Scala spessore gomma"
 id = "Skala lebar penghapus"
+pl = "Skala szerokości gumki"
 
 ["Fill gap tolerance"]
 en = "Fill gap tolerance"
@@ -1511,6 +1618,7 @@ ja = "塗りつぶしの隙間許容値"
 pt = "Tolerância de abertura do preenchimento"
 it = "Tolleranza di riempimento dei vuoti"
 id = "Toleransi celah pengisian"
+pl = "Tolerancja szczeliny wypełnienia"
 
 ["Previous drawing onion skin"]
 en = "Previous drawing onion skin"
@@ -1525,6 +1633,7 @@ ja = "前の描画のオニオンスキン"
 pt = "Papel vegetal do desenho anterior"
 it = "Onion skin del disegno precedente"
 id = "Onion skin gambar sebelumnya"
+pl = "Nakładka onion poprzedniego rysunku"
 
 ["Next drawing onion skin"]
 en = "Next drawing onion skin"
@@ -1539,6 +1648,7 @@ ja = "次の描画のオニオンスキン"
 pt = "Papel vegetal do próximo desenho"
 it = "Onion skin del disegno successivo"
 id = "Onion skin gambar berikutnya"
+pl = "Nakładka onion następnego rysunku"
 
 ["Paint texture %{number}"]
 en = "Paint texture %{number}"
@@ -1553,6 +1663,7 @@ ja = "ペイントテクスチャ%{number}"
 pt = "Textura de pintura %{number}"
 it = "Texture pittura %{number}"
 id = "Tekstur lukisan %{number}"
+pl = "Tekstura farby %{number}"
 
 ["Video Player"]
 en = "Video Player"
@@ -1567,6 +1678,7 @@ ja = "動画プレーヤー"
 pt = "Reprodutor de vídeo"
 it = "Player video"
 id = "Pemutar Video"
+pl = "Odtwarzacz wideo"
 
 ["Copy Preview Image"]
 en = "Copy Preview Image"
@@ -1581,6 +1693,7 @@ ja = "プレビュー画像をコピー"
 pt = "Copiar imagem da pré-visualização"
 it = "Copia immagine anteprima"
 id = "Salin Gambar Pratinjau"
+pl = "Kopiuj obraz podglądu"
 
 ["Save Preview Image…"]
 en = "Save Preview Image…"
@@ -1595,6 +1708,7 @@ ja = "プレビュー画像を保存…"
 pt = "Salvar imagem da pré-visualização…"
 it = "Salva immagine anteprima…"
 id = "Simpan Gambar Pratinjau…"
+pl = "Zapisz obraz podglądu…"
 
 ["Save Preview Image"]
 en = "Save Preview Image"
@@ -1609,6 +1723,7 @@ ja = "プレビュー画像を保存"
 pt = "Salvar imagem da pré-visualização"
 it = "Salva immagine anteprima"
 id = "Simpan Gambar Pratinjau"
+pl = "Zapisz obraz podglądu"
 
 ["PNG image"]
 en = "PNG image"
@@ -1623,6 +1738,7 @@ ja = "PNG画像"
 pt = "Imagem PNG"
 it = "Immagine PNG"
 id = "Gambar PNG"
+pl = "Obraz PNG"
 
 ["Magnet"]
 en = "Magnet"
@@ -1637,6 +1753,7 @@ ja = "マグネット"
 pt = "Ímã"
 it = "Magnete"
 id = "Magnet"
+pl = "Magnes"
 
 ["Beat Grid"]
 en = "Beat Grid"
@@ -1651,6 +1768,7 @@ ja = "ビートグリッド"
 pt = "Grade de batidas"
 it = "Griglia dei beat"
 id = "Beat Grid"
+pl = "Siatka rytmu"
 
 ["Analyzing beats…"]
 en = "Analyzing beats…"
@@ -1665,6 +1783,7 @@ ja = "ビートを解析しています…"
 pt = "Analisando batidas…"
 it = "Analisi dei beat…"
 id = "Menganalisis ketukan…"
+pl = "Analizowanie rytmu…"
 
 ["No reliable beat detected"]
 en = "No reliable beat detected"
@@ -1679,6 +1798,7 @@ ja = "信頼できるビートを検出できませんでした"
 pt = "Nenhuma batida confiável detectada"
 it = "Nessun beat affidabile rilevato"
 id = "Tidak ada ketukan tepercaya yang terdeteksi"
+pl = "Nie znaleziono wiarygodnego rytmu"
 
 ["Pointer"]
 en = "Pointer"
@@ -1693,6 +1813,7 @@ ja = "ポインター"
 pt = "Ponteiro"
 it = "Puntatore"
 id = "Penunjuk"
+pl = "Wskaźnik"
 
 ["Cut"]
 en = "Cut"
@@ -1707,6 +1828,7 @@ ja = "カット"
 pt = "Cortar"
 it = "Taglia"
 id = "Potong"
+pl = "Cięcie"
 
 ["Overwrite/Insert"]
 en = "Overwrite/Insert"
@@ -1721,6 +1843,7 @@ ja = "上書き/挿入"
 pt = "Sobrescrever/Inserir"
 it = "Sovrascrivi/Inserisci"
 id = "Timpa/Sisipkan"
+pl = "Nadpisz/Wstaw"
 
 ["Block"]
 en = "Block"
@@ -1735,6 +1858,7 @@ ja = "ブロック"
 pt = "Bloquear"
 it = "Blocca"
 id = "Blok"
+pl = "Blok"
 
 ["Import Captions…"]
 en = "Import Captions…"
@@ -1749,6 +1873,7 @@ ja = "字幕を読み込む…"
 pt = "Importar legendas…"
 it = "Importa sottotitoli…"
 id = "Impor Subtitel…"
+pl = "Importuj napisy…"
 
 ["Import Media…"]
 en = "Import Media…"
@@ -1763,6 +1888,7 @@ ja = "メディアを読み込む…"
 pt = "Importar mídia…"
 it = "Importa media…"
 id = "Impor Media…"
+pl = "Importuj media…"
 
 ["3D Scene"]
 en = "3D Scene"
@@ -1777,6 +1903,7 @@ ja = "3Dシーン"
 pt = "Cena 3D"
 it = "Scena 3D"
 id = "Adegan 3D"
+pl = "Scena 3D"
 
 ["New %{kind}"]
 en = "New %{kind}"
@@ -1791,6 +1918,7 @@ ja = "新規%{kind}"
 pt = "Novo %{kind}"
 it = "Nuovo: %{kind}"
 id = "%{kind} Baru"
+pl = "Nowe: %{kind}"
 
 ["Paste"]
 en = "Paste"
@@ -1805,6 +1933,7 @@ ja = "貼り付け"
 pt = "Colar"
 it = "Incolla"
 id = "Tempel"
+pl = "Wklej"
 
 ["Replace Properties"]
 en = "Replace Properties"
@@ -1819,6 +1948,7 @@ ja = "プロパティを置換"
 pt = "Substituir propriedades"
 it = "Sostituisci proprietà"
 id = "Ganti Properti"
+pl = "Zamień właściwości"
 
 ["Paste Modifiers"]
 en = "Paste Modifiers"
@@ -1833,6 +1963,7 @@ ja = "モディファイアを貼り付け"
 pt = "Colar modificadores"
 it = "Incolla modificatori"
 id = "Tempel Pengubah"
+pl = "Wklej modyfikatory"
 
 ["Fold Sequence"]
 en = "Fold Sequence"
@@ -1847,6 +1978,7 @@ ja = "シーケンスを折りたたむ"
 pt = "Recolher sequência"
 it = "Comprimi sequenza"
 id = "Lipat Sekuens"
+pl = "Złóż sekwencję"
 
 ["Unlink Folder"]
 en = "Unlink Folder"
@@ -1861,6 +1993,7 @@ ja = "フォルダーのリンクを解除"
 pt = "Desvincular pasta"
 it = "Scollega cartella"
 id = "Putuskan Tautan Folder"
+pl = "Odłącz folder"
 
 ["Add Track at Top"]
 en = "Add Track at Top"
@@ -1875,6 +2008,7 @@ ja = "上にトラックを追加"
 pt = "Adicionar faixa no topo"
 it = "Aggiungi traccia in alto"
 id = "Tambah Track di Atas"
+pl = "Dodaj ścieżkę u góry"
 
 ["Add Track at Bottom"]
 en = "Add Track at Bottom"
@@ -1889,6 +2023,7 @@ ja = "下にトラックを追加"
 pt = "Adicionar faixa na base"
 it = "Aggiungi traccia in basso"
 id = "Tambah Track di Bawah"
+pl = "Dodaj ścieżkę na dole"
 
 ["Copy Frame"]
 en = "Copy Frame"
@@ -1903,6 +2038,7 @@ ja = "フレームをコピー"
 pt = "Copiar quadro"
 it = "Copia fotogramma"
 id = "Salin Frame"
+pl = "Kopiuj klatkę"
 
 ["Save Frame…"]
 en = "Save Frame…"
@@ -1917,6 +2053,7 @@ ja = "フレームを保存…"
 pt = "Salvar quadro…"
 it = "Salva fotogramma…"
 id = "Simpan Frame…"
+pl = "Zapisz klatkę…"
 
 ["Frame copied"]
 en = "Frame copied"
@@ -1931,6 +2068,7 @@ ja = "フレームをコピーしました"
 pt = "Quadro copiado"
 it = "Fotogramma copiato"
 id = "Frame disalin"
+pl = "Klatka skopiowana"
 
 ["Save Selected Frame"]
 en = "Save Selected Frame"
@@ -1945,6 +2083,7 @@ ja = "選択したフレームを保存"
 pt = "Salvar quadro selecionado"
 it = "Salva fotogramma selezionato"
 id = "Simpan Frame Terpilih"
+pl = "Zapisz zaznaczoną klatkę"
 
 ["Enable Beat Detection"]
 en = "Enable Beat Detection"
@@ -1959,6 +2098,7 @@ ja = "ビート検出を有効化"
 pt = "Habilitar detecção de batidas"
 it = "Attiva rilevamento dei beat"
 id = "Aktifkan Deteksi Ketukan"
+pl = "Włącz wykrywanie rytmu"
 
 ["Disable Beat Detection"]
 en = "Disable Beat Detection"
@@ -1973,6 +2113,7 @@ ja = "ビート検出を無効化"
 pt = "Desabilitar detecção de batidas"
 it = "Disattiva rilevamento dei beat"
 id = "Nonaktifkan Deteksi Ketukan"
+pl = "Wyłącz wykrywanie rytmu"
 
 ["Export Audio…"]
 en = "Export Audio…"
@@ -1987,6 +2128,7 @@ ja = "音声を書き出す…"
 pt = "Exportar áudio…"
 it = "Esporta audio…"
 id = "Ekspor Audio…"
+pl = "Eksportuj audio…"
 
 ["Transcribe"]
 en = "Transcribe"
@@ -2001,6 +2143,7 @@ ja = "文字起こし"
 pt = "Transcrever"
 it = "Trascrivi"
 id = "Transkripsikan"
+pl = "Transkrybuj"
 
 ["Remove Silences"]
 en = "Remove Silences"
@@ -2015,6 +2158,7 @@ ja = "無音部分を削除"
 pt = "Remover silêncios"
 it = "Rimuovi silenzi"
 id = "Hapus Bagian Hening"
+pl = "Usuń ciszę"
 
 ["Export Selected Audio"]
 en = "Export Selected Audio"
@@ -2029,6 +2173,7 @@ ja = "選択した音声を書き出す"
 pt = "Exportar áudio selecionado"
 it = "Esporta audio selezionato"
 id = "Ekspor Audio Terpilih"
+pl = "Eksportuj zaznaczone audio"
 
 ["Exporting Audio"]
 en = "Exporting Audio"
@@ -2043,6 +2188,7 @@ ja = "音声を書き出しています"
 pt = "Exportando áudio"
 it = "Esportazione audio"
 id = "Mengekspor Audio"
+pl = "Eksportowanie audio"
 
 ["The selected items will be mixed into one audio file."]
 en = "The selected items will be mixed into one audio file."
@@ -2057,6 +2203,7 @@ ja = "選択した項目を1つの音声ファイルにミックスします。"
 pt = "Os itens selecionados serão mixados em um único arquivo de áudio."
 it = "Gli elementi selezionati verranno mixati in un unico file audio."
 id = "Item yang dipilih akan digabungkan ke dalam satu file audio."
+pl = "Zaznaczone elementy zostaną połączone w jeden plik audio."
 
 ["Choose File"]
 en = "Choose File"
@@ -2071,6 +2218,7 @@ ja = "ファイルを選択"
 pt = "Escolher arquivo"
 it = "Scegli file"
 id = "Pilih File"
+pl = "Wybierz plik"
 
 ["Audio exported"]
 en = "Audio exported"
@@ -2085,6 +2233,7 @@ ja = "音声を書き出しました"
 pt = "Áudio exportado"
 it = "Audio esportato"
 id = "Audio diekspor"
+pl = "Audio wyeksportowane"
 
 ["Add Caption Track"]
 en = "Add Caption Track"
@@ -2099,6 +2248,7 @@ ja = "字幕トラックを追加"
 pt = "Adicionar faixa de legendas"
 it = "Aggiungi traccia sottotitoli"
 id = "Tambah Track Subtitel"
+pl = "Dodaj ścieżkę z napisami"
 
 ["Add Video Track"]
 en = "Add Video Track"
@@ -2113,6 +2263,7 @@ ja = "動画トラックを追加"
 pt = "Adicionar faixa de vídeo"
 it = "Aggiungi traccia video"
 id = "Tambah Track Video"
+pl = "Dodaj ścieżkę wideo"
 
 ["Add Audio Track"]
 en = "Add Audio Track"
@@ -2127,6 +2278,7 @@ ja = "音声トラックを追加"
 pt = "Adicionar faixa de áudio"
 it = "Aggiungi traccia audio"
 id = "Tambah Track Audio"
+pl = "Dodaj ścieżkę audio"
 
 ["Gain Offset"]
 en = "Gain Offset"
@@ -2141,6 +2293,7 @@ ja = "ゲインオフセット"
 pt = "Ajuste de ganho"
 it = "Offset gain"
 id = "Offset Gain"
+pl = "Przesunięcie wzmocnienia"
 
 ["Track gain offset in decibels"]
 en = "Track gain offset in decibels"
@@ -2155,6 +2308,7 @@ ja = "トラックのゲインオフセット（デシベル）"
 pt = "Ajuste de ganho da faixa em decibéis"
 it = "Offset gain della traccia in decibel"
 id = "Offset gain trek dalam desibel"
+pl = "Przesunięcie wzmocnienia ścieżki w decybelach"
 
 ["Generate Speech"]
 en = "Generate Speech"
@@ -2169,6 +2323,7 @@ ja = "音声を生成"
 pt = "Gerar fala"
 it = "Genera voce"
 id = "Hasilkan Ucapan"
+pl = "Wygeneruj mowę"
 
 ["Move Out"]
 en = "Move Out"
@@ -2183,6 +2338,7 @@ ja = "外に移動"
 pt = "Mover para fora"
 it = "Sposta fuori"
 id = "Pindahkan Keluar"
+pl = "Przenieś poza"
 
 ["Group"]
 en = "Group"
@@ -2197,6 +2353,7 @@ ja = "グループ化"
 pt = "Agrupar"
 it = "Raggruppa"
 id = "Kelompokkan"
+pl = "Grupuj"
 
 ["Ungroup"]
 en = "Ungroup"
@@ -2211,6 +2368,7 @@ ja = "グループ解除"
 pt = "Desagrupar"
 it = "Annulla raggruppamento"
 id = "Pisahkan Kelompok"
+pl = "Rozdziel"
 
 ["Delete Track"]
 en = "Delete Track"
@@ -2225,6 +2383,7 @@ ja = "トラックを削除"
 pt = "Excluir faixa"
 it = "Elimina traccia"
 id = "Hapus Trek"
+pl = "Usuń ścieżkę"
 
 ["Properties replaced on 1 item"]
 en = "Properties replaced on 1 item"
@@ -2239,6 +2398,7 @@ ja = "1項目のプロパティを置換しました"
 pt = "Propriedades substituídas em 1 item"
 it = "Proprietà sostituite su 1 elemento"
 id = "Properti diganti pada 1 item"
+pl = "Zamieniono właściwości na 1 elemencie"
 
 ["Properties replaced on %{count} items"]
 en = "Properties replaced on %{count} items"
@@ -2253,6 +2413,7 @@ ja = "%{count}項目のプロパティを置換しました"
 pt = "Propriedades substituídas em %{count} itens"
 it = "Proprietà sostituite su %{count} elementi"
 id = "Properti diganti pada %{count} item"
+pl = "Zamieniono właściwości na %{count} elementach"
 
 ["Delete Tracks?"]
 en = "Delete Tracks?"
@@ -2267,6 +2428,7 @@ ja = "トラックを削除しますか？"
 pt = "Excluir faixas?"
 it = "Eliminare le tracce?"
 id = "Hapus Trek?"
+pl = "Usunąć ścieżki?"
 
 ["1 clip is about to be deleted, are you sure?"]
 en = "1 clip is about to be deleted, are you sure?"
@@ -2281,6 +2443,7 @@ ja = "1個のクリップを削除します。よろしいですか？"
 pt = "1 clipe está prestes a ser excluído, tem certeza?"
 it = "1 clip sta per essere eliminata, sei sicuro?"
 id = "1 klip akan dihapus, Anda yakin?"
+pl = "1 klip zostanie usunięty, aby na pewno?"
 
 ["%{count} clips are about to be deleted, are you sure?"]
 en = "%{count} clips are about to be deleted, are you sure?"
@@ -2295,6 +2458,7 @@ ja = "%{count}個のクリップを削除します。よろしいですか？"
 pt = "%{count} clipes estão prestes a ser excluídos, tem certeza?"
 it = "%{count} clip stanno per essere eliminate, sei sicuro?"
 id = "%{count} klip akan dihapus, Anda yakin?"
+pl = "%{count} klipów zostanie usuniętych, aby na pewno?"
 
 ["Silence threshold"]
 en = "Silence threshold"
@@ -2309,6 +2473,7 @@ ja = "無音しきい値"
 pt = "Limiar de silêncio"
 it = "Soglia di silenzio"
 id = "Ambang batas keheningan"
+pl = "Próg ciszy"
 
 ["Minimum silence"]
 en = "Minimum silence"
@@ -2323,6 +2488,7 @@ ja = "最小無音時間"
 pt = "Silêncio mínimo"
 it = "Silenzio minimo"
 id = "Keheningan minimum"
+pl = "Minimalna cisza"
 
 ["Gap tolerance"]
 en = "Gap tolerance"
@@ -2337,6 +2503,7 @@ ja = "隙間の許容値"
 pt = "Tolerância de intervalo"
 it = "Tolleranza vuoti"
 id = "Toleransi celah"
+pl = "Tolerancja przerw"
 
 ["Min chunk"]
 en = "Min chunk"
@@ -2351,6 +2518,7 @@ ja = "最小チャンク"
 pt = "Trecho mínimo"
 it = "Frammento minimo"
 id = "Potongan minimum"
+pl = "Minimalny segment"
 
 ["No Silences Found"]
 en = "No Silences Found"
@@ -2365,6 +2533,7 @@ ja = "無音部分が見つかりません"
 pt = "Nenhum silêncio encontrado"
 it = "Nessun silenzio trovato"
 id = "Tidak Ditemukan Bagian Hening"
+pl = "Nie znaleziono żadnej ciszy"
 
 ["No selected-audio gaps matched the configured threshold and duration."]
 en = "No selected-audio gaps matched the configured threshold and duration."
@@ -2379,6 +2548,7 @@ ja = "選択した音声に、設定したしきい値と長さに一致する�
 pt = "Nenhum intervalo do áudio selecionado correspondeu ao limiar e duração configurados."
 it = "Nessun vuoto dell'audio selezionato corrispondeva alla soglia e alla durata configurate."
 id = "Tidak ada celah audio terpilih yang cocok dengan ambang batas dan durasi yang dikonfigurasi."
+pl = "Żadne przerwy zaznaczonego audio nie pasowały do skonfigurowanego progu oraz czasu trwania."
 
 ["No timeline ranges were removed."]
 en = "No timeline ranges were removed."
@@ -2393,6 +2563,7 @@ ja = "タイムラインの範囲は削除されませんでした。"
 pt = "Nenhum intervalo da linha do tempo foi removido."
 it = "Nessun intervallo della sequenza è stato rimosso."
 id = "Tidak ada rentang timeline yang dihapus."
+pl = "Żadne zakresy osi czasu nie zostały usunięte."
 
 ["Follow cuts"]
 en = "Follow cuts"
@@ -2407,6 +2578,7 @@ ja = "カットに従う"
 pt = "Seguir cortes"
 it = "Segui i tagli"
 id = "Ikuti potongan"
+pl = "Podążaj za cięciami"
 
 ["Snap source"]
 en = "Snap source"
@@ -2421,6 +2593,7 @@ ja = "スナップ元"
 pt = "Origem do encaixe"
 it = "Origine snap"
 id = "Sumber snap"
+pl = "Źródło przyciągania"
 
 ["Snap tolerance"]
 en = "Snap tolerance"
@@ -2435,6 +2608,7 @@ ja = "スナップ許容値"
 pt = "Tolerância do encaixe"
 it = "Tolleranza snap"
 id = "Toleransi snap"
+pl = "Tolerancja przyciągania"
 
 ["Snap generated caption boundaries to nearby cuts within this many seconds."]
 en = "Snap generated caption boundaries to nearby cuts within this many seconds."
@@ -2449,6 +2623,7 @@ ja = "生成した字幕の境界を、この秒数以内にある近くのカ�
 pt = "Encaixar limites das legendas geradas nos cortes próximos dentro desta quantidade de segundos."
 it = "Aggancia i limiti dei sottotitoli generati ai tagli vicini entro questo numero di secondi."
 id = "Rapatkan batas subtitel yang dihasilkan ke potongan terdekat dalam rentang detik ini."
+pl = "Przyciągnij granice wygenerowanych napisów do bliskich cięć w ciągu tych kilku sekund."
 
 ["Continue cut threshold"]
 en = "Continue cut threshold"
@@ -2463,6 +2638,7 @@ ja = "カット継続しきい値"
 pt = "Limiar de continuidade de corte"
 it = "Soglia continuità del taglio"
 id = "Ambang batas potongan lanjutan"
+pl = "Próg kontynuowania cięcia"
 
 ["Absorb chunks shorter than this many seconds only when the merged chunk stays under this threshold."]
 en = "Absorb chunks shorter than this many seconds only when the merged chunk stays under this threshold."
@@ -2477,6 +2653,7 @@ ja = "この秒数より短いチャンクを、結合後もこのしきい値�
 pt = "Absorver trechos mais curtos que esta quantidade de segundos apenas quando o trecho mesclado permanecer abaixo deste limiar."
 it = "Assorbi frammenti più brevi di questo numero di secondi solo se il frammento unito resta sotto questa soglia."
 id = "Gabungkan potongan yang lebih pendek dari sekian detik ini hanya jika potongan gabungan tetap berada di bawah ambang batas ini."
+pl = "Dołączaj fragmenty krótsze od podanej liczby sekund tylko wtedy, gdy po połączeniu ich długość nie przekroczy tego progu."
 
 ["%{count} chunk will be transcribed."]
 en = "%{count} chunk will be transcribed."
@@ -2491,6 +2668,7 @@ ja = "%{count}個のチャンクを文字起こしします。"
 pt = "%{count} trecho será transcrito."
 it = "%{count} frammenti verrà trascritto."
 id = "%{count} potongan akan ditranskripsikan."
+pl = "Transkrypcja obejmie %{count} fragment."
 
 ["%{count} chunks will be transcribed."]
 en = "%{count} chunks will be transcribed."
@@ -2505,6 +2683,7 @@ ja = "%{count}個のチャンクを文字起こしします。"
 pt = "%{count} trechos serão transcritos."
 it = "%{count} frammenti verranno trascritti."
 id = "%{count} potongan akan ditranskripsikan."
+pl = "Transkrypcja obejmie %{count} fragmentów."
 
 ["Transcribing..."]
 en = "Transcribing..."
@@ -2519,6 +2698,7 @@ ja = "文字起こし中..."
 pt = "Transcrevendo..."
 it = "Trascrizione…"
 id = "Mentranskripsikan..."
+pl = "Transkrybowanie..."
 
 ["Audio cuts"]
 en = "Audio cuts"
@@ -2533,6 +2713,7 @@ ja = "音声カット"
 pt = "Cortes de áudio"
 it = "Tagli audio"
 id = "Potongan audio"
+pl = "Cięcia audio"
 
 ["Video cuts"]
 en = "Video cuts"
@@ -2547,6 +2728,7 @@ ja = "動画カット"
 pt = "Cortes de vídeo"
 it = "Tagli video"
 id = "Potongan video"
+pl = "Cięcia wideo"
 
 ["Audio and video cuts"]
 en = "Audio and video cuts"
@@ -2561,6 +2743,7 @@ ja = "音声と動画のカット"
 pt = "Cortes de áudio e vídeo"
 it = "Tagli audio e video"
 id = "Potongan audio dan video"
+pl = "Cięcia audio i wideo"
 
 ["%{current}/%{total} · %{message}"]
 en = "%{current}/%{total} · %{message}"
@@ -2575,6 +2758,7 @@ ja = "%{current}/%{total} · %{message}"
 pt = "%{current}/%{total} · %{message}"
 it = "%{current}/%{total} · %{message}"
 id = "%{current}/%{total} · %{message}"
+pl = "%{current}/%{total} · %{message}"
 
 ["%{current}/%{total} · Complete"]
 en = "%{current}/%{total} · Complete"
@@ -2589,6 +2773,7 @@ ja = "%{current}/%{total} · 完了"
 pt = "%{current}/%{total} · Concluído"
 it = "%{current}/%{total} · Completato"
 id = "%{current}/%{total} · Selesai"
+pl = "%{current}/%{total} · Zakończono"
 
 ["%{count} caption chunk will be generated with each caption's exact duration."]
 en = "%{count} caption chunk will be generated with each caption's exact duration."
@@ -2603,6 +2788,7 @@ ja = "字幕の正確な長さで%{count}個の字幕チャンクを生成しま
 pt = "%{count} trecho de legenda será gerado com a duração exata de cada legenda."
 it = "Verrà generato %{count} frammento di sottotitoli con la durata esatta di ciascun sottotitolo."
 id = "%{count} potongan subtitel akan dihasilkan dengan durasi tepat dari masing-masing subtitel."
+pl = "Zostanie wygenerowany %{count} fragment napisów z dokładnym czasem trwania każdego napisu."
 
 ["%{count} caption chunks will be generated with each caption's exact duration."]
 en = "%{count} caption chunks will be generated with each caption's exact duration."
@@ -2617,6 +2803,7 @@ ja = "各字幕の正確な長さで%{count}個の字幕チャンクを生成し
 pt = "%{count} trechos de legendas serão gerados com a duração exata de cada legenda."
 it = "Verranno generati %{count} frammenti di sottotitoli con la durata esatta di ciascun sottotitolo."
 id = "%{count} potongan subtitel akan dihasilkan dengan durasi tepat dari masing-masing subtitel."
+pl = "Zostaną wygenerowane %{count} fragmenty napisów z dokładnym czasem trwania każdego napisu."
 
 ["%{count} empty or invalid chunk will be skipped."]
 en = "%{count} empty or invalid chunk will be skipped."
@@ -2631,6 +2818,7 @@ ja = "%{count}個の空または無効なチャンクをスキップします。
 pt = "%{count} trecho vazio ou inválido será ignorado."
 it = "%{count} frammento vuoto o non valido verrà saltato."
 id = "%{count} potongan kosong atau tidak valid akan dilewati."
+pl = "Pusty lub nieprawidłowy fragment %{count} zostanie pominięty."
 
 ["%{count} empty or invalid chunks will be skipped."]
 en = "%{count} empty or invalid chunks will be skipped."
@@ -2645,6 +2833,7 @@ ja = "%{count}個の空または無効なチャンクをスキップします。
 pt = "%{count} trechos vazios ou inválidos serão ignorados."
 it = "%{count} frammenti vuoti o non validi verranno saltati."
 id = "%{count} potongan kosong atau tidak valid akan dilewati."
+pl = "Puste lub nieprawidłowe fragmenty (%{count}) zostaną pominięte."
 
 ["Chunk %{current}/%{total}"]
 en = "Chunk %{current}/%{total}"
@@ -2659,6 +2848,7 @@ ja = "チャンク%{current}/%{total}"
 pt = "Trecho %{current}/%{total}"
 it = "Frammento %{current}/%{total}"
 id = "Potongan %{current}/%{total}"
+pl = "Fragment %{current}/%{total}"
 
 ["Generating Speech…"]
 en = "Generating Speech…"
@@ -2673,6 +2863,7 @@ ja = "音声を生成しています…"
 pt = "Gerando fala…"
 it = "Generazione voce…"
 id = "Menghasilkan Ucapan…"
+pl = "Generowanie mowy…"
 
 ["Match Project to Video?"]
 en = "Match Project to Video?"
@@ -2687,6 +2878,7 @@ ja = "プロジェクトを動画に合わせますか？"
 pt = "Ajustar projeto ao vídeo?"
 it = "Adattare il progetto al video?"
 id = "Sesuaikan Proyek dengan Video?"
+pl = "Dostosować projekt do wideo?"
 
 ["This is the first video in the project. Match the project to its %{width}×%{height} resolution and %{fps} FPS?"]
 en = "This is the first video in the project. Match the project to its %{width}×%{height} resolution and %{fps} FPS?"
@@ -2701,6 +2893,7 @@ ja = "プロジェクトで最初の動画です。プロジェクトを%{width}
 pt = "Este é o primeiro vídeo do projeto. Deseja ajustar o projeto para sua resolução de %{width}×%{height} e %{fps} FPS?"
 it = "Questo è il primo video del progetto. Adatta il progetto alla sua risoluzione di %{width}×%{height} e %{fps} FPS?"
 id = "Ini adalah video pertama dalam proyek. Sesuaikan proyek dengan resolusi %{width}×%{height} dan %{fps} FPS?"
+pl = "To jest pierwsze wideo tego projektu. Czy dostosować projekt do jego rozdzielczości %{width}×%{height} i %{fps} FPS?"
 
 ["This is the first video in the project. Match the project to its %{width}×%{height} resolution?"]
 en = "This is the first video in the project. Match the project to its %{width}×%{height} resolution?"
@@ -2715,6 +2908,7 @@ ja = "プロジェクトで最初の動画です。プロジェクトを%{width}
 pt = "Este é o primeiro vídeo do projeto. Deseja ajustar o projeto para sua resolução de %{width}×%{height}?"
 it = "Questo è il primo video del progetto. Adatta il progetto alla sua risoluzione di %{width}×%{height}?"
 id = "Ini adalah video pertama dalam proyek. Sesuaikan proyek dengan resolusi %{width}×%{height}?"
+pl = "To jest pierwsze wideo tego projektu. Czy dostosować projekt do jego rozdzielczości %{width}×%{height}?"
 
 ["This is the first video in the project. Match the project to its %{fps} FPS?"]
 en = "This is the first video in the project. Match the project to its %{fps} FPS?"
@@ -2729,6 +2923,7 @@ ja = "プロジェクトで最初の動画です。プロジェクトを%{fps} F
 pt = "Este é o primeiro vídeo do projeto. Deseja ajustar o projeto para %{fps} FPS?"
 it = "Questo è il primo video del progetto. Adatta il progetto ai suoi %{fps} FPS?"
 id = "Ini adalah video pertama dalam proyek. Sesuaikan proyek dengan %{fps} FPS?"
+pl = "To jest pierwsze wideo tego projektu. Czy dostosować projekt do jego %{fps} FPS?"
 
 ["Keep Project Settings"]
 en = "Keep Project Settings"
@@ -2743,6 +2938,7 @@ ja = "プロジェクト設定を維持"
 pt = "Manter configurações do projeto"
 it = "Mantieni impostazioni progetto"
 id = "Pertahankan Pengaturan Proyek"
+pl = "Zachowaj ustawienia projektu"
 
 ["Match Video"]
 en = "Match Video"
@@ -2757,6 +2953,7 @@ ja = "動画に合わせる"
 pt = "Ajustar ao vídeo"
 it = "Adatta al video"
 id = "Sesuaikan Video"
+pl = "Dopasuj do wideo"
 
 ["Import to Track"]
 en = "Import to Track"
@@ -2771,6 +2968,7 @@ ja = "トラックに読み込む"
 pt = "Importar para a faixa"
 it = "Importa nella traccia"
 id = "Impor ke Trek"
+pl = "Importuj do ścieżki"
 
 ["Remux MKV/WebM to MP4?"]
 en = "Remux MKV/WebM to MP4?"
@@ -2785,6 +2983,7 @@ ja = "MKV/WebMをMP4に再多重化しますか？"
 pt = "Remuxar MKV/WebM para MP4?"
 it = "Eseguire remux MKV/WebM in MP4?"
 id = "Remux MKV/WebM ke MP4?"
+pl = "Remuksować MKV/WebM do MP4?"
 
 ["MP4 is the supported timeline import format. The file can be remuxed losslessly first."]
 en = "MP4 is the supported timeline import format. The file can be remuxed losslessly first."
@@ -2799,6 +2998,7 @@ ja = "タイムラインへの読み込みはMP4に対応しています。先�
 pt = "MP4 é o formato suportado para importação na linha do tempo. O arquivo pode ser remuxado sem perdas primeiro."
 it = "MP4 è il formato supportato per l'import nella timeline. È possibile eseguire prima un remux senza perdita di qualità."
 id = "MP4 adalah format impor timeline yang didukung. File dapat di-remux secara lossless terlebih dahulu."
+pl = "MP4 jest obsługiwanym formatem importowania do osi czasu. Plik można najpierw bezstratnie zremuksować."
 
 ["Remux"]
 en = "Remux"
@@ -2813,6 +3013,7 @@ ja = "再多重化"
 pt = "Remuxar"
 it = "Remux"
 id = "Remux"
+pl = "Remuksuj"
 
 ["Delete original file?"]
 en = "Delete original file?"
@@ -2827,6 +3028,7 @@ ja = "元のファイルを削除しますか？"
 pt = "Excluir arquivo original?"
 it = "Eliminare il file originale?"
 id = "Hapus file asli?"
+pl = "Usunąć oryginalny plik?"
 
 ["The file was remuxed. Delete the original to keep only the MP4 copy?"]
 en = "The file was remuxed. Delete the original to keep only the MP4 copy?"
@@ -2841,6 +3043,7 @@ ja = "ファイルを再多重化しました。元のファイルを削除し�
 pt = "O arquivo foi remuxado. Deseja excluir o original para manter apenas a cópia em MP4?"
 it = "Remux sul file completato. Eliminare l'originale per conservare solo la copia in MP4?"
 id = "File telah di-remux. Hapus file asli untuk hanya menyimpan salinan MP4?"
+pl = "Plik został zremuksowany. Czy usunąć oryginał, w celu zachowania tylko kopii MP4?"
 
 ["Keep"]
 en = "Keep"
@@ -2855,6 +3058,7 @@ ja = "残す"
 pt = "Manter"
 it = "Mantieni"
 id = "Pertahankan"
+pl = "Zachowaj"
 
 ["Starting Blender…"]
 en = "Starting Blender…"
@@ -2869,6 +3073,7 @@ ja = "Blenderを起動しています…"
 pt = "Iniciando o Blender…"
 it = "Avvio di Blender…"
 id = "Memulai Blender…"
+pl = "Uruchamianie Blender…"
 
 ["Starting Manim…"]
 en = "Starting Manim…"
@@ -2883,6 +3088,7 @@ ja = "Manimを起動しています…"
 pt = "Iniciando o Manim…"
 it = "Avvio di Manim…"
 id = "Memulai Manim…"
+pl = "Uruchamianie Manim…"
 
 ["Loading scene…"]
 en = "Loading scene…"
@@ -2897,6 +3103,7 @@ ja = "シーンを読み込んでいます…"
 pt = "Carregando cena…"
 it = "Caricamento della scena…"
 id = "Memuat adegan…"
+pl = "Ładowanie sceny…"
 
 ["Frame %{completed}"]
 en = "Frame %{completed}"
@@ -2911,6 +3118,7 @@ ja = "フレーム%{completed}"
 pt = "Quadro %{completed}"
 it = "Fotogrammi %{completed}"
 id = "Frame %{completed}"
+pl = "Klatka %{completed}"
 
 ["Frame %{completed} / %{total}"]
 en = "Frame %{completed} / %{total}"
@@ -2925,3 +3133,4 @@ ja = "フレーム%{completed} / %{total}"
 pt = "Quadro %{completed} / %{total}"
 it = "Fotogrammi %{completed} / %{total}"
 id = "Frame %{completed} / %{total}"
+pl = "Klatka %{completed} / %{total}"
