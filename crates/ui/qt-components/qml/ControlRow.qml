@@ -7,16 +7,22 @@ RowLayout {
     id: root
     property string label: ""
     property string subtitle: ""
+    readonly property int labelWidthCharacters: 13
     default property alias control: holder.data
     spacing: 6
     Layout.fillWidth: true
 
     ColumnLayout {
+        id: labelColumn
         spacing: 1
-        Layout.preferredWidth: 156
-        Layout.minimumWidth: Math.min(96, root.width * 0.4)
-        Layout.maximumWidth: Math.max(96, root.width * 0.4)
+        readonly property real labelWidth: labelMetrics.averageCharacterWidth
+            * root.labelWidthCharacters
+        Layout.preferredWidth: labelWidth
+        Layout.minimumWidth: labelWidth
+        Layout.maximumWidth: labelWidth
+        FontMetrics { id: labelMetrics; font: label.font }
         Label {
+            id: label
             text: ComponentTranslations.text(root.label)
             opacity: 0.72
             horizontalAlignment: Text.AlignLeft

@@ -73,8 +73,8 @@ Item {
             ButtonGroup { id: categories }
             Repeater {
                 model: {
-                    const revision = backend.revision
-                    return revision >= 0 ? backend.categoryCount() : 0
+                    const revision = backend.documentRevision
+                    return revision >= 0 ? backend.categoryKeys() : []
                 }
                 Button {
                     required property int index
@@ -100,6 +100,10 @@ Item {
             id: inspectorScroll
             Layout.fillWidth: true
             Layout.fillHeight: true
+            leftPadding: 16
+            rightPadding: 16
+            topPadding: 4
+            bottomPadding: 12
             contentWidth: availableWidth
 
             Connections {
@@ -113,15 +117,13 @@ Item {
             }
 
             Column {
-                x: 16
-                y: 4
-                width: parent.width - 32
+                width: inspectorScroll.availableWidth
                 spacing: 8
 
                 Repeater {
                     model: {
-                        const revision = backend.revision
-                        return revision >= 0 ? backend.itemCount(backend.activeCategory) : 0
+                        const revision = backend.documentRevision
+                        return revision >= 0 ? backend.itemKeys(backend.activeCategory) : []
                     }
 
                     Loader {
@@ -267,8 +269,6 @@ Item {
                         }
                     }
                 }
-
-                Item { implicitHeight: 8 }
             }
         }
     }
@@ -296,7 +296,7 @@ Item {
                     readonly property bool transformLive: root.refreshed(
                         backend.controlTransformLive(categoryIndex, itemIndex, index))
                     readonly property string value: {
-                        const revision = kind === 18
+                        const revision = kind === InspectorBackend.AudioCache
                             ? backend.documentRevision + backend.cacheRevision
                             : backend.revision
                         return revision >= 0 ? backend.controlValue(
@@ -305,7 +305,8 @@ Item {
                     readonly property bool editable: root.refreshed(backend.controlEditable(
                         categoryIndex, itemIndex, index))
                     readonly property bool sensitive: {
-                        const revision = kind === 18 || kind === 19
+                        const revision = kind === InspectorBackend.AudioCache
+                            || kind === InspectorBackend.AudioCachePreset
                             ? backend.documentRevision + backend.cacheRevision
                             : backend.revision
                         return revision >= 0 && backend.controlSensitive(
@@ -313,40 +314,49 @@ Item {
                     }
                     visible: root.refreshed(
                         backend.controlVisible(categoryIndex, itemIndex, index))
-                    enabled: kind === 5 || kind === 7 || kind === 8
-                        || kind === 15 || kind >= 23
-                            ? sensitive : editable && sensitive
+                    enabled: kind === InspectorBackend.ReadOnly
+                        || kind === InspectorBackend.Selector
+                        || kind === InspectorBackend.Performance
+                        || kind === InspectorBackend.InfoHeading
+                        || kind === InspectorBackend.InfoArtwork
+                        || kind === InspectorBackend.FileLocation
+                        || kind === InspectorBackend.InfoLoading
+                        || kind === InspectorBackend.Action
+                        ? sensitive : editable && sensitive
                     Layout.fillWidth: true
-                    sourceComponent: kind === 0 ? booleanControl
-                        : kind === 1 ? numberControl
-                        : kind === 2 ? fractionControl
-                        : kind === 3 ? textControl
-                        : kind === 4 ? multilineControl
-                        : kind === 5 ? readOnlyControl
-                        : kind === 6 ? colorControl
-                        : kind === 7 || kind === 8 ? selectorControl
-                        : kind === 9 ? vector2Control
-                        : kind === 10 ? vector3Control
-                        : kind === 11 ? layeredNumberControl
-                        : kind === 12 ? layeredVector2Control
-                        : kind === 13 ? layeredVector3Control
-                        : kind === 14 ? projectSettingsControl
-                        : kind === 15 ? performanceControl
-                        : kind === 16 ? layeredBooleanControl
-                        : kind === 17 ? layeredSelectorControl
-                        : kind === 18 ? audioCacheControl
-                        : kind === 19 ? selectorControl
-                        : kind === 20 ? audioModifierMenuControl
-                        : kind === 21 ? ttsEditorControl
-                        : kind === 22 ? beatDetectionControl
-                        : kind === 23 ? infoHeadingControl
-                        : kind === 24 ? infoArtworkControl
-                        : kind === 25 ? fileLocationControl
-                        : kind === 26 ? infoLoadingControl
+                    sourceComponent: kind === InspectorBackend.Boolean ? booleanControl
+                        : kind === InspectorBackend.Number ? numberControl
+                        : kind === InspectorBackend.Fraction ? fractionControl
+                        : kind === InspectorBackend.Text ? textControl
+                        : kind === InspectorBackend.MultilineText ? multilineControl
+                        : kind === InspectorBackend.ReadOnly ? readOnlyControl
+                        : kind === InspectorBackend.Color ? colorControl
+                        : kind === InspectorBackend.LayeredColor ? colorControl
+                        : kind === InspectorBackend.LayeredText ? multilineControl
+                        : kind === InspectorBackend.Selector
+                            || kind === InspectorBackend.AudioCachePreset
+                            ? selectorControl
+                        : kind === InspectorBackend.Vector2 ? vector2Control
+                        : kind === InspectorBackend.Vector3 ? vector3Control
+                        : kind === InspectorBackend.LayeredNumber ? layeredNumberControl
+                        : kind === InspectorBackend.LayeredVector2 ? layeredVector2Control
+                        : kind === InspectorBackend.LayeredVector3 ? layeredVector3Control
+                        : kind === InspectorBackend.ProjectSettings ? projectSettingsControl
+                        : kind === InspectorBackend.Performance ? performanceControl
+                        : kind === InspectorBackend.LayeredBoolean ? layeredBooleanControl
+                        : kind === InspectorBackend.LayeredSelector ? layeredSelectorControl
+                        : kind === InspectorBackend.AudioCache ? audioCacheControl
+                        : kind === InspectorBackend.ModifierMenu ? audioModifierMenuControl
+                        : kind === InspectorBackend.TtsEditor ? ttsEditorControl
+                        : kind === InspectorBackend.BeatDetection ? beatDetectionControl
+                        : kind === InspectorBackend.InfoHeading ? infoHeadingControl
+                        : kind === InspectorBackend.InfoArtwork ? infoArtworkControl
+                        : kind === InspectorBackend.FileLocation ? fileLocationControl
+                        : kind === InspectorBackend.InfoLoading ? infoLoadingControl
                         : actionControl
 
                     function component(componentIndex) {
-                        const revision = kind === 18
+                        const revision = kind === InspectorBackend.AudioCache
                             ? backend.documentRevision + backend.cacheRevision
                             : backend.revision
                         return revision >= 0 ? backend.controlComponent(
@@ -357,7 +367,7 @@ Item {
                             categoryIndex, itemIndex, index, componentIndex))
                     }
                     function tooltip() {
-                        const revision = kind === 18
+                        const revision = kind === InspectorBackend.AudioCache
                             ? backend.documentRevision + backend.cacheRevision
                             : backend.revision
                         return revision >= 0 ? backend.controlTooltip(

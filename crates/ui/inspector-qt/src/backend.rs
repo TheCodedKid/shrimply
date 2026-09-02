@@ -14,6 +14,39 @@ use crate::value_backend::{
 
 #[cxx_qt::bridge]
 pub(crate) mod qobject {
+    #[qenum(InspectorBackend)]
+    enum InspectorControlKind {
+        Boolean,
+        Number,
+        Fraction,
+        Text,
+        MultilineText,
+        ReadOnly,
+        Color,
+        LayeredColor,
+        LayeredText,
+        Selector,
+        Vector2,
+        Vector3,
+        LayeredNumber,
+        LayeredVector2,
+        LayeredVector3,
+        ProjectSettings,
+        Performance,
+        LayeredBoolean,
+        LayeredSelector,
+        AudioCache,
+        AudioCachePreset,
+        ModifierMenu,
+        TtsEditor,
+        BeatDetection,
+        InfoHeading,
+        InfoArtwork,
+        FileLocation,
+        InfoLoading,
+        Action,
+    }
+
     unsafe extern "C++" {
         include!("cxx-qt-lib/qstring.h");
         type QString = cxx_qt_lib::QString;
@@ -64,8 +97,8 @@ pub(crate) mod qobject {
         #[cxx_name = "keyframeSnappingRadius"]
         fn keyframe_snapping_radius(self: &InspectorBackend) -> f64;
         #[qinvokable]
-        #[cxx_name = "categoryCount"]
-        fn category_count(self: &InspectorBackend) -> i32;
+        #[cxx_name = "categoryKeys"]
+        fn category_keys(self: &InspectorBackend) -> QStringList;
         #[qinvokable]
         #[cxx_name = "categoryLabel"]
         fn category_label(self: &InspectorBackend, category: i32) -> QString;
@@ -77,8 +110,8 @@ pub(crate) mod qobject {
         fn activate_category(self: Pin<&mut InspectorBackend>, category: i32);
 
         #[qinvokable]
-        #[cxx_name = "itemCount"]
-        fn item_count(self: &InspectorBackend, category: i32) -> i32;
+        #[cxx_name = "itemKeys"]
+        fn item_keys(self: &InspectorBackend, category: i32) -> QStringList;
         #[qinvokable]
         #[cxx_name = "itemIsCard"]
         fn item_is_card(self: &InspectorBackend, category: i32, item: i32) -> bool;
@@ -194,7 +227,12 @@ pub(crate) mod qobject {
         fn control_count(self: &InspectorBackend, category: i32, item: i32) -> i32;
         #[qinvokable]
         #[cxx_name = "controlKind"]
-        fn control_kind(self: &InspectorBackend, category: i32, item: i32, control: i32) -> i32;
+        fn control_kind(
+            self: &InspectorBackend,
+            category: i32,
+            item: i32,
+            control: i32,
+        ) -> InspectorControlKind;
         #[qinvokable]
         #[cxx_name = "controlLabel"]
         fn control_label(
@@ -687,6 +725,9 @@ impl qobject::InspectorBackend {
     }
 
     pub fn poll(mut self: Pin<&mut Self>, scroll_position: f64) {
+        if self.target_change_pending() {
+            super::mark_dirty();
+        }
         let generating = self
             .document()
             .and_then(|document| super::video_stabilization_generating(&document.target));
@@ -797,8 +838,15 @@ impl qobject::InspectorBackend {
         super::keyframe_snapping().1
     }
 
-    pub fn category_count(&self) -> i32 {
-        count(self.document().map(|document| document.categories.len()))
+    pub fn category_keys(&self) -> QStringList {
+        let Some(document) = self.document() else {
+            return QStringList::default();
+        };
+        document
+            .categories
+            .iter()
+            .map(|category| QString::from(format!("{:?}:{}", document.target, category.key)))
+            .collect()
     }
 
     pub fn category_label(&self, category: i32) -> QString {
@@ -833,8 +881,28 @@ impl qobject::InspectorBackend {
         }
     }
 
-    pub fn item_count(&self, category: i32) -> i32 {
-        count(self.category(category).map(|category| category.items.len()))
+    pub fn item_keys(&self, category: i32) -> QStringList {
+        let Some(document) = self.document() else {
+            return QStringList::default();
+        };
+        let Some(category) = index(category).and_then(|index| document.categories.get(index)) else {
+            return QStringList::default();
+        };
+        category
+            .items
+            .iter()
+            .enumerate()
+            .map(|(index, item)| {
+                let key = match item {
+                    InspectorListItem::Item(item) => item.presentation.key.as_str(),
+                    InspectorListItem::Flat(_) => "flat",
+                };
+                QString::from(format!(
+                    "{:?}:{}:{index}:{key}",
+                    document.target, category.key
+                ))
+            })
+            .collect()
     }
 
     pub fn item_is_card(&self, category: i32, item: i32) -> bool {
@@ -1030,39 +1098,48 @@ impl qobject::InspectorBackend {
         )
     }
 
-    pub fn control_kind(&self, category: i32, item: i32, control: i32) -> i32 {
+    pub fn control_kind(
+        &self,
+        category: i32,
+        item: i32,
+        control: i32,
+    ) -> qobject::InspectorControlKind {
+        use qobject::InspectorControlKind as QtKind;
         self.control(category, item, control)
-            .map_or(5, |control| match control.kind {
-                ControlKind::Boolean => 0,
-                ControlKind::Number => 1,
-                ControlKind::Fraction => 2,
-                ControlKind::Text => 3,
-                ControlKind::MultilineText => 4,
-                ControlKind::ReadOnly => 5,
-                ControlKind::Color => 6,
-                ControlKind::Selector => 7,
-                ControlKind::OptionalSelector => 8,
-                ControlKind::OptionalNumberSelector => 8,
-                ControlKind::Vector2 => 9,
-                ControlKind::Vector3 => 10,
-                ControlKind::LayeredNumber => 11,
-                ControlKind::LayeredVector2 => 12,
-                ControlKind::LayeredVector3 => 13,
-                ControlKind::ProjectSettings => 14,
-                ControlKind::Performance => 15,
-                ControlKind::LayeredBoolean => 16,
-                ControlKind::LayeredSelector => 17,
-                ControlKind::AudioCache => 18,
-                ControlKind::AudioCachePreset => 19,
-                ControlKind::AudioModifierMenu => 20,
-                ControlKind::VisualModifierMenu => 20,
-                ControlKind::TtsEditor => 21,
-                ControlKind::BeatDetection => 22,
-                ControlKind::InfoHeading => 23,
-                ControlKind::InfoArtwork => 24,
-                ControlKind::FileLocation => 25,
-                ControlKind::InfoLoading => 26,
-                ControlKind::Action => 27,
+            .map_or(QtKind::ReadOnly, |control| match control.kind {
+                ControlKind::Boolean => QtKind::Boolean,
+                ControlKind::Number => QtKind::Number,
+                ControlKind::Fraction => QtKind::Fraction,
+                ControlKind::Text => QtKind::Text,
+                ControlKind::MultilineText => QtKind::MultilineText,
+                ControlKind::ReadOnly => QtKind::ReadOnly,
+                ControlKind::Color => QtKind::Color,
+                ControlKind::LayeredColor => QtKind::LayeredColor,
+                ControlKind::LayeredText => QtKind::LayeredText,
+                ControlKind::Selector
+                | ControlKind::OptionalSelector
+                | ControlKind::OptionalNumberSelector => QtKind::Selector,
+                ControlKind::Vector2 => QtKind::Vector2,
+                ControlKind::Vector3 => QtKind::Vector3,
+                ControlKind::LayeredNumber => QtKind::LayeredNumber,
+                ControlKind::LayeredVector2 => QtKind::LayeredVector2,
+                ControlKind::LayeredVector3 => QtKind::LayeredVector3,
+                ControlKind::ProjectSettings => QtKind::ProjectSettings,
+                ControlKind::Performance => QtKind::Performance,
+                ControlKind::LayeredBoolean => QtKind::LayeredBoolean,
+                ControlKind::LayeredSelector => QtKind::LayeredSelector,
+                ControlKind::AudioCache => QtKind::AudioCache,
+                ControlKind::AudioCachePreset => QtKind::AudioCachePreset,
+                ControlKind::AudioModifierMenu | ControlKind::VisualModifierMenu => {
+                    QtKind::ModifierMenu
+                }
+                ControlKind::TtsEditor => QtKind::TtsEditor,
+                ControlKind::BeatDetection => QtKind::BeatDetection,
+                ControlKind::InfoHeading => QtKind::InfoHeading,
+                ControlKind::InfoArtwork => QtKind::InfoArtwork,
+                ControlKind::FileLocation => QtKind::FileLocation,
+                ControlKind::InfoLoading => QtKind::InfoLoading,
+                ControlKind::Action => QtKind::Action,
             })
     }
 
