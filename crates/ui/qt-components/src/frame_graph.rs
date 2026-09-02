@@ -117,6 +117,9 @@ pub mod qobject {
         #[cxx_name = "editGraphValue"]
         fn edit_graph_value(self: Pin<&mut FrameGraphItem>, value: f64);
         #[qinvokable]
+        #[cxx_name = "configureGraphCurrentValue"]
+        fn configure_graph_current_value(self: Pin<&mut FrameGraphItem>, value: f64);
+        #[qinvokable]
         #[cxx_name = "editGraphComponentValue"]
         fn edit_graph_component_value(self: Pin<&mut FrameGraphItem>, component: i32, value: f64);
         #[qinvokable]
@@ -147,6 +150,23 @@ pub mod qobject {
             component: i32,
             times: &QStringList,
             values: &QStringList,
+        );
+        #[qinvokable]
+        #[cxx_name = "reconcileStepGraphMoves"]
+        fn reconcile_step_graph_moves(
+            self: Pin<&mut FrameGraphItem>,
+            component: i32,
+            old_times: &QStringList,
+            raw_times: &QStringList,
+            times: &QStringList,
+        );
+        #[qinvokable]
+        #[cxx_name = "rollbackStepGraphMoves"]
+        fn rollback_step_graph_moves(
+            self: Pin<&mut FrameGraphItem>,
+            component: i32,
+            old_times: &QStringList,
+            raw_times: &QStringList,
         );
         #[qinvokable]
         #[cxx_name = "replaceRawGraph"]
@@ -204,6 +224,9 @@ pub mod qobject {
         #[qsignal]
         #[cxx_name = "togglePlayback"]
         fn toggle_playback(self: Pin<&mut FrameGraphItem>);
+        #[qsignal]
+        #[cxx_name = "editFinished"]
+        fn edit_finished(self: Pin<&mut FrameGraphItem>);
         #[qsignal]
         #[cxx_name = "playheadChanged"]
         fn playhead_changed(
@@ -401,7 +424,12 @@ impl qobject::FrameGraphItem {
     }
 
     pub fn end_pointer(mut self: Pin<&mut Self>) {
-        self.rust().lock().state.end_pointer();
+        let actions = self
+            .rust()
+            .lock()
+            .state
+            .active_actions(FrameGraphState::end_pointer);
+        self.as_mut().finish(actions);
         self.as_mut().request_update();
     }
 
@@ -508,6 +536,11 @@ impl qobject::FrameGraphItem {
         self.as_mut().finish(actions);
     }
 
+    pub fn configure_graph_current_value(mut self: Pin<&mut Self>, value: f64) {
+        self.rust().lock().state.set_value(value);
+        self.as_mut().refresh_graph();
+    }
+
     pub fn edit_graph_component_value(mut self: Pin<&mut Self>, component: i32, value: f64) {
         let component = usize::try_from(component).expect("non-negative frame graph component");
         let actions = {
@@ -574,6 +607,61 @@ impl qobject::FrameGraphItem {
                 points: parse_points(times, values),
             },
         );
+    }
+
+    pub fn reconcile_step_graph_moves(
+        self: Pin<&mut Self>,
+        component: i32,
+        old_times: &QStringList,
+        raw_times: &QStringList,
+        times: &QStringList,
+    ) {
+        assert_eq!(
+            old_times.len(),
+            raw_times.len(),
+            "frame graph move columns differ"
+        );
+        assert_eq!(
+            raw_times.len(),
+            times.len(),
+            "frame graph move columns differ"
+        );
+        let component = usize::try_from(component).expect("non-negative frame graph component");
+        let moves = old_times
+            .iter()
+            .zip(raw_times.iter())
+            .zip(times.iter())
+            .map(|((old_time, raw_time), time)| {
+                (parse_time(old_time), parse_time(raw_time), parse_time(time))
+            })
+            .collect::<Vec<_>>();
+        self.update_graph(|graph| {
+            graph
+                .state
+                .reconcile_component_step_moves(component, &moves);
+        });
+    }
+
+    pub fn rollback_step_graph_moves(
+        self: Pin<&mut Self>,
+        component: i32,
+        old_times: &QStringList,
+        raw_times: &QStringList,
+    ) {
+        assert_eq!(
+            old_times.len(),
+            raw_times.len(),
+            "frame graph move columns differ"
+        );
+        let component = usize::try_from(component).expect("non-negative frame graph component");
+        let moves = old_times
+            .iter()
+            .zip(raw_times.iter())
+            .map(|(old_time, raw_time)| (parse_time(old_time), parse_time(raw_time)))
+            .collect::<Vec<_>>();
+        self.update_graph(|graph| {
+            graph.state.rollback_component_step_moves(component, &moves);
+        });
     }
 
     pub fn replace_raw_graph(
@@ -755,6 +843,7 @@ impl qobject::FrameGraphItem {
                         .paste_requested(component, numerator, denominator);
                 }
                 FrameGraphAction::TogglePlayback => self.as_mut().toggle_playback(),
+                FrameGraphAction::EditFinished => self.as_mut().edit_finished(),
                 FrameGraphAction::InterpolationRequested {
                     owner_id,
                     interpolation,

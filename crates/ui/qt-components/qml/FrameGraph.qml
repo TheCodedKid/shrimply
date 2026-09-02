@@ -6,6 +6,7 @@ import dev.shrimply.components
 FocusScope {
     id: root
     signal togglePlayback()
+    signal editFinished()
     signal playheadChanged(int component, var numerator, var denominator)
     signal keysChanged(int component, var times, var values)
     signal keysMoved(int component, var oldTimes, var times, var values)
@@ -25,6 +26,7 @@ FocusScope {
     }
 
     function editValue(value) { graph.editGraphValue(value) }
+    function configureCurrentValue(value) { graph.configureGraphCurrentValue(value) }
     function configureValue(value) { graph.configureGraphValue(value) }
     function editComponent(component, value) {
         graph.editGraphComponentValue(component, value)
@@ -37,6 +39,12 @@ FocusScope {
     }
     function replaceStepGraph(component, times, values) {
         graph.replaceStepGraph(component, times, values)
+    }
+    function reconcileStepMoves(component, oldTimes, rawTimes, times) {
+        graph.reconcileStepGraphMoves(component, oldTimes, rawTimes, times)
+    }
+    function rollbackStepMoves(component, oldTimes, rawTimes) {
+        graph.rollbackStepGraphMoves(component, oldTimes, rawTimes)
     }
     function replaceRawGraph(component, pointTimes, pointValues, segments, staticValue) {
         graph.replaceRawGraph(component, pointTimes, pointValues, segments, staticValue)
@@ -122,6 +130,7 @@ FocusScope {
             mirrorVertically: true
             activeFocusOnTab: true
             onTogglePlayback: root.togglePlayback()
+            onEditFinished: root.editFinished()
             onPlayheadChanged: function(component, numerator, denominator) {
                 root.playheadChanged(component, numerator, denominator)
             }

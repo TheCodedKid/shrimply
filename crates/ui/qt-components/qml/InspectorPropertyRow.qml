@@ -16,7 +16,9 @@ ControlRow {
         Item {
             id: holder
             Layout.fillWidth: true
+            Layout.minimumWidth: 0
             implicitHeight: childrenRect.height
+            clip: true
             onChildrenChanged: {
                 for (let index = 0; index < children.length; ++index)
                     children[index].width = Qt.binding(function() { return holder.width })
@@ -32,10 +34,7 @@ ControlRow {
             display: AbstractButton.IconOnly
             ToolTip.visible: hovered
             ToolTip.text: qsTr("Keyframes")
-            onToggled: {
-                root.keyframes = checked
-                root.keyframesToggled(checked)
-            }
+            onClicked: root.keyframesToggled(checked)
         }
         ToolButton {
             visible: root.expressionAvailable
@@ -47,10 +46,7 @@ ControlRow {
             display: AbstractButton.IconOnly
             ToolTip.visible: hovered
             ToolTip.text: qsTr("Expression")
-            onToggled: {
-                root.expression = checked
-                root.expressionToggled(checked)
-            }
+            onClicked: root.expressionToggled(checked)
         }
     }
 }

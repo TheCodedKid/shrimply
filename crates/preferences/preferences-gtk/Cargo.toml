@@ -9,6 +9,6 @@ async-channel.workspace = true
 gtk.workspace = true
 pango.workspace = true
 shrimply-blender = { path = "../../blender/blender-bridge" }
-shrimply-inspector-ui = { path = "../../ui/inspector-ui" }
+shrimply-inspector-gtk = { path = "../../ui/inspector-gtk" }
 shrimply-preferences-core = { path = "../preferences-core" }
 shrimply-gtk-components = { path = "../../ui/gtk-components" }

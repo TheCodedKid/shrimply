@@ -15,6 +15,7 @@ Control {
     rightPadding: 8
     topPadding: 7
     bottomPadding: 7
+    clip: true
 
     contentItem: RowLayout {
         id: content
@@ -23,6 +24,7 @@ Control {
         TextEdit {
             id: label
             Layout.fillWidth: true
+            Layout.minimumWidth: 0
             readOnly: true
             activeFocusOnPress: true
             activeFocusOnTab: false

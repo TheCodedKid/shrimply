@@ -246,7 +246,7 @@ build: native-deps cuda-artifacts
 release: native-deps cuda-artifacts
 	$(BUILD_ENV) $(CARGO) build --release -p $(EDITOR_PACKAGE) -p $(LAUNCHER_PACKAGE) -p $(MCP_PACKAGE) --bins
 
-check: native-deps cuda-artifacts fmt source-size-check cargo-check lint server-python-check manim-python-check docs-check
+check: native-deps qt-native-deps cuda-artifacts fmt source-size-check cargo-check lint server-python-check manim-python-check docs-check
 
 components-check: native-deps qt-native-deps
 	$(DEV_BUILD_ENV) QMAKE=$(QT_QMAKE) $(CARGO) check -p $(GTK_COMPONENTS_PACKAGE) -p $(QT_COMPONENTS_PACKAGE) -p $(GTK_COMPONENTS_DEMO_PACKAGE) -p $(QT_COMPONENTS_DEMO_PACKAGE) --all-targets
@@ -283,8 +283,8 @@ manim-visual-check: native-deps
 manim-parameter-check: native-deps
 	$(DEV_BUILD_ENV) $(CARGO) test -p shrimply-manim-parser --test two_pass_parameters -- --ignored --nocapture
 
-cargo-check:
-	$(DEV_BUILD_ENV) $(CARGO) check -p $(EDITOR_PACKAGE) -p $(LAUNCHER_PACKAGE) -p $(MCP_PACKAGE) --bins
+cargo-check: native-deps qt-native-deps
+	$(DEV_BUILD_ENV) QMAKE=$(QT_QMAKE) $(CARGO) check -p $(EDITOR_PACKAGE) -p $(QT_EDITOR_PACKAGE) -p $(LAUNCHER_PACKAGE) -p $(QT_LAUNCHER_PACKAGE) -p $(MCP_PACKAGE) --bins
 
 frame-rate-test: native-deps
 	$(DEV_BUILD_ENV) $(CARGO) test -p shrimply-math-core frame_rate_is_the_reciprocal_of_the_latest_render_cost
@@ -338,8 +338,8 @@ fmt-check:
 	$(BUILD_ENV) $(CARGO) fmt --check --manifest-path crates/cuda/stabilization/Cargo.toml
 	$(BUILD_ENV) $(CARGO) fmt --check --manifest-path crates/cuda/export/Cargo.toml
 
-lint:
-	$(DEV_BUILD_ENV) $(CARGO) clippy -p $(EDITOR_PACKAGE) -p $(LAUNCHER_PACKAGE) -p $(MCP_PACKAGE) --bins -- -D warnings
+lint: native-deps qt-native-deps
+	$(DEV_BUILD_ENV) QMAKE=$(QT_QMAKE) $(CARGO) clippy -p $(EDITOR_PACKAGE) -p $(QT_EDITOR_PACKAGE) -p $(LAUNCHER_PACKAGE) -p $(QT_LAUNCHER_PACKAGE) -p $(MCP_PACKAGE) --bins -- -D warnings
 
 test: cuda-artifacts
 	$(DEV_BUILD_ENV) $(CARGO) test

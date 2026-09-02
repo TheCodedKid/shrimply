@@ -36,6 +36,8 @@ impl NumberConfig {
 
 pub fn accepted_value(config: &NumberConfig, value: Fraction) -> Fraction {
     let value = finite_fraction_or(value, config.fallback);
+    let value = clamped_value(value, config.minimum, config.maximum);
+    let value = parse_fraction(&format_value(config, value)).unwrap_or(value);
     clamped_value(value, config.minimum, config.maximum)
 }
 

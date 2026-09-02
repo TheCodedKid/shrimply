@@ -6,7 +6,7 @@ use shrimply_support::crash;
 mod header_menu;
 mod mcp;
 use shrimply_gtk_components::project_settings::ProjectSettingsSelector;
-use shrimply_inspector_ui as inspector;
+use shrimply_inspector_gtk as inspector;
 use shrimply_preview_gtk as video_player;
 use shrimply_state::player_state;
 use shrimply_timeline_ui as timeline;

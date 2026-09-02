@@ -5,6 +5,7 @@ import QtQuick.Dialogs
 import QtQuick.Layouts
 import QtQml.Models
 import dev.shrimply.editor
+import dev.shrimply.inspector
 
 ApplicationWindow {
     id: window
@@ -94,6 +95,9 @@ ApplicationWindow {
 
     menuBar: MenuBar {
         visible: backend.ready && !window.fullscreenPreview
+        palette.inactive.windowText: palette.active.windowText
+        palette.inactive.buttonText: palette.active.buttonText
+        palette.inactive.text: palette.active.text
 
         Menu {
             title: backend.translate("File")
@@ -249,21 +253,23 @@ ApplicationWindow {
 
                 Pane {
                     id: inspectorPane
+                    padding: 0
                     visible: window.inspectorVisible && !window.fullscreenPreview
-                    SplitView.preferredWidth: 320
-                    SplitView.minimumWidth: 260
+                    SplitView.preferredWidth: inspectorView.implicitWidth
+                    SplitView.minimumWidth: inspectorView.implicitWidth
 
-                    ColumnLayout {
+                    InspectorView {
+                        id: inspectorView
                         anchors.fill: parent
-
-                        Label { text: backend.translate("Inspector"); font.bold: true }
-                        Item { Layout.fillHeight: true }
-                        Label {
-                            Layout.alignment: Qt.AlignCenter
-                            text: backend.translate("Inspector is not available yet")
-                            opacity: 0.65
+                        onError: function(body) {
+                            errorDialog.title = backend.translate("Inspector edit failed")
+                            errorDialog.text = body
+                            errorDialog.open()
                         }
-                        Item { Layout.fillHeight: true }
+                        onConfirmation: function(body) {
+                            inspectorConfirmation.text = body
+                            inspectorConfirmation.open()
+                        }
                     }
                 }
 
@@ -761,6 +767,27 @@ ApplicationWindow {
         id: errorDialog
         buttons: MessageDialog.Close
         onAccepted: Qt.quit()
+    }
+
+    Popup {
+        id: inspectorConfirmation
+        property alias text: confirmationLabel.text
+        x: Math.round((window.width - width) / 2)
+        y: window.height - height - 24
+        padding: 12
+        modal: false
+        closePolicy: Popup.NoAutoClose
+        onOpened: confirmationTimer.restart()
+
+        contentItem: Label {
+            id: confirmationLabel
+        }
+
+        Timer {
+            id: confirmationTimer
+            interval: 2500
+            onTriggered: inspectorConfirmation.close()
+        }
     }
 
     MessageDialog {

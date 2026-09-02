@@ -24,7 +24,7 @@ shrimply-asset = { path = "../../asset" }
 shrimply-cross-ui-core = { path = "../../ui/cross-ui-core" }
 shrimply-cross-ui-theme = { path = "../../ui/cross-ui-theme" }
 shrimply-export-ui = { path = "../../export/export-ui" }
-shrimply-inspector-ui = { path = "../../ui/inspector-ui" }
+shrimply-inspector-gtk = { path = "../../ui/inspector-gtk" }
 shrimply-math-core = { path = "../../math/core" }
 shrimply-manim-parser = { path = "../../manim/manim-parser" }
 shrimply-mcp = { path = "../../mcp", default-features = false }

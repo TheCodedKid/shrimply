@@ -5,68 +5,144 @@ import QtQuick.Layouts
 
 ColumnLayout {
     id: root
-    signal changed(int width, int height, int fpsNumerator, int fpsDenominator)
-    spacing: 6
+    property int initialWidth: backend.minimumDimension()
+    property int initialHeight: backend.minimumDimension()
+    property string initialFpsNumerator: "30"
+    property string initialFpsDenominator: "1"
+    property int stagedWidth: initialWidth
+    property int stagedHeight: initialHeight
+    property string stagedFpsNumerator: initialFpsNumerator
+    property string stagedFpsDenominator: initialFpsDenominator
+    property bool initialized: false
+    readonly property string sourceKey: initialWidth + ":" + initialHeight + ":"
+        + initialFpsNumerator + ":" + initialFpsDenominator
+    readonly property bool changed: stagedWidth !== initialWidth
+        || stagedHeight !== initialHeight
+        || stagedFpsNumerator !== initialFpsNumerator
+        || stagedFpsDenominator !== initialFpsDenominator
+    signal applyRequested(int width, int height, string fpsNumerator, string fpsDenominator)
+    spacing: 8
+
+    function resetDraft() {
+        if (initialWidth < backend.minimumDimension()
+                || initialHeight < backend.minimumDimension()
+                || initialFpsNumerator.length === 0
+                || initialFpsDenominator.length === 0)
+            return
+        stagedWidth = initialWidth
+        stagedHeight = initialHeight
+        stagedFpsNumerator = initialFpsNumerator
+        stagedFpsDenominator = initialFpsDenominator
+        backend.configure(stagedWidth, stagedHeight, stagedFpsNumerator, stagedFpsDenominator)
+    }
+
+    onSourceKeyChanged: {
+        if (!initialized)
+            return
+        const expected = sourceKey
+        Qt.callLater(function() {
+            if (root.sourceKey === expected)
+                root.resetDraft()
+        })
+    }
+    Component.onCompleted: {
+        initialized = true
+        resetDraft()
+    }
+
+    ControlRow {
+        label: ComponentTranslations.text("FPS")
+        Dropdown {
+            value: String(backend.frameRate)
+            values: {
+                const count = backend.frameRateCount
+                return count >= 0 ? backend.frameRateValues() : []
+            }
+            labels: {
+                const count = backend.frameRateCount
+                return count >= 0 ? backend.frameRateLabels() : []
+            }
+            onSelected: function(value) {
+                backend.setFrameRateValue(Number(value))
+                root.stagedFpsNumerator = backend.fpsNumerator()
+                root.stagedFpsDenominator = backend.fpsDenominator()
+            }
+        }
+    }
+
+    ControlRow {
+        label: ComponentTranslations.text("Resolution")
+        Number2Picker {
+            first: root.stagedWidth
+            second: root.stagedHeight
+            minimum: backend.minimumDimension()
+            maximum: backend.maximumDimension()
+            dragStep: 1
+            digits: 0
+            widthCharacters: 7
+            firstPrefix: "W"
+            secondPrefix: "H"
+            enableLock: true
+            onValuesEdited: function(width, height, component) {
+                root.stagedWidth = Math.round(width)
+                root.stagedHeight = Math.round(height)
+            }
+        }
+    }
+
+    RowLayout {
+        Layout.alignment: Qt.AlignRight
+        visible: root.changed
+        Button {
+            text: ComponentTranslations.text("Discard")
+            onClicked: root.resetDraft()
+        }
+        Button {
+            text: ComponentTranslations.text("Apply")
+            highlighted: true
+            onClicked: confirmation.open()
+        }
+    }
 
     ProjectSettingsBackend { id: backend }
 
-    function notifyChanged() {
-        root.changed(backend.width, backend.height, backend.fpsNumerator(), backend.fpsDenominator())
-    }
+    Dialog {
+        id: confirmation
+        modal: true
+        anchors.centerIn: Overlay.overlay
+        title: ComponentTranslations.text("Change Project Settings?")
+        standardButtons: Dialog.NoButton
 
-    ControlRow {
-        label: "Preset"
-        ComboBox {
-            currentIndex: backend.preset
-            id: preset
-            model: backend.presetCount
-            textRole: "text"
-            delegate: ItemDelegate {
-                required property int index
-                width: preset.width
-                text: backend.presetLabel(index)
+        contentItem: Label {
+            text: ComponentTranslations.text(
+                "Changing the frame rate or resolution can affect timing, visual layout, and rendered output. Existing media and effects may no longer match the project."
+            )
+            wrapMode: Text.Wrap
+            width: Math.min(460, Overlay.overlay.width - 48)
+        }
+
+        footer: DialogButtonBox {
+            Button {
+                id: cancel
+                text: ComponentTranslations.text("Cancel")
+                DialogButtonBox.buttonRole: DialogButtonBox.RejectRole
             }
-            contentItem: Label { text: backend.presetLabel(backend.preset); verticalAlignment: Text.AlignVCenter }
-            onActivated: { backend.selectPreset(currentIndex); root.notifyChanged() }
-            Connections { target: backend; function onPresetChanged() { preset.currentIndex = backend.preset } }
-        }
-    }
-    ControlRow {
-        label: "Width"
-        NumberPicker {
-            value: backend.width
-            minimum: 1
-            maximum: 16384
-            digits: 0
-            dragStep: 1
-            onEdited: function(value) { backend.setWidthValue(Math.round(value)); root.notifyChanged() }
-        }
-    }
-    ControlRow {
-        label: "Height"
-        NumberPicker {
-            value: backend.height
-            minimum: 1
-            maximum: 16384
-            digits: 0
-            dragStep: 1
-            onEdited: function(value) { backend.setHeightValue(Math.round(value)); root.notifyChanged() }
-        }
-    }
-    ControlRow {
-        label: "Frame Rate"
-        ComboBox {
-            currentIndex: backend.frameRate
-            id: fps
-            model: backend.frameRateCount
-            delegate: ItemDelegate {
-                required property int index
-                width: fps.width
-                text: backend.frameRateLabel(index)
+            Button {
+                text: ComponentTranslations.text("Apply")
+                highlighted: true
+                DialogButtonBox.buttonRole: DialogButtonBox.DestructiveRole
             }
-            contentItem: Label { text: backend.frameRateLabel(backend.frameRate); verticalAlignment: Text.AlignVCenter }
-            onActivated: { backend.setFrameRateValue(currentIndex); root.notifyChanged() }
-            Connections { target: backend; function onFrameRateChanged() { fps.currentIndex = backend.frameRate } }
+            onRejected: confirmation.close()
+            onDiscarded: {
+                confirmation.close()
+                root.applyRequested(
+                    root.stagedWidth,
+                    root.stagedHeight,
+                    root.stagedFpsNumerator,
+                    root.stagedFpsDenominator
+                )
+            }
         }
+        onOpened: cancel.forceActiveFocus()
     }
 }

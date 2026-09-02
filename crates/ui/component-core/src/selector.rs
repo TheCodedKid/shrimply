@@ -49,6 +49,23 @@ pub fn search_rank<'a>(
     }
 }
 
+pub fn ranked_matching_indices(
+    labels: &[String],
+    keyword_groups: &[String],
+    query: &str,
+) -> Vec<usize> {
+    let mut matches = labels
+        .iter()
+        .enumerate()
+        .filter_map(|(index, label)| {
+            let keywords = keyword_groups.get(index).map_or("", String::as_str);
+            search_rank(label, [keywords], query).map(|rank| (rank, index))
+        })
+        .collect::<Vec<_>>();
+    matches.sort_by_key(|(rank, _)| *rank);
+    matches.into_iter().map(|(_, index)| index).collect()
+}
+
 pub fn adjacent_matching_index(
     labels: &[String],
     query: &str,

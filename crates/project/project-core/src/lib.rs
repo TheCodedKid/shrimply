@@ -9,6 +9,9 @@ pub struct CanvasSize {
     pub height: u32,
 }
 
+pub const MIN_CANVAS_DIMENSION: u32 = 1;
+pub const MAX_CANVAS_DIMENSION: u32 = 16_384;
+
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AudioClipTransitionCurve {

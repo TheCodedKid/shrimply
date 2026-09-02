@@ -172,6 +172,7 @@ impl EditorSession {
                         audio_beats: audio,
                         audio_waveforms: audio,
                         video,
+                        inspector: true,
                         ..Default::default()
                     },
                 );

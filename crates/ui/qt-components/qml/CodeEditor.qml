@@ -7,7 +7,10 @@ ScrollView {
     property string value: ""
     property int tabWidth: 4
     signal edited(string value)
+    signal committed(string value)
     implicitHeight: 180
+
+    Component.onDestruction: root.committed(editor.text)
 
     onValueChanged: if (editor.text !== value) editor.text = value
 
@@ -19,9 +22,9 @@ ScrollView {
         leftPadding: 48
         font.family: "monospace"
         onTextChanged: if (root.value !== text) {
-            root.value = text
             root.edited(text)
         }
+        onActiveFocusChanged: if (!activeFocus) root.committed(text)
         Keys.onTabPressed: function(event) {
             const spaces = " ".repeat(root.tabWidth)
             insert(cursorPosition, spaces)

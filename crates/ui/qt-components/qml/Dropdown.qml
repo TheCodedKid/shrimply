@@ -10,25 +10,28 @@ Button {
     property var values: []
     property var labels: []
     property string value: ""
+    property string selectedValue: value
     property bool enableSearch: backend.searchable(labels.length)
     property string searchPlaceholder: ComponentTranslations.text("Search")
     signal selected(string value)
     text: currentLabel()
 
     function currentLabel() {
-        const index = backend.selectedIndex(values, value)
+        const index = backend.selectedIndex(values, selectedValue)
         return index >= 0 && index < labels.length ? labels[index] : ""
     }
 
     function synchronize() {
-        popup.selectedIndex = backend.selectedIndex(values, value)
+        popup.selectedIndex = backend.selectedIndex(values, selectedValue)
     }
 
     function choose(index) {
         const next = backend.valueAt(values, index)
-        if (index < 0 || next.length === 0)
+        if (index < 0 || index >= values.length)
             return
-        value = next
+        if (next === selectedValue)
+            return
+        selectedValue = next
         selected(next)
     }
 
@@ -50,7 +53,8 @@ Button {
 
     Component.onCompleted: synchronize()
     onValuesChanged: synchronize()
-    onValueChanged: synchronize()
+    onValueChanged: selectedValue = value
+    onSelectedValueChanged: synchronize()
     onClicked: {
         if (popup.opened)
             popup.close()
@@ -71,7 +75,7 @@ Button {
         id: popup
         width: Math.max(root.width, 240)
         labels: root.labels
-        selectedIndex: backend.selectedIndex(root.values, root.value)
+        selectedIndex: backend.selectedIndex(root.values, root.selectedValue)
         searchEnabled: root.enableSearch
         placeholderText: root.searchPlaceholder
         onActivated: function(index) { root.choose(index) }

@@ -13,5 +13,6 @@ shrimply-server-client = { path = "../../server-client" }
 shrimply-state = { path = "../../state" }
 shrimply-tts = { path = "../tts" }
 shrimply-gtk-components = { path = "../../ui/gtk-components" }
+shrimply-inspector-core = { path = "../../ui/inspector-core" }
 tracing.workspace = true
 uuid = { workspace = true, features = ["v4"] }

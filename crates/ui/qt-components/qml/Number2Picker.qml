@@ -11,6 +11,7 @@ RowLayout {
     property real maximum: 1000000
     property real dragStep: 1
     property int digits: 2
+    property int widthCharacters: 8
     property string firstPrefix: ""
     property string secondPrefix: ""
     property string unitName: ""
@@ -66,6 +67,7 @@ RowLayout {
         maximum: root.maximum
         dragStep: root.dragStep
         digits: root.digits
+        widthCharacters: root.widthCharacters
         prefix: root.firstPrefix
         unitName: root.unitName
         onEdited: function(value) { group.edit(0, value) }
@@ -79,6 +81,7 @@ RowLayout {
         maximum: root.maximum
         dragStep: root.dragStep
         digits: root.digits
+        widthCharacters: root.widthCharacters
         prefix: root.secondPrefix
         unitName: root.unitName
         onEdited: function(value) { group.edit(1, value) }

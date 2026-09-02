@@ -76,6 +76,7 @@ pub enum FrameGraphAction {
     CopyRequested(Vec<Time>),
     PasteRequested(Time),
     TogglePlayback,
+    EditFinished,
     InterpolationRequested {
         owner_id: Uuid,
         interpolation: Interpolation,
@@ -225,6 +226,7 @@ pub struct FrameGraphState {
     snap_radius_px: f64,
     accent_color: Color,
     viewport_width: f64,
+    pending_step_graph: Option<KeyframeGraph>,
 }
 
 pub struct FrameGraphComponents {
@@ -349,6 +351,24 @@ impl FrameGraphComponents {
             })
             .collect()
     }
+
+    pub fn reconcile_component_step_moves(
+        &mut self,
+        component: usize,
+        moves: &[(Time, Time, Time)],
+    ) {
+        self.states
+            .get_mut(component)
+            .expect("frame graph component is out of bounds")
+            .reconcile_step_moves(moves);
+    }
+
+    pub fn rollback_component_step_moves(&mut self, component: usize, moves: &[(Time, Time)]) {
+        self.states
+            .get_mut(component)
+            .expect("frame graph component is out of bounds")
+            .rollback_step_moves(moves);
+    }
 }
 
 impl Deref for FrameGraphComponents {
@@ -403,6 +423,7 @@ impl FrameGraphState {
             snap_radius_px: SNAP_RADIUS_PX,
             accent_color: Color::<u8>::new(0x35, 0x84, 0xe4, 0xff).into(),
             viewport_width: 1.0,
+            pending_step_graph: None,
         }
     }
 
@@ -487,6 +508,7 @@ impl FrameGraphState {
                 self.frame_step.as_secs_f64() / shrimply_discrete_keyframe_graph_ui::MAX_FRAME_WIDTH
             });
         self.graph = graph;
+        self.pending_step_graph = None;
         self.retain_valid_selection();
     }
 
@@ -526,6 +548,92 @@ impl FrameGraphState {
 
     pub fn set_text_interpolation(&mut self, enabled: bool) {
         self.text_interpolation = enabled;
+    }
+
+    fn reconcile_step_moves(&mut self, moves: &[(Time, Time, Time)]) {
+        let mut graph = self
+            .pending_step_graph
+            .take()
+            .expect("step graph move has no authoritative source");
+        let KeyframeGraph::Step { points } = &mut graph else {
+            panic!("only step graphs can reconcile canonical step keyframe times");
+        };
+        let mut moved = Vec::with_capacity(moves.len());
+        for (index, &(old_time, _, _)) in moves.iter().enumerate() {
+            assert!(
+                !moves[..index]
+                    .iter()
+                    .any(|(previous, _, _)| previous.approx_eq(old_time)),
+                "reconciled step keyframe move is duplicated"
+            );
+            moved.push(
+                points
+                    .iter()
+                    .find(|point| point.time.approx_eq(old_time))
+                    .copied()
+                    .expect("reconciled step keyframe is missing"),
+            );
+        }
+        points.retain(|point| {
+            !moves
+                .iter()
+                .any(|(old_time, _, _)| point.time.approx_eq(*old_time))
+        });
+        let mut destinations = Vec::with_capacity(moved.len());
+        for (mut point, &(_, _, time)) in moved.into_iter().zip(moves) {
+            points.retain(|other| !other.time.approx_eq(time));
+            destinations.retain(|other: &KeyframePoint| !other.time.approx_eq(time));
+            point.time = time;
+            destinations.push(point);
+        }
+        points.extend(destinations);
+        points.sort_by_key(|point| point.time);
+        self.graph = graph;
+        let reconciled = |source: Time| {
+            moves
+                .iter()
+                .find_map(|(_, raw_time, time)| raw_time.approx_eq(source).then_some(*time))
+                .unwrap_or(source)
+        };
+        for selected in &mut self.selected_keys {
+            *selected = reconciled(*selected);
+        }
+        self.focused_key = self.focused_key.map(reconciled);
+        if let Some(ActiveDrag {
+            target: DragTarget::Point(active),
+            ..
+        }) = &mut self.active_drag
+        {
+            *active = reconciled(*active);
+        }
+        self.selected_keys.sort();
+        self.selected_keys
+            .dedup_by(|left, right| left.approx_eq(*right));
+    }
+
+    fn rollback_step_moves(&mut self, moves: &[(Time, Time)]) {
+        self.graph = self
+            .pending_step_graph
+            .take()
+            .expect("step graph move has no authoritative source");
+        let restored = |source: Time| {
+            moves
+                .iter()
+                .find_map(|(time, raw_time)| raw_time.approx_eq(source).then_some(*time))
+                .unwrap_or(source)
+        };
+        for selected in &mut self.selected_keys {
+            *selected = restored(*selected);
+        }
+        self.focused_key = self.focused_key.map(restored);
+        if let Some(ActiveDrag {
+            target: DragTarget::Point(active),
+            ..
+        }) = &mut self.active_drag
+        {
+            *active = restored(*active);
+        }
+        self.retain_valid_selection();
     }
 
     pub fn set_value(&mut self, value: f64) -> Vec<FrameGraphAction> {
@@ -760,6 +868,8 @@ impl FrameGraphState {
                     &self.graph,
                     value_at_y(y, graph_content_height(height), range),
                 );
+                let authoritative_step_graph =
+                    matches!(self.graph, KeyframeGraph::Step { .. }).then(|| self.graph.clone());
                 let (updates, selected, focused) = move_selected_graph_points(
                     &mut self.graph,
                     &self.selected_keys,
@@ -768,6 +878,9 @@ impl FrameGraphState {
                     requested_value,
                     self.item_range,
                 );
+                self.pending_step_graph = (!updates.is_empty())
+                    .then_some(authoritative_step_graph)
+                    .flatten();
                 self.selected_keys = selected;
                 self.focused_key = Some(focused);
                 if let Some(active) = self.active_drag.as_mut() {
@@ -787,10 +900,22 @@ impl FrameGraphState {
         }
     }
 
-    pub fn end_pointer(&mut self) {
+    pub fn end_pointer(&mut self) -> Vec<FrameGraphAction> {
+        let edited = matches!(
+            self.active_drag,
+            Some(ActiveDrag {
+                target: DragTarget::Point(_),
+                ..
+            })
+        );
         self.scrollbar.end_drag();
         self.selection_box = None;
         self.active_drag = None;
+        self.pending_step_graph = None;
+        edited
+            .then_some(FrameGraphAction::EditFinished)
+            .into_iter()
+            .collect()
     }
 
     pub fn scroll(
@@ -971,6 +1096,14 @@ impl FrameGraphState {
     }
 
     fn current_value(&self) -> f64 {
+        if let KeyframeGraph::Step { points } = &self.graph {
+            return points
+                .iter()
+                .rev()
+                .find(|point| point.time <= self.playhead)
+                .or_else(|| points.first())
+                .map_or(0.0, |point| point.value);
+        }
         self.focused_key
             .and_then(|time| graph_key_point(&self.graph, time))
             .or_else(|| {
@@ -1493,7 +1626,7 @@ fn move_selected_graph_points(
             updates.push((
                 point.time,
                 Time::from_seconds_f64(point.time.as_secs_f64() + delta),
-                graph_edit_value(graph, point.value + delta_value),
+                point.value + delta_value,
             ));
         }
     }
@@ -1515,11 +1648,15 @@ fn move_selected_graph_points(
 fn update_graph_point(graph: &mut KeyframeGraph, old_time: Time, time: Time, value: f64) {
     match graph {
         KeyframeGraph::Step { points } => {
-            if let Some(point) = points
+            if let Some(index) = points
                 .iter_mut()
-                .find(|point| point.time.approx_eq(old_time))
+                .position(|point| point.time.approx_eq(old_time))
             {
+                let mut point = points.remove(index);
+                points.retain(|other| !other.time.approx_eq(time));
                 point.time = time;
+                point.value = value;
+                points.push(point);
             }
             points.sort_by_key(|point| point.time);
         }
