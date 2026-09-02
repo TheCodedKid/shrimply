@@ -80,6 +80,7 @@ RHUBARB_LIBRARY := target/release/libshrimply-rhubarb.so
 RHUBARB_MODEL_SOURCE := external/rhubarb-lip-sync/rhubarb/lib/pocketsphinx-rev13216/model/en-us
 RHUBARB_ACOUSTIC_MODEL_SOURCE := external/rhubarb-lip-sync/rhubarb/lib/cmusphinx-en-us-5.2
 RHUBARB_RESOURCE_DIR := $(DATADIR)/shrimply/rhubarb/sphinx
+ICONS_RESOURCE_DIR := $(DATADIR)/shrimply/icons
 
 FEDORA_PACKAGES := \
 	rust \
@@ -416,6 +417,7 @@ uninstall:
 	rm -f "$(DESTDIR)$(BINDIR)/$(MCP_BIN_NAME)"
 	rm -f "$(DESTDIR)$(BINDIR)/libshrimply-rhubarb.so"
 	rm -rf "$(DESTDIR)$(DATADIR)/shrimply/rhubarb"
+	rm -rf "$(DESTDIR)$(ICONS_RESOURCE_DIR)"
 	rm -f "$(DESTDIR)$(APPLICATIONSDIR)/dev.shrimply.Shrimply.desktop"
 	rm -f "$(DESTDIR)$(APPLICATIONSDIR)/dev.shrimply.Shrimply.Qt.desktop"
 	rm -f "$(DESTDIR)$(ICONDIR)/dev.shrimply.Shrimply.svg"
