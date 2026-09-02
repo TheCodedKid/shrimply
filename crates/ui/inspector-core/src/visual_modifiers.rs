@@ -13,8 +13,64 @@ use crate::{
     InspectorTarget, LayeredState, NumberSpec,
 };
 
+mod alpha_outline;
+mod bulge_pinch;
+mod cache;
+mod channel_mixer;
+mod chroma_key;
+mod chromatic_aberration;
+mod color_correction;
+mod colorize_duotone;
+mod corner_pin;
+mod crop;
+mod directional_blur;
+mod displacement_map;
+mod dithering;
+mod drop_shadow;
+mod edge_detection;
+mod emboss;
+mod erode_dilate;
+mod film_grain;
+mod fisheye;
+mod gaussian_blur;
+mod glow_bloom;
+mod ground;
+mod halftone;
+mod hsv;
+mod invert;
+mod kaleidoscope;
+mod kuwahara;
+mod lens_distortion;
+mod luma_key;
+mod mask;
+mod mirror;
+mod object_3d;
 mod opacity;
+mod path_offset;
+mod pixelate_mosaic;
+mod point_light;
+mod posterize;
+mod radial_blur;
+mod rasterize;
+mod repeat;
+mod sam2;
+mod sampling;
+mod scanlines_crt;
+mod shaky_path;
+mod shape_3d;
+mod sharpen;
+mod sun_light;
+mod text_3d;
+mod text_mask;
+mod texture_bounds;
+mod threshold;
 mod transform;
+mod transparent_fill;
+mod twirl;
+mod vectorize;
+mod vignette;
+mod wave_ripple;
+mod zoom_blur;
 
 pub use opacity::OpacityModifierPresentation;
 pub use transform::TransformModifierPresentation;
@@ -292,7 +348,7 @@ fn alpha_mask_scalar(
 
 pub(super) fn modifier_scalar_control(
     path: String,
-    label: &'static str,
+    label: impl Into<String>,
     timeline: &shrimply_core::timeline_value::TimelineValue<f32>,
     runtime: InspectorRuntime,
     number: NumberSpec,
@@ -315,7 +371,7 @@ pub(super) fn modifier_scalar_control(
 
 pub(super) fn modifier_vector2_control(
     path: String,
-    label: &'static str,
+    label: impl Into<String>,
     timeline: &shrimply_core::timeline_value::TimelineValue<glam::Vec2>,
     runtime: InspectorRuntime,
     number: NumberSpec,
@@ -331,6 +387,198 @@ pub(super) fn modifier_vector2_control(
         .graph(crate::transform::vector_speed_graph(timeline, runtime))
         .live_commit("visual-modifier-vector");
     if lock { control.lock() } else { control }
+}
+
+pub(super) fn modifier_vector3_control(
+    path: String,
+    label: impl Into<String>,
+    timeline: &shrimply_core::timeline_value::TimelineValue<glam::Vec3>,
+    runtime: InspectorRuntime,
+    number: NumberSpec,
+    lock: bool,
+    rotating: bool,
+) -> InspectorControl {
+    let value = timeline.value_at(runtime.local_time.unwrap_or(Time::ZERO));
+    let control = InspectorControl::new(ControlKind::LayeredVector3, path.clone(), label)
+        .components(vec![
+            value.x.to_string(),
+            value.y.to_string(),
+            value.z.to_string(),
+        ])
+        .number(number)
+        .width_characters(5)
+        .prefixes(["X", "Y", "Z"])
+        .layered(path, LayeredState::from(timeline))
+        .graph(vector3_speed_graph(timeline, runtime))
+        .live_commit("visual-modifier-vector");
+    let control = if lock { control.lock() } else { control };
+    if rotating {
+        control.rotating_icon("rotation.svg", 0.0)
+    } else {
+        control
+    }
+}
+
+pub(super) fn modifier_color_control(
+    path: String,
+    label: impl Into<String>,
+    timeline: &shrimply_core::timeline_value::TimelineValue<shrimply_core::Color<u8>>,
+    runtime: InspectorRuntime,
+) -> InspectorControl {
+    let value = timeline.value_at(runtime.local_time.unwrap_or(Time::ZERO));
+    InspectorControl::new(ControlKind::LayeredColor, path.clone(), label)
+        .components(vec![
+            value.r.to_string(),
+            value.g.to_string(),
+            value.b.to_string(),
+            value.a.to_string(),
+        ])
+        .layered(path, LayeredState::from(timeline))
+        .graph(color_speed_graph(timeline, runtime))
+        .live_commit("visual-modifier-color")
+}
+
+pub(super) fn modifier_boolean_control(
+    path: String,
+    label: impl Into<String>,
+    value: bool,
+    commit: &'static str,
+) -> InspectorControl {
+    InspectorControl::new(ControlKind::Boolean, path, label)
+        .value(value.to_string())
+        .immediate_commit(commit)
+}
+
+pub(super) fn modifier_text_control(
+    path: String,
+    label: impl Into<String>,
+    timeline: &shrimply_core::timeline_value::TimelineValue<String>,
+    runtime: InspectorRuntime,
+) -> InspectorControl {
+    let value = timeline.value_at(runtime.local_time.unwrap_or(Time::ZERO));
+    InspectorControl::new(ControlKind::LayeredText, path.clone(), label)
+        .value(value)
+        .layered(path, LayeredState::from(timeline))
+        .graph(text_speed_graph(timeline, runtime))
+        .live_commit("edit-3d-text")
+}
+
+fn text_speed_graph(
+    timeline: &shrimply_core::timeline_value::TimelineValue<String>,
+    runtime: InspectorRuntime,
+) -> Option<crate::ScalarGraph> {
+    let shrimply_core::timeline_value::TimelineBase::Keyframes(keyframes) = &timeline.base else {
+        return None;
+    };
+    let points = keyframes
+        .iter()
+        .map(|keyframe| crate::GraphPoint {
+            time: keyframe.time,
+            value: 0.0,
+        })
+        .collect();
+    let segments = keyframes
+        .windows(2)
+        .filter_map(|pair| {
+            let seconds = pair[1].time.signed_sub(pair[0].time).as_secs_f64();
+            (seconds > f64::EPSILON).then(|| {
+                let speed = shrimply_core::timeline_value::text_edit_count(
+                    &pair[0].value,
+                    &pair[1].value,
+                    pair[0].text_interpolation_to_next,
+                ) as f64
+                    / seconds;
+                crate::GraphSegment {
+                    owner_id: pair[0].id,
+                    start: pair[0].time,
+                    end: pair[1].time,
+                    start_value: speed,
+                    end_value: speed,
+                    interpolation: shrimply_core::timeline_value::Interpolation::KEYFRAME
+                        .iter()
+                        .position(|candidate| *candidate == pair[0].interpolation_to_next)
+                        .expect("text interpolation must be available"),
+                }
+            })
+        })
+        .collect();
+    Some(crate::ScalarGraph {
+        points,
+        segments,
+        range: runtime.keyframe_range.unwrap_or((Time::ZERO, Time::ZERO)),
+        frame_step: runtime.frame_step,
+        playhead: runtime.keyframe_playhead.unwrap_or(Time::ZERO),
+    })
+}
+
+fn vector3_speed_graph(
+    timeline: &shrimply_core::timeline_value::TimelineValue<glam::Vec3>,
+    runtime: InspectorRuntime,
+) -> Option<crate::ScalarGraph> {
+    speed_graph(timeline, runtime, |left, right| (*right - *left).length())
+}
+
+fn color_speed_graph(
+    timeline: &shrimply_core::timeline_value::TimelineValue<shrimply_core::Color<u8>>,
+    runtime: InspectorRuntime,
+) -> Option<crate::ScalarGraph> {
+    speed_graph(timeline, runtime, |left, right| {
+        left.oklaba_distance(*right)
+    })
+}
+
+fn speed_graph<T>(
+    timeline: &shrimply_core::timeline_value::TimelineValue<T>,
+    runtime: InspectorRuntime,
+    distance: impl Fn(&T, &T) -> f32,
+) -> Option<crate::ScalarGraph>
+where
+    T: shrimply_core::timeline_value::TimelineVector
+        + serde::Serialize
+        + serde::de::DeserializeOwned,
+{
+    let shrimply_core::timeline_value::TimelineBase::Keyframes(keyframes) = &timeline.base else {
+        return None;
+    };
+    let points = keyframes
+        .iter()
+        .map(|keyframe| crate::GraphPoint {
+            time: shrimply_core::timeline_value::TimelineKeyframe::time(keyframe),
+            value: 0.0,
+        })
+        .collect();
+    let segments = keyframes
+        .windows(2)
+        .filter_map(|pair| {
+            let start = shrimply_core::timeline_value::TimelineKeyframe::time(&pair[0]);
+            let end = shrimply_core::timeline_value::TimelineKeyframe::time(&pair[1]);
+            let seconds = end.signed_sub(start).as_secs_f64();
+            (seconds > f64::EPSILON).then(|| {
+                let speed = f64::from(distance(
+                    shrimply_core::timeline_value::TimelineKeyframe::value(&pair[0]),
+                    shrimply_core::timeline_value::TimelineKeyframe::value(&pair[1]),
+                )) / seconds;
+                crate::GraphSegment {
+                    owner_id: shrimply_core::timeline_value::TimelineKeyframe::id(&pair[0]),
+                    start,
+                    end,
+                    start_value: speed,
+                    end_value: speed,
+                    interpolation: shrimply_core::timeline_value::Interpolation::KEYFRAME
+                        .iter()
+                        .position(|candidate| *candidate == pair[0].interpolation_to_next)
+                        .expect("modifier interpolation must be available"),
+                }
+            })
+        })
+        .collect();
+    Some(crate::ScalarGraph {
+        points,
+        segments,
+        range: runtime.keyframe_range.unwrap_or((Time::ZERO, Time::ZERO)),
+        frame_step: runtime.frame_step,
+        playhead: runtime.keyframe_playhead.unwrap_or(Time::ZERO),
+    })
 }
 
 fn percent_spec() -> NumberSpec {

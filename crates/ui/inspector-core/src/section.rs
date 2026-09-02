@@ -38,6 +38,8 @@ pub enum ControlKind {
     MultilineText,
     ReadOnly,
     Color,
+    LayeredColor,
+    LayeredText,
     Selector,
     OptionalSelector,
     OptionalNumberSelector,

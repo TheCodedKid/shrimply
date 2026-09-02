@@ -210,14 +210,13 @@ fn mark_dirty() {
 }
 
 fn target_change_pending(current: &InspectorTarget) -> bool {
-    DIRTY.get()
-        && CONTROLLER.with_borrow(|controller| {
-            controller
-                .as_ref()
-                .expect("Qt inspector target requested before installation")
-                .target()
-                != *current
-        })
+    CONTROLLER.with_borrow(|controller| {
+        controller
+            .as_ref()
+            .expect("Qt inspector target requested before installation")
+            .target()
+            != *current
+    })
 }
 
 fn take_document() -> Option<InspectorDocument> {

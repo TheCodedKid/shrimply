@@ -22,7 +22,10 @@ shrimply-property-transfer = { path = "../../property-transfer" }
 shrimply-preview-core = { path = "../../preview/preview-core" }
 shrimply-project = { path = "../../project/project" }
 shrimply-server-client = { path = "../../server-client" }
+shrimply-scene-3d = { path = "../../3d/scene-3d" }
+shrimply-shape-3d = { path = "../../3d/shape-3d" }
 shrimply-state = { path = "../../state" }
+shrimply-text-3d = { path = "../../3d/text-3d" }
 shrimply-timeline = { path = "../../timeline/timeline" }
 shrimply-tts = { path = "../../audio/tts" }
 shrimply-video = { path = "../../video/rendering" }
