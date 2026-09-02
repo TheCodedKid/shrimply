@@ -16,8 +16,6 @@ InspectorProperty {
     property string expressionValue: ""
     property string expressionOutput: ""
     property string expressionError: ""
-    property bool graphCached: false
-    property bool expressionCached: false
     readonly property int graphComponent: editRouter.activeComponent
     signal graphLoaded()
     signal graphEditFinished()
@@ -169,12 +167,9 @@ InspectorProperty {
     keyframeContent: Loader {
         id: graphLoader
         readonly property FrameGraph graph: item as FrameGraph
-        active: root.keyframes || root.graphCached
+        active: root.keyframes
         Layout.fillWidth: true
-        onLoaded: {
-            root.graphCached = true
-            root.graphLoaded()
-        }
+        onLoaded: root.graphLoaded()
         sourceComponent: Component {
             FrameGraph {
                 onGraphValueChanged: {
@@ -220,9 +215,8 @@ InspectorProperty {
         visible: false
     }
     expressionContent: Loader {
-        active: root.expression || root.expressionCached
+        active: root.expression
         Layout.fillWidth: true
-        onLoaded: root.expressionCached = true
         sourceComponent: Component {
             ExpressionEditor {
                 value: root.expressionValue

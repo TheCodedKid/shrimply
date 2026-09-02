@@ -17,6 +17,20 @@ Item {
         return revision >= 0 ? value : value
     }
 
+    function bundledCategoryIcon(name) {
+        switch (name) {
+        case "blend-tool-symbolic":
+        case "info-outline-symbolic":
+        case "playback-speed-symbolic":
+        case "sliders-horizontal-symbolic":
+        case "sound-symbolic":
+        case "speedometer-symbolic":
+            return "qrc:/qt/qml/dev/shrimply/components/icons/" + name + ".svg"
+        default:
+            return ""
+        }
+    }
+
     InspectorBackend {
         id: backend
         onShowError: function(body) { root.error(body) }
@@ -64,12 +78,18 @@ Item {
                 }
                 Button {
                     required property int index
+                    readonly property string categoryIconName: root.refreshed(
+                        backend.categoryIcon(index))
+                    readonly property string categoryIconSource: root.bundledCategoryIcon(
+                        categoryIconName)
                     Layout.fillWidth: true
                     checkable: true
                     ButtonGroup.group: categories
                     checked: index === backend.activeCategory
                     text: root.refreshed(backend.categoryLabel(index))
-                    icon.name: root.refreshed(backend.categoryIcon(index))
+                    icon.name: categoryIconSource.length === 0 ? categoryIconName : ""
+                    icon.source: categoryIconSource
+                    icon.color: palette.buttonText
                     display: AbstractButton.TextBesideIcon
                     onClicked: backend.activateCategory(index)
                 }
@@ -92,7 +112,7 @@ Item {
                 }
             }
 
-            ColumnLayout {
+            Column {
                 x: 16
                 y: 4
                 width: parent.width - 32
@@ -113,7 +133,7 @@ Item {
                             backend.itemIsCard(categoryIndex, index))
                         readonly property string identity: card ? root.refreshed(
                             backend.itemIdentity(categoryIndex, index)) : ""
-                        Layout.fillWidth: true
+                        width: parent.width
                         sourceComponent: card ? cardComponent : flatComponent
 
                         Component {

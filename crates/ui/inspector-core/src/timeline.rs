@@ -6,9 +6,7 @@ use shrimply_core::timeline_value::{
 };
 use shrimply_project::project::{ItemAddress, Time};
 
-use crate::audio_modifiers::{
-    audio_item_address, audio_modifier_evaluation_time, audio_modifier_keyframe_time,
-};
+use crate::audio_modifiers::{audio_item_address, audio_modifier_evaluation_time};
 use crate::{
     AudioModifierKeyframeMove, InspectorController, InspectorExpressionOutput, InspectorTarget,
 };
@@ -549,13 +547,23 @@ impl InspectorController {
         path: &str,
         enabled: bool,
     ) -> Result<(), String> {
-        let mut value = self.scalar_timeline(target, path)?;
-        let project = self.project.borrow();
-        let evaluation_time = audio_modifier_evaluation_time(&project, &self.player_state, target)?;
-        let keyframe_time =
-            crate::audio_modifiers::audio_modifier_time(&project, &self.player_state, target)?;
-        let current = value.value_at(evaluation_time);
-        drop(project);
+        let snapshot = self.snapshot();
+        if &snapshot.target != target {
+            return Err("inspector target changed".to_string());
+        }
+        let mut value: TimelineValue<f32> = serde_json::from_value(
+            snapshot
+                .value
+                .pointer(path)
+                .cloned()
+                .ok_or_else(|| format!("inspector timeline is no longer available: {path}"))?,
+        )
+        .map_err(|error| format!("invalid inspector timeline: {error}"))?;
+        let current = value.value_at(snapshot.runtime.local_time.unwrap_or(Time::ZERO));
+        let keyframe_time = snapshot
+            .runtime
+            .keyframe_playhead
+            .ok_or_else(|| "scalar keyframe time is no longer available".to_string())?;
         if !shrimply_core::timeline_value::set_keyframes_enabled(
             &mut value,
             keyframe_time,
@@ -591,6 +599,9 @@ impl InspectorController {
         target: &InspectorTarget,
         path: &str,
     ) -> Result<InspectorExpressionOutput, String> {
+        if matches!(target, InspectorTarget::Item(ItemAddress::Video { .. })) {
+            return self.video_expression_output(target, path);
+        }
         let value = self.scalar_timeline(target, path)?;
         let project = self.project.borrow();
         let address = audio_item_address(target)?;
@@ -618,7 +629,7 @@ impl InspectorController {
         path: &str,
         change: AudioModifierKeyframeMove,
     ) -> Result<(), String> {
-        let time = audio_modifier_keyframe_time(&self.project.borrow(), target, change.time)?;
+        let time = self.canonical_scalar_keyframe_time(target, change.time)?;
         let mut value = self.scalar_timeline(target, path)?;
         if !crate::keyframe_model::update_scalar_keyframe(
             &mut value,
@@ -650,7 +661,7 @@ impl InspectorController {
         path: &str,
         time: Time,
     ) -> Result<(), String> {
-        let time = audio_modifier_keyframe_time(&self.project.borrow(), target, time)?;
+        let time = self.canonical_scalar_keyframe_time(target, time)?;
         let mut value = self.scalar_timeline(target, path)?;
         if !crate::keyframe_model::add_scalar_keyframe(&mut value, time) {
             return Ok(());
@@ -688,7 +699,7 @@ impl InspectorController {
             return Ok(0);
         };
         let project = self.project.borrow();
-        let address = audio_item_address(target)?;
+        let address = scalar_item_address(target)?;
         let timeline_times = clipboard
             .times
             .iter()
@@ -724,7 +735,7 @@ impl InspectorController {
             return Ok(0);
         };
         let project = self.project.borrow();
-        let address = audio_item_address(target)?;
+        let address = scalar_item_address(target)?;
         let anchor = project
             .keyframe_timeline_time(address, time)
             .unwrap_or(time)
@@ -755,9 +766,7 @@ impl InspectorController {
     }
 
     pub fn seek_scalar_keyframe(&self, target: &InspectorTarget, time: Time) -> Result<(), String> {
-        let InspectorTarget::Item(address @ ItemAddress::Audio { .. }) = target else {
-            return Err("scalar keyframe target is not an audio item".to_string());
-        };
+        let address = scalar_item_address(target)?;
         let project = self.project.borrow();
         let position = project
             .keyframe_timeline_time(address, time)
@@ -765,6 +774,19 @@ impl InspectorController {
         drop(project);
         shrimply_state::player_state::seek_time(&self.player_state, position);
         Ok(())
+    }
+
+    fn canonical_scalar_keyframe_time(
+        &self,
+        target: &InspectorTarget,
+        time: Time,
+    ) -> Result<Time, String> {
+        let project = self.project.borrow();
+        let address = scalar_item_address(target)?;
+        project
+            .keyframe_timeline_time(address, time)
+            .and_then(|timeline_time| project.keyframe_time(address, timeline_time))
+            .ok_or_else(|| "scalar keyframe time is no longer available".to_string())
     }
 }
 
@@ -781,6 +803,15 @@ fn video_item_address(target: &InspectorTarget) -> Result<&ItemAddress, String> 
         return Err("boolean keyframe target is not a video item".to_string());
     };
     Ok(address)
+}
+
+fn scalar_item_address(target: &InspectorTarget) -> Result<&ItemAddress, String> {
+    match target {
+        InspectorTarget::Item(
+            address @ (ItemAddress::Audio { .. } | ItemAddress::Video { .. }),
+        ) => Ok(address),
+        _ => Err("scalar keyframe target is not an audio or video item".to_string()),
+    }
 }
 
 fn step_timeline_type(path: &str) -> Result<&'static str, String> {

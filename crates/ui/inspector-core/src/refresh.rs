@@ -136,12 +136,20 @@ pub(crate) fn audio_scalar_expression_change(target: &InspectorTarget) -> Option
 }
 
 pub(crate) fn audio_scalar_graph_change(target: &InspectorTarget) -> Option<ProjectChange> {
-    audio_target(target).then_some(ProjectChange {
-        audio: true,
-        audio_waveforms: true,
-        live_preview: true,
-        ..Default::default()
-    })
+    match target {
+        InspectorTarget::Item(ItemAddress::Audio { .. }) => Some(ProjectChange {
+            audio: true,
+            audio_waveforms: true,
+            live_preview: true,
+            ..Default::default()
+        }),
+        InspectorTarget::Item(ItemAddress::Video { .. }) => Some(ProjectChange {
+            video: true,
+            live_preview: true,
+            ..Default::default()
+        }),
+        _ => None,
+    }
 }
 
 fn audio_target(target: &InspectorTarget) -> bool {
