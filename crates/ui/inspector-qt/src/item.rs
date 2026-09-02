@@ -59,6 +59,28 @@ pub(crate) enum InspectorAction {
     RemoveAudioModifier {
         id: Uuid,
     },
+    ResetVisualModifier {
+        id: Uuid,
+        effect: Value,
+    },
+    SetVisualModifierEnabled {
+        id: Uuid,
+        enabled: bool,
+    },
+    CopyVisualModifier {
+        id: Uuid,
+    },
+    MoveVisualModifier {
+        id: Uuid,
+        offset: isize,
+    },
+    RemoveVisualModifier {
+        id: Uuid,
+    },
+    SetVisualModifierAlphaMask {
+        id: Uuid,
+        enabled: bool,
+    },
     ToggleAudioCache {
         id: Uuid,
     },

@@ -10,6 +10,7 @@ InspectorProperty {
     property real graphValue: initialGraphValue
     property real initialSecondValue: 0
     property bool paired: false
+    property bool graphValueDrivesEditor: true
     property string externalClipboardMarker: ""
     property real firstValue: initialGraphValue
     property real secondValue: initialSecondValue
@@ -57,7 +58,7 @@ InspectorProperty {
         editRouter.configurePair(first, second)
         root.firstValue = first
         root.secondValue = second
-        if (graphLoader.graph)
+        if (graphLoader.graph && graphValueDrivesEditor)
             graphLoader.graph.configurePair(first, second, 0)
         root.graphReset(0, first)
         root.graphReset(1, second)
@@ -126,15 +127,20 @@ InspectorProperty {
     onKeyframesChanged: editRouter.setModes(keyframes, expression)
     onExpressionChanged: editRouter.setModes(keyframes, expression)
     onInitialGraphValueChanged: {
-        if (!keyframes && graphLoader.graph)
+        if (paired) {
+            editRouter.configurePair(initialGraphValue, initialSecondValue)
+            firstValue = initialGraphValue
+            secondValue = initialSecondValue
+        } else if (!keyframes && graphLoader.graph) {
             graphLoader.graph.configureValue(initialGraphValue)
+        }
         graphValue = initialGraphValue
     }
     onInitialSecondValueChanged: if (paired) {
         editRouter.configurePair(initialGraphValue, initialSecondValue)
         firstValue = initialGraphValue
         secondValue = initialSecondValue
-        if (graphLoader.graph)
+        if (graphLoader.graph && graphValueDrivesEditor)
             graphLoader.graph.configurePair(
                 initialGraphValue, initialSecondValue, graphComponent)
     }
@@ -157,7 +163,7 @@ InspectorProperty {
         onKeyframePairEdited: function(first, second, component, firstChanged, secondChanged) {
             root.firstValue = first
             root.secondValue = second
-            if (graphLoader.graph)
+            if (graphLoader.graph && root.graphValueDrivesEditor)
                 graphLoader.graph.editPair(
                     first, second, component, firstChanged, secondChanged)
             root.keyframePairEdited(first, second, component)
@@ -174,6 +180,8 @@ InspectorProperty {
             FrameGraph {
                 onGraphValueChanged: {
                     root.graphValue = graphValue
+                    if (!root.graphValueDrivesEditor)
+                        return
                     if (root.graphComponent === 0)
                         root.firstValue = graphValue
                     else

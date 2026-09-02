@@ -127,11 +127,14 @@ extern "C" void shrimply_qt_timeline_select_new_track_mode();
 extern "C" bool shrimply_qt_timeline_begin_pointer_lock(void *display, void *surface,
                                                           void *seat);
 extern "C" void shrimply_qt_timeline_end_pointer_lock(bool control, bool shift);
-extern "C" void shrimply_qt_preview_pointer_move(float width, float height, float x, float y);
+extern "C" void shrimply_qt_preview_pointer_move(float width, float height, float x, float y,
+                                                    bool control, bool shift, bool alt);
 extern "C" std::uint8_t shrimply_qt_preview_pointer_cursor();
 extern "C" void shrimply_qt_preview_pointer_leave();
-extern "C" bool shrimply_qt_preview_pointer_press(float width, float height, float x, float y);
-extern "C" void shrimply_qt_preview_pointer_release(float width, float height, float x, float y);
+extern "C" bool shrimply_qt_preview_pointer_press(float width, float height, float x, float y,
+                                                     bool control, bool shift, bool alt);
+extern "C" void shrimply_qt_preview_pointer_release(float width, float height, float x, float y,
+                                                       bool control, bool shift, bool alt);
 extern "C" void shrimply_qt_preview_pointer_cancel();
 extern "C" bool shrimply_qt_preview_guides_visible();
 extern "C" void shrimply_qt_preview_set_guides_visible(bool visible);
@@ -355,6 +358,39 @@ void update_preview_cursor(QQuickItem *item) {
         break;
     case 2:
         item->setCursor(QCursor(Qt::SizeVerCursor));
+        break;
+    case 3:
+        item->setCursor(QCursor(Qt::PointingHandCursor));
+        break;
+    case 4:
+        item->setCursor(QCursor(Qt::CrossCursor));
+        break;
+    case 5:
+        item->setCursor(QCursor(Qt::SizeAllCursor));
+        break;
+    case 6:
+        item->setCursor(QCursor(Qt::OpenHandCursor));
+        break;
+    case 7:
+        item->setCursor(QCursor(Qt::ClosedHandCursor));
+        break;
+    case 8:
+        item->setCursor(QCursor(Qt::IBeamCursor));
+        break;
+    case 9:
+        item->setCursor(QCursor(Qt::SizeHorCursor));
+        break;
+    case 10:
+        item->setCursor(QCursor(Qt::SizeVerCursor));
+        break;
+    case 11:
+        item->setCursor(QCursor(Qt::SizeFDiagCursor));
+        break;
+    case 12:
+        item->setCursor(QCursor(Qt::SizeBDiagCursor));
+        break;
+    case 13:
+        item->setCursor(QCursor(Qt::BlankCursor));
         break;
     default:
         item->unsetCursor();
@@ -760,8 +796,12 @@ void PreviewSurface::setFullscreenPreview(bool fullscreen) {
 }
 
 void PreviewSurface::hoverMoveEvent(QHoverEvent *event) {
+    const auto modifiers = event->modifiers();
     shrimply_qt_preview_pointer_move(width(), height(), event->position().x(),
-                                     event->position().y());
+                                     event->position().y(),
+                                     modifiers.testFlag(Qt::ControlModifier),
+                                     modifiers.testFlag(Qt::ShiftModifier),
+                                     modifiers.testFlag(Qt::AltModifier));
     update_preview_cursor(this);
     event->accept();
     update();
@@ -775,9 +815,13 @@ void PreviewSurface::hoverLeaveEvent(QHoverEvent *event) {
 }
 
 void PreviewSurface::mousePressEvent(QMouseEvent *event) {
+    const auto modifiers = event->modifiers();
     if (event->button() != Qt::LeftButton ||
         !shrimply_qt_preview_pointer_press(width(), height(), event->position().x(),
-                                           event->position().y())) {
+                                           event->position().y(),
+                                           modifiers.testFlag(Qt::ControlModifier),
+                                           modifiers.testFlag(Qt::ShiftModifier),
+                                           modifiers.testFlag(Qt::AltModifier))) {
         event->ignore();
         return;
     }
@@ -789,8 +833,12 @@ void PreviewSurface::mousePressEvent(QMouseEvent *event) {
 }
 
 void PreviewSurface::mouseMoveEvent(QMouseEvent *event) {
+    const auto modifiers = event->modifiers();
     shrimply_qt_preview_pointer_move(width(), height(), event->position().x(),
-                                     event->position().y());
+                                     event->position().y(),
+                                     modifiers.testFlag(Qt::ControlModifier),
+                                     modifiers.testFlag(Qt::ShiftModifier),
+                                     modifiers.testFlag(Qt::AltModifier));
     update_preview_cursor(this);
     event->accept();
     update();
@@ -801,8 +849,12 @@ void PreviewSurface::mouseReleaseEvent(QMouseEvent *event) {
         event->ignore();
         return;
     }
+    const auto modifiers = event->modifiers();
     shrimply_qt_preview_pointer_release(width(), height(), event->position().x(),
-                                        event->position().y());
+                                        event->position().y(),
+                                        modifiers.testFlag(Qt::ControlModifier),
+                                        modifiers.testFlag(Qt::ShiftModifier),
+                                        modifiers.testFlag(Qt::AltModifier));
     setKeepMouseGrab(false);
     update_preview_cursor(this);
     event->accept();

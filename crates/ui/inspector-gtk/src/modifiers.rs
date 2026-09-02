@@ -15,7 +15,7 @@ use shrimply_project::project::{Project, Time};
 use shrimply_project::project::{VisualAlphaMaskTarget, VisualItem, VisualModifier};
 use shrimply_video_modifiers::MODIFIER_PREVIEW_FACET;
 use shrimply_video_modifiers::{
-    ModifierEffect, ModifierModel, RasterModifierEffect, VectorModifierEffect, VisualKind,
+    ModifierEffect, ModifierModel, RasterModifierEffect, VectorModifierEffect,
     scene_3d::Scene3dModifierEffect,
 };
 
@@ -565,13 +565,14 @@ fn set_enabled(id: Uuid, enabled: bool, context: &InspectorContext) {
     if item.modifiers[index].enabled == enabled {
         return;
     }
-    item.modifiers[index].enabled = enabled;
-    if !modifier_chain_is_valid(item, &item.modifiers) {
-        item.modifiers[index].enabled = !enabled;
+    let Some(modifiers) =
+        shrimply_inspector_core::visual_modifiers::visual_modifier_enabled_chain(item, id, enabled)
+    else {
         drop(project);
         (context.refresh)();
         return;
-    }
+    };
+    item.modifiers = modifiers;
     shrimply_project::project::commit_edit(&project, "toggle-visual-modifier");
     drop(project);
     player_state::refresh_project(
@@ -631,20 +632,17 @@ fn action_keeps_chain_valid(id: Uuid, action: Action, context: &InspectorContext
     let Some(item) = project.video_item(&key) else {
         return false;
     };
-    let mut modifiers = item.modifiers.clone();
-    let Some(index) = modifiers.iter().position(|modifier| modifier.id == id) else {
-        return false;
-    };
-    match action {
-        Action::Copy => return true,
-        Action::Up if index > 0 => modifiers.swap(index, index - 1),
-        Action::Down if index + 1 < modifiers.len() => modifiers.swap(index, index + 1),
-        Action::Remove => {
-            modifiers.remove(index);
+    let action = match action {
+        Action::Copy => return item.modifiers.iter().any(|modifier| modifier.id == id),
+        Action::Up => shrimply_inspector_core::visual_modifiers::VisualModifierChainAction::MoveUp,
+        Action::Down => {
+            shrimply_inspector_core::visual_modifiers::VisualModifierChainAction::MoveDown
         }
-        _ => return false,
-    }
-    modifier_chain_is_valid(item, &modifiers)
+        Action::Remove => {
+            shrimply_inspector_core::visual_modifiers::VisualModifierChainAction::Remove
+        }
+    };
+    shrimply_inspector_core::visual_modifiers::visual_modifier_action_valid(item, id, action)
 }
 
 fn apply_action(id: Uuid, action: Action, context: &InspectorContext) {
@@ -676,13 +674,12 @@ fn apply_action(id: Uuid, action: Action, context: &InspectorContext) {
         (context.refresh)();
         return;
     }
-    let mut modifiers = item.modifiers.clone();
-    let Some(index) = modifiers.iter().position(|modifier| modifier.id == id) else {
+    let Some(index) = item.modifiers.iter().position(|modifier| modifier.id == id) else {
         return;
     };
     if matches!(action, Action::Remove)
         && matches!(
-            modifiers[index].effect,
+            item.modifiers[index].effect,
             ModifierEffect::Raster(ref effect)
                 if matches!(&**effect, RasterModifierEffect::Cache(_))
         )
@@ -694,25 +691,32 @@ fn apply_action(id: Uuid, action: Action, context: &InspectorContext) {
         );
         return;
     }
-    match action {
+    let action = match action {
         Action::Copy => unreachable!(),
-        Action::Up if index > 0 => modifiers.swap(index, index - 1),
-        Action::Down if index + 1 < modifiers.len() => modifiers.swap(index, index + 1),
-        Action::Remove => {
-            modifiers.remove(index);
+        Action::Up => shrimply_inspector_core::visual_modifiers::VisualModifierChainAction::MoveUp,
+        Action::Down => {
+            shrimply_inspector_core::visual_modifiers::VisualModifierChainAction::MoveDown
         }
-        _ => return,
-    }
-    if !modifier_chain_is_valid(item, &modifiers) {
+        Action::Remove => {
+            shrimply_inspector_core::visual_modifiers::VisualModifierChainAction::Remove
+        }
+    };
+    let Some(modifiers) =
+        shrimply_inspector_core::visual_modifiers::edited_visual_modifier_chain(item, id, action)
+    else {
         return;
-    }
+    };
     item.modifiers = modifiers;
     shrimply_project::project::commit_edit(
         &project,
         match action {
-            Action::Copy => unreachable!(),
-            Action::Up | Action::Down => "move-visual-modifier",
-            Action::Remove => "remove-visual-modifier",
+            shrimply_inspector_core::visual_modifiers::VisualModifierChainAction::MoveUp
+            | shrimply_inspector_core::visual_modifiers::VisualModifierChainAction::MoveDown => {
+                "move-visual-modifier"
+            }
+            shrimply_inspector_core::visual_modifiers::VisualModifierChainAction::Remove => {
+                "remove-visual-modifier"
+            }
         },
     );
     drop(project);
@@ -831,7 +835,7 @@ pub(super) fn add_effect(effect: ModifierEffect, context: &InspectorContext) {
     let id = modifier.id;
     let mut modifiers = item.modifiers.clone();
     modifiers.push(modifier);
-    if !modifier_chain_is_valid(item, &modifiers) {
+    if !shrimply_inspector_core::visual_modifiers::modifier_chain_is_valid(item, &modifiers) {
         return;
     }
     item.modifiers = modifiers;
@@ -850,18 +854,6 @@ pub(super) fn add_effect(effect: ModifierEffect, context: &InspectorContext) {
             ..Default::default()
         },
     );
-}
-
-fn modifier_chain_is_valid(item: &VisualItem, modifiers: &[VisualModifier]) -> bool {
-    let Ok(state) = item.modifier_output_state_for(modifiers) else {
-        return false;
-    };
-    !item
-        .compositing
-        .alpha_mask
-        .as_ref()
-        .is_some_and(|mask| mask.enabled)
-        || state.kind == VisualKind::Raster
 }
 
 #[derive(Clone, Copy)]

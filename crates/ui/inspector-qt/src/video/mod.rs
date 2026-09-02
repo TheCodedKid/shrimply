@@ -10,13 +10,45 @@ pub(crate) fn categories(
     video: &VideoPresentation,
     details: &[shrimply_inspector_core::InspectorDetail],
     metadata: Option<crate::MediaMetadataState>,
+    can_paste_modifiers: bool,
 ) -> Vec<InspectorCategory> {
+    let mut visual_items = video.visual.iter().cloned().map(item).collect::<Vec<_>>();
+    visual_items.extend(crate::modifiers::items(&video.modifiers));
+    let mut modifier_menu = InspectorSection::default();
+    modifier_menu.add(
+        shrimply_inspector_core::InspectorControl::new(
+            shrimply_inspector_core::ControlKind::VisualModifierMenu,
+            "",
+            "",
+        )
+        .value(can_paste_modifiers.to_string())
+        .choices(
+            video
+                .modifier_choices
+                .iter()
+                .map(|choice| choice.key.clone())
+                .collect(),
+            video
+                .modifier_choices
+                .iter()
+                .map(|choice| choice.label.to_string())
+                .collect(),
+        )
+        .choice_search_terms(
+            video
+                .modifier_choices
+                .iter()
+                .map(|choice| choice.search_text.clone())
+                .collect(),
+        ),
+    );
+    visual_items.push(InspectorListItem::Flat(modifier_menu));
     vec![
         InspectorCategory {
             key: "visual",
             label: "Visual",
             icon: "blend-tool-symbolic",
-            items: video.visual.iter().cloned().map(item).collect(),
+            items: visual_items,
         },
         InspectorCategory {
             key: "playback",

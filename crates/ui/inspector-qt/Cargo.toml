@@ -8,6 +8,7 @@ base64.workspace = true
 cxx.workspace = true
 cxx-qt.workspace = true
 cxx-qt-lib = { workspace = true, features = ["qt_full"] }
+glam.workspace = true
 shrimply-audio = { path = "../../audio/audio" }
 shrimply-audio-modifiers = { path = "../../audio/audio-modifiers" }
 shrimply-blender = { path = "../../blender/blender-bridge" }

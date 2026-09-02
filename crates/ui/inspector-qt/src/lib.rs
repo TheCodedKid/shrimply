@@ -7,11 +7,13 @@ mod graph_backend;
 mod info;
 mod item;
 mod list;
+mod modifiers;
 mod project;
 mod section;
 mod selector;
 mod track;
 mod transition;
+mod value_backend;
 mod video;
 
 use serde_json::Value;
@@ -45,6 +47,7 @@ thread_local! {
     static CACHE_DIRTY: Cell<bool> = const { Cell::new(false) };
     static EXPRESSION_DIRTY: Cell<bool> = const { Cell::new(false) };
     static PLAYHEAD_DIRTY: Cell<bool> = const { Cell::new(false) };
+    static TRANSFORM_DIRTY: Cell<bool> = const { Cell::new(false) };
     static FOCUS_DIRTY: Cell<bool> = const { Cell::new(false) };
 }
 
@@ -182,6 +185,15 @@ pub fn install(session: &EditorSession) {
             shrimply_state::player_state::PlayerEvent::Project(change) if change.inspector => {
                 mark_dirty()
             }
+            shrimply_state::player_state::PlayerEvent::Project(change)
+                if change.video && change.live_preview =>
+            {
+                TRANSFORM_DIRTY.set(true)
+            }
+            shrimply_state::player_state::PlayerEvent::Project(change) if change.audio => {
+                TRANSFORM_DIRTY.set(true);
+                EXPRESSION_DIRTY.set(true);
+            }
             _ => {}
         },
     );
@@ -297,6 +309,7 @@ fn document(snapshot: InspectorSnapshot) -> InspectorDocument {
                     .expect("video inspector snapshot must include video presentation"),
                 &snapshot.details,
                 metadata,
+                can_paste_visual_modifiers(&snapshot.target),
             ),
         },
     };
@@ -574,6 +587,14 @@ fn take_playhead_dirty() -> bool {
     PLAYHEAD_DIRTY.replace(false)
 }
 
+fn take_transform_dirty() -> bool {
+    TRANSFORM_DIRTY.replace(false)
+}
+
+fn mark_transform_dirty() {
+    TRANSFORM_DIRTY.set(true);
+}
+
 fn take_focus_dirty() -> bool {
     FOCUS_DIRTY.replace(false)
 }
@@ -605,6 +626,33 @@ fn focus_item(document: &InspectorDocument, item: &crate::item::InspectorItem) {
                 item: preview.address.clone(),
                 card_key: item.presentation.key.clone(),
                 target: item.presentation.preview_target.resolve(preview.id),
+            },
+        );
+    });
+}
+
+fn focus_visual_modifier_alpha_mask(target: &InspectorTarget, id: uuid::Uuid, enabled: bool) {
+    let InspectorTarget::Item(address @ shrimply_project::project::ItemAddress::Video { .. }) =
+        target
+    else {
+        return;
+    };
+    PREVIEW_FOCUS.with_borrow(|preview_focus| {
+        shrimply_state::preview_focus::set(
+            preview_focus
+                .as_ref()
+                .expect("Qt inspector preview focus requested before installation"),
+            shrimply_state::preview_focus::FocusedPreview {
+                item: address.clone(),
+                card_key: format!("modifier:{id}"),
+                target: shrimply_preview_core::PreviewTarget::new(
+                    id,
+                    if enabled {
+                        shrimply_project::project::MODIFIER_ALPHA_MASK_PREVIEW_FACET
+                    } else {
+                        shrimply_video_modifiers::MODIFIER_PREVIEW_FACET
+                    },
+                ),
             },
         );
     });
@@ -780,7 +828,14 @@ fn named_control_edit(
     control: &section::InspectorControl,
     value: String,
 ) -> Option<Result<(), String>> {
-    if control.commit_name.is_empty() {
+    if control.commit_name.is_empty()
+        || matches!(
+            control.kind,
+            section::ControlKind::LayeredNumber
+                | section::ControlKind::LayeredBoolean
+                | section::ControlKind::LayeredSelector
+        )
+    {
         return None;
     }
     let value = if control.kind == section::ControlKind::Number && control.store_multiplier != 1.0 {
@@ -861,6 +916,37 @@ fn set_components(
     with_controller(|controller| controller.set_components(target, path, values))
 }
 
+fn set_vector2_value(
+    target: &InspectorTarget,
+    path: &str,
+    first: f64,
+    second: f64,
+) -> Result<(), String> {
+    with_controller(|controller| controller.set_vector2_value(target, path, first, second))
+}
+
+fn transform_live_presentation(
+    target: &InspectorTarget,
+) -> Option<shrimply_inspector_core::transform::TransformLivePresentation> {
+    CONTROLLER.with_borrow(|controller| {
+        controller
+            .as_ref()
+            .expect("Qt inspector transform requested before installation")
+            .transform_live_presentation(target)
+    })
+}
+
+fn resolved_transform(
+    target: &InspectorTarget,
+) -> Option<shrimply_project::project::ResolvedTransform> {
+    CONTROLLER.with_borrow(|controller| {
+        controller
+            .as_ref()
+            .expect("Qt inspector transform requested before installation")
+            .resolved_transform(target)
+    })
+}
+
 fn set_fraction(
     target: &InspectorTarget,
     path: &str,
@@ -905,6 +991,21 @@ fn set_scalar_keyframes_enabled(
     enabled: bool,
 ) -> Result<(), String> {
     with_controller(|controller| controller.set_scalar_keyframes_enabled(target, path, enabled))
+}
+
+fn set_vector2_keyframes_enabled(
+    target: &InspectorTarget,
+    path: &str,
+    enabled: bool,
+) -> Result<(), String> {
+    with_controller(|controller| controller.set_vector2_keyframes_enabled(target, path, enabled))
+}
+
+fn vector2_expression_output(
+    target: &InspectorTarget,
+    path: &str,
+) -> Result<shrimply_inspector_core::InspectorExpressionOutput<glam::Vec2>, String> {
+    with_controller(|controller| controller.vector2_expression_output(target, path))
 }
 
 fn set_bool_value(target: &InspectorTarget, path: &str, value: bool) -> Result<(), String> {
@@ -1114,6 +1215,68 @@ fn seek_scalar_keyframe(
     time: shrimply_project::project::Time,
 ) -> Result<(), String> {
     with_controller(|controller| controller.seek_scalar_keyframe(target, time))
+}
+
+fn move_vector2_keyframes(
+    target: &InspectorTarget,
+    path: &str,
+    moves: &[(
+        shrimply_project::project::Time,
+        shrimply_project::project::Time,
+    )],
+) -> Result<Vec<shrimply_project::project::Time>, String> {
+    with_controller(|controller| controller.move_vector2_keyframes(target, path, moves))
+}
+
+fn delete_vector2_keyframe(
+    target: &InspectorTarget,
+    path: &str,
+    time: shrimply_project::project::Time,
+) -> Result<(), String> {
+    with_controller(|controller| controller.delete_vector2_keyframe(target, path, time))
+}
+
+fn delete_transform_scalar_keyframe(
+    target: &InspectorTarget,
+    path: &str,
+    time: shrimply_project::project::Time,
+) -> Result<(), String> {
+    with_controller(|controller| controller.delete_transform_scalar_keyframe(target, path, time))
+}
+
+fn add_vector2_keyframe(
+    target: &InspectorTarget,
+    path: &str,
+    time: shrimply_project::project::Time,
+) -> Result<(), String> {
+    with_controller(|controller| controller.add_vector2_keyframe(target, path, time))
+}
+
+fn copy_vector2_keyframes(
+    target: &InspectorTarget,
+    path: &str,
+    times: &[shrimply_project::project::Time],
+) -> Result<usize, String> {
+    with_controller(|controller| controller.copy_vector2_keyframes(target, path, times))
+}
+
+fn paste_vector2_keyframes(
+    target: &InspectorTarget,
+    path: &str,
+    time: shrimply_project::project::Time,
+) -> Result<usize, String> {
+    with_controller(|controller| controller.paste_vector2_keyframes(target, path, time))
+}
+
+fn set_vector2_interpolation(
+    target: &InspectorTarget,
+    path: &str,
+    owner_id: uuid::Uuid,
+    interpolation: usize,
+) -> Result<(), String> {
+    with_controller(|controller| {
+        controller.set_vector2_interpolation(target, path, owner_id, interpolation)
+    })
 }
 
 fn move_bool_keyframes(
@@ -1399,6 +1562,39 @@ fn can_paste_audio_modifiers(target: &InspectorTarget) -> bool {
     })
 }
 
+fn can_paste_visual_modifiers(target: &InspectorTarget) -> bool {
+    CONTROLLER.with_borrow(|controller| {
+        PROPERTY_CLIPBOARD.with_borrow(|clipboard| {
+            controller
+                .as_ref()
+                .expect("Qt inspector paste check requested before installation")
+                .can_paste_visual_modifiers(
+                    target,
+                    clipboard
+                        .as_ref()
+                        .expect("Qt inspector paste check requested before installation"),
+                )
+        })
+    })
+}
+
+fn add_visual_modifier(target: &InspectorTarget, kind: &str) -> Result<uuid::Uuid, String> {
+    with_controller(|controller| controller.add_visual_modifier(target, kind))
+}
+
+fn paste_visual_modifiers(target: &InspectorTarget) -> Result<usize, String> {
+    with_controller(|controller| {
+        PROPERTY_CLIPBOARD.with_borrow(|clipboard| {
+            controller.paste_visual_modifiers(
+                target,
+                clipboard
+                    .as_ref()
+                    .expect("Qt inspector paste requested before installation"),
+            )
+        })
+    })
+}
+
 fn add_audio_modifier(target: &InspectorTarget, kind: &str) -> Result<(), String> {
     with_controller(|controller| controller.add_audio_modifier(target, kind))
 }
@@ -1493,6 +1689,42 @@ fn perform_action(
         }
         InspectorAction::RemoveAudioModifier { id } => {
             with_controller(|controller| controller.remove_audio_modifier(target, id))
+        }
+        InspectorAction::ResetVisualModifier { id, effect } => {
+            with_controller(|controller| controller.reset_visual_modifier(target, id, effect))
+        }
+        InspectorAction::SetVisualModifierEnabled { id, enabled } => {
+            with_controller(|controller| {
+                controller.set_visual_modifier_enabled(target, id, enabled)
+            })
+        }
+        InspectorAction::CopyVisualModifier { id } => with_controller(|controller| {
+            PROPERTY_CLIPBOARD.with_borrow(|clipboard| {
+                controller
+                    .copy_visual_modifier(
+                        target,
+                        id,
+                        clipboard
+                            .as_ref()
+                            .expect("Qt inspector copy requested before installation"),
+                    )
+                    .map(|name| confirmation = Some(format!("{name} copied")))
+            })
+        }),
+        InspectorAction::MoveVisualModifier { id, offset } => {
+            with_controller(|controller| controller.move_visual_modifier(target, id, offset))
+        }
+        InspectorAction::RemoveVisualModifier { id } => {
+            with_controller(|controller| controller.remove_visual_modifier(target, id))
+        }
+        InspectorAction::SetVisualModifierAlphaMask { id, enabled } => {
+            let result = with_controller(|controller| {
+                controller.set_visual_modifier_alpha_mask(target, id, enabled)
+            });
+            if result.is_ok() {
+                focus_visual_modifier_alpha_mask(target, id, enabled);
+            }
+            result
         }
         InspectorAction::ToggleAudioCache { id } => toggle_audio_cache(target, id),
         InspectorAction::ReloadAsset { asset, kind } => match kind {

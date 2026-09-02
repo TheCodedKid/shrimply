@@ -49,6 +49,7 @@ pub enum ControlKind {
     AudioCache,
     AudioCachePreset,
     AudioModifierMenu,
+    VisualModifierMenu,
     TtsEditor,
     BeatDetection,
     LayeredVector2,

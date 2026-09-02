@@ -5,7 +5,143 @@ use cxx_qt_lib::{QString, QStringList};
 use crate::backend::qobject::InspectorBackend;
 use crate::section::InspectorControl;
 
+pub(crate) fn has_transform_controls(section: &crate::section::InspectorSection) -> bool {
+    section.controls.iter().any(|control| {
+        matches!(
+            control.kind,
+            crate::section::ControlKind::LayeredNumber
+                | crate::section::ControlKind::LayeredVector2
+        ) && is_transform_path(&control.path)
+    })
+}
+
+pub(crate) fn is_transform_path(path: &str) -> bool {
+    path.starts_with("/transform/") || path.contains("/effect/effect/config/transform/")
+}
+
+pub(crate) fn update_transform_graphs(
+    document: &mut crate::list::InspectorDocument,
+    live: &shrimply_inspector_core::transform::TransformLivePresentation,
+) {
+    for category in &mut document.categories {
+        for item in &mut category.items {
+            let section = match item {
+                crate::item::InspectorListItem::Item(item) => &mut item.section,
+                crate::item::InspectorListItem::Flat(section) => section,
+            };
+            for control in &mut section.controls {
+                if matches!(
+                    control.kind,
+                    crate::section::ControlKind::LayeredNumber
+                        | crate::section::ControlKind::LayeredVector2
+                ) && let Some(graph) = live.graph(&control.path)
+                {
+                    control.scalar_graph = Some(graph.clone());
+                }
+            }
+        }
+    }
+}
+
 impl InspectorBackend {
+    pub fn control_graph_point_times(&self, category: i32, item: i32, control: i32) -> QStringList {
+        self.control(category, item, control)
+            .and_then(|control| control.scalar_graph.as_ref())
+            .map(|graph| {
+                graph
+                    .points
+                    .iter()
+                    .map(|point| QString::from(crate::backend::time_text(point.time)))
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    pub fn control_graph_point_values(
+        &self,
+        category: i32,
+        item: i32,
+        control: i32,
+    ) -> QStringList {
+        self.control(category, item, control)
+            .and_then(|control| control.scalar_graph.as_ref())
+            .map(|graph| {
+                graph
+                    .points
+                    .iter()
+                    .map(|point| QString::from(point.value.to_string()))
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    pub fn control_graph_segments(&self, category: i32, item: i32, control: i32) -> QStringList {
+        let speed = self
+            .control(category, item, control)
+            .is_some_and(|control| control.kind == crate::section::ControlKind::LayeredVector2);
+        self.control(category, item, control)
+            .and_then(|control| control.scalar_graph.as_ref())
+            .map(|graph| {
+                graph
+                    .segments
+                    .iter()
+                    .map(|segment| {
+                        QString::from(if speed {
+                            format!(
+                                "{}\t{}\t{}\t{}\t{}",
+                                segment.owner_id,
+                                crate::backend::time_text(segment.start),
+                                crate::backend::time_text(segment.end),
+                                segment.start_value,
+                                segment.interpolation,
+                            )
+                        } else {
+                            format!(
+                                "{}\t{}\t{}\t{}\t{}\t{}",
+                                segment.owner_id,
+                                crate::backend::time_text(segment.start),
+                                crate::backend::time_text(segment.end),
+                                segment.start_value,
+                                segment.end_value,
+                                segment.interpolation,
+                            )
+                        })
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    pub fn control_graph_timing(&self, category: i32, item: i32, control: i32) -> QStringList {
+        self.control(category, item, control)
+            .and_then(|control| control.scalar_graph.as_ref())
+            .map(|graph| {
+                [graph.range.0, graph.range.1, graph.frame_step]
+                    .into_iter()
+                    .flat_map(time_parts)
+                    .map(|part| QString::from(part.to_string()))
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    pub fn control_graph_playhead(&self, category: i32, item: i32, control: i32) -> QStringList {
+        let Some((target, control)) = self.control_target(category, item, control) else {
+            return QStringList::default();
+        };
+        let fallback = control.scalar_graph.as_ref().map(|graph| graph.playhead);
+        super::current_keyframe_time(&target)
+            .ok()
+            .or(fallback)
+            .map(|time| {
+                time_parts(time)
+                    .into_iter()
+                    .map(|part| QString::from(part.to_string()))
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
     pub fn seek_control_graph(
         mut self: Pin<&mut Self>,
         category: i32,
@@ -70,6 +206,8 @@ impl InspectorBackend {
                 super::move_bool_keyframes(&target, path, &moves)?
             } else if control.kind == crate::section::ControlKind::LayeredSelector {
                 super::move_step_keyframes(&target, path, &moves)?
+            } else if control.kind == crate::section::ControlKind::LayeredVector2 {
+                super::move_vector2_keyframes(&target, path, &moves)?
             } else {
                 let modifier = control
                     .audio_modifier
@@ -134,8 +272,12 @@ impl InspectorBackend {
                     super::delete_bool_keyframe(&target, path, time)?;
                 } else if control.kind == crate::section::ControlKind::LayeredSelector {
                     super::delete_step_keyframe(&target, path, time)?;
+                } else if control.kind == crate::section::ControlKind::LayeredVector2 {
+                    super::delete_vector2_keyframe(&target, path, time)?;
                 } else if let Some((modifier_id, timeline_id)) = modifier {
                     super::delete_audio_modifier_keyframe(&target, modifier_id, timeline_id, time)?;
+                } else if path == "/transform/rotation_degrees" {
+                    super::delete_transform_scalar_keyframe(&target, path, time)?;
                 } else {
                     super::delete_scalar_keyframe(&target, path, time)?;
                 }
@@ -164,6 +306,8 @@ impl InspectorBackend {
                 super::add_bool_keyframe(&target, timeline_path(&control), time)
             } else if control.kind == crate::section::ControlKind::LayeredSelector {
                 super::add_step_keyframe(&target, timeline_path(&control), time)
+            } else if control.kind == crate::section::ControlKind::LayeredVector2 {
+                super::add_vector2_keyframe(&target, timeline_path(&control), time)
             } else if control.audio_modifier {
                 let (modifier_id, timeline_id) = modifier_ids(&control)?;
                 super::add_audio_modifier_keyframe(&target, modifier_id, timeline_id, time)
@@ -193,6 +337,8 @@ impl InspectorBackend {
                     super::copy_bool_keyframes(&target, timeline_path(&control), &times)
                 } else if control.kind == crate::section::ControlKind::LayeredSelector {
                     super::copy_step_keyframes(&target, timeline_path(&control), &times)
+                } else if control.kind == crate::section::ControlKind::LayeredVector2 {
+                    super::copy_vector2_keyframes(&target, timeline_path(&control), &times)
                 } else if control.audio_modifier {
                     let (modifier_id, timeline_id) = modifier_ids(&control)?;
                     super::copy_audio_modifier_keyframes(&target, modifier_id, timeline_id, &times)
@@ -226,6 +372,8 @@ impl InspectorBackend {
                     super::paste_bool_keyframes(&target, timeline_path(&control), time)
                 } else if control.kind == crate::section::ControlKind::LayeredSelector {
                     super::paste_step_keyframes(&target, timeline_path(&control), time)
+                } else if control.kind == crate::section::ControlKind::LayeredVector2 {
+                    super::paste_vector2_keyframes(&target, timeline_path(&control), time)
                 } else if control.audio_modifier {
                     let (modifier_id, timeline_id) = modifier_ids(&control)?;
                     super::paste_audio_modifier_keyframes(&target, modifier_id, timeline_id, time)
@@ -256,7 +404,14 @@ impl InspectorBackend {
                 .map_err(|_| "keyframe owner ID is invalid".to_string())?;
             let interpolation = usize::try_from(interpolation)
                 .map_err(|_| "keyframe interpolation is invalid".to_string())?;
-            if control.audio_modifier {
+            if control.kind == crate::section::ControlKind::LayeredVector2 {
+                super::set_vector2_interpolation(
+                    &target,
+                    timeline_path(&control),
+                    owner_id,
+                    interpolation,
+                )
+            } else if control.audio_modifier {
                 let (modifier_id, timeline_id) = modifier_ids(&control)?;
                 super::set_audio_modifier_keyframe_interpolation(
                     &target,
@@ -284,6 +439,13 @@ impl InspectorBackend {
 
 fn timeline_path(control: &InspectorControl) -> &str {
     control.timeline_path.as_deref().unwrap_or(&control.path)
+}
+
+fn time_parts(time: shrimply_project::project::Time) -> [i64; 2] {
+    [
+        shrimply_core::timeline_value::fraction_numerator(time.seconds),
+        shrimply_core::timeline_value::fraction_denominator(time.seconds),
+    ]
 }
 
 fn modifier_ids(control: &InspectorControl) -> Result<(uuid::Uuid, uuid::Uuid), String> {

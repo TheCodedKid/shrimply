@@ -75,8 +75,9 @@ Item {
             spacing: 4
             Loader {
                 active: root.prefixIconSource.toString().length > 0 || root.prefixIconName.length > 0
-                Layout.preferredWidth: 16
-                Layout.preferredHeight: 16
+                visible: active
+                Layout.preferredWidth: active ? 16 : 0
+                Layout.preferredHeight: active ? 16 : 0
                 sourceComponent: ToolButton {
                     icon.source: root.prefixIconSource.toString().length > 0
                         ? root.prefixIconSource

@@ -10,6 +10,8 @@ glow.workspace = true
 libc.workspace = true
 shrimply-audio = { path = "../../audio/audio" }
 shrimply-cross-ui-theme = { path = "../../ui/cross-ui-theme" }
+shrimply-core = { path = "../../core" }
+shrimply-evaluation = { path = "../../evaluation" }
 shrimply-gpu-memory = { path = "../../video/gpu-memory" }
 shrimply-math-color = { path = "../../math/color", features = ["skia"] }
 shrimply-math-core = { path = "../../math/core" }

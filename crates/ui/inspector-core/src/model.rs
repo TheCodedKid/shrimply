@@ -186,6 +186,8 @@ impl InspectorController {
         let video = match &target {
             InspectorTarget::Item(address @ ItemAddress::Video { .. }) => {
                 Some(crate::video::presentation(
+                    &project,
+                    address,
                     project
                         .video_item(address)
                         .expect("resolved video inspector target must remain available"),
@@ -1639,7 +1641,7 @@ fn target_details(
     }
 }
 
-fn target_runtime(
+pub(crate) fn target_runtime(
     project: &Project,
     player: &SharedPlayerState,
     target: &InspectorTarget,

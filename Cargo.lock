@@ -5711,6 +5711,7 @@ name = "shrimply-inspector-core"
 version = "0.1.0"
 dependencies = [
  "async-channel",
+ "glam 0.33.5",
  "hashbrown 0.17.1",
  "reqwest",
  "rusqlite",
@@ -5803,6 +5804,7 @@ dependencies = [
  "cxx-qt",
  "cxx-qt-build",
  "cxx-qt-lib",
+ "glam 0.33.5",
  "serde_json",
  "shrimply-audio",
  "shrimply-audio-modifiers",
@@ -6312,7 +6314,9 @@ dependencies = [
  "shrimply-audio",
  "shrimply-cross-ui-core",
  "shrimply-cross-ui-theme",
+ "shrimply-evaluation",
  "shrimply-math-color",
+ "shrimply-paint-edit",
  "shrimply-playback-performance",
  "shrimply-preview-core",
  "shrimply-preview-runtime",
@@ -6323,7 +6327,9 @@ dependencies = [
  "shrimply-timeline-qt",
  "shrimply-timeline-ui",
  "shrimply-video",
+ "skia-safe",
  "tracing",
+ "uuid",
 ]
 
 [[package]]
@@ -6335,7 +6341,9 @@ dependencies = [
  "glow",
  "libc",
  "shrimply-audio",
+ "shrimply-core",
  "shrimply-cross-ui-theme",
+ "shrimply-evaluation",
  "shrimply-gpu-memory",
  "shrimply-math-color",
  "shrimply-math-core",

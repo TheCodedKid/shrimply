@@ -15,7 +15,7 @@ use shrimply_preview_runtime::{PreviewMedia, StepDirection, rendered_frame_rate_
 use shrimply_project::project::{Project, Time};
 use shrimply_skia_adw_ui::canvas::{Rect, vec2};
 use shrimply_state::player_state::{self, SharedPlayerState};
-use shrimply_video::compositor::VideoEvent;
+use shrimply_video::compositor::{CompositeAccuracy, VideoCommand, VideoCommandSender, VideoEvent};
 use shrimply_video::gpu::CompositedVideoFrame;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -65,6 +65,8 @@ pub fn install(session: &EditorSession) -> Result<(), String> {
     let preview = ToolkitPreview::new(
         session.project.clone(),
         session.player_state.clone(),
+        session.selection_state.clone(),
+        session.preview_focus.clone(),
         session.playback_performance.clone(),
         session.preferences.clone(),
         session.audio_player.clone(),
@@ -1002,10 +1004,24 @@ pub extern "C" fn shrimply_qt_timeline_select_new_track_mode() {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn shrimply_qt_preview_pointer_move(width: f32, height: f32, x: f32, y: f32) {
+pub extern "C" fn shrimply_qt_preview_pointer_move(
+    width: f32,
+    height: f32,
+    x: f32,
+    y: f32,
+    control: bool,
+    shift: bool,
+    alt: bool,
+) {
     SURFACES.with_borrow_mut(|surfaces| {
         if let Some(surfaces) = surfaces.as_mut() {
-            surfaces.preview.pointer_move(width, height, x, y);
+            surfaces.preview.pointer_move(
+                width,
+                height,
+                x,
+                y,
+                preview::pointer_modifiers(control, shift, alt),
+            );
         }
     });
 }
@@ -1034,19 +1050,42 @@ pub extern "C" fn shrimply_qt_preview_pointer_press(
     height: f32,
     x: f32,
     y: f32,
+    control: bool,
+    shift: bool,
+    alt: bool,
 ) -> bool {
     SURFACES.with_borrow_mut(|surfaces| {
-        surfaces
-            .as_mut()
-            .is_some_and(|surfaces| surfaces.preview.pointer_press(width, height, x, y))
+        surfaces.as_mut().is_some_and(|surfaces| {
+            surfaces.preview.pointer_press(
+                width,
+                height,
+                x,
+                y,
+                preview::pointer_modifiers(control, shift, alt),
+            )
+        })
     })
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn shrimply_qt_preview_pointer_release(width: f32, height: f32, x: f32, y: f32) {
+pub extern "C" fn shrimply_qt_preview_pointer_release(
+    width: f32,
+    height: f32,
+    x: f32,
+    y: f32,
+    control: bool,
+    shift: bool,
+    alt: bool,
+) {
     SURFACES.with_borrow_mut(|surfaces| {
         if let Some(surfaces) = surfaces.as_mut() {
-            surfaces.preview.pointer_release(width, height, x, y);
+            surfaces.preview.pointer_release(
+                width,
+                height,
+                x,
+                y,
+                preview::pointer_modifiers(control, shift, alt),
+            );
         }
     });
 }

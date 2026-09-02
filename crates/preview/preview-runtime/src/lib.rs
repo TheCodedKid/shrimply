@@ -23,6 +23,7 @@ mod cuda_gl;
 pub mod geometry;
 pub mod guides;
 mod media;
+pub mod provider;
 pub mod renderer;
 
 pub use media::{PreviewMedia, PreviewMediaUpdate, StepDirection};

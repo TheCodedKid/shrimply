@@ -10,9 +10,9 @@ use gtk::prelude::*;
 use gtk::{gdk, glib};
 use shrimply_preview_core::{
     CursorUpdate, Key, KeyState, KeyboardEvent, Modifiers, PointerButton, PointerEvent,
-    PointerInput, PointerSample, PointerTool, PreviewBuilder, PreviewContext, PreviewEditSink,
-    PreviewExtensionKey, PreviewItemGeometry, PreviewProvider, PreviewRefresh, PreviewResponse,
-    PreviewTarget, PreviewViewport, SnapScene,
+    PointerInput, PointerSample, PointerTool, PreviewEditSink, PreviewExtensionKey,
+    PreviewItemGeometry, PreviewProvider, PreviewRefresh, PreviewResponse, PreviewTarget,
+    PreviewViewport, SnapScene,
 };
 
 use crate::player_state::{self, SharedPlayerState};
@@ -41,6 +41,9 @@ mod gtk_guides;
 use geometry::surface_viewport;
 use shrimply_preview_runtime::geometry::preview_viewport;
 use shrimply_preview_runtime::guides;
+use shrimply_preview_runtime::provider::{
+    BuildContext, SnapPreparation, prepare_geometry, prepare_snap_scene, update_text_source_size,
+};
 use shrimply_preview_runtime::renderer::{Appearance, VideoRenderer};
 
 #[derive(Clone)]
@@ -473,99 +476,19 @@ impl PreparedContext {
         &'a self,
         expression_cache: &'a RefCell<TransformExpressionCache>,
         extensions: Option<&'a HashMap<PreviewExtensionKey, Box<dyn Any>>>,
-    ) -> HandlerContext<'a> {
-        HandlerContext {
-            evaluation: &self.evaluation,
-            timeline_position: self.timeline_position,
+    ) -> BuildContext<'a> {
+        BuildContext::new(
+            &self.evaluation,
+            self.timeline_position,
             expression_cache,
-            viewport: self.viewport,
-            geometry: Some(self.geometry),
-            source_sizes: &self.source_sizes,
-            snap_scene: self.snap_scene.as_ref(),
-            tracked_camera: self.tracked_camera.as_ref(),
-            extensions,
-            item_id: self.item_id,
-        }
-    }
-}
-
-#[derive(Clone, Copy)]
-struct HandlerContext<'a> {
-    evaluation: &'a VisualEvaluation,
-    timeline_position: Time,
-    expression_cache: &'a RefCell<TransformExpressionCache>,
-    viewport: PreviewViewport,
-    geometry: Option<PreviewItemGeometry>,
-    source_sizes: &'a HashMap<uuid::Uuid, GlamVec2>,
-    snap_scene: Option<&'a SnapScene>,
-    tracked_camera: Option<&'a crate::project::TrackedCameraPreview>,
-    extensions: Option<&'a HashMap<PreviewExtensionKey, Box<dyn Any>>>,
-    item_id: uuid::Uuid,
-}
-
-impl PreviewContext for HandlerContext<'_> {
-    fn timeline_position(&self) -> Time {
-        self.timeline_position
-    }
-
-    fn local_time(&self) -> Time {
-        self.evaluation.local_time()
-    }
-
-    fn viewport(&self) -> PreviewViewport {
-        self.viewport
-    }
-
-    fn selection_color(&self) -> Color {
-        Color::BLUE5
-    }
-
-    fn target_geometry(&self, _target: PreviewTarget) -> Option<PreviewItemGeometry> {
-        self.geometry
-    }
-
-    fn source_size(&self, item_id: uuid::Uuid) -> Option<GlamVec2> {
-        self.source_sizes.get(&item_id).copied()
-    }
-
-    fn item_geometry(&self, item_id: uuid::Uuid) -> Option<PreviewItemGeometry> {
-        (item_id == self.item_id).then_some(self.geometry).flatten()
-    }
-
-    fn snapping(&self) -> Option<&SnapScene> {
-        self.snap_scene
-    }
-
-    fn extension(&self, _target: PreviewTarget, key: PreviewExtensionKey) -> Option<&dyn Any> {
-        if key == crate::project::TRACKED_CAMERA_PREVIEW {
-            return self.tracked_camera.map(|camera| camera as &dyn Any);
-        }
-        self.extensions?.get(&key).map(|value| value.as_ref())
-    }
-}
-
-impl PreviewBuilder for HandlerContext<'_> {
-    fn resolve<T: shrimply_core::timeline_value::TimelineExpressionValue>(
-        &self,
-        value: &shrimply_core::timeline_value::TimelineValue<T>,
-    ) -> T {
-        crate::transform_eval::resolve(
-            value,
-            self.evaluation,
-            &mut self.expression_cache.borrow_mut(),
+            self.viewport,
+            &self.source_sizes,
+            self.item_id,
         )
-    }
-
-    fn resolve_at<T: shrimply_core::timeline_value::TimelineExpressionValue>(
-        &self,
-        value: &shrimply_core::timeline_value::TimelineValue<T>,
-        time: Time,
-    ) -> T {
-        crate::transform_eval::resolve(
-            value,
-            &self.evaluation.at_local_time(time),
-            &mut self.expression_cache.borrow_mut(),
-        )
+        .geometry(self.geometry)
+        .snapping(self.snap_scene.as_ref())
+        .tracked_camera(self.tracked_camera.as_ref())
+        .extensions(extensions)
     }
 }
 
@@ -574,7 +497,7 @@ struct Edits<'a> {
     extensions: &'a mut HashMap<PreviewExtensionKey, Box<dyn Any>>,
     item: &'a ItemAddress,
     keyframe_time: Time,
-    context: HandlerContext<'a>,
+    context: BuildContext<'a>,
 }
 
 impl PreviewEditSink for Edits<'_> {
@@ -590,17 +513,14 @@ impl PreviewEditSink for Edits<'_> {
 
     fn updated_geometry(&self, _target: PreviewTarget) -> Option<PreviewItemGeometry> {
         let item = self.project.video_item(self.item)?;
-        let mut source_sizes = self.context.source_sizes.clone();
-        if let crate::project::VideoItemContent::Text(text) = &item.content {
-            source_sizes.insert(
-                item.id,
-                text_source_size(text, self.context.evaluation, self.context.expression_cache),
-            );
-        }
-        item.preview_geometry(&HandlerContext {
-            source_sizes: &source_sizes,
-            ..self.context
-        })
+        let mut source_sizes = self.context.source_sizes().clone();
+        update_text_source_size(
+            &mut source_sizes,
+            item,
+            self.context.evaluation(),
+            self.context.expression_cache(),
+        );
+        item.preview_geometry(&self.context.with_source_sizes(&source_sizes))
     }
 
     fn extension_mut(
@@ -667,233 +587,58 @@ fn prepare_target(
     if !item.owns_preview_target(target) {
         return None;
     }
-    let sequence_position = project.timeline_time_to_sequence(&key.track(), position)?;
-    let keyframe_time = project.keyframe_time(key, position)?;
-    let evaluation = VisualEvaluation::for_item_with_audio(
-        project,
-        item,
-        sequence_position,
-        preparation.audio_analysis,
-    );
     let viewport = preview_viewport(
         preparation.surface,
         project.canvas_size,
         preparation.padding_px,
     );
-    let mut source_sizes = source_sizes(project);
-    if let crate::project::VideoItemContent::Text(text) = &item.content {
-        source_sizes.insert(
-            item.id,
-            text_source_size(text, &evaluation, preparation.expression_cache),
-        );
-    }
-    let tracked_camera = item
-        .tracking_camera_source()
-        .filter(|source| {
-            source.track_id != key.track_id()
-                && project
-                    .video_tracks
-                    .iter()
-                    .any(|track| track.id == source.track_id)
-        })
-        .and_then(|source| {
-            crate::video::camera_reconstruction::sample(item.id, source, evaluation.local_time())
-        })
-        .map(|camera| crate::project::TrackedCameraPreview {
-            position: camera.position,
-            rotation: camera.rotation,
-            projection: camera.projection,
-            vertical_fov_degrees: camera.vertical_fov_degrees,
-        });
-    let geometry = {
-        let context = HandlerContext {
-            evaluation: &evaluation,
-            timeline_position: position,
-            expression_cache: preparation.expression_cache,
-            viewport,
-            geometry: None,
-            source_sizes: &source_sizes,
-            snap_scene: None,
-            tracked_camera: tracked_camera.as_ref(),
-            extensions: Some(preparation.extensions),
-            item_id: item.id,
-        };
-        item.preview_geometry(&context)?
-    };
+    let mut prepared = prepare_geometry(
+        project,
+        key,
+        position,
+        preparation.audio_analysis,
+        preparation.expression_cache,
+        viewport,
+        Some(preparation.extensions),
+    )?;
     let snap_scene = preparation.snap_enabled.then(|| {
-        let mut scene = SnapScene::new(viewport, preparation.snap_radius_px);
-        if let Some(guides) = preparation.guides {
-            scene.add_guides(&guides.vertical, &guides.horizontal);
-        }
-        add_snap_providers(
-            &mut scene,
+        prepare_snap_scene(
             project,
             key,
             position,
-            preparation,
             viewport,
-            &mut source_sizes,
-        );
-        scene
+            &mut prepared.source_sizes,
+            SnapPreparation {
+                audio_analysis: preparation.audio_analysis,
+                expression_cache: preparation.expression_cache,
+                extensions: preparation.extensions,
+                guides: preparation.guides,
+                radius_px: preparation.snap_radius_px,
+            },
+        )
     });
-    let context = HandlerContext {
-        evaluation: &evaluation,
-        timeline_position: position,
-        expression_cache: preparation.expression_cache,
-        viewport,
-        geometry: Some(geometry),
-        source_sizes: &source_sizes,
-        snap_scene: snap_scene.as_ref(),
-        tracked_camera: tracked_camera.as_ref(),
-        extensions: Some(preparation.extensions),
-        item_id: item.id,
-    };
+    let context = prepared
+        .context(position, preparation.expression_cache, viewport)
+        .snapping(snap_scene.as_ref())
+        .extensions(Some(preparation.extensions));
     let provider = item.preview_provider(target, &context)?;
     Some(PreparedProvider {
         item: key.clone(),
         project_revision: preparation.project_revision,
         context: PreparedContext {
-            evaluation,
+            evaluation: prepared.evaluation,
             timeline_position: position,
-            keyframe_time,
+            keyframe_time: prepared.keyframe_time,
             viewport,
-            geometry,
-            source_sizes,
+            geometry: prepared.geometry,
+            source_sizes: prepared.source_sizes,
             snap_scene,
-            tracked_camera,
-            item_id: item.id,
+            tracked_camera: prepared.tracked_camera,
+            item_id: prepared.item_id,
         },
         provider,
         deferred_refresh: PreviewRefresh::NONE,
     })
-}
-
-fn source_sizes(project: &Project) -> HashMap<uuid::Uuid, GlamVec2> {
-    let fallback = GlamVec2::new(
-        project.canvas_size.width.max(1) as f32,
-        project.canvas_size.height.max(1) as f32,
-    );
-    project
-        .video_tracks
-        .iter()
-        .flat_map(|track| &track.items)
-        .chain(
-            project
-                .folded_sequences
-                .iter()
-                .flat_map(|sequence| &sequence.video_tracks)
-                .flat_map(|track| &track.items),
-        )
-        .map(|item| {
-            let size = GlamVec2::new(item.source_width as f32, item.source_height as f32);
-            (
-                item.id,
-                if size.min_element() > 0.0 {
-                    size
-                } else {
-                    fallback
-                },
-            )
-        })
-        .collect()
-}
-
-fn text_source_size(
-    text: &crate::project::TextItem,
-    evaluation: &VisualEvaluation,
-    expression_cache: &RefCell<TransformExpressionCache>,
-) -> GlamVec2 {
-    let mut expressions = expression_cache.borrow_mut();
-    let content = crate::transform_eval::resolve_text(&text.text, evaluation, &mut expressions);
-    let font_size =
-        crate::transform_eval::resolve_scalar(&text.font_size, evaluation, &mut expressions)
-            .max(1.0);
-    let font_weight =
-        crate::transform_eval::resolve_scalar(&text.font_weight, evaluation, &mut expressions);
-    let tracking =
-        crate::transform_eval::resolve_scalar(&text.tracking, evaluation, &mut expressions);
-    let line_height =
-        crate::transform_eval::resolve_scalar(&text.line_height, evaluation, &mut expressions)
-            .max(f32::EPSILON);
-    crate::video::text_layout::layout(
-        text,
-        &content,
-        font_size,
-        font_weight,
-        tracking,
-        line_height,
-        evaluation.local_time(),
-    )
-    .size
-    .max(GlamVec2::ONE)
-}
-
-fn add_snap_providers(
-    scene: &mut SnapScene,
-    project: &Project,
-    selected: &ItemAddress,
-    position: Time,
-    preparation: Preparation<'_>,
-    viewport: PreviewViewport,
-    source_sizes: &mut HashMap<uuid::Uuid, GlamVec2>,
-) {
-    let Some(tracks) = project.video_tracks_for_path(selected.sequence_path()) else {
-        return;
-    };
-    for track in tracks.iter().filter(|track| track.enabled) {
-        for item in &track.items {
-            let key = ItemAddress::Video {
-                sequence_path: selected.sequence_path().to_vec(),
-                track_id: track.id,
-                item_id: item.id,
-            };
-            if &key == selected {
-                continue;
-            }
-            let Some((start, end)) = project.projected_item_times(&key) else {
-                continue;
-            };
-            if position < start || position >= end {
-                continue;
-            }
-            let Some(sequence_position) = project.timeline_time_to_sequence(&key.track(), position)
-            else {
-                continue;
-            };
-            let evaluation = VisualEvaluation::for_item_with_audio(
-                project,
-                item,
-                sequence_position,
-                preparation.audio_analysis,
-            );
-            if !crate::transform_eval::resolve_bool(
-                &item.visibility,
-                &evaluation,
-                &mut preparation.expression_cache.borrow_mut(),
-            ) {
-                continue;
-            }
-            if let crate::project::VideoItemContent::Text(text) = &item.content {
-                source_sizes.insert(
-                    item.id,
-                    text_source_size(text, &evaluation, preparation.expression_cache),
-                );
-            }
-            let context = HandlerContext {
-                evaluation: &evaluation,
-                timeline_position: position,
-                expression_cache: preparation.expression_cache,
-                viewport,
-                geometry: None,
-                source_sizes,
-                snap_scene: None,
-                tracked_camera: None,
-                extensions: Some(preparation.extensions),
-                item_id: item.id,
-            };
-            scene.add_provider(item, &context);
-        }
-    }
 }
 
 fn attach_render(

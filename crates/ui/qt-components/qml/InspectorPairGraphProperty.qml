@@ -8,10 +8,12 @@ InspectorGraphProperty {
     property alias maximum: editor.maximum
     property alias dragStep: editor.dragStep
     property alias digits: editor.digits
+    property alias widthCharacters: editor.widthCharacters
     property alias firstPrefix: editor.firstPrefix
     property alias secondPrefix: editor.secondPrefix
     property alias unitName: editor.unitName
     property alias enableLock: editor.enableLock
+    signal pairCommitted()
     Number2Picker {
         id: editor
         first: root.firstValue
@@ -19,5 +21,7 @@ InspectorGraphProperty {
         onValuesEdited: function(first, second, component) {
             root.editPair(first, second, component)
         }
+        onFirstCommitted: root.pairCommitted()
+        onSecondCommitted: root.pairCommitted()
     }
 }

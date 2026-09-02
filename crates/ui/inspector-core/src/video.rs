@@ -20,6 +20,8 @@ pub struct VideoPresentation {
     pub title: &'static str,
     pub value: Value,
     pub visual: Vec<VideoCard>,
+    pub modifiers: Vec<crate::VisualModifierPresentation>,
+    pub modifier_choices: Vec<crate::VisualModifierChoice>,
     pub playback: Vec<VideoCard>,
     pub stream: Option<VideoStreamPresentation>,
     pub source_metadata: crate::info::SourceMetadata,
@@ -57,7 +59,12 @@ impl VideoCard {
         }
     }
 
-    fn reset(mut self, path: impl Into<String>, value: Value, commit_name: &'static str) -> Self {
+    pub(crate) fn reset(
+        mut self,
+        path: impl Into<String>,
+        value: Value,
+        commit_name: &'static str,
+    ) -> Self {
         self.reset = Some(VideoReset {
             values: vec![(path.into(), value)],
             fraction: None,
@@ -415,7 +422,12 @@ fn stabilization_setting(path: &str) -> bool {
     path.starts_with("/stabilization_") || path.starts_with("/mesh_flow_")
 }
 
-pub fn presentation(item: &VideoItem, runtime: InspectorRuntime) -> VideoPresentation {
+pub fn presentation(
+    project: &shrimply_project::project::Project,
+    address: &shrimply_project::project::ItemAddress,
+    item: &VideoItem,
+    runtime: InspectorRuntime,
+) -> VideoPresentation {
     let value = serde_json::to_value(item).expect("video inspector item must serialize");
     let static_visual = item.is_static_visual_media() || item.is_generated();
 
@@ -454,12 +466,17 @@ pub fn presentation(item: &VideoItem, runtime: InspectorRuntime) -> VideoPresent
         runtime,
         item.source_visual_kind() == VisualKind::Raster,
     ));
+    if let Some(transform) = crate::transform::card(project, address, item, runtime) {
+        visual_items.push(transform);
+    }
 
     VideoPresentation {
         item_id: item.id,
         title: crate::model::video_title(item),
         value,
         visual: visual_items,
+        modifiers: crate::visual_modifier_presentations(item, runtime),
+        modifier_choices: crate::visual_modifier_catalog(item),
         playback: playback_items,
         stream: matches!(item.content, VideoItemContent::Media).then_some(
             VideoStreamPresentation {

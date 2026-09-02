@@ -293,6 +293,8 @@ Item {
                         categoryIndex, itemIndex, index))
                     readonly property string label: root.refreshed(backend.controlLabel(
                         categoryIndex, itemIndex, index))
+                    readonly property bool transformLive: root.refreshed(
+                        backend.controlTransformLive(categoryIndex, itemIndex, index))
                     readonly property string value: {
                         const revision = kind === 18
                             ? backend.documentRevision + backend.cacheRevision
@@ -379,6 +381,22 @@ Item {
                     }
                     function unit() {
                         return root.refreshed(backend.controlUnit(
+                            categoryIndex, itemIndex, index))
+                    }
+                    function widthCharacters() {
+                        return root.refreshed(backend.controlWidthCharacters(
+                            categoryIndex, itemIndex, index))
+                    }
+                    function prefixIcon() {
+                        return root.refreshed(backend.controlPrefixIcon(
+                            categoryIndex, itemIndex, index))
+                    }
+                    function prefixIconRotates() {
+                        return root.refreshed(backend.controlPrefixIconRotates(
+                            categoryIndex, itemIndex, index))
+                    }
+                    function prefixIconRotationOffset() {
+                        return root.refreshed(backend.controlPrefixIconRotationOffset(
                             categoryIndex, itemIndex, index))
                     }
                     function prefix(componentIndex) {
@@ -761,19 +779,29 @@ Item {
                             readonly property int graphDocumentRevision: backend.documentRevision
                             readonly property int graphPlayheadRevision:
                                 backend.playheadRevision
+                            readonly property int graphTransformRevision:
+                                controlLoader.transformLive ? backend.transformRevision : 0
+                            readonly property int scalarValueRevision:
+                                backend.documentRevision + backend.playheadRevision
+                                    + graphTransformRevision
                             readonly property var expressionResult: {
                                 const documentRevision = backend.documentRevision
                                 const expressionRevision = backend.expressionRevision
                                 const playheadRevision = backend.playheadRevision
-                                return documentRevision + expressionRevision
-                                        + playheadRevision >= 0
+                                return propertyGraph.expression
+                                        && documentRevision + expressionRevision
+                                        + playheadRevision
+                                        + propertyGraph.graphTransformRevision >= 0
                                     ? backend.controlExpressionResult(
                                         controlLoader.categoryIndex,
                                         controlLoader.itemIndex, controlLoader.index)
                                     : []
                             }
                             label: controlLoader.label
-                            initialGraphValue: Number(controlLoader.value)
+                            initialGraphValue: scalarValueRevision >= 0
+                                ? Number(backend.controlValue(
+                                    controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index)) : 0
                             keyframes: root.refreshed(backend.controlKeyframes(
                                 controlLoader.categoryIndex,
                                 controlLoader.itemIndex, controlLoader.index))
@@ -829,6 +857,7 @@ Item {
                             Component.onCompleted: configureGraph()
                             onGraphLoaded: configureGraph()
                             onGraphDocumentRevisionChanged: configureGraph()
+                            onGraphTransformRevisionChanged: configureGraph()
                             onGraphPlayheadRevisionChanged: updateGraphPlayhead()
                             NumberPicker {
                                 value: propertyGraph.graphValue
@@ -837,6 +866,13 @@ Item {
                                 dragStep: controlLoader.dragStep()
                                 digits: controlLoader.digits()
                                 unitName: controlLoader.unit()
+                                widthCharacters: controlLoader.widthCharacters()
+                                prefixIconSource: controlLoader.prefixIcon().length > 0
+                                    ? "qrc:/qt/qml/dev/shrimply/components/icons/"
+                                        + controlLoader.prefixIcon() : ""
+                                prefixIconRotates: controlLoader.prefixIconRotates()
+                                prefixIconRotationOffsetDegrees:
+                                    controlLoader.prefixIconRotationOffset()
                                 onEdited: function(value) { propertyGraph.editValue(value) }
                                 onCommitted: function(value) { controlLoader.commit() }
                             }
@@ -926,7 +962,8 @@ Item {
                                 const documentRevision = backend.documentRevision
                                 const expressionRevision = backend.expressionRevision
                                 const playheadRevision = backend.playheadRevision
-                                return documentRevision + expressionRevision
+                                return propertyGraph.expression
+                                        && documentRevision + expressionRevision
                                         + playheadRevision >= 0
                                     ? backend.controlExpressionResult(
                                         controlLoader.categoryIndex,
@@ -1085,7 +1122,8 @@ Item {
                                 const documentRevision = backend.documentRevision
                                 const expressionRevision = backend.expressionRevision
                                 const playheadRevision = backend.playheadRevision
-                                return documentRevision + expressionRevision
+                                return propertyGraph.expression
+                                        && documentRevision + expressionRevision
                                         + playheadRevision >= 0
                                     ? backend.controlExpressionResult(
                                         controlLoader.categoryIndex,
@@ -1252,9 +1290,36 @@ Item {
                     Component {
                         id: layeredVector2Control
                         InspectorPairGraphProperty {
+                            id: propertyGraph
+                            readonly property int graphDocumentRevision: backend.documentRevision
+                            readonly property int graphPlayheadRevision:
+                                backend.playheadRevision
+                            readonly property int graphTransformRevision:
+                                controlLoader.transformLive ? backend.transformRevision : 0
+                            readonly property int pairValueRevision:
+                                backend.documentRevision + backend.playheadRevision
+                                    + graphTransformRevision
+                            readonly property var expressionResult: {
+                                const documentRevision = backend.documentRevision
+                                const expressionRevision = backend.expressionRevision
+                                const playheadRevision = backend.playheadRevision
+                                return propertyGraph.expression
+                                        && documentRevision + expressionRevision
+                                        + playheadRevision
+                                        + propertyGraph.graphTransformRevision >= 0
+                                    ? backend.controlExpressionResult(
+                                        controlLoader.categoryIndex,
+                                        controlLoader.itemIndex, controlLoader.index)
+                                    : []
+                            }
                             label: controlLoader.label
-                            initialGraphValue: controlLoader.component(0)
-                            initialSecondValue: controlLoader.component(1)
+                            graphValueDrivesEditor: false
+                            initialGraphValue: pairValueRevision >= 0
+                                ? backend.controlComponent(controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index, 0) : 0
+                            initialSecondValue: pairValueRevision >= 0
+                                ? backend.controlComponent(controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index, 1) : 0
                             keyframes: root.refreshed(backend.controlKeyframes(
                                 controlLoader.categoryIndex,
                                 controlLoader.itemIndex, controlLoader.index))
@@ -1265,16 +1330,127 @@ Item {
                                 backend.controlExpressionSource(
                                     controlLoader.categoryIndex,
                                     controlLoader.itemIndex, controlLoader.index))
+                            expressionOutput: expressionResult.length > 0
+                                ? expressionResult[0] : ""
+                            expressionError: expressionResult.length > 1
+                                ? expressionResult[1] : ""
+                            externalClipboardMarker: backend.keyframeClipboardMarker()
                             minimum: controlLoader.minimum()
                             maximum: controlLoader.maximum()
                             dragStep: controlLoader.dragStep()
                             digits: controlLoader.digits()
+                            widthCharacters: controlLoader.widthCharacters()
                             unitName: controlLoader.unit()
+                            firstPrefix: controlLoader.prefix(0)
+                            secondPrefix: controlLoader.prefix(1)
                             enableLock: controlLoader.locked()
+                            function updateGraphPlayhead() {
+                                if (!propertyGraph.keyframes)
+                                    return
+                                const playhead = backend.controlGraphPlayhead(
+                                    controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index)
+                                if (playhead.length === 2)
+                                    propertyGraph.setGraphPlayhead(playhead[0], playhead[1])
+                            }
+                            function configureGraph() {
+                                if (!propertyGraph.keyframes)
+                                    return
+                                const times = backend.controlGraphPointTimes(
+                                    controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index)
+                                const segments = backend.controlGraphSegments(
+                                    controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index)
+                                const timing = backend.controlGraphTiming(
+                                    controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index)
+                                if (timing.length !== 6)
+                                    return
+                                propertyGraph.replaceSpeedGraphComponent(
+                                    0, times, segments, 0)
+                                propertyGraph.setGraphRange(
+                                    timing[0], timing[1], timing[2], timing[3])
+                                propertyGraph.setGraphFrameStep(timing[4], timing[5])
+                                propertyGraph.setGraphSnapping(
+                                    backend.keyframeSnappingEnabled(),
+                                    backend.keyframeSnappingRadius())
+                                propertyGraph.setGraphExternalClipboard(true)
+                                propertyGraph.updateGraphPlayhead()
+                            }
+                            Component.onCompleted: configureGraph()
+                            onGraphLoaded: configureGraph()
+                            onGraphDocumentRevisionChanged: configureGraph()
+                            onGraphTransformRevisionChanged: configureGraph()
+                            onGraphPlayheadRevisionChanged: updateGraphPlayhead()
                             onBasePairEdited: function(first, second) {
                                 backend.setControlComponents(controlLoader.categoryIndex,
                                     controlLoader.itemIndex, controlLoader.index,
                                     first, second, 0, 0)
+                            }
+                            onKeyframePairEdited: function(first, second, component) {
+                                backend.setControlComponents(controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index,
+                                    first, second, 0, component)
+                            }
+                            onPairCommitted: controlLoader.commit()
+                            onGraphPlaybackToggled: backend.toggleControlGraphPlayback()
+                            onGraphPlayheadChanged: function(component, numerator, denominator) {
+                                if (component !== 0)
+                                    return
+                                backend.seekControlGraph(
+                                    controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index,
+                                    numerator, denominator)
+                            }
+                            onGraphKeysMoved: function(component, oldTimes, times, values) {
+                                if (component !== 0)
+                                    return
+                                backend.moveControlGraphKeys(
+                                    controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index,
+                                    oldTimes, times, values)
+                            }
+                            onGraphEditFinished: controlLoader.commit()
+                            onGraphKeysDeleted: function(component, times) {
+                                if (component !== 0)
+                                    return
+                                backend.deleteControlGraphKeys(
+                                    controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index, times)
+                            }
+                            onGraphKeyAdded: function(component, numerator, denominator) {
+                                if (component !== 0)
+                                    return
+                                backend.addControlGraphKey(
+                                    controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index,
+                                    numerator, denominator)
+                            }
+                            onGraphCopyRequested: function(component, times) {
+                                if (component !== 0)
+                                    return
+                                if (backend.copyControlGraphKeys(
+                                    controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index, times)) {
+                                    propertyGraph.copyExternalClipboardMarker()
+                                }
+                            }
+                            onGraphPasteRequested: function(component, numerator, denominator) {
+                                if (component !== 0)
+                                    return
+                                backend.pasteControlGraphKeys(
+                                    controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index,
+                                    numerator, denominator)
+                            }
+                            onGraphInterpolationChanged: function(component, ownerId, interpolation) {
+                                if (component !== 0)
+                                    return
+                                backend.setControlGraphInterpolation(
+                                    controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index,
+                                    ownerId, interpolation)
                             }
                             onKeyframesToggled: function(enabled) {
                                 backend.setControlKeyframes(controlLoader.categoryIndex,

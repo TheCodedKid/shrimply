@@ -30,8 +30,11 @@ pub(crate) fn target_change(
             change.audio_beats = true;
             change.audio_waveforms = true;
         }
-        InspectorTarget::Item(ItemAddress::Video { .. })
-        | InspectorTarget::Track(TrackAddress::Video { .. }) => change.video = true,
+        InspectorTarget::Item(ItemAddress::Video { .. }) => {
+            change.video = true;
+            change.live_preview = true;
+        }
+        InspectorTarget::Track(TrackAddress::Video { .. }) => change.video = true,
         InspectorTarget::Item(ItemAddress::Caption { .. })
         | InspectorTarget::Track(TrackAddress::Caption { .. }) => change.captions = true,
         InspectorTarget::Transition {

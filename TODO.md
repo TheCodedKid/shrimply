@@ -28,6 +28,12 @@ backends in the pipeline, and pass the required fresh reviews.
 - [x] Cache loaded keyframe and expression sections while their card remains alive.
 - [x] Add a shared graph gesture-finished action for GTK and Qt undo boundaries.
 - [x] Cache successful Pneuma voice-model catalogs by server URL in inspector-core.
+- [x] Share preview-provider geometry/evaluation preparation between GTK and Qt,
+  including audio-driven expressions, text sizing, tracked cameras, provider
+  extensions, snapping, native pointer interaction, compositor exclusion,
+  retiring-overlay handoff, coalesced live rendering, and cached Qt overlay
+  drawing. Accepted by fresh adversarial review 80 after reviews 72-79 found
+  extension, interaction, invalidation, snapping, and lifecycle gaps.
 
 These foundation items remain subject to the per-file and final integration
 reviews below.
@@ -199,14 +205,77 @@ reviews below.
     immediate undo boundaries.
   - Status: accepted by fresh adversarial review 58.
 
+- [x] `video/playback.rs`
+  - GTK: `crates/ui/inspector-gtk/src/video/playback.rs`
+  - Qt: `crates/ui/inspector-qt/src/video/playback.rs` using the native reusable
+    fraction, selector, switch, and card controls
+  - Shared: typed exact-fraction presentation, validation, reset, mutation, and
+    refresh behavior in `crates/ui/inspector-core/src/video/playback.rs`
+  - Status: accepted by fresh adversarial review 64 after review 61 found stale
+    resets, approximate fraction initialization, and duplicated FPS mutation.
+
+## Accepted transform file gate
+
+- [x] `transform.rs`
+  - GTK: `crates/ui/inspector-gtk/src/transform.rs`
+  - Qt: mirror the complete Transform card with native layered scalar/vector
+    controls, Scale lock, expressions, and type-specific frame graphs.
+  - Shared: typed transform presentation, reset, values, expressions, and
+    keyframe operations in inspector-core.
+  - Status: accepted by fresh adversarial review 80 after reviews 73, 75-79
+    found cache scoping, interaction, snapping, exclusion-handoff, live-render,
+    and pointer lifecycle gaps.
+
+## Accepted modifier file gates
+
+- [x] `modifiers.rs`
+  - GTK: `crates/ui/inspector-gtk/src/modifiers.rs`
+  - Qt: `crates/ui/inspector-qt/src/modifiers.rs` plus native card/header and
+    modifier alpha-mask controls.
+  - Shared: modifier presentations and defaults, chain validation and edits,
+    controller mutations, alpha-mask controls/keyframes, and preview targeting
+    in `crates/ui/inspector-core/src/visual_modifiers.rs`.
+  - Includes visible modifier cards, enable/reset/copy/reorder/remove behavior,
+    cache-safe removal, modifier/mask preview focus, and the centered add row.
+  - Status: accepted by fresh adversarial review 84 after reviews 81-83 found
+    reset-default, adapter-only default, alpha-mask, duplicated mutation, and
+    strict-lint defects.
+
+- [x] `modifiers/add_menu.rs`
+  - GTK: `crates/ui/inspector-gtk/src/modifiers/add_menu.rs` plus the modifier
+    chain add/paste row in `modifiers.rs`
+  - Qt: use the reusable native `ModifierMenuButton` at the bottom center of
+    the Visual category, with the same searchable choices and paste action.
+  - Shared: output-state adaptation, catalog/search data, centered defaults,
+    chain validation, add, and paste behavior in inspector-core.
+  - Status: accepted by fresh adversarial review 65.
+
+- [x] `modifiers/opacity.rs`
+  - GTK: `crates/ui/inspector-gtk/src/modifiers/opacity.rs`
+  - Qt: `crates/ui/inspector-qt/src/modifiers/opacity.rs`
+  - Shared: typed vector/raster opacity presentation and scalar control behavior
+    in `crates/ui/inspector-core/src/visual_modifiers/opacity.rs`.
+  - Includes the 0–1 range, 0.01 step, two digits, live named undo boundary,
+    expression evaluation, and raw-value keyframe graph.
+  - Status: accepted by fresh adversarial review 86 after review 85 found the
+    named plain-field route intercepting layered values.
+
+- [x] `modifiers/transform.rs`
+  - Port the GTK transform modifier body one-for-one with native Qt controls.
+  - Reuse the shared scalar/vector keyframe, expression, graph, and lock logic.
+  - Includes cached live vector/rotation expressions, dynamic modifier paths,
+    complete graph actions, modifier preview focus, and HiDPI-aligned shared
+    preview-provider drawing.
+  - Status: implementation closed after fresh adversarial reviews 87 and 88
+    found and the implementation fixed path, cache, revision, and preview-focus
+    integration defects; the user closed the subsequent re-review loop.
+
 ## Current file gate
 
-- [ ] `video/playback.rs`
-  - GTK: `crates/ui/inspector-gtk/src/video/playback.rs`
-  - Qt: mirror the GTK playback cards and exact fraction/undo behavior with
-    native reusable Qt controls while extracting backend-independent behavior
-    into inspector-core.
-  - Do not start the next source-file port until a fresh reviewer accepts it.
+- [ ] `modifiers/alpha_outline.rs`
+  - Port the GTK alpha-outline modifier body one-for-one with native Qt controls.
+  - Extract backend-independent presentation and behavior into inspector-core.
+  - Run the required checks and obtain one fresh per-file adversarial review.
 
 ## Qt files present but not yet accepted
 
@@ -231,7 +300,6 @@ These files exist, but must be revisited one by one against their GTK source.
 - [ ] `generated/text.rs`
 - [ ] `keyframe_editor.rs` parity/extraction gate
 - [ ] `keyframe_graph.rs` parity/extraction gate
-- [ ] `modifiers.rs`
 - [ ] `paint.rs`
 - [ ] `rhai_editor/mod.rs`
 - [ ] `scene_3d.rs`
@@ -254,7 +322,6 @@ These files exist, but must be revisited one by one against their GTK source.
 ## Missing visual modifier ports
 
 - [ ] `modifiers/add_menu.rs`
-- [ ] `modifiers/alpha_outline.rs`
 - [ ] `modifiers/bulge_pinch.rs`
 - [ ] `modifiers/cache.rs`
 - [ ] `modifiers/channel_mixer.rs`
@@ -286,7 +353,6 @@ These files exist, but must be revisited one by one against their GTK source.
 - [ ] `modifiers/mask.rs`
 - [ ] `modifiers/mirror.rs`
 - [ ] `modifiers/object_3d.rs`
-- [ ] `modifiers/opacity.rs`
 - [ ] `modifiers/path_offset.rs`
 - [ ] `modifiers/pixelate_mosaic.rs`
 - [ ] `modifiers/point_light.rs`
@@ -305,7 +371,6 @@ These files exist, but must be revisited one by one against their GTK source.
 - [ ] `modifiers/text_mask.rs`
 - [ ] `modifiers/texture_bounds.rs`
 - [ ] `modifiers/threshold.rs`
-- [ ] `modifiers/transform.rs`
 - [ ] `modifiers/transparent_fill.rs`
 - [ ] `modifiers/twirl.rs`
 - [ ] `modifiers/vectorize.rs`

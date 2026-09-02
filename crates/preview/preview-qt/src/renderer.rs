@@ -39,12 +39,15 @@ impl ToolkitPreviewRenderer {
         background_color: Color,
         preferences: &preferences_store::PreferencesSnapshot,
         fullscreen: bool,
+        draw_overlay: impl FnOnce(&skia_safe::Canvas),
     ) -> Result<(), String> {
-        let viewport = guides::viewport(
-            surface,
-            project.canvas_size,
-            preferences.preview_padding_px,
-            preferences.preview_guides_visible,
+        let scale = pixels_per_point.max(1.0);
+        let logical_surface = vec2(surface.x as f32 / scale, surface.y as f32 / scale);
+        let viewport = toolkit_guide_viewport(
+            project,
+            preferences,
+            logical_surface.x,
+            logical_surface.y,
             fullscreen,
         );
         let content_rect = viewport.content_rect;
@@ -60,8 +63,7 @@ impl ToolkitPreviewRenderer {
                 downsample_method: preferences.preview_downsample_method,
             },
             |painter| {
-                let surface_rect =
-                    Rect::from_min_size(vec2(0.0, 0.0), vec2(surface.x as f32, surface.y as f32));
+                let surface_rect = Rect::from_min_size(vec2(0.0, 0.0), logical_surface);
                 draw_captions(
                     painter,
                     project,
@@ -83,6 +85,7 @@ impl ToolkitPreviewRenderer {
                         Color::BLUE5,
                     );
                 }
+                draw_overlay(painter.canvas());
             },
         )
     }

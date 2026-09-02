@@ -165,7 +165,7 @@ impl InspectorController {
         })
     }
 
-    fn video_expression_output<T>(
+    pub(crate) fn video_expression_output<T>(
         &self,
         target: &InspectorTarget,
         path: &str,
@@ -173,27 +173,31 @@ impl InspectorController {
     where
         T: TimelineExpressionValue + DeserializeOwned,
     {
-        let snapshot = self.snapshot();
-        if &snapshot.target != target {
+        if &self.target() != target {
             return Err("inspector target changed".to_string());
         }
-        let value: TimelineValue<T> = serde_json::from_value(
-            snapshot
-                .value
-                .pointer(path)
-                .cloned()
-                .ok_or_else(|| format!("timeline expression is no longer available: {path}"))?,
-        )
-        .map_err(|error| format!("invalid timeline expression value: {error}"))?;
+        let player = shrimply_state::player_state::snapshot(&self.player_state);
         let project = self.project.borrow();
         let address = video_item_address(target)?;
         let position = project
-            .timeline_time_to_sequence(&address.track(), snapshot.runtime.position)
+            .timeline_time_to_sequence(&address.track(), player.position)
             .ok_or_else(|| "expression time is no longer available".to_string())?;
         let item = project
             .video_item(address)
             .ok_or_else(|| "expression item is no longer available".to_string())?;
-        let audio = self.audio_analysis_at(snapshot.runtime.position);
+        let serialized = transform_expression_value(item, path).unwrap_or_else(|| {
+            serde_json::to_value(item)
+                .expect("video item must serialize")
+                .pointer(path)
+                .cloned()
+                .unwrap_or(Value::Null)
+        });
+        let value: TimelineValue<T> = serde_json::from_value(serialized)
+            .map_err(|error| format!("invalid timeline expression value at {path}: {error}"))?;
+        let audio =
+            self.audio_sampler
+                .borrow_mut()
+                .sample(&project, player.position, player.revision);
         let evaluation = shrimply_evaluation::VisualEvaluation::for_item_with_audio(
             &project, item, position, &audio,
         );
@@ -788,6 +792,21 @@ impl InspectorController {
             .and_then(|timeline_time| project.keyframe_time(address, timeline_time))
             .ok_or_else(|| "scalar keyframe time is no longer available".to_string())
     }
+}
+
+fn transform_expression_value(
+    item: &shrimply_project::project::VideoItem,
+    path: &str,
+) -> Option<Value> {
+    let value = match path {
+        "/transform/position" => serde_json::to_value(&item.transform.position),
+        "/transform/anchor" => serde_json::to_value(&item.transform.anchor),
+        "/transform/scale" => serde_json::to_value(&item.transform.scale),
+        "/transform/shear" => serde_json::to_value(&item.transform.shear),
+        "/transform/rotation_degrees" => serde_json::to_value(&item.transform.rotation_degrees),
+        _ => return None,
+    };
+    Some(value.expect("transform timeline must serialize"))
 }
 
 fn serialize_timeline(value: TimelineValue<f32>) -> Value {

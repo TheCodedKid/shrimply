@@ -7,6 +7,10 @@ use shrimply_inspector_core::InspectorTarget;
 use crate::item::{InspectorAction, InspectorListItem};
 use crate::list::{InspectorDocument, InspectorListState};
 use crate::section::{ControlKind, InspectorControl};
+use crate::value_backend::{
+    boolean_action, control_value, default_expression, fraction_value, optional_action,
+    timeline_value,
+};
 
 #[cxx_qt::bridge]
 pub(crate) mod qobject {
@@ -30,6 +34,7 @@ pub(crate) mod qobject {
         #[qproperty(i32, document_revision, cxx_name = "documentRevision")]
         #[qproperty(i32, expression_revision, cxx_name = "expressionRevision")]
         #[qproperty(i32, playhead_revision, cxx_name = "playheadRevision")]
+        #[qproperty(i32, transform_revision, cxx_name = "transformRevision")]
         #[qproperty(i32, active_category, cxx_name = "activeCategory")]
         #[qproperty(f64, scroll_position, cxx_name = "scrollPosition")]
         #[qproperty(QString, title)]
@@ -199,6 +204,14 @@ pub(crate) mod qobject {
             control: i32,
         ) -> QString;
         #[qinvokable]
+        #[cxx_name = "controlTransformLive"]
+        fn control_transform_live(
+            self: &InspectorBackend,
+            category: i32,
+            item: i32,
+            control: i32,
+        ) -> bool;
+        #[qinvokable]
         #[cxx_name = "controlSubtitle"]
         fn control_subtitle(
             self: &InspectorBackend,
@@ -292,6 +305,30 @@ pub(crate) mod qobject {
             item: i32,
             control: i32,
         ) -> i32;
+        #[qinvokable]
+        #[cxx_name = "controlPrefixIcon"]
+        fn control_prefix_icon(
+            self: &InspectorBackend,
+            category: i32,
+            item: i32,
+            control: i32,
+        ) -> QString;
+        #[qinvokable]
+        #[cxx_name = "controlPrefixIconRotates"]
+        fn control_prefix_icon_rotates(
+            self: &InspectorBackend,
+            category: i32,
+            item: i32,
+            control: i32,
+        ) -> bool;
+        #[qinvokable]
+        #[cxx_name = "controlPrefixIconRotationOffset"]
+        fn control_prefix_icon_rotation_offset(
+            self: &InspectorBackend,
+            category: i32,
+            item: i32,
+            control: i32,
+        ) -> f64;
         #[qinvokable]
         #[cxx_name = "controlPrefix"]
         fn control_prefix(
@@ -610,12 +647,15 @@ pub struct InspectorBackendRust {
     document_revision: i32,
     expression_revision: i32,
     playhead_revision: i32,
+    transform_revision: i32,
     active_category: i32,
     scroll_position: f64,
     title: QString,
     document: Option<InspectorDocument>,
     list_state: InspectorListState,
     stabilization_generating: Option<bool>,
+    resolved_transform: Option<shrimply_project::project::ResolvedTransform>,
+    transform_live: Option<shrimply_inspector_core::transform::TransformLivePresentation>,
 }
 
 impl cxx_qt::Initialize for qobject::InspectorBackend {
@@ -623,6 +663,25 @@ impl cxx_qt::Initialize for qobject::InspectorBackend {
 }
 
 impl qobject::InspectorBackend {
+    fn transform_active(&self) -> bool {
+        let Some(document) = self.document() else {
+            return false;
+        };
+        self.category(*self.active_category())
+            .is_some_and(|category| {
+                category.key == "visual"
+                    && category.items.iter().any(|entry| {
+                        let InspectorListItem::Item(item) = entry else {
+                            return false;
+                        };
+                        self.rust()
+                            .list_state
+                            .expanded(&document.target, &item.presentation.key)
+                            && crate::graph_backend::has_transform_controls(&item.section)
+                    })
+            })
+    }
+
     pub fn minimum_width(&self) -> i32 {
         shrimply_inspector_core::INSPECTOR_MIN_WIDTH
     }
@@ -640,6 +699,7 @@ impl qobject::InspectorBackend {
         let cache_dirty = super::take_cache_dirty();
         let expression_dirty = super::take_expression_dirty();
         let playhead_dirty = super::take_playhead_dirty();
+        let transform_dirty = super::take_transform_dirty();
         let focus_dirty = super::take_focus_dirty();
         let Some(document) = document else {
             if cache_dirty {
@@ -650,7 +710,24 @@ impl qobject::InspectorBackend {
                 let revision = self.expression_revision().wrapping_add(1);
                 self.as_mut().set_expression_revision(revision);
             }
-            if playhead_dirty {
+            let transform_active = self.transform_active();
+            if (playhead_dirty || transform_dirty) && transform_active {
+                let target = self.document().map(|document| document.target.clone());
+                let live = target.as_ref().and_then(super::transform_live_presentation);
+                self.as_mut().rust_mut().resolved_transform = live
+                    .as_ref()
+                    .map(|presentation| presentation.resolved)
+                    .or_else(|| target.as_ref().and_then(super::resolved_transform));
+                if let Some(live) = &live
+                    && let Some(document) = self.as_mut().rust_mut().document.as_mut()
+                {
+                    crate::graph_backend::update_transform_graphs(document, live);
+                }
+                self.as_mut().rust_mut().transform_live = live;
+                let revision = self.transform_revision().wrapping_add(1);
+                self.as_mut().set_transform_revision(revision);
+            }
+            if playhead_dirty && transform_active {
                 let revision = self.playhead_revision().wrapping_add(1);
                 self.as_mut().set_playhead_revision(revision);
             }
@@ -675,9 +752,16 @@ impl qobject::InspectorBackend {
         let scroll_position = self.rust().list_state.scroll_position(&document.target);
         let active = i32::try_from(active).expect("inspector category index exceeds Qt limits");
         let title = QString::from(document.title.as_str());
+        let transform_live = super::transform_live_presentation(&document.target);
+        let resolved_transform = transform_live
+            .as_ref()
+            .map(|presentation| presentation.resolved)
+            .or_else(|| super::resolved_transform(&document.target));
         let revision = self.revision().wrapping_add(1);
         let document_revision = self.document_revision().wrapping_add(1);
         self.as_mut().rust_mut().document = Some(document);
+        self.as_mut().rust_mut().resolved_transform = resolved_transform;
+        self.as_mut().rust_mut().transform_live = transform_live;
         self.as_mut().set_ready(true);
         self.as_mut().set_title(title);
         self.as_mut().set_active_category(active);
@@ -744,6 +828,9 @@ impl qobject::InspectorBackend {
             .list_state
             .set_active_category(&target, &key);
         self.as_mut().set_active_category(category);
+        if key == "visual" {
+            super::mark_transform_dirty();
+        }
     }
 
     pub fn item_count(&self, category: i32) -> i32 {
@@ -815,6 +902,7 @@ impl qobject::InspectorBackend {
             return;
         };
         let key = card.presentation.key.clone();
+        let transform = crate::graph_backend::has_transform_controls(&card.section);
         let target = self.document().expect("card has a document").target.clone();
         if self.rust().list_state.expanded(&target, &key) == expanded {
             return;
@@ -823,6 +911,9 @@ impl qobject::InspectorBackend {
             .rust_mut()
             .list_state
             .set_expanded(&target, &key, expanded);
+        if expanded && transform {
+            super::mark_transform_dirty();
+        }
         let revision = self.revision().wrapping_add(1);
         self.as_mut().set_revision(revision);
     }
@@ -964,6 +1055,7 @@ impl qobject::InspectorBackend {
                 ControlKind::AudioCache => 18,
                 ControlKind::AudioCachePreset => 19,
                 ControlKind::AudioModifierMenu => 20,
+                ControlKind::VisualModifierMenu => 20,
                 ControlKind::TtsEditor => 21,
                 ControlKind::BeatDetection => 22,
                 ControlKind::InfoHeading => 23,
@@ -976,16 +1068,17 @@ impl qobject::InspectorBackend {
 
     pub fn control_label(&self, category: i32, item: i32, control: i32) -> QString {
         self.control(category, item, control)
-            .map_or_else(QString::default, |control| {
-                shrimply_i18n_qt::text(&control.label)
-            })
+            .map_or_else(QString::default, |control| QString::from(&control.label))
+    }
+
+    pub fn control_transform_live(&self, category: i32, item: i32, control: i32) -> bool {
+        self.control(category, item, control)
+            .is_some_and(|control| crate::graph_backend::is_transform_path(&control.path))
     }
 
     pub fn control_subtitle(&self, category: i32, item: i32, control: i32) -> QString {
         self.control(category, item, control)
-            .map_or_else(QString::default, |control| {
-                shrimply_i18n_qt::text(&control.subtitle)
-            })
+            .map_or_else(QString::default, |control| QString::from(&control.subtitle))
     }
 
     pub fn control_tooltip(&self, category: i32, item: i32, control: i32) -> QString {
@@ -1016,16 +1109,22 @@ impl qobject::InspectorBackend {
                 if control.kind == ControlKind::Fraction {
                     QString::from(fraction_value(control).to_string())
                 } else if control.kind == ControlKind::LayeredNumber {
-                    let value = target
+                    let cached = self
+                        .rust()
+                        .transform_live
                         .as_ref()
-                        .and_then(|target| {
-                            super::timeline_number_value(
-                                target,
-                                control.target_id,
-                                control.timeline_id,
-                                control.timeline_path.as_deref().unwrap_or(&control.path),
-                            )
-                            .ok()
+                        .and_then(|live| live.number(&control.path));
+                    let value = cached
+                        .or_else(|| {
+                            target.as_ref().and_then(|target| {
+                                super::timeline_number_value(
+                                    target,
+                                    control.target_id,
+                                    control.timeline_id,
+                                    control.timeline_path.as_deref().unwrap_or(&control.path),
+                                )
+                                .ok()
+                            })
                         })
                         .map(|value| {
                             value
@@ -1059,6 +1158,34 @@ impl qobject::InspectorBackend {
                         .and_then(super::tracked_audio_cache_control)
                         .map(|status| status.progress)
                         .or_else(|| control.components.first()?.parse().ok());
+                }
+                if control.kind == ControlKind::LayeredVector2 {
+                    let value = self
+                        .rust()
+                        .transform_live
+                        .as_ref()
+                        .and_then(|live| live.vector(&control.path))
+                        .or_else(|| {
+                            let transform = self.rust().resolved_transform?;
+                            match control.path.as_str() {
+                                "/transform/position" => Some(transform.position),
+                                "/transform/anchor" => Some(transform.anchor),
+                                "/transform/scale" => Some(transform.scale),
+                                "/transform/shear" => Some(transform.shear),
+                                _ => None,
+                            }
+                        })
+                        .or_else(|| {
+                            Some(glam::Vec2::new(
+                                control.components.first()?.parse().ok()?,
+                                control.components.get(1)?.parse().ok()?,
+                            ))
+                        })?;
+                    return match component {
+                        0 => Some(f64::from(value.x)),
+                        1 => Some(f64::from(value.y)),
+                        _ => None,
+                    };
                 }
                 control.components.get(index(component)?)?.parse().ok()
             })
@@ -1162,6 +1289,28 @@ impl qobject::InspectorBackend {
     pub fn control_width_characters(&self, category: i32, item: i32, control: i32) -> i32 {
         self.control(category, item, control)
             .map_or(8, |control| control.width_characters)
+    }
+
+    pub fn control_prefix_icon(&self, category: i32, item: i32, control: i32) -> QString {
+        self.control(category, item, control)
+            .map_or_else(QString::default, |control| {
+                QString::from(control.prefix_icon.as_str())
+            })
+    }
+
+    pub fn control_prefix_icon_rotates(&self, category: i32, item: i32, control: i32) -> bool {
+        self.control(category, item, control)
+            .is_some_and(|control| control.prefix_icon_rotates)
+    }
+
+    pub fn control_prefix_icon_rotation_offset(
+        &self,
+        category: i32,
+        item: i32,
+        control: i32,
+    ) -> f64 {
+        self.control(category, item, control)
+            .map_or(0.0, |control| control.prefix_icon_rotation_offset_degrees)
     }
 
     pub fn control_prefix(
@@ -1278,6 +1427,21 @@ impl qobject::InspectorBackend {
                 .map(QString::from)
                 .collect();
         }
+        if control.kind == ControlKind::LayeredVector2 {
+            let Ok(output) = super::vector2_expression_output(&document.target, path) else {
+                return QStringList::default();
+            };
+            return [
+                format!(
+                    "X {:.0}{}  Y {:.0}{}",
+                    output.value.x, control.number.unit, output.value.y, control.number.unit,
+                ),
+                output.error.unwrap_or_default(),
+            ]
+            .into_iter()
+            .map(QString::from)
+            .collect();
+        }
         let output = if control.audio_modifier {
             control
                 .target_id
@@ -1315,91 +1479,6 @@ impl qobject::InspectorBackend {
         .collect()
     }
 
-    pub fn control_graph_point_times(&self, category: i32, item: i32, control: i32) -> QStringList {
-        self.control(category, item, control)
-            .and_then(|control| control.scalar_graph.as_ref())
-            .map(|graph| {
-                graph
-                    .points
-                    .iter()
-                    .map(|point| QString::from(time_text(point.time)))
-                    .collect()
-            })
-            .unwrap_or_default()
-    }
-
-    pub fn control_graph_point_values(
-        &self,
-        category: i32,
-        item: i32,
-        control: i32,
-    ) -> QStringList {
-        self.control(category, item, control)
-            .and_then(|control| control.scalar_graph.as_ref())
-            .map(|graph| {
-                graph
-                    .points
-                    .iter()
-                    .map(|point| QString::from(point.value.to_string()))
-                    .collect()
-            })
-            .unwrap_or_default()
-    }
-
-    pub fn control_graph_segments(&self, category: i32, item: i32, control: i32) -> QStringList {
-        self.control(category, item, control)
-            .and_then(|control| control.scalar_graph.as_ref())
-            .map(|graph| {
-                graph
-                    .segments
-                    .iter()
-                    .map(|segment| {
-                        QString::from(format!(
-                            "{}\t{}\t{}\t{}\t{}\t{}",
-                            segment.owner_id,
-                            time_text(segment.start),
-                            time_text(segment.end),
-                            segment.start_value,
-                            segment.end_value,
-                            segment.interpolation,
-                        ))
-                    })
-                    .collect()
-            })
-            .unwrap_or_default()
-    }
-
-    pub fn control_graph_timing(&self, category: i32, item: i32, control: i32) -> QStringList {
-        self.control(category, item, control)
-            .and_then(|control| control.scalar_graph.as_ref())
-            .map(|graph| {
-                [graph.range.0, graph.range.1, graph.frame_step]
-                    .into_iter()
-                    .flat_map(time_parts)
-                    .map(|part| QString::from(part.to_string()))
-                    .collect()
-            })
-            .unwrap_or_default()
-    }
-
-    pub fn control_graph_playhead(&self, category: i32, item: i32, control: i32) -> QStringList {
-        let fallback = self
-            .control(category, item, control)
-            .and_then(|control| control.scalar_graph.as_ref())
-            .map(|graph| graph.playhead);
-        let time = self
-            .document()
-            .and_then(|document| super::current_keyframe_time(&document.target).ok())
-            .or(fallback);
-        time.map(|time| {
-            time_parts(time)
-                .into_iter()
-                .map(|part| QString::from(part.to_string()))
-                .collect()
-        })
-        .unwrap_or_default()
-    }
-
     pub fn set_control_value(
         mut self: Pin<&mut Self>,
         category: i32,
@@ -1426,6 +1505,30 @@ impl qobject::InspectorBackend {
             } else {
                 self.as_mut()
                     .finish(super::add_audio_modifier(&target, &value));
+            }
+            return;
+        }
+        if control.kind == ControlKind::VisualModifierMenu {
+            if value == "__paste__" {
+                let result = super::paste_visual_modifiers(&target).map(|count| {
+                    (count > 0).then(|| {
+                        if count == 1 {
+                            "1 effect pasted".to_string()
+                        } else {
+                            format!("{count} effects pasted")
+                        }
+                    })
+                });
+                self.as_mut().finish_confirmation(result);
+            } else {
+                let result = super::add_visual_modifier(&target, &value).map(|id| {
+                    self.as_mut().rust_mut().list_state.set_expanded(
+                        &target,
+                        &format!("modifier:{id}"),
+                        true,
+                    );
+                });
+                self.as_mut().finish(result);
             }
             return;
         }
@@ -1576,6 +1679,15 @@ impl qobject::InspectorBackend {
         } else {
             2
         };
+        if control.kind == ControlKind::LayeredVector2 {
+            self.as_mut().finish(super::set_vector2_value(
+                &target,
+                &control.path,
+                first * control.store_multiplier,
+                second * control.store_multiplier,
+            ));
+            return;
+        }
         let values = [first, second, third]
             .into_iter()
             .take(count)
@@ -1665,6 +1777,8 @@ impl qobject::InspectorBackend {
                 })
         } else if control.kind == ControlKind::LayeredNumber {
             super::set_scalar_keyframes_enabled(&target, path, enabled)
+        } else if control.kind == ControlKind::LayeredVector2 {
+            super::set_vector2_keyframes_enabled(&target, path, enabled)
         } else if control.kind == ControlKind::LayeredBoolean {
             super::set_bool_keyframes_enabled(&target, path, enabled)
         } else if control.kind == ControlKind::LayeredSelector {
@@ -1827,7 +1941,12 @@ impl qobject::InspectorBackend {
         }
     }
 
-    fn control(&self, category: i32, item: i32, control: i32) -> Option<&InspectorControl> {
+    pub(crate) fn control(
+        &self,
+        category: i32,
+        item: i32,
+        control: i32,
+    ) -> Option<&InspectorControl> {
         self.section(category, item)?.controls.get(index(control)?)
     }
 
@@ -1876,117 +1995,4 @@ fn time_parts(time: shrimply_project::project::Time) -> [i64; 2] {
 pub(crate) fn time_text(time: shrimply_project::project::Time) -> String {
     let [numerator, denominator] = time_parts(time);
     format!("{numerator}/{denominator}")
-}
-
-fn fraction_value(control: &InspectorControl) -> f64 {
-    let numerator = control
-        .components
-        .first()
-        .and_then(|value| value.parse::<f64>().ok())
-        .unwrap_or_default();
-    let denominator = control
-        .components
-        .get(1)
-        .and_then(|value| value.parse::<f64>().ok())
-        .filter(|value| *value != 0.0)
-        .unwrap_or(1.0);
-    numerator / denominator
-}
-
-fn timeline_value(control: &InspectorControl) -> Result<serde_json::Value, String> {
-    match control.kind {
-        ControlKind::LayeredNumber => number_value(
-            control
-                .value
-                .parse::<f64>()
-                .map_err(|_| format!("invalid timeline value: {}", control.value))?
-                * control.store_multiplier,
-        ),
-        ControlKind::LayeredVector2 | ControlKind::LayeredVector3 => {
-            let expected = if control.kind == ControlKind::LayeredVector2 {
-                2
-            } else {
-                3
-            };
-            if control.components.len() != expected {
-                return Err(format!(
-                    "timeline vector must contain {expected} components"
-                ));
-            }
-            control
-                .components
-                .iter()
-                .map(|value| {
-                    value
-                        .parse::<f64>()
-                        .map(|value| value * control.store_multiplier)
-                        .map_err(|_| format!("invalid timeline component: {value}"))
-                        .and_then(number_value)
-                })
-                .collect::<Result<Vec<_>, _>>()
-                .map(serde_json::Value::Array)
-        }
-        ControlKind::LayeredBoolean => control
-            .value
-            .parse::<bool>()
-            .map(shrimply_core::timeline_value::TimelineBool::from)
-            .map(|value| serde_json::to_value(value).expect("timeline boolean must serialize"))
-            .map_err(|_| format!("invalid timeline boolean: {}", control.value)),
-        ControlKind::LayeredSelector => Ok(serde_json::Value::String(control.value.clone())),
-        _ => Err("inspector control is not a layered value".to_string()),
-    }
-}
-
-fn control_value(control: &InspectorControl, value: &str) -> Result<serde_json::Value, String> {
-    match control.kind {
-        ControlKind::LayeredNumber => value
-            .parse::<f64>()
-            .map(|value| value * control.store_multiplier)
-            .map_err(|_| format!("invalid timeline value: {value}"))
-            .and_then(number_value),
-        ControlKind::LayeredBoolean => value
-            .parse::<bool>()
-            .map(shrimply_core::timeline_value::TimelineBool::from)
-            .map(|value| serde_json::to_value(value).expect("timeline boolean must serialize"))
-            .map_err(|_| format!("invalid timeline boolean: {value}")),
-        ControlKind::LayeredSelector if control.values.iter().any(|choice| choice == value) => {
-            Ok(serde_json::Value::String(value.to_string()))
-        }
-        ControlKind::LayeredSelector => Err(format!("invalid timeline selector value: {value}")),
-        _ => Err("inspector control is not a layered scalar".to_string()),
-    }
-}
-
-fn number_value(value: f64) -> Result<serde_json::Value, String> {
-    serde_json::Number::from_f64(value)
-        .map(serde_json::Value::Number)
-        .ok_or_else(|| "timeline value must be finite".to_string())
-}
-
-fn default_expression(control: &InspectorControl) -> &'static str {
-    match control.kind {
-        ControlKind::LayeredVector2 => "[x, y]",
-        ControlKind::LayeredVector3 => "[x, y, z]",
-        _ => "value",
-    }
-}
-
-fn boolean_action(action: InspectorAction, active: bool) -> InspectorAction {
-    match action {
-        InspectorAction::SetBoolean { path, .. } => InspectorAction::SetBoolean {
-            path,
-            value: active,
-        },
-        action => action,
-    }
-}
-
-fn optional_action(action: InspectorAction, active: bool) -> InspectorAction {
-    match action {
-        InspectorAction::SetOptional { path, value } => InspectorAction::SetOptional {
-            path,
-            value: active.then_some(value).flatten(),
-        },
-        action => boolean_action(action, active),
-    }
 }

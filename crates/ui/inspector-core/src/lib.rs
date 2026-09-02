@@ -15,10 +15,12 @@ pub mod selector;
 mod target;
 mod timeline;
 pub mod track;
+pub mod transform;
 pub mod transition;
 pub mod tts;
 mod value;
 pub mod video;
+pub mod visual_modifiers;
 
 pub use audio_modifiers::{
     AudioCachePreset, AudioModifierControl, AudioModifierOption, AudioModifierScalarPresentation,
@@ -42,3 +44,9 @@ pub use target::InspectorTarget;
 pub use track::TrackPresentation;
 pub use transition::{TransitionPresentation, TransitionType};
 pub use video::{VideoCard, VideoPresentation, VideoReset, VideoStreamPresentation};
+pub use visual_modifiers::{
+    OpacityModifierPresentation, TransformModifierPresentation,
+    VisualModifierAlphaMaskPresentation, VisualModifierBodyPresentation, VisualModifierChoice,
+    VisualModifierPresentation, default_visual_modifier_effect, visual_modifier_catalog,
+    visual_modifier_presentations,
+};
