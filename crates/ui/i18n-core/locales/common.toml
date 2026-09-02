@@ -388,7 +388,7 @@ ja = "色相"
 pt = "Matiz"
 tr = "Ton"
 it = "Tonalità"
-id = "Rona"
+id = "Hue"
 
 ["Info"]
 en = "Info"
@@ -598,7 +598,7 @@ ja = "音声読み上げ"
 pt = "Texto para fala"
 tr = "Metinden Sese"
 it = "Sintesi vocale"
-id = "Text to Speech"
+id = "Teks ke Suara"
 
 ["Version"]
 en = "Version"

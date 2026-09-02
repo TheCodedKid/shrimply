@@ -733,7 +733,7 @@ ja = "タイムライン、ビート、プレビューのスナップ距離（�
 pt = "Distância em pixels para encaixe na linha do tempo, batidas e pré-visualização"
 tr = "Zaman akışı, vuruş ve önizleme hizalaması için piksel cinsinden mesafe"
 it = "Distanza in pixel per l’aggancio a sequenza, beat e anteprima"
-id = "Jarak dalam piksel untuk penempelan garis waktu, ketukan, dan pratinjau"
+id = "Jarak dalam piksel untuk snap timeline, ketukan, dan pratinjau"
 
 ["Drop shadow extent around the video frame in pixels"]
 en = "Drop shadow extent around the video frame in pixels"
@@ -1603,7 +1603,7 @@ ja = "Kdenlive タイムラインを読み込んで変換中…"
 pt = "Lendo e convertendo linha do tempo do Kdenlive…"
 tr = "Kdenlive zaman çizelgesi okunup dönüştürülüyor…"
 it = "Leggendo e convertendo la sequenza di Kdenlive"
-id = "Membaca dan mengonversi garis waktu Kdenlive…"
+id = "Membaca dan mengonversi timeline Kdenlive…"
 
 ["Recent"]
 en = "Recent"
@@ -1708,7 +1708,7 @@ ja = "リップルカット"
 pt = "Corte com ondulação"
 tr = "Ardışık kesim"
 it = "Taglia e scorri"
-id = "Potong riak"
+id = "Potong ripple"
 
 ["Ripple trim selected clip to playhead"]
 en = "Ripple trim selected clip to playhead"
@@ -1723,7 +1723,7 @@ ja = "選択したクリップを再生ヘッドまでリップルトリム"
 pt = "Aparar com ondulação o clipe selecionado até o indicador de reprodução"
 tr = "Seçilen klibi oynatma imlecine kadar ardışık kırp"
 it = "Taglia e scorri la clip selezionata fino alla testina di riproduzione"
-id = "Pangkas riak klip yang dipilih ke playhead"
+id = "Pangkas ripple klip yang dipilih ke playhead"
 
 ["Saturation and value"]
 en = "Saturation and value"
@@ -1978,7 +1978,7 @@ ja = "スナップ吸着範囲"
 pt = "Raio de atração do encaixe"
 tr = "Yapışma Çekim Yarıçapı"
 it = "Raggio di attrazione del aggancio"
-id = "Radius Tarikan Penempelan"
+id = "Radius Tarikan Snap"
 
 ["Space around the video frame in pixels"]
 en = "Space around the video frame in pixels"
@@ -2143,7 +2143,7 @@ ja = "タイムラインのズームを切り替え"
 pt = "Alternar zoom da linha do tempo"
 tr = "Zaman çizelgesi yakınlaştırmasını aç/kapat"
 it = "Mostra/nascondi lo zoom sulla sequenza"
-id = "Alihkan zoom garis waktu"
+id = "Alihkan zoom timeline"
 
 ["Torch"]
 en = "Torch"

@@ -2392,7 +2392,7 @@ ja = "タイムラインの範囲は削除されませんでした。"
 "ru" = "Ни один диапазон таймлайна не был удалён."
 pt = "Nenhum intervalo da linha do tempo foi removido."
 it = "Nessun intervallo della sequenza è stato rimosso."
-id = "Tidak ada rentang garis waktu yang dihapus."
+id = "Tidak ada rentang timeline yang dihapus."
 
 ["Follow cuts"]
 en = "Follow cuts"
@@ -2448,7 +2448,7 @@ ja = "生成した字幕の境界を、この秒数以内にある近くのカ�
 "ru" = "Привязывать границы созданных субтитров к близлежащим разрезам в пределах указанного количества секунд."
 pt = "Encaixar limites das legendas geradas nos cortes próximos dentro desta quantidade de segundos."
 it = "Aggancia i limiti dei sottotitoli generati ai tagli vicini entro questo numero di secondi."
-id = "Rapatkan batas takarir yang dihasilkan ke potongan terdekat dalam rentang detik ini."
+id = "Rapatkan batas subtitel yang dihasilkan ke potongan terdekat dalam rentang detik ini."
 
 ["Continue cut threshold"]
 en = "Continue cut threshold"
@@ -2602,7 +2602,7 @@ ja = "字幕の正確な長さで%{count}個の字幕チャンクを生成しま
 "ru" = "Будет создан %{count} фрагмент субтитров с точной длительностью соответствующего субтитра."
 pt = "%{count} trecho de legenda será gerado com a duração exata de cada legenda."
 it = "Verrà generato %{count} frammento di sottotitoli con la durata esatta di ciascun sottotitolo."
-id = "%{count} potongan takarir akan dihasilkan dengan durasi tepat dari masing-masing takarir."
+id = "%{count} potongan subtitel akan dihasilkan dengan durasi tepat dari masing-masing subtitel."
 
 ["%{count} caption chunks will be generated with each caption's exact duration."]
 en = "%{count} caption chunks will be generated with each caption's exact duration."
@@ -2616,7 +2616,7 @@ ja = "各字幕の正確な長さで%{count}個の字幕チャンクを生成し
 "ru" = "Будет создано %{count} фрагментов субтитров с точной длительностью соответствующих субтитров."
 pt = "%{count} trechos de legendas serão gerados com a duração exata de cada legenda."
 it = "Verranno generati %{count} frammenti di sottotitoli con la durata esatta di ciascun sottotitolo."
-id = "%{count} potongan takarir akan dihasilkan dengan durasi tepat dari masing-masing takarir."
+id = "%{count} potongan subtitel akan dihasilkan dengan durasi tepat dari masing-masing subtitel."
 
 ["%{count} empty or invalid chunk will be skipped."]
 en = "%{count} empty or invalid chunk will be skipped."
@@ -2798,7 +2798,7 @@ ja = "タイムラインへの読み込みはMP4に対応しています。先�
 "ru" = "MP4 — поддерживаемый формат импорта на таймлайн. Сначала файл можно перепаковать без потерь."
 pt = "MP4 é o formato suportado para importação na linha do tempo. O arquivo pode ser remuxado sem perdas primeiro."
 it = "MP4 è il formato supportato per l'import nella timeline. È possibile eseguire prima un remux senza perdita di qualità."
-id = "MP4 adalah format impor garis waktu yang didukung. File dapat di-remux secara lossless terlebih dahulu."
+id = "MP4 adalah format impor timeline yang didukung. File dapat di-remux secara lossless terlebih dahulu."
 
 ["Remux"]
 en = "Remux"

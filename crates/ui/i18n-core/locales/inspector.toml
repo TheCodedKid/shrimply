@@ -193,7 +193,7 @@ ja = "アルファマスクストリーム"
 pt = "Fluxo de máscara alfa"
 tr = "Alfa Maskesi Akışı"
 it = "Stream della maschera alpha"
-id = "Stream Masker Alfa"
+id = "Stream Mask Alfa"
 
 ["Amount"]
 en = "Amount"
@@ -1018,7 +1018,7 @@ ja = "字幕テキストの色"
 pt = "Cor do texto da legenda"
 tr = "Altyazı metin rengi"
 it = "Colore del testo dei sottotitoli"
-id = "Warna teks takarir"
+id = "Warna teks subtitel"
 
 ["Ceiling"]
 en = "Ceiling"
@@ -1153,7 +1153,7 @@ ja = "フレームレートや解像度を変更すると、タイミング、�
 pt = "Alterar a taxa de quadros ou a resolução pode afetar a sincronização, o layout visual e a saída renderizada. As mídias e efeitos existentes podem não corresponder mais ao projeto."
 tr = "Kare hızını veya çözünürlüğü değiştirmek zamanlamayı, görsel düzeni ve işlenmiş çıktıyı etkileyebilir. Mevcut medya ve efektler artık bu projeyle eşleşmeyebilir."
 it = "Modificare la frequenza dei fotogrammi o la risoluzione può influire su temporizzazione, layout visivo e l'output renderizzato. I media e gli effetti esistenti potrebbero non corrispondere più al progetto."
-id = "Mengubah laju bingkai atau resolusi dapat memengaruhi pewaktuan, tata letak visual, dan hasil render. Media dan efek yang ada mungkin tidak lagi cocok dengan proyek."
+id = "Mengubah frame rate atau resolusi dapat memengaruhi pewaktuan, tata letak visual, dan hasil render. Media dan efek yang ada mungkin tidak lagi cocok dengan proyek."
 
 ["Channel angle offset"]
 en = "Channel angle offset"
@@ -4210,7 +4210,7 @@ ja = "マスク"
 "ru" = "Маска"
 pt = "Máscara"
 it = "Maschera"
-id = "Masker"
+id = "Mask"
 
 ["Mask strength"]
 en = "Mask strength"
@@ -4896,7 +4896,7 @@ ja = "不透明度"
 "ru" = "Непрозрачность"
 pt = "Opacidade"
 it = "Opacità"
-id = "Opasitas"
+id = "Opacity"
 
 ["Open larger editor"]
 en = "Open larger editor"
@@ -5330,7 +5330,7 @@ ja = "ピッチ"
 "ru" = "Высота тона"
 pt = "Pitch"
 it = "Pitch"
-id = "Titinada"
+id = "Pitch"
 
 ["Pitch offset"]
 en = "Pitch offset"
@@ -7654,7 +7654,7 @@ ja = "トラック"
 "ru" = "Дорожка"
 pt = "Faixa"
 it = "Traccia"
-id = "Trek"
+id = "Track"
 
 ["Tracking"]
 en = "Tracking"
@@ -7696,7 +7696,7 @@ ja = "トラック"
 "ru" = "Дорожки"
 pt = "Faixas"
 it = "Tracce"
-id = "Trek"
+id = "Tracks"
 
 ["Trail length"]
 en = "Trail length"
@@ -8648,7 +8648,7 @@ ja = "キャプションマークアップ: **太字**、*斜体*、__下線__�
 "ru" = "Разметка субтитров: **жирный**, *курсив*, __подчёркнутый__, {миллисекунды} караоке, [основа/фуригана]"
 pt = "Marcação de legenda: **negrito**, *itálico*, __sublinhado__, {milissegundos} karaokê, [base/ruby]"
 it = "Marcatura sottotitoli: **grassetto**, *corsivo*, __sottolineato__, {milliseconds} karaoke, [base/ruby]"
-id = "Markup takarir: **tebal**, *miring*, __garis bawah__, {milliseconds} karaoke, [dasar/ruby]"
+id = "Markup subtitel: **tebal**, *miring*, __garis bawah__, {milliseconds} karaoke, [dasar/ruby]"
 
 ["Missing item"]
 en = "Missing item"
@@ -10524,7 +10524,7 @@ ja = "テキストマスク"
 "ru" = "Текстовая маска"
 pt = "Máscara de texto"
 it = "Maschera di testo"
-id = "Masker teks"
+id = "Mask teks"
 
 ["Texture bounds"]
 en = "Texture bounds"
@@ -11154,7 +11154,7 @@ ja = "字幕トラック1本"
 "ru" = "1 дорожка субтитров"
 pt = "1 faixa de legendas"
 it = "1 traccia sottotitoli"
-id = "1 trek takarir"
+id = "1 track subtitel"
 
 ["%{count} caption tracks"]
 en = "%{count} caption tracks"
@@ -11168,7 +11168,7 @@ ja = "字幕トラック%{count}本"
 "ru" = "Дорожек субтитров: %{count}"
 pt = "%{count} faixas de legendas"
 it = "%{count} tracce sottotitoli"
-id = "%{count} trek takarir"
+id = "%{count} track subtitel"
 
 ["1 page"]
 en = "1 page"
