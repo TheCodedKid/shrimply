@@ -5,6 +5,7 @@ use crate::{ControlKind, InspectorControl, InspectorRuntime, InspectorSection, N
 pub(super) fn presentation(
     value: &TextMaskModifier,
     index: usize,
+    modifier_id: uuid::Uuid,
     runtime: InspectorRuntime,
 ) -> InspectorSection {
     let base = format!("/modifiers/{index}/effect/effect/config");
@@ -28,6 +29,7 @@ pub(super) fn presentation(
         "Partial mode",
         enum_text(value.partial_mode),
         &[(&"clip", &"Clip"), (&"fade", &"Fade"), (&"snap", &"Snap")],
+        modifier_id,
     ));
     section.add(selector(
         format!("{base}/direction"),
@@ -39,6 +41,7 @@ pub(super) fn presentation(
             (&"top_to_bottom", &"Top to bottom"),
             (&"bottom_to_top", &"Bottom to top"),
         ],
+        modifier_id,
     ));
     section
 }
@@ -48,6 +51,7 @@ fn selector(
     label: &'static str,
     value: String,
     choices: &[(&str, &str)],
+    modifier_id: uuid::Uuid,
 ) -> InspectorControl {
     InspectorControl::new(ControlKind::Selector, path, label)
         .value(value)
@@ -56,6 +60,7 @@ fn selector(
             choices.iter().map(|choice| choice.1.to_string()).collect(),
         )
         .immediate_commit("edit-text-mask")
+        .target(modifier_id)
 }
 
 fn enum_text(value: impl serde::Serialize) -> String {

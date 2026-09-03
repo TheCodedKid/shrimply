@@ -80,6 +80,10 @@ impl InspectorController {
                 .set_video_step_keyframes_enabled::<
                     shrimply_video_modifiers::erode_dilate::ErodeDilateOperation,
                 >(target, path, enabled),
+            path if path.ends_with("/effect/effect/config/mode") => self
+                .set_video_step_keyframes_enabled::<
+                    shrimply_video_modifiers::halftone::HalftoneMode,
+                >(target, path, enabled),
             _ => Err(format!("unknown step timeline: {path}")),
         }
     }
@@ -162,6 +166,26 @@ impl InspectorController {
                         .expect("evaluated erode/dilate operation must be a declared variant")
                         .key
                         .to_string();
+                Ok(InspectorExpressionOutput {
+                    value,
+                    error: outcome.error,
+                })
+            }
+            path if path.ends_with("/effect/effect/config/mode") => {
+                let timeline_id = timeline_id
+                    .ok_or_else(|| "visual modifier step timeline ID is unavailable".to_string())?;
+                let outcome = self.video_modifier_expression_output(
+                    target,
+                    path,
+                    timeline_id,
+                    crate::visual_modifiers::halftone_mode,
+                )?;
+                let value = shrimply_video_modifiers::halftone::HalftoneMode::variants()
+                    .iter()
+                    .find(|variant| variant.value == outcome.value)
+                    .expect("evaluated halftone mode must be a declared variant")
+                    .key
+                    .to_string();
                 Ok(InspectorExpressionOutput {
                     value,
                     error: outcome.error,
@@ -1238,6 +1262,9 @@ fn step_timeline_type(path: &str) -> Result<&'static str, String> {
         "/compositing/blend_mode" => Ok(std::any::type_name::<shrimply_core::LayerBlendMode>()),
         path if path.ends_with("/effect/effect/config/operation") => Ok(std::any::type_name::<
             shrimply_video_modifiers::erode_dilate::ErodeDilateOperation,
+        >()),
+        path if path.ends_with("/effect/effect/config/mode") => Ok(std::any::type_name::<
+            shrimply_video_modifiers::halftone::HalftoneMode,
         >()),
         _ => Err(format!("unknown step timeline: {path}")),
     }

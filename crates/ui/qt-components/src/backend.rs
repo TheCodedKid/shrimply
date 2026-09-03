@@ -361,11 +361,34 @@ pub mod qobject {
             component: i32,
         );
         #[qinvokable]
+        #[cxx_name = "editTriple"]
+        fn edit_layered_triple(
+            self: Pin<&mut LayeredPropertyBackend>,
+            first: f64,
+            second: f64,
+            third: f64,
+            component: i32,
+        );
+        #[qinvokable]
         #[cxx_name = "configurePair"]
         fn configure_layered_pair(self: Pin<&mut LayeredPropertyBackend>, first: f64, second: f64);
         #[qinvokable]
+        #[cxx_name = "configureTriple"]
+        fn configure_layered_triple(
+            self: Pin<&mut LayeredPropertyBackend>,
+            first: f64,
+            second: f64,
+            third: f64,
+        );
+        #[qinvokable]
         #[cxx_name = "selectComponent"]
         fn select_layered_component(self: Pin<&mut LayeredPropertyBackend>, component: i32);
+        #[qinvokable]
+        #[cxx_name = "selectTripleComponent"]
+        fn select_layered_triple_component(
+            self: Pin<&mut LayeredPropertyBackend>,
+            component: i32,
+        );
 
         #[qsignal]
         #[cxx_name = "baseEdited"]
@@ -385,6 +408,23 @@ pub mod qobject {
             component: i32,
             first_changed: bool,
             second_changed: bool,
+        );
+        #[qsignal]
+        #[cxx_name = "baseTripleEdited"]
+        fn base_triple_edited(
+            self: Pin<&mut LayeredPropertyBackend>,
+            first: f64,
+            second: f64,
+            third: f64,
+        );
+        #[qsignal]
+        #[cxx_name = "keyframeTripleEdited"]
+        fn keyframe_triple_edited(
+            self: Pin<&mut LayeredPropertyBackend>,
+            first: f64,
+            second: f64,
+            third: f64,
+            component: i32,
         );
 
         #[qobject]
@@ -1194,6 +1234,7 @@ pub struct LayeredPropertyBackendRust {
     active_component: i32,
     controller: layered::LayeredPropertyController,
     pair: [f64; 2],
+    triple: [f64; 3],
 }
 
 impl cxx_qt::Initialize for qobject::LayeredPropertyBackend {
@@ -1241,9 +1282,53 @@ impl qobject::LayeredPropertyBackend {
         self.as_mut().rust_mut().pair = [first, second];
     }
 
+    pub fn edit_layered_triple(
+        mut self: Pin<&mut Self>,
+        first: f64,
+        second: f64,
+        third: f64,
+        component: i32,
+    ) {
+        let component = usize::try_from(component).expect("non-negative layered value component");
+        let next = [first, second, third];
+        self.as_mut().rust_mut().triple = next;
+        self.rust().controller.select_component::<3>(component);
+        self.as_mut()
+            .set_active_component(i32::try_from(component).expect("layered value component index"));
+        match self.rust().controller.edit_component(next, component) {
+            layered::LayeredEdit::Base(([first, second, third], _)) => {
+                self.as_mut().base_triple_edited(first, second, third);
+            }
+            layered::LayeredEdit::Keyframe(([first, second, third], _)) => {
+                self.as_mut().keyframe_triple_edited(
+                    first,
+                    second,
+                    third,
+                    i32::try_from(component).expect("layered value component index"),
+                );
+            }
+        }
+    }
+
+    pub fn configure_layered_triple(
+        mut self: Pin<&mut Self>,
+        first: f64,
+        second: f64,
+        third: f64,
+    ) {
+        self.as_mut().rust_mut().triple = [first, second, third];
+    }
+
     pub fn select_layered_component(mut self: Pin<&mut Self>, component: i32) {
         let component = usize::try_from(component).expect("non-negative layered value component");
         self.rust().controller.select_component::<2>(component);
+        self.as_mut()
+            .set_active_component(i32::try_from(component).expect("layered value component index"));
+    }
+
+    pub fn select_layered_triple_component(mut self: Pin<&mut Self>, component: i32) {
+        let component = usize::try_from(component).expect("non-negative layered value component");
+        self.rust().controller.select_component::<3>(component);
         self.as_mut()
             .set_active_component(i32::try_from(component).expect("layered value component index"));
     }

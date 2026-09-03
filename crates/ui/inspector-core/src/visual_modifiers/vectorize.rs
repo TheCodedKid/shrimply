@@ -1,7 +1,12 @@
-use shrimply_video_modifiers::vectorize::{
-    MAX_ANGLE_DEGREES, MAX_BINARY_THRESHOLD, MAX_COLOR_PRECISION, MAX_GRADIENT_STEP,
-    MAX_ITERATIONS, MAX_PATH_PRECISION, MAX_SEGMENT_LENGTH, MAX_SPECKLE_SIZE, MIN_COLOR_PRECISION,
-    MIN_SEGMENT_LENGTH, VectorizeColorMode, VectorizeModifier, VectorizePathMode,
+use shrimply_project::project::VideoItem;
+use shrimply_video_modifiers::{
+    ModifierEffect,
+    vectorize::{
+        MAX_ANGLE_DEGREES, MAX_BINARY_THRESHOLD, MAX_COLOR_PRECISION, MAX_GRADIENT_STEP,
+        MAX_ITERATIONS, MAX_PATH_PRECISION, MAX_SEGMENT_LENGTH, MAX_SPECKLE_SIZE,
+        MIN_COLOR_PRECISION, MIN_SEGMENT_LENGTH, VectorizeColorMode, VectorizeModifier,
+        VectorizePathMode, VectorizePreset,
+    },
 };
 
 use crate::{ControlKind, InspectorControl, InspectorRuntime, InspectorSection, NumberSpec};
@@ -9,6 +14,7 @@ use crate::{ControlKind, InspectorControl, InspectorRuntime, InspectorSection, N
 pub(super) fn presentation(
     value: &VectorizeModifier,
     index: usize,
+    modifier_id: uuid::Uuid,
     _runtime: InspectorRuntime,
 ) -> InspectorSection {
     let base = format!("/modifiers/{index}/effect/effect");
@@ -128,7 +134,134 @@ pub(super) fn presentation(
         MAX_PATH_PRECISION,
         true,
     ));
+    for control in &mut section.controls {
+        control.target_id = Some(modifier_id);
+    }
     section
+}
+
+pub(super) fn set_field(
+    item: &mut VideoItem,
+    path: &str,
+    text: &str,
+) -> Option<Result<bool, String>> {
+    let (index, field) = path.strip_prefix("/modifiers/")?.split_once('/')?;
+    if !matches!(
+        field,
+        "effect/effect/preset"
+            | "effect/effect/color_mode"
+            | "effect/effect/hierarchy"
+            | "effect/effect/path_mode"
+            | "effect/effect/speckle_size"
+            | "effect/effect/color_precision"
+            | "effect/effect/gradient_step"
+            | "effect/effect/binary_threshold"
+            | "effect/effect/corner_threshold_degrees"
+            | "effect/effect/segment_length"
+            | "effect/effect/max_iterations"
+            | "effect/effect/splice_threshold_degrees"
+            | "effect/effect/path_precision"
+    ) {
+        return None;
+    }
+    let Some(modifier) = index
+        .parse::<usize>()
+        .ok()
+        .and_then(|index| item.modifiers.get_mut(index))
+    else {
+        return Some(Err("vectorize modifier is no longer available".to_string()));
+    };
+    let ModifierEffect::Vectorize(value) = &mut modifier.effect else {
+        return Some(Err("modifier is no longer Vectorize".to_string()));
+    };
+    Some(edit_field(value, field, text))
+}
+
+fn edit_field(value: &mut VectorizeModifier, field: &str, text: &str) -> Result<bool, String> {
+    macro_rules! set_custom {
+        ($field:ident, $value:expr) => {{
+            let next = $value?;
+            let changed = value.$field != next || value.preset != VectorizePreset::Custom;
+            value.$field = next;
+            value.preset = VectorizePreset::Custom;
+            changed
+        }};
+    }
+    let changed = match field {
+        "effect/effect/preset" => {
+            let preset = enum_value(text)?;
+            if value.preset == preset {
+                false
+            } else {
+                if preset == VectorizePreset::Custom {
+                    value.preset = preset;
+                } else {
+                    *value = VectorizeModifier::from_preset(preset);
+                }
+                true
+            }
+        }
+        "effect/effect/color_mode" => set_custom!(color_mode, enum_value(text)),
+        "effect/effect/hierarchy" => set_custom!(hierarchy, enum_value(text)),
+        "effect/effect/path_mode" => set_custom!(path_mode, enum_value(text)),
+        "effect/effect/speckle_size" => {
+            set_custom!(speckle_size, integer_value(text, 0, MAX_SPECKLE_SIZE))
+        }
+        "effect/effect/color_precision" => set_custom!(
+            color_precision,
+            integer_value(text, MIN_COLOR_PRECISION, MAX_COLOR_PRECISION)
+        ),
+        "effect/effect/gradient_step" => {
+            set_custom!(gradient_step, integer_value(text, 0, MAX_GRADIENT_STEP))
+        }
+        "effect/effect/binary_threshold" => set_custom!(
+            binary_threshold,
+            integer_value(text, 0, MAX_BINARY_THRESHOLD)
+        ),
+        "effect/effect/corner_threshold_degrees" => {
+            set_custom!(
+                corner_threshold_degrees,
+                integer_value(text, 0, MAX_ANGLE_DEGREES)
+            )
+        }
+        "effect/effect/segment_length" => set_custom!(
+            segment_length,
+            decimal_value(text, MIN_SEGMENT_LENGTH, MAX_SEGMENT_LENGTH)
+        ),
+        "effect/effect/max_iterations" => {
+            set_custom!(max_iterations, integer_value(text, 0, MAX_ITERATIONS))
+        }
+        "effect/effect/splice_threshold_degrees" => {
+            set_custom!(
+                splice_threshold_degrees,
+                integer_value(text, 0, MAX_ANGLE_DEGREES)
+            )
+        }
+        "effect/effect/path_precision" => {
+            set_custom!(path_precision, integer_value(text, 0, MAX_PATH_PRECISION))
+        }
+        _ => unreachable!("only Vectorize fields are routed here"),
+    };
+    Ok(changed)
+}
+
+fn enum_value<T: serde::de::DeserializeOwned>(text: &str) -> Result<T, String> {
+    serde_json::from_value(serde_json::Value::String(text.to_string()))
+        .map_err(|_| format!("invalid Vectorize option: {text}"))
+}
+
+fn integer_value(text: &str, minimum: u32, maximum: u32) -> Result<u32, String> {
+    text.parse::<u32>()
+        .ok()
+        .filter(|value| (minimum..=maximum).contains(value))
+        .ok_or_else(|| format!("invalid Vectorize value: {text}"))
+}
+
+fn decimal_value(text: &str, minimum: f32, maximum: f32) -> Result<f32, String> {
+    text.parse::<f32>()
+        .ok()
+        .filter(|value| value.is_finite() && (minimum..=maximum).contains(value))
+        .ok_or_else(|| format!("invalid Vectorize value: {text}"))
 }
 
 fn selector(

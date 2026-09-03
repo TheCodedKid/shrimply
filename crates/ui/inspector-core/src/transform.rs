@@ -1,4 +1,4 @@
-use glam::Vec2;
+use glam::{Vec2, Vec3};
 use shrimply_core::timeline_value::{
     CurveEditPolicy, CurveKeyframeInsert, Interpolation, TimelineBase, TimelineValue,
     edit_curve_value, set_keyframes_enabled,
@@ -429,6 +429,47 @@ impl InspectorController {
         )
     }
 
+    pub fn set_vector3_value(
+        &self,
+        target: &InspectorTarget,
+        path: &str,
+        first: f64,
+        second: f64,
+        third: f64,
+    ) -> Result<(), String> {
+        if !first.is_finite() || !second.is_finite() || !third.is_finite() {
+            return Err("modifier vector must be finite".to_string());
+        }
+        let (mut timeline, runtime) = self.vector3_timeline(target, path)?;
+        runtime
+            .local_time
+            .ok_or_else(|| "modifier evaluation time is no longer available".to_string())?;
+        let time = if matches!(timeline.base, TimelineBase::Keyframes(_)) {
+            runtime
+                .keyframe_playhead
+                .ok_or_else(|| "modifier keyframe time is no longer available".to_string())?
+        } else {
+            Time::ZERO
+        };
+        if !edit_curve_value(
+            &mut timeline,
+            time,
+            Vec3::new(first as f32, second as f32, third as f32),
+            |current, next| current.abs_diff_eq(*next, 0.000_001),
+            CurveEditPolicy {
+                unchanged_keyframe_is_noop: true,
+                insert: CurveKeyframeInsert::InheritPreviousInterpolation,
+            },
+        ) {
+            return Ok(());
+        }
+        self.set_live_keyframe_graph_value(
+            target,
+            path,
+            serde_json::to_value(timeline).expect("modifier vector must serialize"),
+        )
+    }
+
     pub fn set_vector2_keyframes_enabled(
         &self,
         target: &InspectorTarget,
@@ -453,6 +494,30 @@ impl InspectorController {
         )
     }
 
+    pub fn set_vector3_keyframes_enabled(
+        &self,
+        target: &InspectorTarget,
+        path: &str,
+        enabled: bool,
+    ) -> Result<(), String> {
+        let (mut timeline, runtime) = self.vector3_timeline(target, path)?;
+        let evaluation_time = runtime
+            .local_time
+            .ok_or_else(|| "modifier evaluation time is no longer available".to_string())?;
+        let time = runtime
+            .keyframe_playhead
+            .ok_or_else(|| "modifier keyframe time is no longer available".to_string())?;
+        let current = timeline.value_at(evaluation_time);
+        if !set_keyframes_enabled(&mut timeline, time, current, enabled) {
+            return Ok(());
+        }
+        self.set_value(
+            target,
+            path,
+            serde_json::to_value(timeline).expect("modifier vector must serialize"),
+        )
+    }
+
     pub fn vector2_expression_output(
         &self,
         target: &InspectorTarget,
@@ -468,6 +533,20 @@ impl InspectorController {
             );
         }
         self.video_expression_output(target, path)
+    }
+
+    pub fn vector3_expression_output(
+        &self,
+        target: &InspectorTarget,
+        path: &str,
+        timeline_id: uuid::Uuid,
+    ) -> Result<InspectorExpressionOutput<Vec3>, String> {
+        self.video_modifier_expression_output(
+            target,
+            path,
+            timeline_id,
+            crate::visual_modifiers::visual_modifier_vector3,
+        )
     }
 
     pub fn move_vector2_keyframes(
@@ -686,11 +765,220 @@ impl InspectorController {
         )
     }
 
+    pub fn move_vector3_keyframes(
+        &self,
+        target: &InspectorTarget,
+        path: &str,
+        moves: &[(Time, Time)],
+    ) -> Result<Vec<Time>, String> {
+        let moves = self.canonical_vector_moves(target, moves)?;
+        let (mut timeline, _) = self.vector3_timeline(target, path)?;
+        if !crate::keyframe_model::move_discrete_keyframes(&mut timeline, &moves) {
+            return Err("modifier keyframe move targets are no longer available".to_string());
+        }
+        self.set_live_keyframe_graph_value(
+            target,
+            path,
+            serde_json::to_value(timeline).expect("modifier vector must serialize"),
+        )?;
+        Ok(moves.into_iter().map(|(_, time)| time).collect())
+    }
+
+    pub fn delete_vector3_keyframe(
+        &self,
+        target: &InspectorTarget,
+        path: &str,
+        time: Time,
+    ) -> Result<(), String> {
+        let (mut timeline, _) = self.vector3_timeline(target, path)?;
+        let TimelineBase::Keyframes(keyframes) = &mut timeline.base else {
+            return Ok(());
+        };
+        let Some(index) = keyframes
+            .iter()
+            .position(|keyframe| keyframe.time.approx_eq(time))
+        else {
+            return Ok(());
+        };
+        let removed = keyframes.remove(index);
+        if keyframes.is_empty() {
+            timeline.base = TimelineBase::Const(removed.value);
+        }
+        self.set_value(
+            target,
+            path,
+            serde_json::to_value(timeline).expect("modifier vector must serialize"),
+        )
+    }
+
+    pub fn add_vector3_keyframe(
+        &self,
+        target: &InspectorTarget,
+        path: &str,
+        time: Time,
+    ) -> Result<(), String> {
+        let time = self.canonical_vector_time(target, time)?;
+        let (mut timeline, _) = self.vector3_timeline(target, path)?;
+        let current = timeline.value_at(time);
+        if !edit_curve_value(
+            &mut timeline,
+            time,
+            current,
+            |_, _| false,
+            CurveEditPolicy {
+                unchanged_keyframe_is_noop: false,
+                insert: CurveKeyframeInsert::InheritPreviousInterpolation,
+            },
+        ) {
+            return Ok(());
+        }
+        self.set_value(
+            target,
+            path,
+            serde_json::to_value(timeline).expect("modifier vector must serialize"),
+        )
+    }
+
+    pub fn copy_vector3_keyframes(
+        &self,
+        target: &InspectorTarget,
+        path: &str,
+        selected: &[Time],
+    ) -> Result<usize, String> {
+        let (timeline, _) = self.vector3_timeline(target, path)?;
+        let Some(mut clipboard) = crate::keyframe_model::copy_keyframes(&timeline, selected) else {
+            self.keyframe_clipboard.replace(None);
+            return Ok(0);
+        };
+        let project = self.project.borrow();
+        let address = video_address(target)?;
+        let times = clipboard
+            .times
+            .iter()
+            .map(|time| {
+                project
+                    .keyframe_timeline_time(address, *time)
+                    .unwrap_or(*time)
+                    .snapped(project.frame_step())
+            })
+            .collect::<Vec<_>>();
+        let Some(origin) = times.first().copied() else {
+            self.keyframe_clipboard.replace(None);
+            return Ok(0);
+        };
+        clipboard.times = times
+            .into_iter()
+            .map(|time| Time {
+                seconds: time.seconds - origin.seconds,
+            })
+            .collect();
+        let count = clipboard.len();
+        self.keyframe_clipboard.replace(Some(clipboard));
+        Ok(count)
+    }
+
+    pub fn paste_vector3_keyframes(
+        &self,
+        target: &InspectorTarget,
+        path: &str,
+        time: Time,
+    ) -> Result<usize, String> {
+        let Some(clipboard) = self.keyframe_clipboard.borrow().clone() else {
+            return Ok(0);
+        };
+        let project = self.project.borrow();
+        let address = video_address(target)?;
+        let anchor = project
+            .keyframe_timeline_time(address, time)
+            .unwrap_or(time)
+            .snapped(project.frame_step());
+        let times = clipboard
+            .times
+            .iter()
+            .filter_map(|offset| {
+                project.keyframe_time(
+                    address,
+                    Time {
+                        seconds: anchor.seconds + offset.seconds,
+                    },
+                )
+            })
+            .collect::<Vec<_>>();
+        drop(project);
+        if times.len() != clipboard.len() {
+            return Err("modifier keyframes cannot be pasted at this time".to_string());
+        }
+        let (mut timeline, _) = self.vector3_timeline(target, path)?;
+        let Some(pasted) =
+            crate::keyframe_model::paste_keyframes(&mut timeline, &clipboard, &times)
+        else {
+            return Ok(0);
+        };
+        self.set_value(
+            target,
+            path,
+            serde_json::to_value(timeline).expect("modifier vector must serialize"),
+        )?;
+        Ok(pasted.len())
+    }
+
+    pub fn set_vector3_interpolation(
+        &self,
+        target: &InspectorTarget,
+        path: &str,
+        owner_id: uuid::Uuid,
+        interpolation_index: usize,
+    ) -> Result<(), String> {
+        let interpolation = Interpolation::KEYFRAME
+            .get(interpolation_index)
+            .copied()
+            .ok_or_else(|| "modifier interpolation is invalid".to_string())?;
+        let (mut timeline, _) = self.vector3_timeline(target, path)?;
+        let TimelineBase::Keyframes(keyframes) = &mut timeline.base else {
+            return Ok(());
+        };
+        let Some(keyframe) = keyframes
+            .iter_mut()
+            .find(|keyframe| keyframe.id == owner_id)
+        else {
+            return Ok(());
+        };
+        if keyframe.interpolation_to_next == interpolation {
+            return Ok(());
+        }
+        keyframe.interpolation_to_next = interpolation;
+        self.set_value(
+            target,
+            path,
+            serde_json::to_value(timeline).expect("modifier vector must serialize"),
+        )
+    }
+
     fn vector2_timeline(
         &self,
         target: &InspectorTarget,
         path: &str,
     ) -> Result<(TimelineValue<Vec2>, InspectorRuntime), String> {
+        let snapshot = self.snapshot();
+        if &snapshot.target != target {
+            return Err("inspector target changed".to_string());
+        }
+        let timeline = serde_json::from_value(
+            snapshot
+                .value
+                .pointer(path)
+                .cloned()
+                .ok_or_else(|| format!("vector value is no longer available: {path}"))?,
+        )
+        .map_err(|error| format!("invalid vector value: {error}"))?;
+        Ok((timeline, snapshot.runtime))
+    }
+
+    fn vector3_timeline(
+        &self,
+        target: &InspectorTarget,
+        path: &str,
+    ) -> Result<(TimelineValue<Vec3>, InspectorRuntime), String> {
         let snapshot = self.snapshot();
         if &snapshot.target != target {
             return Err("inspector target changed".to_string());

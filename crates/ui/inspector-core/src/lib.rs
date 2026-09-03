@@ -31,9 +31,10 @@ pub use audio_modifiers::{
 pub use info::InspectorMedia;
 pub use layered::LayeredState;
 pub use model::{
-    AudioCacheStatus, AudioModifierChoice, AudioModifierKeyframeMove, INSPECTOR_MIN_WIDTH,
-    InspectorCapabilities, InspectorController, InspectorDetail, InspectorExpressionOutput,
-    InspectorRuntime, InspectorSnapshot, TimelineModeChange,
+    AudioCacheStatus, AudioModifierChoice, AudioModifierKeyframeMove, CacheControlPresentation,
+    CacheStatus, INSPECTOR_MIN_WIDTH, InspectorCapabilities, InspectorController, InspectorDetail,
+    InspectorExpressionOutput, InspectorRuntime, InspectorSnapshot, TimelineModeChange,
+    VisualCacheStatus, cache_control_presentation,
 };
 pub use project::ProjectPresentation;
 pub use section::{
@@ -48,5 +49,5 @@ pub use visual_modifiers::{
     OpacityModifierPresentation, TransformModifierPresentation,
     VisualModifierAlphaMaskPresentation, VisualModifierBodyPresentation, VisualModifierChoice,
     VisualModifierPresentation, default_visual_modifier_effect, visual_modifier_catalog,
-    visual_modifier_presentations,
+    visual_cache_status, visual_modifier_presentations,
 };

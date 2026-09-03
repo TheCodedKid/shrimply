@@ -1,5 +1,8 @@
 use shrimply_project::project::Time;
-use shrimply_video_modifiers::halftone::{HalftoneMode, HalftoneModifier};
+use shrimply_video_modifiers::{
+    ModifierEffect, RasterModifierEffect,
+    halftone::{HalftoneMode, HalftoneModifier},
+};
 
 use crate::{InspectorRuntime, InspectorSection, NumberSpec};
 
@@ -118,4 +121,22 @@ fn scalar(
         number,
         rotating,
     )
+}
+
+pub(super) fn mode<'a>(
+    item: &'a shrimply_project::project::VideoItem,
+    path: &str,
+    timeline_id: uuid::Uuid,
+) -> Option<&'a shrimply_core::timeline_value::TimelineValue<HalftoneMode>> {
+    let (modifier, field) = super::visual_modifier_at_path(item, path)?;
+    if field != "effect/effect/config/mode" {
+        return None;
+    }
+    let ModifierEffect::Raster(effect) = &modifier.effect else {
+        return None;
+    };
+    let RasterModifierEffect::Halftone(value) = &**effect else {
+        return None;
+    };
+    (value.mode.id == timeline_id).then_some(&value.mode)
 }

@@ -12,6 +12,7 @@ RowLayout {
     property real maximum: 1000000
     property real dragStep: 1
     property int digits: 2
+    property int widthCharacters: 8
     property var prefixes: ["", "", ""]
     property string unitName: ""
     property bool enableLock: false
@@ -56,6 +57,7 @@ RowLayout {
         id: firstPicker
         Layout.fillWidth: true
         value: group.first; minimum: root.minimum; maximum: root.maximum; dragStep: root.dragStep; digits: root.digits
+        widthCharacters: root.widthCharacters
         prefix: root.prefixes[0]; unitName: root.unitName
         onEdited: function(value) { group.edit(0, value) }
         onCommitted: function(value) { root.committed(0, value) }
@@ -64,6 +66,7 @@ RowLayout {
         id: secondPicker
         Layout.fillWidth: true
         value: group.second; minimum: root.minimum; maximum: root.maximum; dragStep: root.dragStep; digits: root.digits
+        widthCharacters: root.widthCharacters
         prefix: root.prefixes[1]; unitName: root.unitName
         onEdited: function(value) { group.edit(1, value) }
         onCommitted: function(value) { root.committed(1, value) }
@@ -72,6 +75,7 @@ RowLayout {
         id: thirdPicker
         Layout.fillWidth: true
         value: group.third; minimum: root.minimum; maximum: root.maximum; dragStep: root.dragStep; digits: root.digits
+        widthCharacters: root.widthCharacters
         prefix: root.prefixes[2]; unitName: root.unitName
         onEdited: function(value) { group.edit(2, value) }
         onCommitted: function(value) { root.committed(2, value) }

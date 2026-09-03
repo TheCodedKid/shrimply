@@ -9,11 +9,14 @@ InspectorProperty {
     property real initialGraphValue: 0
     property real graphValue: initialGraphValue
     property real initialSecondValue: 0
+    property real initialThirdValue: 0
     property bool paired: false
+    property bool tripled: false
     property bool graphValueDrivesEditor: true
     property string externalClipboardMarker: ""
     property real firstValue: initialGraphValue
     property real secondValue: initialSecondValue
+    property real thirdValue: initialThirdValue
     property string expressionValue: ""
     property string expressionOutput: ""
     property string expressionError: ""
@@ -32,8 +35,10 @@ InspectorProperty {
     signal expressionCommitted(string value)
     signal baseValueEdited(real value)
     signal basePairEdited(real first, real second)
+    signal baseTripleEdited(real first, real second, real third)
     signal keyframeValueEdited(real value)
     signal keyframePairEdited(real first, real second, int component)
+    signal keyframeTripleEdited(real first, real second, real third, int component)
     signal graphReset(int component, real value)
 
     function editValue(value) {
@@ -44,6 +49,11 @@ InspectorProperty {
     function editPair(first, second, component) {
         editRouter.setModes(root.keyframes, root.expression)
         editRouter.editPair(first, second, component)
+    }
+
+    function editTriple(first, second, third, component) {
+        editRouter.setModes(root.keyframes, root.expression)
+        editRouter.editTriple(first, second, third, component)
     }
 
     function resetValue(value) {
@@ -62,6 +72,17 @@ InspectorProperty {
             graphLoader.graph.configurePair(first, second, 0)
         root.graphReset(0, first)
         root.graphReset(1, second)
+    }
+
+    function resetTriple(first, second, third) {
+        editRouter.selectTripleComponent(0)
+        editRouter.configureTriple(first, second, third)
+        root.firstValue = first
+        root.secondValue = second
+        root.thirdValue = third
+        root.graphReset(0, first)
+        root.graphReset(1, second)
+        root.graphReset(2, third)
     }
 
     function replaceRawGraphComponent(component, pointTimes, pointValues, segments, staticValue) {
@@ -117,7 +138,9 @@ InspectorProperty {
 
     Component.onCompleted: {
         editRouter.setModes(root.keyframes, root.expression)
-        if (root.paired)
+        if (root.tripled)
+            root.resetTriple(initialGraphValue, initialSecondValue, initialThirdValue)
+        else if (root.paired)
             root.resetPair(initialGraphValue, initialSecondValue)
         else if (!root.keyframes)
             root.resetValue(initialGraphValue)
@@ -127,7 +150,13 @@ InspectorProperty {
     onKeyframesChanged: editRouter.setModes(keyframes, expression)
     onExpressionChanged: editRouter.setModes(keyframes, expression)
     onInitialGraphValueChanged: {
-        if (paired) {
+        if (tripled) {
+            editRouter.configureTriple(
+                initialGraphValue, initialSecondValue, initialThirdValue)
+            firstValue = initialGraphValue
+            secondValue = initialSecondValue
+            thirdValue = initialThirdValue
+        } else if (paired) {
             editRouter.configurePair(initialGraphValue, initialSecondValue)
             firstValue = initialGraphValue
             secondValue = initialSecondValue
@@ -136,16 +165,36 @@ InspectorProperty {
         }
         graphValue = initialGraphValue
     }
-    onInitialSecondValueChanged: if (paired) {
-        editRouter.configurePair(initialGraphValue, initialSecondValue)
+    onInitialSecondValueChanged: if (paired || tripled) {
+        if (tripled) {
+            editRouter.configureTriple(
+                initialGraphValue, initialSecondValue, initialThirdValue)
+            firstValue = initialGraphValue
+            secondValue = initialSecondValue
+            thirdValue = initialThirdValue
+        } else {
+            editRouter.configurePair(initialGraphValue, initialSecondValue)
+            firstValue = initialGraphValue
+            secondValue = initialSecondValue
+            if (graphLoader.graph && graphValueDrivesEditor)
+                graphLoader.graph.configurePair(
+                    initialGraphValue, initialSecondValue, graphComponent)
+        }
+    }
+    onInitialThirdValueChanged: if (tripled) {
+        editRouter.configureTriple(initialGraphValue, initialSecondValue, initialThirdValue)
         firstValue = initialGraphValue
         secondValue = initialSecondValue
-        if (graphLoader.graph && graphValueDrivesEditor)
-            graphLoader.graph.configurePair(
-                initialGraphValue, initialSecondValue, graphComponent)
+        thirdValue = initialThirdValue
     }
-    onGraphComponentChanged: if (graphLoader.graph)
-        graphLoader.graph.activateComponent(graphComponent)
+    onGraphComponentChanged: if (graphLoader.graph) {
+        if (tripled)
+            editRouter.selectTripleComponent(graphComponent)
+        else
+            editRouter.selectComponent(graphComponent)
+        if (graphValueDrivesEditor)
+            graphLoader.graph.activateComponent(graphComponent)
+    }
 
     LayeredPropertyBackend {
         id: editRouter
@@ -168,6 +217,18 @@ InspectorProperty {
                     first, second, component, firstChanged, secondChanged)
             root.keyframePairEdited(first, second, component)
         }
+        onBaseTripleEdited: function(first, second, third) {
+            root.firstValue = first
+            root.secondValue = second
+            root.thirdValue = third
+            root.baseTripleEdited(first, second, third)
+        }
+        onKeyframeTripleEdited: function(first, second, third, component) {
+            root.firstValue = first
+            root.secondValue = second
+            root.thirdValue = third
+            root.keyframeTripleEdited(first, second, third, component)
+        }
     }
 
     keyframeContent: Loader {
@@ -184,8 +245,10 @@ InspectorProperty {
                         return
                     if (root.graphComponent === 0)
                         root.firstValue = graphValue
-                    else
+                    else if (root.graphComponent === 1)
                         root.secondValue = graphValue
+                    else
+                        root.thirdValue = graphValue
                 }
                 onTogglePlayback: root.graphPlaybackToggled()
                 onEditFinished: root.graphEditFinished()

@@ -10,13 +10,17 @@ use crate::section::InspectorSection;
 
 mod alpha_outline;
 mod bulge_pinch;
+mod cache;
 mod channel_mixer;
 mod chroma_key;
 mod chromatic_aberration;
 mod color_correction;
 mod colorize_duotone;
+mod corner_pin;
+mod crop;
 mod directional_blur;
 mod displacement_map;
+mod dithering;
 mod drop_shadow;
 mod edge_detection;
 mod emboss;
@@ -25,6 +29,8 @@ mod film_grain;
 mod fisheye;
 mod gaussian_blur;
 mod glow_bloom;
+mod ground;
+mod halftone;
 mod hsv;
 mod invert;
 mod lens_distortion;
@@ -39,6 +45,7 @@ mod text_mask;
 mod threshold;
 mod transform;
 mod twirl;
+mod vectorize;
 mod vignette;
 mod wave_ripple;
 mod zoom_blur;
@@ -61,6 +68,9 @@ fn item(modifier: &VisualModifierPresentation) -> InspectorListItem {
             shrimply_inspector_core::VisualModifierBodyPresentation::BulgePinch(value) => {
                 bulge_pinch::section(value)
             }
+            shrimply_inspector_core::VisualModifierBodyPresentation::Cache(value) => {
+                cache::section(value)
+            }
             shrimply_inspector_core::VisualModifierBodyPresentation::ChannelMixer(value) => {
                 channel_mixer::section(value)
             }
@@ -76,11 +86,20 @@ fn item(modifier: &VisualModifierPresentation) -> InspectorListItem {
             shrimply_inspector_core::VisualModifierBodyPresentation::ColorizeDuotone(value) => {
                 colorize_duotone::section(value)
             }
+            shrimply_inspector_core::VisualModifierBodyPresentation::CornerPin(value) => {
+                corner_pin::section(value)
+            }
+            shrimply_inspector_core::VisualModifierBodyPresentation::Crop(value) => {
+                crop::section(value)
+            }
             shrimply_inspector_core::VisualModifierBodyPresentation::DirectionalBlur(value) => {
                 directional_blur::section(value)
             }
             shrimply_inspector_core::VisualModifierBodyPresentation::DisplacementMap(value) => {
                 displacement_map::section(value)
+            }
+            shrimply_inspector_core::VisualModifierBodyPresentation::Dithering(value) => {
+                dithering::section(value)
             }
             shrimply_inspector_core::VisualModifierBodyPresentation::DropShadow(value) => {
                 drop_shadow::section(value)
@@ -105,6 +124,12 @@ fn item(modifier: &VisualModifierPresentation) -> InspectorListItem {
             }
             shrimply_inspector_core::VisualModifierBodyPresentation::GlowBloom(value) => {
                 glow_bloom::section(value)
+            }
+            shrimply_inspector_core::VisualModifierBodyPresentation::Ground(value) => {
+                ground::section(value)
+            }
+            shrimply_inspector_core::VisualModifierBodyPresentation::Halftone(value) => {
+                halftone::section(value)
             }
             shrimply_inspector_core::VisualModifierBodyPresentation::Hsv(value) => {
                 hsv::section(value)
@@ -147,6 +172,9 @@ fn item(modifier: &VisualModifierPresentation) -> InspectorListItem {
             }
             shrimply_inspector_core::VisualModifierBodyPresentation::Twirl(value) => {
                 twirl::section(value)
+            }
+            shrimply_inspector_core::VisualModifierBodyPresentation::Vectorize(value) => {
+                vectorize::section(value)
             }
             shrimply_inspector_core::VisualModifierBodyPresentation::Vignette(value) => {
                 vignette::section(value)

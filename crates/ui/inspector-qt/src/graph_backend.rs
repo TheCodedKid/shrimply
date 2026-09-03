@@ -70,6 +70,12 @@ pub(crate) fn update_visual_modifier_graphs(
                             super::visual_modifier_vector2_graph(target, &control.path, timeline_id)
                         },
                     ),
+                    crate::section::ControlKind::LayeredVector3 => control.timeline_id.map_or_else(
+                        || Err("visual modifier vector has no timeline ID".to_string()),
+                        |timeline_id| {
+                            super::visual_modifier_vector3_graph(target, &control.path, timeline_id)
+                        },
+                    ),
                     crate::section::ControlKind::LayeredColor => control.timeline_id.map_or_else(
                         || Err("visual modifier color has no timeline ID".to_string()),
                         |timeline_id| {
@@ -87,6 +93,16 @@ pub(crate) fn update_visual_modifier_graphs(
                                     &control.path,
                                     timeline_id,
                                 )
+                            },
+                        )
+                    }
+                    crate::section::ControlKind::LayeredSelector
+                        if control.path.ends_with("/effect/effect/config/mode") =>
+                    {
+                        control.timeline_id.map_or_else(
+                            || Err("visual modifier selector has no timeline ID".to_string()),
+                            |timeline_id| {
+                                super::halftone_mode_graph(target, &control.path, timeline_id)
                             },
                         )
                     }
@@ -139,6 +155,7 @@ impl InspectorBackend {
                 matches!(
                     control.kind,
                     crate::section::ControlKind::LayeredVector2
+                        | crate::section::ControlKind::LayeredVector3
                         | crate::section::ControlKind::LayeredColor
                 )
             });
@@ -275,6 +292,8 @@ impl InspectorBackend {
                 super::move_step_keyframes(&target, path, &moves)?
             } else if control.kind == crate::section::ControlKind::LayeredVector2 {
                 super::move_vector2_keyframes(&target, path, &moves)?
+            } else if control.kind == crate::section::ControlKind::LayeredVector3 {
+                super::move_vector3_keyframes(&target, path, &moves)?
             } else if control.kind == crate::section::ControlKind::LayeredColor {
                 super::move_color_keyframes(&target, path, timeline_id(&control)?, &moves)?
             } else {
@@ -352,6 +371,8 @@ impl InspectorBackend {
                     super::delete_step_keyframe(&target, path, time)?;
                 } else if control.kind == crate::section::ControlKind::LayeredVector2 {
                     super::delete_vector2_keyframe(&target, path, time)?;
+                } else if control.kind == crate::section::ControlKind::LayeredVector3 {
+                    super::delete_vector3_keyframe(&target, path, time)?;
                 } else if control.kind == crate::section::ControlKind::LayeredColor {
                     super::delete_color_keyframe(&target, path, timeline_id(&control)?, time)?;
                 } else if let Some((modifier_id, timeline_id)) = modifier {
@@ -392,6 +413,8 @@ impl InspectorBackend {
                 super::add_step_keyframe(&target, timeline_path(&control), time)
             } else if control.kind == crate::section::ControlKind::LayeredVector2 {
                 super::add_vector2_keyframe(&target, timeline_path(&control), time)
+            } else if control.kind == crate::section::ControlKind::LayeredVector3 {
+                super::add_vector3_keyframe(&target, timeline_path(&control), time)
             } else if control.kind == crate::section::ControlKind::LayeredColor {
                 super::add_color_keyframe(
                     &target,
@@ -434,6 +457,8 @@ impl InspectorBackend {
                     super::copy_step_keyframes(&target, timeline_path(&control), &times)
                 } else if control.kind == crate::section::ControlKind::LayeredVector2 {
                     super::copy_vector2_keyframes(&target, timeline_path(&control), &times)
+                } else if control.kind == crate::section::ControlKind::LayeredVector3 {
+                    super::copy_vector3_keyframes(&target, timeline_path(&control), &times)
                 } else if control.kind == crate::section::ControlKind::LayeredColor {
                     super::copy_color_keyframes(
                         &target,
@@ -480,6 +505,8 @@ impl InspectorBackend {
                     super::paste_step_keyframes(&target, timeline_path(&control), time)
                 } else if control.kind == crate::section::ControlKind::LayeredVector2 {
                     super::paste_vector2_keyframes(&target, timeline_path(&control), time)
+                } else if control.kind == crate::section::ControlKind::LayeredVector3 {
+                    super::paste_vector3_keyframes(&target, timeline_path(&control), time)
                 } else if control.kind == crate::section::ControlKind::LayeredColor {
                     super::paste_color_keyframes(
                         &target,
@@ -523,6 +550,13 @@ impl InspectorBackend {
                 .map_err(|_| "keyframe interpolation is invalid".to_string())?;
             if control.kind == crate::section::ControlKind::LayeredVector2 {
                 super::set_vector2_interpolation(
+                    &target,
+                    timeline_path(&control),
+                    owner_id,
+                    interpolation,
+                )
+            } else if control.kind == crate::section::ControlKind::LayeredVector3 {
+                super::set_vector3_interpolation(
                     &target,
                     timeline_path(&control),
                     owner_id,

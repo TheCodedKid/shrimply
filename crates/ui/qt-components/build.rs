@@ -16,6 +16,7 @@ fn main() {
             "qml/InspectorCard.qml",
             "qml/InspectorGraphProperty.qml",
             "qml/InspectorPairGraphProperty.qml",
+            "qml/InspectorTripleGraphProperty.qml",
             "qml/InspectorProperty.qml",
             "qml/InspectorPropertyRow.qml",
             "qml/LivePerformance.qml",

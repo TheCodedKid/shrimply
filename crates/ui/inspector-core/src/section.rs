@@ -50,6 +50,8 @@ pub enum ControlKind {
     LayeredSelector,
     AudioCache,
     AudioCachePreset,
+    VisualCache,
+    VisualCacheQuality,
     AudioModifierMenu,
     VisualModifierMenu,
     TtsEditor,
@@ -68,6 +70,13 @@ pub enum ControlKind {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum InspectorControlAction {
     RebuildVideoStabilization,
+    AddDitheringPaletteColor {
+        modifier_id: uuid::Uuid,
+    },
+    RemoveDitheringPaletteColor {
+        modifier_id: uuid::Uuid,
+        color_id: uuid::Uuid,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq)]

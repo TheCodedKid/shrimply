@@ -224,6 +224,30 @@ impl InspectorController {
             );
             return Ok(());
         }
+        if let Some(changed) = crate::visual_modifiers::set_visual_modifier_field(
+            project
+                .video_item_mut(address)
+                .ok_or_else(|| "video item is no longer available".to_string())?,
+            path,
+            text,
+        ) {
+            if !changed? {
+                return Ok(());
+            }
+            if commit_immediately {
+                shrimply_project::project::commit_edit(&project, commit_name);
+            }
+            drop(project);
+            player_state::refresh_project(
+                &self.player_state,
+                player_state::ProjectChange {
+                    video: true,
+                    inspector: commit_immediately,
+                    ..player_state::ProjectChange::default()
+                },
+            );
+            return Ok(());
+        }
         let mut value = crate::model::target_value(&project, target)
             .ok_or_else(|| "video item is no longer available".to_string())?
             .1;
@@ -365,12 +389,12 @@ impl InspectorController {
         let InspectorTarget::Item(address) = target else {
             unreachable!("validated video target must be an item")
         };
-        let project = self.project.borrow();
-        let item = project
-            .video_item(address)
-            .ok_or_else(|| "video item is no longer available".to_string())?;
         match action {
             InspectorControlAction::RebuildVideoStabilization => {
+                let project = self.project.borrow();
+                let item = project
+                    .video_item(address)
+                    .ok_or_else(|| "video item is no longer available".to_string())?;
                 if shrimply_video::video_stabilization::is_generating(item) {
                     shrimply_video::video_stabilization::cancel(item);
                 } else {
@@ -380,6 +404,15 @@ impl InspectorController {
                             .unwrap_or(item.time_offset);
                     shrimply_video::video_stabilization::rebuild(item, source_position);
                 }
+            }
+            InspectorControlAction::AddDitheringPaletteColor { modifier_id } => {
+                self.add_dithering_palette_color(target, modifier_id)?;
+            }
+            InspectorControlAction::RemoveDitheringPaletteColor {
+                modifier_id,
+                color_id,
+            } => {
+                self.remove_dithering_palette_color(target, modifier_id, color_id)?;
             }
         }
         Ok(())

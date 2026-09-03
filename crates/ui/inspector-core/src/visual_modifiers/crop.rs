@@ -5,6 +5,7 @@ use crate::{InspectorRuntime, InspectorSection, NumberSpec};
 pub(super) fn presentation(
     value: &CropModifier,
     index: usize,
+    modifier_id: uuid::Uuid,
     runtime: InspectorRuntime,
 ) -> InspectorSection {
     let base = format!("/modifiers/{index}/effect/effect/config");
@@ -45,6 +46,9 @@ pub(super) fn presentation(
             },
             false,
         ));
+    }
+    for control in &mut section.controls {
+        control.target_id = Some(modifier_id);
     }
     section
 }

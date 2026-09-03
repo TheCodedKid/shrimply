@@ -1,4 +1,4 @@
-use shrimply_inspector_core::InspectorSection;
+use crate::section::InspectorSection;
 
 pub(super) fn section(value: &InspectorSection) -> InspectorSection {
     value.clone()

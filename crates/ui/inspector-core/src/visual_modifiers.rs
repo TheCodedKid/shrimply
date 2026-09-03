@@ -6,6 +6,7 @@ use shrimply_project::project::{
 use shrimply_state::player_state::{self, ProjectChange};
 use shrimply_video_modifiers::{
     ModifierEffect, RasterModifierEffect, VectorModifierEffect, VisualKind,
+    scene_3d::Scene3dModifierEffect,
 };
 
 use crate::{
@@ -72,6 +73,7 @@ mod vignette;
 mod wave_ripple;
 mod zoom_blur;
 
+pub use cache::visual_cache_status;
 pub use opacity::OpacityModifierPresentation;
 pub use transform::TransformModifierPresentation;
 
@@ -100,13 +102,17 @@ pub struct VisualModifierPresentation {
 pub enum VisualModifierBodyPresentation {
     AlphaOutline(InspectorSection),
     BulgePinch(InspectorSection),
+    Cache(InspectorSection),
     ChannelMixer(InspectorSection),
     ChromaKey(InspectorSection),
     ChromaticAberration(InspectorSection),
     ColorCorrection(InspectorSection),
     ColorizeDuotone(InspectorSection),
+    CornerPin(InspectorSection),
+    Crop(InspectorSection),
     DirectionalBlur(InspectorSection),
     DisplacementMap(InspectorSection),
+    Dithering(InspectorSection),
     DropShadow(InspectorSection),
     EdgeDetection(InspectorSection),
     Emboss(InspectorSection),
@@ -115,6 +121,8 @@ pub enum VisualModifierBodyPresentation {
     Fisheye(InspectorSection),
     GaussianBlur(InspectorSection),
     GlowBloom(InspectorSection),
+    Ground(InspectorSection),
+    Halftone(InspectorSection),
     Hsv(InspectorSection),
     Invert(InspectorSection),
     LensDistortion(InspectorSection),
@@ -129,6 +137,7 @@ pub enum VisualModifierBodyPresentation {
     Threshold(InspectorSection),
     Transform(Box<TransformModifierPresentation>),
     Twirl(InspectorSection),
+    Vectorize(InspectorSection),
     Vignette(InspectorSection),
     WaveRipple(InspectorSection),
     ZoomBlur(InspectorSection),
@@ -195,11 +204,19 @@ pub fn visual_modifier_presentations(
                     ),
                     VectorModifierEffect::TextMask(value) => {
                         Some(VisualModifierBodyPresentation::TextMask(
-                            text_mask::presentation(value, index, runtime),
+                            text_mask::presentation(value, index, modifier.id, runtime),
                         ))
                     }
                     _ => None,
                 },
+                ModifierEffect::Vectorize(value) => Some(
+                    VisualModifierBodyPresentation::Vectorize(vectorize::presentation(
+                        value,
+                        index,
+                        modifier.id,
+                        runtime,
+                    )),
+                ),
                 ModifierEffect::Raster(effect) => match &**effect {
                     RasterModifierEffect::AlphaOutline(value) => {
                         Some(VisualModifierBodyPresentation::AlphaOutline(
@@ -210,6 +227,14 @@ pub fn visual_modifier_presentations(
                         Some(VisualModifierBodyPresentation::BulgePinch(
                             bulge_pinch::presentation(value, index, runtime),
                         ))
+                    }
+                    RasterModifierEffect::Cache(value) => {
+                        Some(VisualModifierBodyPresentation::Cache(cache::presentation(
+                            value,
+                            index,
+                            modifier.id,
+                            runtime,
+                        )))
                     }
                     RasterModifierEffect::ChannelMixer(value) => {
                         Some(VisualModifierBodyPresentation::ChannelMixer(
@@ -236,6 +261,19 @@ pub fn visual_modifier_presentations(
                             colorize_duotone::presentation(value, index, runtime),
                         ))
                     }
+                    RasterModifierEffect::CornerPin(value) => {
+                        Some(VisualModifierBodyPresentation::CornerPin(
+                            corner_pin::presentation(value, index, modifier.id, runtime),
+                        ))
+                    }
+                    RasterModifierEffect::Crop(value) => {
+                        Some(VisualModifierBodyPresentation::Crop(crop::presentation(
+                            value,
+                            index,
+                            modifier.id,
+                            runtime,
+                        )))
+                    }
                     RasterModifierEffect::DirectionalBlur(value) => {
                         Some(VisualModifierBodyPresentation::DirectionalBlur(
                             directional_blur::presentation(value, index, runtime),
@@ -244,6 +282,11 @@ pub fn visual_modifier_presentations(
                     RasterModifierEffect::DisplacementMap(value) => {
                         Some(VisualModifierBodyPresentation::DisplacementMap(
                             displacement_map::presentation(value, index, runtime),
+                        ))
+                    }
+                    RasterModifierEffect::Dithering(value) => {
+                        Some(VisualModifierBodyPresentation::Dithering(
+                            dithering::presentation(value, index, modifier.id, runtime),
                         ))
                     }
                     RasterModifierEffect::DropShadow(value) => {
@@ -284,6 +327,11 @@ pub fn visual_modifier_presentations(
                     RasterModifierEffect::GlowBloom(value) => {
                         Some(VisualModifierBodyPresentation::GlowBloom(
                             glow_bloom::presentation(value, index, runtime),
+                        ))
+                    }
+                    RasterModifierEffect::Halftone(value) => {
+                        Some(VisualModifierBodyPresentation::Halftone(
+                            halftone::presentation(value, index, runtime),
                         ))
                     }
                     RasterModifierEffect::Invert(value) => {
@@ -363,6 +411,17 @@ pub fn visual_modifier_presentations(
                     }
                     _ => None,
                 },
+                ModifierEffect::Scene3d(effect) => match &**effect {
+                    Scene3dModifierEffect::Ground(value) => {
+                        Some(VisualModifierBodyPresentation::Ground(ground::presentation(
+                            value,
+                            index,
+                            modifier.id,
+                            runtime,
+                        )))
+                    }
+                    _ => None,
+                },
                 _ => None,
             },
             alpha_mask: matches!(
@@ -402,6 +461,9 @@ pub(crate) fn visual_modifier_color<'a>(
             &value.highlight_color
         }
         (RasterModifierEffect::DropShadow(value), "effect/effect/config/color") => &value.color,
+        (RasterModifierEffect::Dithering(value), field) => {
+            return dithering::palette_color(value, field, timeline_id);
+        }
         (RasterModifierEffect::Threshold(value), "effect/effect/config/low_color") => {
             &value.low_color
         }
@@ -433,6 +495,22 @@ pub(crate) fn visual_modifier_vector2<'a>(
     visual_modifier_at_path(item, path)?.0.number2(id)
 }
 
+pub(crate) fn visual_modifier_vector3<'a>(
+    item: &'a VideoItem,
+    path: &str,
+    id: uuid::Uuid,
+) -> Option<&'a shrimply_core::timeline_value::TimelineValue<glam::Vec3>> {
+    visual_modifier_at_path(item, path)?.0.effect.number3(id)
+}
+
+pub(crate) fn set_visual_modifier_field(
+    item: &mut VideoItem,
+    path: &str,
+    text: &str,
+) -> Option<Result<bool, String>> {
+    vectorize::set_field(item, path, text)
+}
+
 pub(crate) fn erode_dilate_operation<'a>(
     item: &'a VideoItem,
     path: &str,
@@ -455,7 +533,43 @@ pub(crate) fn erode_dilate_operation<'a>(
     (value.operation.id == id).then_some(&value.operation)
 }
 
-fn visual_modifier_at_path<'a, 'b>(
+pub(crate) fn halftone_mode<'a>(
+    item: &'a VideoItem,
+    path: &str,
+    id: uuid::Uuid,
+) -> Option<
+    &'a shrimply_core::timeline_value::TimelineValue<
+        shrimply_video_modifiers::halftone::HalftoneMode,
+    >,
+> {
+    halftone::mode(item, path, id)
+}
+
+pub(crate) fn dithering_pattern<'a>(
+    item: &'a VideoItem,
+    path: &str,
+    id: uuid::Uuid,
+) -> Option<
+    &'a shrimply_core::timeline_value::TimelineValue<
+        shrimply_video_modifiers::dithering::DitheringPattern,
+    >,
+> {
+    dithering::pattern(item, path, id)
+}
+
+pub(crate) fn dithering_color_mode<'a>(
+    item: &'a VideoItem,
+    path: &str,
+    id: uuid::Uuid,
+) -> Option<
+    &'a shrimply_core::timeline_value::TimelineValue<
+        shrimply_video_modifiers::dithering::DitheringColorMode,
+    >,
+> {
+    dithering::color_mode(item, path, id)
+}
+
+pub(crate) fn visual_modifier_at_path<'a, 'b>(
     item: &'a VideoItem,
     path: &'b str,
 ) -> Option<(&'a VisualModifier, &'b str)> {
@@ -797,7 +911,7 @@ fn text_speed_graph(
     })
 }
 
-fn vector3_speed_graph(
+pub(crate) fn vector3_speed_graph(
     timeline: &shrimply_core::timeline_value::TimelineValue<glam::Vec3>,
     runtime: InspectorRuntime,
 ) -> Option<crate::ScalarGraph> {

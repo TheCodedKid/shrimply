@@ -5,6 +5,7 @@ use crate::{InspectorRuntime, InspectorSection, NumberSpec};
 pub(super) fn presentation(
     value: &GroundModifier,
     index: usize,
+    modifier_id: uuid::Uuid,
     runtime: InspectorRuntime,
 ) -> InspectorSection {
     let base = format!("/modifiers/{index}/effect/effect/config");
@@ -107,6 +108,9 @@ pub(super) fn presentation(
                 ..NumberSpec::default()
             },
         ));
+    }
+    for control in &mut section.controls {
+        control.target_id = Some(modifier_id);
     }
     section
 }

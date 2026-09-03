@@ -62,11 +62,58 @@ pub struct InspectorCapabilities {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum AudioCacheStatus {
+pub enum CacheStatus {
     Missing,
     Baking { completed: u64, total: u64 },
     Ready,
     Failed(String),
+}
+
+pub type AudioCacheStatus = CacheStatus;
+pub type VisualCacheStatus = CacheStatus;
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct CacheControlPresentation {
+    pub label: &'static str,
+    pub progress: f64,
+    pub tooltip: String,
+    pub baking: bool,
+}
+
+pub fn cache_control_presentation(
+    status: CacheStatus,
+    baking_tooltip: &'static str,
+) -> CacheControlPresentation {
+    match status {
+        CacheStatus::Missing => CacheControlPresentation {
+            label: "Bake",
+            progress: -1.0,
+            tooltip: String::new(),
+            baking: false,
+        },
+        CacheStatus::Baking { completed, total } => CacheControlPresentation {
+            label: "Baking…",
+            progress: if total == 0 {
+                -1.0
+            } else {
+                completed as f64 / total as f64
+            },
+            tooltip: baking_tooltip.to_string(),
+            baking: true,
+        },
+        CacheStatus::Ready => CacheControlPresentation {
+            label: "Rebake",
+            progress: -1.0,
+            tooltip: String::new(),
+            baking: false,
+        },
+        CacheStatus::Failed(error) => CacheControlPresentation {
+            label: "Bake",
+            progress: -1.0,
+            tooltip: error,
+            baking: false,
+        },
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -818,6 +865,24 @@ impl InspectorController {
             .ok_or_else(|| format!("visual modifier vector is no longer available: {path}"))
     }
 
+    pub fn ensure_visual_modifier_vector3(
+        &self,
+        target: &InspectorTarget,
+        path: &str,
+        timeline_id: uuid::Uuid,
+    ) -> Result<(), String> {
+        let project = self.project.borrow();
+        let InspectorTarget::Item(address @ ItemAddress::Video { .. }) = target else {
+            return Err("visual modifier vector target is not a video item".to_string());
+        };
+        let item = project
+            .video_item(address)
+            .ok_or_else(|| "video item is no longer available".to_string())?;
+        crate::visual_modifiers::visual_modifier_vector3(item, path, timeline_id)
+            .map(|_| ())
+            .ok_or_else(|| format!("visual modifier vector is no longer available: {path}"))
+    }
+
     pub fn ensure_visual_modifier_timeline(
         &self,
         target: &InspectorTarget,
@@ -874,6 +939,27 @@ impl InspectorController {
         Ok(timeline.value_at(local_time))
     }
 
+    pub fn timeline_vector3_value(
+        &self,
+        target: &InspectorTarget,
+        path: &str,
+        timeline_id: uuid::Uuid,
+    ) -> Result<glam::Vec3, String> {
+        let project = self.project.borrow();
+        let InspectorTarget::Item(address @ ItemAddress::Video { .. }) = target else {
+            return Err("visual modifier vector target is not a video item".to_string());
+        };
+        let item = project
+            .video_item(address)
+            .ok_or_else(|| "video item is no longer available".to_string())?;
+        let timeline = crate::visual_modifiers::visual_modifier_vector3(item, path, timeline_id)
+            .ok_or_else(|| format!("visual modifier vector is no longer available: {path}"))?;
+        let local_time = target_runtime(&project, &self.player_state, target)
+            .local_time
+            .ok_or_else(|| "the current item time is not available".to_string())?;
+        Ok(timeline.value_at(local_time))
+    }
+
     pub fn visual_modifier_number_graph(
         &self,
         target: &InspectorTarget,
@@ -915,6 +1001,27 @@ impl InspectorController {
         ))
     }
 
+    pub fn visual_modifier_vector3_graph(
+        &self,
+        target: &InspectorTarget,
+        path: &str,
+        timeline_id: uuid::Uuid,
+    ) -> Result<Option<crate::ScalarGraph>, String> {
+        let project = self.project.borrow();
+        let InspectorTarget::Item(address @ ItemAddress::Video { .. }) = target else {
+            return Err("visual modifier graph target is not a video item".to_string());
+        };
+        let item = project
+            .video_item(address)
+            .ok_or_else(|| "video item is no longer available".to_string())?;
+        let timeline = crate::visual_modifiers::visual_modifier_vector3(item, path, timeline_id)
+            .ok_or_else(|| format!("visual modifier vector is no longer available: {path}"))?;
+        Ok(crate::visual_modifiers::vector3_speed_graph(
+            timeline,
+            target_runtime(&project, &self.player_state, target),
+        ))
+    }
+
     pub fn visual_modifier_color_graph(
         &self,
         target: &InspectorTarget,
@@ -951,6 +1058,69 @@ impl InspectorController {
             .ok_or_else(|| "video item is no longer available".to_string())?;
         let timeline = crate::visual_modifiers::erode_dilate_operation(item, path, timeline_id)
             .ok_or_else(|| format!("erode/dilate operation is no longer available: {path}"))?;
+        Ok(crate::selector::step_graph(
+            timeline,
+            target_runtime(&project, &self.player_state, target),
+        ))
+    }
+
+    pub fn halftone_mode_graph(
+        &self,
+        target: &InspectorTarget,
+        path: &str,
+        timeline_id: uuid::Uuid,
+    ) -> Result<Option<crate::ScalarGraph>, String> {
+        let project = self.project.borrow();
+        let InspectorTarget::Item(address @ ItemAddress::Video { .. }) = target else {
+            return Err("visual modifier graph target is not a video item".to_string());
+        };
+        let item = project
+            .video_item(address)
+            .ok_or_else(|| "video item is no longer available".to_string())?;
+        let timeline = crate::visual_modifiers::halftone_mode(item, path, timeline_id)
+            .ok_or_else(|| format!("halftone mode is no longer available: {path}"))?;
+        Ok(crate::selector::step_graph(
+            timeline,
+            target_runtime(&project, &self.player_state, target),
+        ))
+    }
+
+    pub fn dithering_pattern_graph(
+        &self,
+        target: &InspectorTarget,
+        path: &str,
+        timeline_id: uuid::Uuid,
+    ) -> Result<Option<crate::ScalarGraph>, String> {
+        let project = self.project.borrow();
+        let InspectorTarget::Item(address @ ItemAddress::Video { .. }) = target else {
+            return Err("visual modifier graph target is not a video item".to_string());
+        };
+        let item = project
+            .video_item(address)
+            .ok_or_else(|| "video item is no longer available".to_string())?;
+        let timeline = crate::visual_modifiers::dithering_pattern(item, path, timeline_id)
+            .ok_or_else(|| format!("dithering pattern is no longer available: {path}"))?;
+        Ok(crate::selector::step_graph(
+            timeline,
+            target_runtime(&project, &self.player_state, target),
+        ))
+    }
+
+    pub fn dithering_color_mode_graph(
+        &self,
+        target: &InspectorTarget,
+        path: &str,
+        timeline_id: uuid::Uuid,
+    ) -> Result<Option<crate::ScalarGraph>, String> {
+        let project = self.project.borrow();
+        let InspectorTarget::Item(address @ ItemAddress::Video { .. }) = target else {
+            return Err("visual modifier graph target is not a video item".to_string());
+        };
+        let item = project
+            .video_item(address)
+            .ok_or_else(|| "video item is no longer available".to_string())?;
+        let timeline = crate::visual_modifiers::dithering_color_mode(item, path, timeline_id)
+            .ok_or_else(|| format!("dithering color mode is no longer available: {path}"))?;
         Ok(crate::selector::step_graph(
             timeline,
             target_runtime(&project, &self.player_state, target),

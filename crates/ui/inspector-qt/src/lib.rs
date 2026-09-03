@@ -42,7 +42,7 @@ thread_local! {
     static PROJECT_FONTS: RefCell<Option<shrimply_inspector_core::font_cache::ProjectFontActivation>> = const { RefCell::new(None) };
     static MEDIA_METADATA: RefCell<MediaMetadata> = RefCell::new(MediaMetadata::default());
     static VOICE_MODELS: RefCell<VoiceModelCache> = RefCell::new(VoiceModelCache::default());
-    static AUDIO_CACHE_STATUSES: RefCell<Vec<(uuid::Uuid, shrimply_inspector_core::AudioCacheStatus)>> = const { RefCell::new(Vec::new()) };
+    static CACHE_STATUSES: RefCell<Vec<(CacheKind, uuid::Uuid, shrimply_inspector_core::CacheStatus)>> = const { RefCell::new(Vec::new()) };
     static DIRTY: Cell<bool> = const { Cell::new(false) };
     static CACHE_DIRTY: Cell<bool> = const { Cell::new(false) };
     static EXPRESSION_DIRTY: Cell<bool> = const { Cell::new(false) };
@@ -80,11 +80,10 @@ pub(crate) struct VoiceModels {
     pub(crate) loading: bool,
 }
 
-pub(crate) struct AudioCacheControl {
-    pub(crate) label: &'static str,
-    pub(crate) progress: f64,
-    pub(crate) tooltip: String,
-    pub(crate) baking: bool,
+#[derive(Clone, Copy, Eq, PartialEq)]
+enum CacheKind {
+    Audio,
+    Visual,
 }
 
 #[derive(Clone, Eq, PartialEq)]
@@ -225,7 +224,7 @@ fn take_document() -> Option<InspectorDocument> {
     receive_project_fonts();
     receive_media_metadata();
     receive_voice_models();
-    receive_audio_cache_statuses();
+    receive_cache_statuses();
     if !DIRTY.replace(false) {
         return None;
     }
@@ -235,7 +234,7 @@ fn take_document() -> Option<InspectorDocument> {
             .expect("Qt inspector snapshot requested before installation")
             .snapshot();
         let document = document(snapshot);
-        retain_audio_cache_statuses(&document);
+        retain_cache_statuses(&document);
         Some(document)
     })
 }
@@ -460,96 +459,116 @@ fn voice_models_with_current(mut values: Vec<String>, current: &str) -> Vec<Stri
 }
 
 pub(crate) fn audio_cache_status(id: uuid::Uuid) -> shrimply_inspector_core::AudioCacheStatus {
-    let status = shrimply_inspector_core::audio_cache_status(id);
-    AUDIO_CACHE_STATUSES.with_borrow_mut(|statuses| {
+    cache_status(CacheKind::Audio, id)
+}
+
+fn cache_status(
+    kind: CacheKind,
+    id: uuid::Uuid,
+) -> shrimply_inspector_core::CacheStatus {
+    let status = match kind {
+        CacheKind::Audio => shrimply_inspector_core::audio_cache_status(id),
+        CacheKind::Visual => shrimply_inspector_core::visual_cache_status(id),
+    };
+    CACHE_STATUSES.with_borrow_mut(|statuses| {
         if matches!(
             status,
-            shrimply_inspector_core::AudioCacheStatus::Baking { .. }
+            shrimply_inspector_core::CacheStatus::Baking { .. }
         ) {
-            if let Some((_, stored)) = statuses.iter_mut().find(|(stored, _)| *stored == id) {
+            if let Some((_, _, stored)) = statuses
+                .iter_mut()
+                .find(|(stored_kind, stored_id, _)| *stored_kind == kind && *stored_id == id)
+            {
                 *stored = status.clone();
             } else {
-                statuses.push((id, status.clone()));
+                statuses.push((kind, id, status.clone()));
             }
         } else {
-            statuses.retain(|(stored, _)| *stored != id);
+            statuses.retain(|(stored_kind, stored_id, _)| {
+                *stored_kind != kind || *stored_id != id
+            });
         }
     });
     status
 }
 
-pub(crate) fn audio_cache_control(id: uuid::Uuid) -> AudioCacheControl {
-    cache_control(audio_cache_status(id))
+pub(crate) fn audio_cache_control(
+    id: uuid::Uuid,
+) -> shrimply_inspector_core::CacheControlPresentation {
+    shrimply_inspector_core::cache_control_presentation(
+        audio_cache_status(id),
+        "Cancel cache bake",
+    )
 }
 
-pub(crate) fn tracked_audio_cache_control(id: uuid::Uuid) -> Option<AudioCacheControl> {
-    AUDIO_CACHE_STATUSES.with_borrow(|statuses| {
-        statuses
-            .iter()
-            .find(|(stored, _)| *stored == id)
-            .map(|(_, status)| cache_control(status.clone()))
-    })
-}
-
-fn cache_control(status: shrimply_inspector_core::AudioCacheStatus) -> AudioCacheControl {
-    match status {
-        shrimply_inspector_core::AudioCacheStatus::Missing => AudioCacheControl {
-            label: "Bake",
-            progress: -1.0,
-            tooltip: String::new(),
-            baking: false,
-        },
-        shrimply_inspector_core::AudioCacheStatus::Baking { completed, total } => {
-            AudioCacheControl {
-                label: "Baking…",
-                progress: if total == 0 {
-                    -1.0
-                } else {
-                    completed as f64 / total as f64
-                },
-                tooltip: "Cancel cache bake".to_string(),
-                baking: true,
-            }
-        }
-        shrimply_inspector_core::AudioCacheStatus::Ready => AudioCacheControl {
-            label: "Rebake",
-            progress: -1.0,
-            tooltip: String::new(),
-            baking: false,
-        },
-        shrimply_inspector_core::AudioCacheStatus::Failed(error) => AudioCacheControl {
-            label: "Bake",
-            progress: -1.0,
-            tooltip: error,
-            baking: false,
-        },
+fn cache_kind(control: crate::section::ControlKind) -> Option<CacheKind> {
+    match control {
+        crate::section::ControlKind::AudioCache
+        | crate::section::ControlKind::AudioCachePreset => Some(CacheKind::Audio),
+        crate::section::ControlKind::VisualCache
+        | crate::section::ControlKind::VisualCacheQuality => Some(CacheKind::Visual),
+        _ => None,
     }
 }
 
-fn receive_audio_cache_statuses() {
-    let (changed, terminal) = AUDIO_CACHE_STATUSES.with_borrow_mut(|statuses| {
+pub(crate) fn tracked_cache_control(
+    control: crate::section::ControlKind,
+    id: uuid::Uuid,
+) -> Option<shrimply_inspector_core::CacheControlPresentation> {
+    let kind = cache_kind(control)?;
+    let tracked = CACHE_STATUSES.with_borrow(|statuses| {
+        statuses
+            .iter()
+            .find(|(stored_kind, stored_id, _)| *stored_kind == kind && *stored_id == id)
+            .map(|(_, _, status)| status.clone())
+    });
+    Some(shrimply_inspector_core::cache_control_presentation(
+        tracked.unwrap_or_else(|| cache_status(kind, id)),
+        match kind {
+            CacheKind::Audio => "Cancel cache bake",
+            CacheKind::Visual => "",
+        },
+    ))
+}
+
+fn receive_cache_statuses() {
+    let (changed, audio_terminal, visual_terminal) = CACHE_STATUSES.with_borrow_mut(|statuses| {
         let mut changed = false;
-        let mut terminal = false;
-        statuses.retain_mut(|(id, stored)| {
-            let current = shrimply_inspector_core::audio_cache_status(*id);
+        let mut audio_terminal = false;
+        let mut visual_terminal = false;
+        statuses.retain_mut(|(kind, id, stored)| {
+            let current = match kind {
+                CacheKind::Audio => shrimply_inspector_core::audio_cache_status(*id),
+                CacheKind::Visual => shrimply_inspector_core::visual_cache_status(*id),
+            };
             if *stored != current {
                 changed = true;
             }
             let baking = matches!(
                 current,
-                shrimply_inspector_core::AudioCacheStatus::Baking { .. }
+                shrimply_inspector_core::CacheStatus::Baking { .. }
             );
-            terminal |= !baking;
+            if !baking {
+                match kind {
+                    CacheKind::Audio => audio_terminal = true,
+                    CacheKind::Visual => visual_terminal = true,
+                }
+            }
             if baking {
                 *stored = current;
             }
             baking
         });
-        (changed, terminal)
+        (changed, audio_terminal, visual_terminal)
     });
-    if terminal {
+    if audio_terminal || visual_terminal {
         with_controller(|controller| {
-            controller.refresh_audio_cache();
+            if audio_terminal {
+                controller.refresh_audio_cache();
+            }
+            if visual_terminal {
+                controller.refresh_visual_cache();
+            }
             Ok(())
         })
         .expect("Qt inspector cache refresh requested before installation");
@@ -558,7 +577,7 @@ fn receive_audio_cache_statuses() {
     }
 }
 
-fn retain_audio_cache_statuses(document: &InspectorDocument) {
+fn retain_cache_statuses(document: &InspectorDocument) {
     let ids = document
         .categories
         .iter()
@@ -567,11 +586,10 @@ fn retain_audio_cache_statuses(document: &InspectorDocument) {
             crate::item::InspectorListItem::Item(item) => item.section.controls.as_slice(),
             crate::item::InspectorListItem::Flat(section) => section.controls.as_slice(),
         })
-        .filter(|control| control.kind == crate::section::ControlKind::AudioCache)
-        .filter_map(|control| control.target_id)
+        .filter_map(|control| Some((cache_kind(control.kind)?, control.target_id?)))
         .collect::<Vec<_>>();
-    AUDIO_CACHE_STATUSES.with_borrow_mut(|statuses| {
-        statuses.retain(|(id, _)| ids.contains(id));
+    CACHE_STATUSES.with_borrow_mut(|statuses| {
+        statuses.retain(|(kind, id, _)| ids.contains(&(*kind, *id)));
     });
 }
 
@@ -936,6 +954,7 @@ fn ensure_control_timeline(
         section::ControlKind::LayeredNumber
             | section::ControlKind::LayeredSelector
             | section::ControlKind::LayeredVector2
+            | section::ControlKind::LayeredVector3
             | section::ControlKind::LayeredColor
     ) {
         return Ok(());
@@ -956,6 +975,9 @@ fn ensure_control_timeline(
         section::ControlKind::LayeredVector2 => {
             controller.ensure_visual_modifier_vector2(target, path, timeline_id)
         }
+        section::ControlKind::LayeredVector3 => {
+            controller.ensure_visual_modifier_vector3(target, path, timeline_id)
+        }
         _ => Ok(()),
     })
 }
@@ -968,6 +990,23 @@ fn set_vector2_value(
 ) -> Result<(), String> {
     let result =
         with_controller(|controller| controller.set_vector2_value(target, path, first, second));
+    if result.is_ok() {
+        EXPRESSION_DIRTY.set(true);
+        GRAPH_DIRTY.set(true);
+    }
+    result
+}
+
+fn set_vector3_value(
+    target: &InspectorTarget,
+    path: &str,
+    first: f64,
+    second: f64,
+    third: f64,
+) -> Result<(), String> {
+    let result = with_controller(|controller| {
+        controller.set_vector3_value(target, path, first, second, third)
+    });
     if result.is_ok() {
         EXPRESSION_DIRTY.set(true);
         GRAPH_DIRTY.set(true);
@@ -993,6 +1032,16 @@ fn visual_modifier_vector2_graph(
     })
 }
 
+fn visual_modifier_vector3_graph(
+    target: &InspectorTarget,
+    path: &str,
+    timeline_id: uuid::Uuid,
+) -> Result<Option<shrimply_inspector_core::ScalarGraph>, String> {
+    with_controller(|controller| {
+        controller.visual_modifier_vector3_graph(target, path, timeline_id)
+    })
+}
+
 fn visual_modifier_color_graph(
     target: &InspectorTarget,
     path: &str,
@@ -1007,6 +1056,14 @@ fn erode_dilate_operation_graph(
     timeline_id: uuid::Uuid,
 ) -> Result<Option<shrimply_inspector_core::ScalarGraph>, String> {
     with_controller(|controller| controller.erode_dilate_operation_graph(target, path, timeline_id))
+}
+
+fn halftone_mode_graph(
+    target: &InspectorTarget,
+    path: &str,
+    timeline_id: uuid::Uuid,
+) -> Result<Option<shrimply_inspector_core::ScalarGraph>, String> {
+    with_controller(|controller| controller.halftone_mode_graph(target, path, timeline_id))
 }
 
 fn transform_live_presentation(
@@ -1085,12 +1142,28 @@ fn set_vector2_keyframes_enabled(
     with_controller(|controller| controller.set_vector2_keyframes_enabled(target, path, enabled))
 }
 
+fn set_vector3_keyframes_enabled(
+    target: &InspectorTarget,
+    path: &str,
+    enabled: bool,
+) -> Result<(), String> {
+    with_controller(|controller| controller.set_vector3_keyframes_enabled(target, path, enabled))
+}
+
 fn vector2_expression_output(
     target: &InspectorTarget,
     path: &str,
     timeline_id: Option<uuid::Uuid>,
 ) -> Result<shrimply_inspector_core::InspectorExpressionOutput<glam::Vec2>, String> {
     with_controller(|controller| controller.vector2_expression_output(target, path, timeline_id))
+}
+
+fn vector3_expression_output(
+    target: &InspectorTarget,
+    path: &str,
+    timeline_id: uuid::Uuid,
+) -> Result<shrimply_inspector_core::InspectorExpressionOutput<glam::Vec3>, String> {
+    with_controller(|controller| controller.vector3_expression_output(target, path, timeline_id))
 }
 
 fn set_color_value(
@@ -1248,6 +1321,14 @@ fn timeline_vector2_value(
     path: &str,
 ) -> Result<glam::Vec2, String> {
     with_controller(|controller| controller.timeline_vector2_value(target, path, timeline_id))
+}
+
+fn timeline_vector3_value(
+    target: &InspectorTarget,
+    timeline_id: uuid::Uuid,
+    path: &str,
+) -> Result<glam::Vec3, String> {
+    with_controller(|controller| controller.timeline_vector3_value(target, path, timeline_id))
 }
 
 fn scalar_expression_output(
@@ -1441,6 +1522,88 @@ fn set_vector2_interpolation(
 ) -> Result<(), String> {
     let result = with_controller(|controller| {
         controller.set_vector2_interpolation(target, path, owner_id, interpolation)
+    });
+    if result.is_ok() {
+        EXPRESSION_DIRTY.set(true);
+        GRAPH_DIRTY.set(true);
+    }
+    result
+}
+
+fn move_vector3_keyframes(
+    target: &InspectorTarget,
+    path: &str,
+    moves: &[(
+        shrimply_project::project::Time,
+        shrimply_project::project::Time,
+    )],
+) -> Result<Vec<shrimply_project::project::Time>, String> {
+    let result =
+        with_controller(|controller| controller.move_vector3_keyframes(target, path, moves));
+    if result.is_ok() {
+        EXPRESSION_DIRTY.set(true);
+        GRAPH_DIRTY.set(true);
+    }
+    result
+}
+
+fn delete_vector3_keyframe(
+    target: &InspectorTarget,
+    path: &str,
+    time: shrimply_project::project::Time,
+) -> Result<(), String> {
+    let result =
+        with_controller(|controller| controller.delete_vector3_keyframe(target, path, time));
+    if result.is_ok() {
+        EXPRESSION_DIRTY.set(true);
+        GRAPH_DIRTY.set(true);
+    }
+    result
+}
+
+fn add_vector3_keyframe(
+    target: &InspectorTarget,
+    path: &str,
+    time: shrimply_project::project::Time,
+) -> Result<(), String> {
+    let result = with_controller(|controller| controller.add_vector3_keyframe(target, path, time));
+    if result.is_ok() {
+        EXPRESSION_DIRTY.set(true);
+        GRAPH_DIRTY.set(true);
+    }
+    result
+}
+
+fn copy_vector3_keyframes(
+    target: &InspectorTarget,
+    path: &str,
+    times: &[shrimply_project::project::Time],
+) -> Result<usize, String> {
+    with_controller(|controller| controller.copy_vector3_keyframes(target, path, times))
+}
+
+fn paste_vector3_keyframes(
+    target: &InspectorTarget,
+    path: &str,
+    time: shrimply_project::project::Time,
+) -> Result<usize, String> {
+    let result =
+        with_controller(|controller| controller.paste_vector3_keyframes(target, path, time));
+    if result.is_ok() {
+        EXPRESSION_DIRTY.set(true);
+        GRAPH_DIRTY.set(true);
+    }
+    result
+}
+
+fn set_vector3_interpolation(
+    target: &InspectorTarget,
+    path: &str,
+    owner_id: uuid::Uuid,
+    interpolation: usize,
+) -> Result<(), String> {
+    let result = with_controller(|controller| {
+        controller.set_vector3_interpolation(target, path, owner_id, interpolation)
     });
     if result.is_ok() {
         EXPRESSION_DIRTY.set(true);
@@ -1905,6 +2068,18 @@ fn set_audio_cache_preset(
 
 fn toggle_audio_cache(target: &InspectorTarget, id: uuid::Uuid) -> Result<(), String> {
     with_controller(|controller| controller.toggle_audio_cache(target, id))
+}
+
+fn set_visual_cache_quality(
+    target: &InspectorTarget,
+    id: uuid::Uuid,
+    quality: &str,
+) -> Result<(), String> {
+    with_controller(|controller| controller.set_visual_cache_quality(target, id, quality))
+}
+
+fn toggle_visual_cache(target: &InspectorTarget, id: uuid::Uuid) -> Result<(), String> {
+    with_controller(|controller| controller.toggle_visual_cache(target, id))
 }
 
 fn perform_action(

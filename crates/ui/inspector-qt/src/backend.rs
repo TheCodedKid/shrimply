@@ -37,6 +37,8 @@ pub(crate) mod qobject {
         LayeredSelector,
         AudioCache,
         AudioCachePreset,
+        VisualCache,
+        VisualCacheQuality,
         ModifierMenu,
         TtsEditor,
         BeatDetection,
@@ -1152,6 +1154,8 @@ impl qobject::InspectorBackend {
                 ControlKind::LayeredSelector => QtKind::LayeredSelector,
                 ControlKind::AudioCache => QtKind::AudioCache,
                 ControlKind::AudioCachePreset => QtKind::AudioCachePreset,
+                ControlKind::VisualCache => QtKind::VisualCache,
+                ControlKind::VisualCacheQuality => QtKind::VisualCacheQuality,
                 ControlKind::AudioModifierMenu | ControlKind::VisualModifierMenu => {
                     QtKind::ModifierMenu
                 }
@@ -1186,9 +1190,12 @@ impl qobject::InspectorBackend {
                 control.target_id.map_or_else(
                     || shrimply_i18n_qt::text(&control.tooltip),
                     |id| {
-                        if control.kind == ControlKind::AudioCache {
+                        if matches!(
+                            control.kind,
+                            ControlKind::AudioCache | ControlKind::VisualCache
+                        ) {
                             QString::from(
-                                super::tracked_audio_cache_control(id).map_or_else(
+                                super::tracked_cache_control(control.kind, id).map_or_else(
                                     || control.tooltip.clone(),
                                     |status| status.tooltip,
                                 ),
@@ -1235,11 +1242,14 @@ impl qobject::InspectorBackend {
                         })
                         .unwrap_or_else(|| control.value.parse::<f64>().unwrap_or_default());
                     QString::from(value.to_string())
-                } else if control.kind == ControlKind::AudioCache {
+                } else if matches!(
+                    control.kind,
+                    ControlKind::AudioCache | ControlKind::VisualCache
+                ) {
                     QString::from(
                         control
                             .target_id
-                            .and_then(super::tracked_audio_cache_control)
+                            .and_then(|id| super::tracked_cache_control(control.kind, id))
                             .map_or(control.value.as_str(), |status| status.label),
                     )
                 } else {
@@ -1252,10 +1262,14 @@ impl qobject::InspectorBackend {
         let target = self.document().map(|document| document.target.clone());
         self.control(category, item, control)
             .and_then(|control| {
-                if control.kind == ControlKind::AudioCache && component == 0 {
+                if matches!(
+                    control.kind,
+                    ControlKind::AudioCache | ControlKind::VisualCache
+                ) && component == 0
+                {
                     return control
                         .target_id
-                        .and_then(super::tracked_audio_cache_control)
+                        .and_then(|id| super::tracked_cache_control(control.kind, id))
                         .map(|status| status.progress)
                         .or_else(|| control.components.first()?.parse().ok());
                 }
@@ -1294,6 +1308,32 @@ impl qobject::InspectorBackend {
                     return match component {
                         0 => Some(f64::from(value.x)),
                         1 => Some(f64::from(value.y)),
+                        _ => None,
+                    };
+                }
+                if control.kind == ControlKind::LayeredVector3 {
+                    let timeline_id = control.timeline_id?;
+                    let value = target
+                        .as_ref()
+                        .and_then(|target| {
+                            super::timeline_vector3_value(
+                                target,
+                                timeline_id,
+                                control.timeline_path.as_deref().unwrap_or(&control.path),
+                            )
+                            .ok()
+                        })
+                        .or_else(|| {
+                            Some(glam::Vec3::new(
+                                control.components.first()?.parse().ok()?,
+                                control.components.get(1)?.parse().ok()?,
+                                control.components.get(2)?.parse().ok()?,
+                            ))
+                        })?;
+                    return match component {
+                        0 => Some(f64::from(value.x)),
+                        1 => Some(f64::from(value.y)),
+                        2 => Some(f64::from(value.z)),
                         _ => None,
                     };
                 }
@@ -1341,10 +1381,13 @@ impl qobject::InspectorBackend {
         self.control(category, item, control)
             .is_some_and(|control| {
                 control.sensitive
-                    && !(control.kind == ControlKind::AudioCachePreset
+                    && !(matches!(
+                        control.kind,
+                        ControlKind::AudioCachePreset | ControlKind::VisualCacheQuality
+                    )
                         && control
                             .target_id
-                            .and_then(super::tracked_audio_cache_control)
+                            .and_then(|id| super::tracked_cache_control(control.kind, id))
                             .is_some_and(|status| status.baking))
             })
     }
@@ -1584,6 +1627,41 @@ impl qobject::InspectorBackend {
             .map(QString::from)
             .collect();
         }
+        if control.kind == ControlKind::LayeredVector3 {
+            let Some(timeline_id) = control.timeline_id else {
+                return QStringList::default();
+            };
+            let Ok(output) =
+                super::vector3_expression_output(&document.target, path, timeline_id)
+            else {
+                return QStringList::default();
+            };
+            let digits = usize::try_from(control.number.digits).unwrap_or_default();
+            let first_prefix = control.prefixes.first().map_or("X", String::as_str);
+            let second_prefix = control.prefixes.get(1).map_or("Y", String::as_str);
+            let third_prefix = control.prefixes.get(2).map_or("Z", String::as_str);
+            return [
+                format!(
+                    "{} {:.*}{}  {} {:.*}{}  {} {:.*}{}",
+                    first_prefix,
+                    digits,
+                    output.value.x,
+                    control.number.unit,
+                    second_prefix,
+                    digits,
+                    output.value.y,
+                    control.number.unit,
+                    third_prefix,
+                    digits,
+                    output.value.z,
+                    control.number.unit,
+                ),
+                output.error.unwrap_or_default(),
+            ]
+            .into_iter()
+            .map(QString::from)
+            .collect();
+        }
         if control.kind == ControlKind::LayeredColor {
             let Some(timeline_id) = control.timeline_id else {
                 return QStringList::default();
@@ -1706,6 +1784,11 @@ impl qobject::InspectorBackend {
                 .target_id
                 .ok_or_else(|| "audio cache control has no modifier target".to_string())
                 .and_then(|id| super::set_audio_cache_preset(&target, id, &value))
+        } else if control.kind == ControlKind::VisualCacheQuality {
+            control
+                .target_id
+                .ok_or_else(|| "visual cache control has no modifier target".to_string())
+                .and_then(|id| super::set_visual_cache_quality(&target, id, &value))
         } else if control.kind == ControlKind::LayeredBoolean {
             value
                 .parse::<bool>()
@@ -1799,6 +1882,10 @@ impl qobject::InspectorBackend {
                 .target_id
                 .ok_or_else(|| "audio cache control has no modifier target".to_string())
                 .and_then(|id| super::toggle_audio_cache(&target, id)),
+            ControlKind::VisualCache => control
+                .target_id
+                .ok_or_else(|| "visual cache control has no modifier target".to_string())
+                .and_then(|id| super::toggle_visual_cache(&target, id)),
             ControlKind::Action => control
                 .action
                 .ok_or_else(|| "inspector action control has no action".to_string())
@@ -1854,6 +1941,16 @@ impl qobject::InspectorBackend {
                 &control.path,
                 first * control.store_multiplier,
                 second * control.store_multiplier,
+            ));
+            return;
+        }
+        if control.kind == ControlKind::LayeredVector3 {
+            self.as_mut().finish(super::set_vector3_value(
+                &target,
+                &control.path,
+                first * control.store_multiplier,
+                second * control.store_multiplier,
+                third * control.store_multiplier,
             ));
             return;
         }
@@ -1974,6 +2071,8 @@ impl qobject::InspectorBackend {
             super::set_scalar_keyframes_enabled(&target, path, enabled)
         } else if control.kind == ControlKind::LayeredVector2 {
             super::set_vector2_keyframes_enabled(&target, path, enabled)
+        } else if control.kind == ControlKind::LayeredVector3 {
+            super::set_vector3_keyframes_enabled(&target, path, enabled)
         } else if control.kind == ControlKind::LayeredColor {
             control
                 .timeline_id

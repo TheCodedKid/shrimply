@@ -297,6 +297,7 @@ Item {
                         backend.controlTransformLive(categoryIndex, itemIndex, index))
                     readonly property string value: {
                         const revision = kind === InspectorBackend.AudioCache
+                            || kind === InspectorBackend.VisualCache
                             ? backend.documentRevision + backend.cacheRevision
                             : backend.revision
                         return revision >= 0 ? backend.controlValue(
@@ -307,6 +308,8 @@ Item {
                     readonly property bool sensitive: {
                         const revision = kind === InspectorBackend.AudioCache
                             || kind === InspectorBackend.AudioCachePreset
+                            || kind === InspectorBackend.VisualCache
+                            || kind === InspectorBackend.VisualCacheQuality
                             ? backend.documentRevision + backend.cacheRevision
                             : backend.revision
                         return revision >= 0 && backend.controlSensitive(
@@ -335,6 +338,7 @@ Item {
                         : kind === InspectorBackend.LayeredText ? multilineControl
                         : kind === InspectorBackend.Selector
                             || kind === InspectorBackend.AudioCachePreset
+                            || kind === InspectorBackend.VisualCacheQuality
                             ? selectorControl
                         : kind === InspectorBackend.Vector2 ? vector2Control
                         : kind === InspectorBackend.Vector3 ? vector3Control
@@ -346,6 +350,7 @@ Item {
                         : kind === InspectorBackend.LayeredBoolean ? layeredBooleanControl
                         : kind === InspectorBackend.LayeredSelector ? layeredSelectorControl
                         : kind === InspectorBackend.AudioCache ? audioCacheControl
+                        : kind === InspectorBackend.VisualCache ? visualCacheControl
                         : kind === InspectorBackend.ModifierMenu ? audioModifierMenuControl
                         : kind === InspectorBackend.TtsEditor ? ttsEditorControl
                         : kind === InspectorBackend.BeatDetection ? beatDetectionControl
@@ -357,6 +362,7 @@ Item {
 
                     function component(componentIndex) {
                         const revision = kind === InspectorBackend.AudioCache
+                            || kind === InspectorBackend.VisualCache
                             ? backend.documentRevision + backend.cacheRevision
                             : backend.revision
                         return revision >= 0 ? backend.controlComponent(
@@ -368,6 +374,7 @@ Item {
                     }
                     function tooltip() {
                         const revision = kind === InspectorBackend.AudioCache
+                            || kind === InspectorBackend.VisualCache
                             ? backend.documentRevision + backend.cacheRevision
                             : backend.revision
                         return revision >= 0 ? backend.controlTooltip(
@@ -1742,8 +1749,217 @@ Item {
                         }
                     }
                     Component {
+                        id: visualCacheControl
+                        RowLayout {
+                            SystemPalette { id: visualCachePalette }
+                            Layout.fillWidth: true
+                            Item { Layout.fillWidth: true }
+                            ProgressButton {
+                                readonly property real cacheProgress: controlLoader.component(0)
+                                readonly property bool baking:
+                                    controlLoader.value === "Baking…"
+                                readonly property bool cancelHovered: baking && hovered
+                                highlighted: !baking
+                                text: cancelHovered ? qsTr("Cancel") : controlLoader.value
+                                progressState: !baking ? ProgressButton.Idle
+                                    : cacheProgress < 0 ? ProgressButton.Indeterminate
+                                    : ProgressButton.Progress
+                                progress: Math.max(0, cacheProgress)
+                                palette.button: cancelHovered
+                                    ? backend.destructiveBackground()
+                                    : visualCachePalette.button
+                                palette.buttonText: cancelHovered
+                                    ? backend.destructiveForeground()
+                                    : visualCachePalette.buttonText
+                                ToolTip.visible: hovered
+                                    && controlLoader.tooltip().length > 0
+                                ToolTip.text: controlLoader.tooltip()
+                                onClicked: backend.triggerControlAction(
+                                    controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index)
+                            }
+                        }
+                    }
+                    Component {
                         id: layeredVector3Control
-                        Loader { sourceComponent: vector3Control }
+                        InspectorTripleGraphProperty {
+                            id: propertyGraph
+                            readonly property int graphDocumentRevision: backend.documentRevision
+                            readonly property int graphModelRevision: backend.graphRevision
+                            readonly property int graphPlayheadRevision:
+                                backend.playheadRevision
+                            readonly property int tripleValueRevision:
+                                backend.documentRevision + backend.playheadRevision
+                                    + backend.graphRevision
+                            readonly property var expressionResult: {
+                                const documentRevision = backend.documentRevision
+                                const expressionRevision = backend.expressionRevision
+                                const playheadRevision = backend.playheadRevision
+                                return propertyGraph.expression
+                                        && documentRevision + expressionRevision
+                                        + playheadRevision >= 0
+                                    ? backend.controlExpressionResult(
+                                        controlLoader.categoryIndex,
+                                        controlLoader.itemIndex, controlLoader.index)
+                                    : []
+                            }
+                            label: controlLoader.label
+                            graphValueDrivesEditor: false
+                            initialGraphValue: tripleValueRevision >= 0
+                                ? backend.controlComponent(controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index, 0) : 0
+                            initialSecondValue: tripleValueRevision >= 0
+                                ? backend.controlComponent(controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index, 1) : 0
+                            initialThirdValue: tripleValueRevision >= 0
+                                ? backend.controlComponent(controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index, 2) : 0
+                            keyframes: root.refreshed(backend.controlKeyframes(
+                                controlLoader.categoryIndex,
+                                controlLoader.itemIndex, controlLoader.index))
+                            expression: root.refreshed(backend.controlExpression(
+                                controlLoader.categoryIndex,
+                                controlLoader.itemIndex, controlLoader.index))
+                            expressionValue: root.refreshed(
+                                backend.controlExpressionSource(
+                                    controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index))
+                            expressionOutput: expressionResult.length > 0
+                                ? expressionResult[0] : ""
+                            expressionError: expressionResult.length > 1
+                                ? expressionResult[1] : ""
+                            externalClipboardMarker: backend.keyframeClipboardMarker()
+                            minimum: controlLoader.minimum()
+                            maximum: controlLoader.maximum()
+                            dragStep: controlLoader.dragStep()
+                            digits: controlLoader.digits()
+                            widthCharacters: controlLoader.widthCharacters()
+                            unitName: controlLoader.unit()
+                            prefixes: [controlLoader.prefix(0), controlLoader.prefix(1),
+                                controlLoader.prefix(2)]
+                            enableLock: controlLoader.locked()
+                            function updateGraphPlayhead() {
+                                if (!propertyGraph.keyframes)
+                                    return
+                                const playhead = backend.controlGraphPlayhead(
+                                    controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index)
+                                if (playhead.length === 2)
+                                    propertyGraph.setGraphPlayhead(playhead[0], playhead[1])
+                            }
+                            function configureGraph() {
+                                if (!propertyGraph.keyframes)
+                                    return
+                                const times = backend.controlGraphPointTimes(
+                                    controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index)
+                                const segments = backend.controlGraphSegments(
+                                    controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index)
+                                const timing = backend.controlGraphTiming(
+                                    controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index)
+                                if (timing.length !== 6)
+                                    return
+                                propertyGraph.replaceSpeedGraphComponent(
+                                    0, times, segments, 0)
+                                propertyGraph.setGraphRange(
+                                    timing[0], timing[1], timing[2], timing[3])
+                                propertyGraph.setGraphFrameStep(timing[4], timing[5])
+                                propertyGraph.setGraphSnapping(
+                                    backend.keyframeSnappingEnabled(),
+                                    backend.keyframeSnappingRadius())
+                                propertyGraph.setGraphExternalClipboard(true)
+                                propertyGraph.updateGraphPlayhead()
+                            }
+                            Component.onCompleted: configureGraph()
+                            onGraphLoaded: configureGraph()
+                            onGraphDocumentRevisionChanged: configureGraph()
+                            onGraphModelRevisionChanged: configureGraph()
+                            onGraphPlayheadRevisionChanged: updateGraphPlayhead()
+                            onBaseTripleEdited: function(first, second, third) {
+                                backend.setControlComponents(controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index,
+                                    first, second, third, 0)
+                            }
+                            onKeyframeTripleEdited: function(first, second, third, component) {
+                                backend.setControlComponents(controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index,
+                                    first, second, third, component)
+                            }
+                            onTripleCommitted: controlLoader.commit()
+                            onGraphPlaybackToggled: backend.toggleControlGraphPlayback()
+                            onGraphPlayheadChanged: function(component, numerator, denominator) {
+                                if (component !== 0)
+                                    return
+                                backend.seekControlGraph(
+                                    controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index,
+                                    numerator, denominator)
+                            }
+                            onGraphKeysMoved: function(component, oldTimes, times, values) {
+                                if (component !== 0)
+                                    return
+                                backend.moveControlGraphKeys(
+                                    controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index,
+                                    oldTimes, times, values)
+                            }
+                            onGraphEditFinished: controlLoader.commit()
+                            onGraphKeysDeleted: function(component, times) {
+                                if (component !== 0)
+                                    return
+                                backend.deleteControlGraphKeys(
+                                    controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index, times)
+                            }
+                            onGraphKeyAdded: function(component, numerator, denominator) {
+                                if (component !== 0)
+                                    return
+                                backend.addControlGraphKey(
+                                    controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index,
+                                    numerator, denominator)
+                            }
+                            onGraphCopyRequested: function(component, times) {
+                                if (component !== 0)
+                                    return
+                                if (backend.copyControlGraphKeys(
+                                    controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index, times)) {
+                                    propertyGraph.copyExternalClipboardMarker()
+                                }
+                            }
+                            onGraphPasteRequested: function(component, numerator, denominator) {
+                                if (component !== 0)
+                                    return
+                                backend.pasteControlGraphKeys(
+                                    controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index,
+                                    numerator, denominator)
+                            }
+                            onGraphInterpolationChanged: function(component, ownerId, interpolation) {
+                                if (component !== 0)
+                                    return
+                                backend.setControlGraphInterpolation(
+                                    controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index,
+                                    ownerId, interpolation)
+                            }
+                            onKeyframesToggled: function(enabled) {
+                                backend.setControlKeyframes(controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index, enabled)
+                            }
+                            onExpressionToggled: function(enabled) {
+                                backend.setControlExpression(controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index, enabled)
+                            }
+                            onExpressionEdited: function(value) {
+                                backend.setControlExpressionSource(controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index, value)
+                            }
+                            onExpressionCommitted: controlLoader.commit()
+                        }
                     }
                     Component {
                         id: projectSettingsControl
