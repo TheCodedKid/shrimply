@@ -44,6 +44,19 @@ Build the documentation on its own with:
 
    $ make docs
 
+
+Docker Build Environment [Experimental]
+---------------------------------------
+
+You can build Shrimply using the provided Dockerfile. 
+This will generate the necesary binaries to run Shrimply on your machine.
+
+Remember to pull the Git Submodules before building Shrimply
+
+.. code-block:: console
+
+   $ docker buildx build --target export --output type=local,dest=dist/stage .
+
 Python environments
 -------------------
 
