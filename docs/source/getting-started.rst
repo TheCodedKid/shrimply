@@ -5,22 +5,10 @@ Run Shrimply
 ------------
 
 Shrimply is currently pre-alpha software. To try it, build it from source.
-The development setup currently targets Fedora. From a checkout, install the
-native dependencies and prepare CUDA Oxide once:
 
-.. code-block:: console
+You should prepare around 200GB of free disk space and a reasonably modern machine.
 
-   $ make deps-fedora
-   $ make oxide-setup
-
-Then build and launch Shrimply through the Makefile:
-
-.. code-block:: console
-
-   $ make dev
-
-The current CUDA artifacts target ``sm_86``. See :doc:`development` for the
-rest of the development workflow.
+Due to the complex nature of the development setup. I strongly recommend you to just point some agent at it (they are pretty good at that!).
 
 Create a project
 ----------------
