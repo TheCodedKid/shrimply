@@ -17,7 +17,7 @@ RUN make deps-fedora DNF="dnf -y"
 
 
 RUN rpm -q gtk4-devel && pkg-config --exists gtk4 \
-    && echo "gtk4-devel OK: $(pkg-config --modversion gtk4)"
+    && echo "gtk4-devel OK: $(pkg-config --modversion gtk4)" \
     && make qt-native-deps
 
 # Add CUDA from Nvidia source
