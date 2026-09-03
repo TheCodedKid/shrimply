@@ -10,20 +10,8 @@ pub(super) fn presentation(
     let base = format!("/modifiers/{index}/effect/effect/config");
     let mut section = InspectorSection::default();
     for (field, label, timeline, minimum, integer) in [
-        (
-            "amplitude",
-            "Amplitude",
-            &value.amplitude,
-            Some(0.0),
-            false,
-        ),
-        (
-            "spacing",
-            "Spacing",
-            &value.spacing,
-            Some(0.1),
-            false,
-        ),
+        ("amplitude", "Amplitude", &value.amplitude, Some(0.0), false),
+        ("spacing", "Spacing", &value.spacing, Some(0.1), false),
         ("seed", "Seed", &value.seed, Some(0.0), true),
         ("evolution", "Evolution", &value.evolution, None, true),
     ] {

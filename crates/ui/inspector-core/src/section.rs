@@ -108,6 +108,7 @@ pub struct InspectorControl {
     pub visible: bool,
     pub number: NumberSpec,
     pub accepted_range: Option<(f64, f64)>,
+    pub integer: bool,
     pub width_characters: i32,
     pub prefixes: Vec<String>,
     pub suffix: String,
@@ -148,6 +149,7 @@ impl InspectorControl {
             visible: true,
             number: NumberSpec::default(),
             accepted_range: None,
+            integer: false,
             width_characters: 8,
             prefixes: Vec::new(),
             suffix: String::new(),
@@ -238,6 +240,11 @@ impl InspectorControl {
     pub fn accepted_range(mut self, minimum: f64, maximum: f64) -> Self {
         assert!(minimum <= maximum, "accepted range must be ordered");
         self.accepted_range = Some((minimum, maximum));
+        self
+    }
+
+    pub fn integer(mut self) -> Self {
+        self.integer = true;
         self
     }
 

@@ -726,8 +726,22 @@ impl InspectorController {
         &self,
         target: &InspectorTarget,
         path: &str,
+        timeline_id: Option<uuid::Uuid>,
     ) -> Result<f64, String> {
         let project = self.project.borrow();
+        if let (Some(timeline_id), InspectorTarget::Item(address @ ItemAddress::Video { .. })) =
+            (timeline_id, target)
+        {
+            let item = project
+                .video_item(address)
+                .ok_or_else(|| "video item is no longer available".to_string())?;
+            let timeline = crate::visual_modifiers::visual_modifier_number(item, path, timeline_id)
+                .ok_or_else(|| format!("visual modifier number is no longer available: {path}"))?;
+            let local_time = target_runtime(&project, &self.player_state, target)
+                .local_time
+                .ok_or_else(|| "the current item time is not available".to_string())?;
+            return Ok(f64::from(timeline.value_at(local_time)));
+        }
         let value = target_value(&project, target)
             .ok_or_else(|| "inspector target is no longer available".to_string())?
             .1;
@@ -748,6 +762,199 @@ impl InspectorController {
             _ => Time::ZERO,
         };
         Ok(f64::from(timeline.value_at(local_time)))
+    }
+
+    pub fn ensure_visual_modifier_number(
+        &self,
+        target: &InspectorTarget,
+        path: &str,
+        timeline_id: uuid::Uuid,
+    ) -> Result<(), String> {
+        let project = self.project.borrow();
+        let InspectorTarget::Item(address @ ItemAddress::Video { .. }) = target else {
+            return Err("visual modifier number target is not a video item".to_string());
+        };
+        let item = project
+            .video_item(address)
+            .ok_or_else(|| "video item is no longer available".to_string())?;
+        crate::visual_modifiers::visual_modifier_number(item, path, timeline_id)
+            .map(|_| ())
+            .ok_or_else(|| format!("visual modifier number is no longer available: {path}"))
+    }
+
+    pub fn ensure_visual_modifier(
+        &self,
+        target: &InspectorTarget,
+        path: &str,
+        modifier_id: uuid::Uuid,
+    ) -> Result<(), String> {
+        let project = self.project.borrow();
+        let InspectorTarget::Item(address @ ItemAddress::Video { .. }) = target else {
+            return Err("visual modifier target is not a video item".to_string());
+        };
+        let item = project
+            .video_item(address)
+            .ok_or_else(|| "video item is no longer available".to_string())?;
+        crate::visual_modifiers::visual_modifier_matches(item, path, modifier_id)
+            .then_some(())
+            .ok_or_else(|| "visual modifier is no longer available".to_string())
+    }
+
+    pub fn ensure_visual_modifier_vector2(
+        &self,
+        target: &InspectorTarget,
+        path: &str,
+        timeline_id: uuid::Uuid,
+    ) -> Result<(), String> {
+        let project = self.project.borrow();
+        let InspectorTarget::Item(address @ ItemAddress::Video { .. }) = target else {
+            return Err("visual modifier vector target is not a video item".to_string());
+        };
+        let item = project
+            .video_item(address)
+            .ok_or_else(|| "video item is no longer available".to_string())?;
+        crate::visual_modifiers::visual_modifier_vector2(item, path, timeline_id)
+            .map(|_| ())
+            .ok_or_else(|| format!("visual modifier vector is no longer available: {path}"))
+    }
+
+    pub fn ensure_visual_modifier_timeline(
+        &self,
+        target: &InspectorTarget,
+        path: &str,
+        timeline_id: uuid::Uuid,
+    ) -> Result<(), String> {
+        let project = self.project.borrow();
+        let value = target_value(&project, target)
+            .ok_or_else(|| "inspector target is no longer available".to_string())?
+            .1;
+        let current = value
+            .pointer(path)
+            .and_then(|timeline| timeline.get("id"))
+            .and_then(Value::as_str)
+            .and_then(|id| uuid::Uuid::parse_str(id).ok());
+        (current == Some(timeline_id))
+            .then_some(())
+            .ok_or_else(|| format!("visual modifier timeline is no longer available: {path}"))
+    }
+
+    pub fn timeline_vector2_value(
+        &self,
+        target: &InspectorTarget,
+        path: &str,
+        timeline_id: Option<uuid::Uuid>,
+    ) -> Result<glam::Vec2, String> {
+        let project = self.project.borrow();
+        if let (Some(timeline_id), InspectorTarget::Item(address @ ItemAddress::Video { .. })) =
+            (timeline_id, target)
+        {
+            let item = project
+                .video_item(address)
+                .ok_or_else(|| "video item is no longer available".to_string())?;
+            let timeline =
+                crate::visual_modifiers::visual_modifier_vector2(item, path, timeline_id)
+                    .ok_or_else(|| {
+                        format!("visual modifier vector is no longer available: {path}")
+                    })?;
+            let local_time = target_runtime(&project, &self.player_state, target)
+                .local_time
+                .ok_or_else(|| "the current item time is not available".to_string())?;
+            return Ok(timeline.value_at(local_time));
+        }
+        let value = target_value(&project, target)
+            .ok_or_else(|| "inspector target is no longer available".to_string())?
+            .1;
+        let timeline: shrimply_core::timeline_value::TimelineValue<glam::Vec2> =
+            deserialize(value.pointer(path).cloned().ok_or_else(|| {
+                format!("inspector timeline vector is no longer available: {path}")
+            })?)?;
+        let local_time = target_runtime(&project, &self.player_state, target)
+            .local_time
+            .unwrap_or(Time::ZERO);
+        Ok(timeline.value_at(local_time))
+    }
+
+    pub fn visual_modifier_number_graph(
+        &self,
+        target: &InspectorTarget,
+        path: &str,
+        timeline_id: uuid::Uuid,
+    ) -> Result<Option<crate::ScalarGraph>, String> {
+        let project = self.project.borrow();
+        let InspectorTarget::Item(address @ ItemAddress::Video { .. }) = target else {
+            return Err("visual modifier graph target is not a video item".to_string());
+        };
+        let item = project
+            .video_item(address)
+            .ok_or_else(|| "video item is no longer available".to_string())?;
+        let timeline = crate::visual_modifiers::visual_modifier_number(item, path, timeline_id)
+            .ok_or_else(|| format!("visual modifier number is no longer available: {path}"))?;
+        let runtime = target_runtime(&project, &self.player_state, target);
+        let current = timeline.value_at(runtime.local_time.unwrap_or(Time::ZERO));
+        Ok(crate::transform::scalar_graph(timeline, current, runtime))
+    }
+
+    pub fn visual_modifier_vector2_graph(
+        &self,
+        target: &InspectorTarget,
+        path: &str,
+        timeline_id: uuid::Uuid,
+    ) -> Result<Option<crate::ScalarGraph>, String> {
+        let project = self.project.borrow();
+        let InspectorTarget::Item(address @ ItemAddress::Video { .. }) = target else {
+            return Err("visual modifier graph target is not a video item".to_string());
+        };
+        let item = project
+            .video_item(address)
+            .ok_or_else(|| "video item is no longer available".to_string())?;
+        let timeline = crate::visual_modifiers::visual_modifier_vector2(item, path, timeline_id)
+            .ok_or_else(|| format!("visual modifier vector is no longer available: {path}"))?;
+        Ok(crate::transform::vector_speed_graph(
+            timeline,
+            target_runtime(&project, &self.player_state, target),
+        ))
+    }
+
+    pub fn visual_modifier_color_graph(
+        &self,
+        target: &InspectorTarget,
+        path: &str,
+        timeline_id: uuid::Uuid,
+    ) -> Result<Option<crate::ScalarGraph>, String> {
+        let project = self.project.borrow();
+        let InspectorTarget::Item(address @ ItemAddress::Video { .. }) = target else {
+            return Err("visual modifier graph target is not a video item".to_string());
+        };
+        let item = project
+            .video_item(address)
+            .ok_or_else(|| "video item is no longer available".to_string())?;
+        let timeline = crate::visual_modifiers::visual_modifier_color(item, path, timeline_id)
+            .ok_or_else(|| format!("visual modifier color is no longer available: {path}"))?;
+        Ok(crate::visual_modifiers::color_speed_graph(
+            timeline,
+            target_runtime(&project, &self.player_state, target),
+        ))
+    }
+
+    pub fn erode_dilate_operation_graph(
+        &self,
+        target: &InspectorTarget,
+        path: &str,
+        timeline_id: uuid::Uuid,
+    ) -> Result<Option<crate::ScalarGraph>, String> {
+        let project = self.project.borrow();
+        let InspectorTarget::Item(address @ ItemAddress::Video { .. }) = target else {
+            return Err("visual modifier graph target is not a video item".to_string());
+        };
+        let item = project
+            .video_item(address)
+            .ok_or_else(|| "video item is no longer available".to_string())?;
+        let timeline = crate::visual_modifiers::erode_dilate_operation(item, path, timeline_id)
+            .ok_or_else(|| format!("erode/dilate operation is no longer available: {path}"))?;
+        Ok(crate::selector::step_graph(
+            timeline,
+            target_runtime(&project, &self.player_state, target),
+        ))
     }
 
     pub fn audio_modifier_number_value(

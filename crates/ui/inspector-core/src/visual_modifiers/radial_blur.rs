@@ -37,19 +37,22 @@ pub(super) fn presentation(
         },
         true,
     ));
-    section.add(super::modifier_scalar_control(
-        format!("{base}/samples"),
-        "Samples",
-        &value.samples,
-        runtime,
-        NumberSpec {
-            minimum: 2.0,
-            maximum: 128.0,
-            drag_step: 1.0,
-            digits: 0,
-            ..NumberSpec::default()
-        },
-        false,
-    ));
+    section.add(
+        super::modifier_scalar_control(
+            format!("{base}/samples"),
+            "Samples",
+            &value.samples,
+            runtime,
+            NumberSpec {
+                minimum: 2.0,
+                maximum: 128.0,
+                drag_step: 1.0,
+                digits: 0,
+                ..NumberSpec::default()
+            },
+            false,
+        )
+        .integer(),
+    );
     section
 }

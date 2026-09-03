@@ -21,16 +21,13 @@ pub(super) fn presentation(
             .value(filename),
     );
     section.add(
-        InspectorControl::new(
-            ControlKind::Action,
-            format!("{base}/file/select"),
-            "",
-        )
-        .value(if value.file.is_some() {
-            "Replace model"
-        } else {
-            "Select model"
-        }),
+        InspectorControl::new(ControlKind::Action, format!("{base}/file/select"), "").value(
+            if value.file.is_some() {
+                "Replace model"
+            } else {
+                "Select model"
+            },
+        ),
     );
     section.add(
         InspectorControl::new(ControlKind::Action, format!("{base}/file/clear"), "")
@@ -38,12 +35,7 @@ pub(super) fn presentation(
             .sensitive(value.file.is_some()),
     );
     for (field, label, timeline, degrees) in [
-        (
-            "position",
-            "Position",
-            &value.transform.position,
-            false,
-        ),
+        ("position", "Position", &value.transform.position, false),
         ("anchor", "Anchor", &value.transform.anchor, false),
         (
             "rotation_degrees",
@@ -88,13 +80,7 @@ pub(super) fn presentation(
         runtime,
     ));
     for (field, label, timeline, minimum, maximum) in [
-        (
-            "metallic",
-            "Metallic",
-            &value.material.metallic,
-            0.0,
-            1.0,
-        ),
+        ("metallic", "Metallic", &value.material.metallic, 0.0, 1.0),
         (
             "roughness",
             "Roughness",

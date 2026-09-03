@@ -46,6 +46,7 @@ thread_local! {
     static DIRTY: Cell<bool> = const { Cell::new(false) };
     static CACHE_DIRTY: Cell<bool> = const { Cell::new(false) };
     static EXPRESSION_DIRTY: Cell<bool> = const { Cell::new(false) };
+    static GRAPH_DIRTY: Cell<bool> = const { Cell::new(false) };
     static PLAYHEAD_DIRTY: Cell<bool> = const { Cell::new(false) };
     static TRANSFORM_DIRTY: Cell<bool> = const { Cell::new(false) };
     static FOCUS_DIRTY: Cell<bool> = const { Cell::new(false) };
@@ -582,6 +583,10 @@ fn take_expression_dirty() -> bool {
     EXPRESSION_DIRTY.replace(false)
 }
 
+fn take_graph_dirty() -> bool {
+    GRAPH_DIRTY.replace(false)
+}
+
 fn take_playhead_dirty() -> bool {
     PLAYHEAD_DIRTY.replace(false)
 }
@@ -915,13 +920,93 @@ fn set_components(
     with_controller(|controller| controller.set_components(target, path, values))
 }
 
+fn ensure_control_timeline(
+    target: &InspectorTarget,
+    control: &section::InspectorControl,
+) -> Result<(), String> {
+    let path = control.timeline_path.as_deref().unwrap_or(&control.path);
+    if !path.starts_with("/modifiers/") {
+        return Ok(());
+    }
+    if let Some(modifier_id) = control.target_id {
+        with_controller(|controller| controller.ensure_visual_modifier(target, path, modifier_id))?;
+    }
+    if !matches!(
+        control.kind,
+        section::ControlKind::LayeredNumber
+            | section::ControlKind::LayeredSelector
+            | section::ControlKind::LayeredVector2
+            | section::ControlKind::LayeredColor
+    ) {
+        return Ok(());
+    }
+    let timeline_id = control
+        .timeline_id
+        .ok_or_else(|| "visual modifier timeline ID is unavailable".to_string())?;
+    with_controller(|controller| match control.kind {
+        section::ControlKind::LayeredNumber => {
+            controller.ensure_visual_modifier_number(target, path, timeline_id)
+        }
+        section::ControlKind::LayeredSelector => {
+            controller.ensure_visual_modifier_timeline(target, path, timeline_id)
+        }
+        section::ControlKind::LayeredColor => {
+            controller.ensure_visual_modifier_timeline(target, path, timeline_id)
+        }
+        section::ControlKind::LayeredVector2 => {
+            controller.ensure_visual_modifier_vector2(target, path, timeline_id)
+        }
+        _ => Ok(()),
+    })
+}
+
 fn set_vector2_value(
     target: &InspectorTarget,
     path: &str,
     first: f64,
     second: f64,
 ) -> Result<(), String> {
-    with_controller(|controller| controller.set_vector2_value(target, path, first, second))
+    let result =
+        with_controller(|controller| controller.set_vector2_value(target, path, first, second));
+    if result.is_ok() {
+        EXPRESSION_DIRTY.set(true);
+        GRAPH_DIRTY.set(true);
+    }
+    result
+}
+
+fn visual_modifier_number_graph(
+    target: &InspectorTarget,
+    path: &str,
+    timeline_id: uuid::Uuid,
+) -> Result<Option<shrimply_inspector_core::ScalarGraph>, String> {
+    with_controller(|controller| controller.visual_modifier_number_graph(target, path, timeline_id))
+}
+
+fn visual_modifier_vector2_graph(
+    target: &InspectorTarget,
+    path: &str,
+    timeline_id: uuid::Uuid,
+) -> Result<Option<shrimply_inspector_core::ScalarGraph>, String> {
+    with_controller(|controller| {
+        controller.visual_modifier_vector2_graph(target, path, timeline_id)
+    })
+}
+
+fn visual_modifier_color_graph(
+    target: &InspectorTarget,
+    path: &str,
+    timeline_id: uuid::Uuid,
+) -> Result<Option<shrimply_inspector_core::ScalarGraph>, String> {
+    with_controller(|controller| controller.visual_modifier_color_graph(target, path, timeline_id))
+}
+
+fn erode_dilate_operation_graph(
+    target: &InspectorTarget,
+    path: &str,
+    timeline_id: uuid::Uuid,
+) -> Result<Option<shrimply_inspector_core::ScalarGraph>, String> {
+    with_controller(|controller| controller.erode_dilate_operation_graph(target, path, timeline_id))
 }
 
 fn transform_live_presentation(
@@ -1003,8 +1088,50 @@ fn set_vector2_keyframes_enabled(
 fn vector2_expression_output(
     target: &InspectorTarget,
     path: &str,
+    timeline_id: Option<uuid::Uuid>,
 ) -> Result<shrimply_inspector_core::InspectorExpressionOutput<glam::Vec2>, String> {
-    with_controller(|controller| controller.vector2_expression_output(target, path))
+    with_controller(|controller| controller.vector2_expression_output(target, path, timeline_id))
+}
+
+fn set_color_value(
+    target: &InspectorTarget,
+    path: &str,
+    timeline_id: uuid::Uuid,
+    value: shrimply_core::Color<u8>,
+) -> Result<(), String> {
+    let result =
+        with_controller(|controller| controller.set_color_value(target, path, timeline_id, value));
+    if result.is_ok() {
+        mark_dirty();
+    }
+    result
+}
+
+fn set_color_keyframes_enabled(
+    target: &InspectorTarget,
+    path: &str,
+    timeline_id: uuid::Uuid,
+    enabled: bool,
+) -> Result<(), String> {
+    with_controller(|controller| {
+        controller.set_color_keyframes_enabled(target, path, timeline_id, enabled)
+    })
+}
+
+fn color_expression_output(
+    target: &InspectorTarget,
+    path: &str,
+    timeline_id: uuid::Uuid,
+) -> Result<shrimply_inspector_core::InspectorExpressionOutput<shrimply_core::Color<u8>>, String> {
+    with_controller(|controller| controller.color_expression_output(target, path, timeline_id))
+}
+
+fn color_value(
+    target: &InspectorTarget,
+    path: &str,
+    timeline_id: uuid::Uuid,
+) -> Result<shrimply_core::Color<u8>, String> {
+    with_controller(|controller| controller.color_value(target, path, timeline_id))
 }
 
 fn set_bool_value(target: &InspectorTarget, path: &str, value: bool) -> Result<(), String> {
@@ -1044,6 +1171,7 @@ fn set_timeline_base(target: &InspectorTarget, path: &str, value: Value) -> Resu
     let result = with_controller(|controller| controller.set_timeline_base(target, path, value));
     if result.is_ok() {
         EXPRESSION_DIRTY.set(true);
+        GRAPH_DIRTY.set(true);
     }
     result
 }
@@ -1100,7 +1228,7 @@ fn timeline_number_value(
 ) -> Result<f64, String> {
     with_controller(|controller| {
         target_id.map_or_else(
-            || controller.timeline_number_value(target, path),
+            || controller.timeline_number_value(target, path, timeline_id),
             |id| {
                 controller.audio_modifier_number_value(
                     target,
@@ -1114,11 +1242,20 @@ fn timeline_number_value(
     })
 }
 
+fn timeline_vector2_value(
+    target: &InspectorTarget,
+    timeline_id: Option<uuid::Uuid>,
+    path: &str,
+) -> Result<glam::Vec2, String> {
+    with_controller(|controller| controller.timeline_vector2_value(target, path, timeline_id))
+}
+
 fn scalar_expression_output(
     target: &InspectorTarget,
     path: &str,
+    timeline_id: Option<uuid::Uuid>,
 ) -> Result<shrimply_inspector_core::InspectorExpressionOutput, String> {
-    with_controller(|controller| controller.scalar_expression_output(target, path))
+    with_controller(|controller| controller.scalar_expression_output(target, path, timeline_id))
 }
 
 fn bool_expression_output(
@@ -1131,8 +1268,9 @@ fn bool_expression_output(
 fn step_expression_output(
     target: &InspectorTarget,
     path: &str,
+    timeline_id: Option<uuid::Uuid>,
 ) -> Result<shrimply_inspector_core::InspectorExpressionOutput<String>, String> {
-    with_controller(|controller| controller.step_expression_output(target, path))
+    with_controller(|controller| controller.step_expression_output(target, path, timeline_id))
 }
 
 fn move_scalar_keyframe(
@@ -1144,6 +1282,7 @@ fn move_scalar_keyframe(
         with_controller(|controller| controller.move_scalar_keyframe(target, path, change));
     if result.is_ok() {
         EXPRESSION_DIRTY.set(true);
+        GRAPH_DIRTY.set(true);
     }
     result
 }
@@ -1157,6 +1296,7 @@ fn delete_scalar_keyframe(
         with_controller(|controller| controller.delete_scalar_keyframe(target, path, time));
     if result.is_ok() {
         EXPRESSION_DIRTY.set(true);
+        GRAPH_DIRTY.set(true);
     }
     result
 }
@@ -1169,6 +1309,7 @@ fn add_scalar_keyframe(
     let result = with_controller(|controller| controller.add_scalar_keyframe(target, path, time));
     if result.is_ok() {
         EXPRESSION_DIRTY.set(true);
+        GRAPH_DIRTY.set(true);
     }
     result
 }
@@ -1184,6 +1325,7 @@ fn set_scalar_keyframe_interpolation(
     });
     if result.is_ok() {
         EXPRESSION_DIRTY.set(true);
+        GRAPH_DIRTY.set(true);
     }
     result
 }
@@ -1205,6 +1347,7 @@ fn paste_scalar_keyframes(
         with_controller(|controller| controller.paste_scalar_keyframes(target, path, time));
     if result.is_ok() {
         EXPRESSION_DIRTY.set(true);
+        GRAPH_DIRTY.set(true);
     }
     result
 }
@@ -1224,7 +1367,13 @@ fn move_vector2_keyframes(
         shrimply_project::project::Time,
     )],
 ) -> Result<Vec<shrimply_project::project::Time>, String> {
-    with_controller(|controller| controller.move_vector2_keyframes(target, path, moves))
+    let result =
+        with_controller(|controller| controller.move_vector2_keyframes(target, path, moves));
+    if result.is_ok() {
+        EXPRESSION_DIRTY.set(true);
+        GRAPH_DIRTY.set(true);
+    }
+    result
 }
 
 fn delete_vector2_keyframe(
@@ -1232,7 +1381,13 @@ fn delete_vector2_keyframe(
     path: &str,
     time: shrimply_project::project::Time,
 ) -> Result<(), String> {
-    with_controller(|controller| controller.delete_vector2_keyframe(target, path, time))
+    let result =
+        with_controller(|controller| controller.delete_vector2_keyframe(target, path, time));
+    if result.is_ok() {
+        EXPRESSION_DIRTY.set(true);
+        GRAPH_DIRTY.set(true);
+    }
+    result
 }
 
 fn delete_transform_scalar_keyframe(
@@ -1248,7 +1403,12 @@ fn add_vector2_keyframe(
     path: &str,
     time: shrimply_project::project::Time,
 ) -> Result<(), String> {
-    with_controller(|controller| controller.add_vector2_keyframe(target, path, time))
+    let result = with_controller(|controller| controller.add_vector2_keyframe(target, path, time));
+    if result.is_ok() {
+        EXPRESSION_DIRTY.set(true);
+        GRAPH_DIRTY.set(true);
+    }
+    result
 }
 
 fn copy_vector2_keyframes(
@@ -1264,7 +1424,13 @@ fn paste_vector2_keyframes(
     path: &str,
     time: shrimply_project::project::Time,
 ) -> Result<usize, String> {
-    with_controller(|controller| controller.paste_vector2_keyframes(target, path, time))
+    let result =
+        with_controller(|controller| controller.paste_vector2_keyframes(target, path, time));
+    if result.is_ok() {
+        EXPRESSION_DIRTY.set(true);
+        GRAPH_DIRTY.set(true);
+    }
+    result
 }
 
 fn set_vector2_interpolation(
@@ -1273,9 +1439,107 @@ fn set_vector2_interpolation(
     owner_id: uuid::Uuid,
     interpolation: usize,
 ) -> Result<(), String> {
-    with_controller(|controller| {
+    let result = with_controller(|controller| {
         controller.set_vector2_interpolation(target, path, owner_id, interpolation)
-    })
+    });
+    if result.is_ok() {
+        EXPRESSION_DIRTY.set(true);
+        GRAPH_DIRTY.set(true);
+    }
+    result
+}
+
+fn move_color_keyframes(
+    target: &InspectorTarget,
+    path: &str,
+    timeline_id: uuid::Uuid,
+    moves: &[(
+        shrimply_project::project::Time,
+        shrimply_project::project::Time,
+    )],
+) -> Result<Vec<shrimply_project::project::Time>, String> {
+    let result = with_controller(|controller| {
+        controller.move_color_keyframes(target, path, timeline_id, moves)
+    });
+    if result.is_ok() {
+        EXPRESSION_DIRTY.set(true);
+        GRAPH_DIRTY.set(true);
+    }
+    result
+}
+
+fn delete_color_keyframe(
+    target: &InspectorTarget,
+    path: &str,
+    timeline_id: uuid::Uuid,
+    time: shrimply_project::project::Time,
+) -> Result<(), String> {
+    let result = with_controller(|controller| {
+        controller.delete_color_keyframe(target, path, timeline_id, time)
+    });
+    if result.is_ok() {
+        EXPRESSION_DIRTY.set(true);
+        GRAPH_DIRTY.set(true);
+    }
+    result
+}
+
+fn add_color_keyframe(
+    target: &InspectorTarget,
+    path: &str,
+    timeline_id: uuid::Uuid,
+    time: shrimply_project::project::Time,
+) -> Result<(), String> {
+    let result = with_controller(|controller| {
+        controller.add_color_keyframe(target, path, timeline_id, time)
+    });
+    if result.is_ok() {
+        EXPRESSION_DIRTY.set(true);
+        GRAPH_DIRTY.set(true);
+    }
+    result
+}
+
+fn copy_color_keyframes(
+    target: &InspectorTarget,
+    path: &str,
+    timeline_id: uuid::Uuid,
+    times: &[shrimply_project::project::Time],
+) -> Result<usize, String> {
+    with_controller(|controller| controller.copy_color_keyframes(target, path, timeline_id, times))
+}
+
+fn paste_color_keyframes(
+    target: &InspectorTarget,
+    path: &str,
+    timeline_id: uuid::Uuid,
+    time: shrimply_project::project::Time,
+) -> Result<usize, String> {
+    let result = with_controller(|controller| {
+        controller.paste_color_keyframes(target, path, timeline_id, time)
+    });
+    if result.is_ok() {
+        EXPRESSION_DIRTY.set(true);
+        GRAPH_DIRTY.set(true);
+    }
+    result
+}
+
+fn set_color_interpolation(
+    target: &InspectorTarget,
+    path: &str,
+    timeline_id: uuid::Uuid,
+    owner_id: uuid::Uuid,
+    interpolation: usize,
+) -> Result<(), String> {
+    let result = with_controller(|controller| {
+        controller.set_color_interpolation(target, path, timeline_id, owner_id, interpolation)
+    });
+    if result.is_ok() {
+        EXPRESSION_DIRTY.set(true);
+        GRAPH_DIRTY.set(true);
+    }
+    result
 }
 
 fn move_bool_keyframes(
@@ -1336,7 +1600,12 @@ fn move_step_keyframes(
         shrimply_project::project::Time,
     )],
 ) -> Result<Vec<shrimply_project::project::Time>, String> {
-    with_controller(|controller| controller.move_step_keyframes(target, path, moves))
+    let result = with_controller(|controller| controller.move_step_keyframes(target, path, moves));
+    if result.is_ok() {
+        EXPRESSION_DIRTY.set(true);
+        GRAPH_DIRTY.set(true);
+    }
+    result
 }
 
 fn delete_step_keyframe(
@@ -1344,7 +1613,12 @@ fn delete_step_keyframe(
     path: &str,
     time: shrimply_project::project::Time,
 ) -> Result<(), String> {
-    with_controller(|controller| controller.delete_step_keyframe(target, path, time))
+    let result = with_controller(|controller| controller.delete_step_keyframe(target, path, time));
+    if result.is_ok() {
+        EXPRESSION_DIRTY.set(true);
+        GRAPH_DIRTY.set(true);
+    }
+    result
 }
 
 fn add_step_keyframe(
@@ -1352,7 +1626,12 @@ fn add_step_keyframe(
     path: &str,
     time: shrimply_project::project::Time,
 ) -> Result<(), String> {
-    with_controller(|controller| controller.add_step_keyframe(target, path, time))
+    let result = with_controller(|controller| controller.add_step_keyframe(target, path, time));
+    if result.is_ok() {
+        EXPRESSION_DIRTY.set(true);
+        GRAPH_DIRTY.set(true);
+    }
+    result
 }
 
 fn copy_step_keyframes(
@@ -1368,7 +1647,12 @@ fn paste_step_keyframes(
     path: &str,
     time: shrimply_project::project::Time,
 ) -> Result<usize, String> {
-    with_controller(|controller| controller.paste_step_keyframes(target, path, time))
+    let result = with_controller(|controller| controller.paste_step_keyframes(target, path, time));
+    if result.is_ok() {
+        EXPRESSION_DIRTY.set(true);
+        GRAPH_DIRTY.set(true);
+    }
+    result
 }
 
 fn current_keyframe_time(

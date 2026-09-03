@@ -457,7 +457,16 @@ impl InspectorController {
         &self,
         target: &InspectorTarget,
         path: &str,
+        timeline_id: Option<uuid::Uuid>,
     ) -> Result<InspectorExpressionOutput<Vec2>, String> {
+        if let Some(timeline_id) = timeline_id {
+            return self.video_modifier_expression_output(
+                target,
+                path,
+                timeline_id,
+                crate::visual_modifiers::visual_modifier_vector2,
+            );
+        }
         self.video_expression_output(target, path)
     }
 
@@ -497,6 +506,9 @@ impl InspectorController {
             return Ok(());
         };
         keyframes.remove(index);
+        if keyframes.is_empty() {
+            timeline.base = TimelineBase::Const(Vec2::ZERO);
+        }
         self.set_value(
             target,
             path,

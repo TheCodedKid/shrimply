@@ -268,14 +268,177 @@ reviews below.
     preview-provider drawing.
   - Status: implementation closed after fresh adversarial reviews 87 and 88
     found and the implementation fixed path, cache, revision, and preview-focus
-    integration defects; the user closed the subsequent re-review loop.
+  integration defects; the user closed the subsequent re-review loop.
+
+- [x] `modifiers/bulge_pinch.rs`
+  - Mirrors GTK Center, Radius, and Strength ordering and numeric specifications.
+  - Uses shared typed modifier timeline IDs for cached scalar/vector values,
+    expressions, graphs, and complete keyframe actions.
+  - Status: accepted by a fresh final per-file adversarial review.
+
+- [x] `modifiers/fisheye.rs`
+  - Mirrors GTK Intensity and Center controls, including exact ranges, precision,
+    units, and unlocked vector behavior.
+  - Uses the shared typed modifier timeline and graph-revision paths.
+  - Status: accepted by a fresh final per-file adversarial review.
+
+- [x] `modifiers/gaussian_blur.rs`
+  - Mirrors GTK's locked Radius Vec2 with `0..100 px`, step `1`, and zero digits.
+  - Includes direct scrub values, live speed-graph/expression invalidation, and
+    GTK-equivalent final-key deletion.
+  - Status: accepted by a fresh final per-file adversarial review.
+
+- [x] `modifiers/lens_distortion.rs`
+  - Mirrors GTK Distortion and Center controls with direct typed scalar/vector
+    reads, expressions, graphs, and complete keyframe actions.
+  - Status: accepted by a fresh per-file adversarial review.
+
+- [x] `modifiers/pixelate_mosaic.rs`
+  - Mirrors GTK Block width and Block height integer-style scalar controls,
+    including the `1..512` bounds, integer display, and shared timeline behavior.
+  - Status: accepted by a fresh per-file adversarial review.
+
+- [x] `modifiers/chromatic_aberration.rs`
+  - Mirrors GTK Red X, Red Y, Blue X, and Blue Y ordering and pixel inputs.
+  - Uses shared typed scalar timelines, graphs, expressions, and cached refreshes.
+  - Status: accepted by a fresh per-file adversarial review.
+
+- [x] `modifiers/vignette.rs`
+  - Mirrors GTK Amount, Midpoint, and Softness ordering and `0..1` inputs.
+  - Uses shared typed scalar timelines, graphs, expressions, and cached refreshes.
+  - Status: accepted by a fresh per-file adversarial review.
+
+- [x] `modifiers/emboss.rs`
+  - Mirrors GTK Direction, Depth, and Amount ordering, numeric constraints, and
+    rotating direction icon.
+  - Uses the shared typed scalar timeline, graph, expression, and cache paths.
+  - Status: accepted by a fresh per-file adversarial review.
+
+- [x] `modifiers/directional_blur.rs`
+  - Mirrors GTK Radius and rotating Angle controls, including native picker
+    defaults, precision, and units.
+  - Every indexed scalar mutation validates the timeline UUID first.
+  - Status: accepted by a fresh per-file adversarial re-review.
+
+- [x] `modifiers/edge_detection.rs`
+  - Mirrors GTK Amount, Edge color, and Background color ordering and specs.
+  - Uses shared typed scalar/color timeline lookup, graphs, expressions, and
+    UUID validation for every mutation.
+  - Status: accepted by a fresh per-file adversarial re-review.
+
+- [x] `modifiers/alpha_outline.rs`
+  - Mirrors GTK Width and alpha-enabled Color controls.
+  - Uses shared typed scalar/color timelines, UUID guards, color speed graphs,
+    unified visibility, and cached graph refresh.
+  - Status: accepted by a fresh final per-file adversarial review.
+
+- [x] `modifiers/erode_dilate.rs`
+  - Mirrors GTK Operation and integer Radius controls.
+  - Uses the shared typed layered-selector expression, UUID, exact step-graph,
+    clipboard, and cached graph-revision paths.
+  - Status: accepted by a fresh final per-file adversarial re-review.
+
+- [x] `modifiers/sharpen.rs`
+  - Mirrors GTK Amount and Radius ordering, ranges, precision, and units.
+  - Uses shared UUID-validated scalar timelines and cached graph revisions.
+  - Status: accepted by a fresh per-file adversarial review.
+
+- [x] `modifiers/threshold.rs`
+  - Mirrors GTK Threshold, Low color, and High color ordering and specs.
+  - Uses shared typed scalar/color timelines and generalized color graph logic.
+  - Status: accepted by a fresh per-file adversarial review.
+
+- [x] `modifiers/invert.rs`
+  - Mirrors GTK's single Amount control and `0..1` numeric behavior.
+  - Uses the shared UUID-validated scalar timeline and graph paths.
+  - Status: accepted by a fresh per-file adversarial review.
+
+- [x] `modifiers/posterize.rs`
+  - Mirrors GTK's integer Levels control with the `2..256` range.
+  - Uses the shared UUID-validated scalar timeline and graph paths.
+  - Status: accepted by a fresh per-file adversarial review.
+
+- [x] `modifiers/luma_key.rs`
+  - Mirrors GTK Threshold, Softness, and Invert ordering and specs.
+  - Scalar timelines and the plain Invert switch validate stable UUID identity
+    before any indexed mutation.
+  - Status: accepted by a fresh per-file adversarial re-review.
+
+- [x] `modifiers/mirror.rs`
+  - Mirrors GTK Horizontal and Vertical native switches.
+  - Both plain controls carry and validate the modifier UUID before indexed edits.
+  - Status: accepted by a fresh per-file adversarial review.
+
+- [x] `modifiers/colorize_duotone.rs`
+  - Mirrors GTK Shadow color and Highlight color ordering with alpha.
+  - Uses generalized typed color timelines, UUID guards, and cached color graphs.
+  - Status: accepted by a fresh per-file adversarial review.
+
+- [x] `modifiers/chroma_key.rs`
+  - Mirrors GTK Key color, Similarity, Softness, and Spill ordering and specs.
+  - Uses typed UUID-validated color/scalar timelines and cached graph revisions.
+  - Status: accepted by a fresh per-file adversarial review.
+
+- [x] `modifiers/drop_shadow.rs`
+  - Mirrors GTK Offset, Blur, and alpha Color controls, including unlocked Vec2
+    pixel input behavior.
+  - Uses shared typed vector/scalar/color timeline and graph paths.
+  - Status: accepted by a fresh per-file adversarial review.
+
+- [x] `modifiers/hsv.rs`
+  - Mirrors GTK rotating Hue, Saturation, and Value controls and vector-effect dispatch.
+  - Uses shared UUID-validated scalar timelines and cached graph revisions.
+  - Status: accepted by a fresh per-file adversarial review.
+
+- [x] `modifiers/channel_mixer.rs`
+  - Mirrors all nine GTK channel-coefficient rows, labels, order, and `-2..2` specs.
+  - Uses shared UUID-validated scalar timelines and cached graph revisions.
+  - Status: accepted by a fresh per-file adversarial review.
+
+- [x] `modifiers/color_correction.rs`
+  - Mirrors all nine GTK correction rows, including units and rotating Hue.
+  - Uses shared UUID-validated scalar timelines and cached graph revisions.
+  - Status: accepted by a fresh per-file adversarial review.
+
+- [x] `modifiers/glow_bloom.rs`
+  - Mirrors GTK Threshold, Radius, and Intensity ordering and specs.
+  - Uses shared UUID-validated scalar timelines and cached graph revisions.
+  - Status: accepted by a fresh per-file adversarial review.
+
+- [x] `modifiers/twirl.rs`
+  - Mirrors GTK Center, Radius, and rotating Angle ordering and specs.
+  - Uses shared UUID-validated scalar/vector timelines and cached graphs.
+  - Status: accepted by a fresh per-file adversarial review.
+
+- [x] `modifiers/radial_blur.rs`
+  - Mirrors GTK Center, rotating Angle, and integer Samples controls.
+  - Explicit integer metadata keeps both native input and graph edits integral.
+  - Status: accepted by a fresh final per-file adversarial re-review.
+
+- [x] `modifiers/zoom_blur.rs`
+  - Mirrors GTK Center, Strength, and integer Samples controls.
+  - Explicit integer metadata applies only to Samples, including graph edits.
+  - Status: accepted by a fresh per-file adversarial re-review.
+
+- [x] `modifiers/film_grain.rs`
+  - Mirrors GTK Amount, Size, Color, and integer Seed controls.
+  - Explicit integer metadata covers both Seed input and graph edits.
+  - Status: accepted by a fresh per-file adversarial review.
+
+- [x] `modifiers/displacement_map.rs`
+  - Mirrors GTK Amount, Scale, and rotating Phase controls.
+  - Uses shared UUID-validated scalar timelines and cached graphs.
+  - Status: accepted by a fresh per-file adversarial review.
+
+- [x] `modifiers/wave_ripple.rs`
+  - Mirrors GTK Amplitude, Wavelength, rotating Angle, and rotating Phase controls.
+  - Uses shared UUID-validated scalar timelines and cached graphs.
+  - Status: accepted by a fresh per-file adversarial review.
 
 ## Current file gate
 
-- [ ] `modifiers/alpha_outline.rs`
-  - Port the GTK alpha-outline modifier body one-for-one with native Qt controls.
-  - Extract backend-independent presentation and behavior into inspector-core.
-  - Run the required checks and obtain one fresh per-file adversarial review.
+- [ ] Select the next GTK modifier file, port it through shared core and native
+  Qt controls, then obtain a fresh per-file adversarial review.
 
 ## Qt files present but not yet accepted
 
@@ -321,43 +484,18 @@ These files exist, but must be revisited one by one against their GTK source.
 
 ## Missing visual modifier ports
 
-- [ ] `modifiers/add_menu.rs`
-- [ ] `modifiers/bulge_pinch.rs`
 - [ ] `modifiers/cache.rs`
-- [ ] `modifiers/channel_mixer.rs`
-- [ ] `modifiers/chroma_key.rs`
-- [ ] `modifiers/chromatic_aberration.rs`
-- [ ] `modifiers/color_correction.rs`
-- [ ] `modifiers/colorize_duotone.rs`
 - [ ] `modifiers/corner_pin.rs`
 - [ ] `modifiers/crop.rs`
-- [ ] `modifiers/directional_blur.rs`
-- [ ] `modifiers/displacement_map.rs`
 - [ ] `modifiers/dithering.rs`
-- [ ] `modifiers/drop_shadow.rs`
-- [ ] `modifiers/edge_detection.rs`
-- [ ] `modifiers/emboss.rs`
-- [ ] `modifiers/erode_dilate.rs`
-- [ ] `modifiers/film_grain.rs`
-- [ ] `modifiers/fisheye.rs`
-- [ ] `modifiers/gaussian_blur.rs`
-- [ ] `modifiers/glow_bloom.rs`
 - [ ] `modifiers/ground.rs`
 - [ ] `modifiers/halftone.rs`
-- [ ] `modifiers/hsv.rs`
-- [ ] `modifiers/invert.rs`
 - [ ] `modifiers/kaleidoscope.rs`
 - [ ] `modifiers/kuwahara.rs`
-- [ ] `modifiers/lens_distortion.rs`
-- [ ] `modifiers/luma_key.rs`
 - [ ] `modifiers/mask.rs`
-- [ ] `modifiers/mirror.rs`
 - [ ] `modifiers/object_3d.rs`
 - [ ] `modifiers/path_offset.rs`
-- [ ] `modifiers/pixelate_mosaic.rs`
 - [ ] `modifiers/point_light.rs`
-- [ ] `modifiers/posterize.rs`
-- [ ] `modifiers/radial_blur.rs`
 - [ ] `modifiers/rasterize.rs`
 - [ ] `modifiers/repeat.rs`
 - [ ] `modifiers/sam2.rs`
@@ -365,18 +503,12 @@ These files exist, but must be revisited one by one against their GTK source.
 - [ ] `modifiers/scanlines_crt.rs`
 - [ ] `modifiers/shaky_path.rs`
 - [ ] `modifiers/shape_3d.rs`
-- [ ] `modifiers/sharpen.rs`
 - [ ] `modifiers/sun_light.rs`
 - [ ] `modifiers/text_3d.rs`
 - [ ] `modifiers/text_mask.rs`
 - [ ] `modifiers/texture_bounds.rs`
-- [ ] `modifiers/threshold.rs`
 - [ ] `modifiers/transparent_fill.rs`
-- [ ] `modifiers/twirl.rs`
 - [ ] `modifiers/vectorize.rs`
-- [ ] `modifiers/vignette.rs`
-- [ ] `modifiers/wave_ripple.rs`
-- [ ] `modifiers/zoom_blur.rs`
 
 ## Cross-cutting parity still required
 

@@ -49,6 +49,22 @@ pub(crate) fn timeline_value(control: &InspectorControl) -> Result<serde_json::V
                 .collect::<Result<Vec<_>, _>>()
                 .map(serde_json::Value::Array)
         }
+        ControlKind::LayeredColor if control.components.len() == 4 => {
+            let mut channels = [0_u8; 4];
+            for (channel, value) in channels.iter_mut().zip(&control.components) {
+                *channel = value
+                    .parse::<u8>()
+                    .map_err(|_| format!("invalid timeline color channel: {value}"))?;
+            }
+            Ok(serde_json::to_value(shrimply_core::Color::new(
+                channels[0],
+                channels[1],
+                channels[2],
+                channels[3],
+            ))
+            .expect("timeline color must serialize"))
+        }
+        ControlKind::LayeredColor => Err("timeline color must contain four channels".to_string()),
         ControlKind::LayeredBoolean => control
             .value
             .parse::<bool>()

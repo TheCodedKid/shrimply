@@ -10,7 +10,6 @@ Item {
     property color color: "#000000"
     property string title: "Select color"
     property bool withAlpha: true
-    property bool updatingCommittedColor: false
     signal selected(color color)
     signal screenColorFailed(string message)
     implicitWidth: button.implicitWidth
@@ -20,19 +19,11 @@ Item {
 
     ColorPickerBackend {
         id: backend
-        onSelected: function(value) {
-            root.updatingCommittedColor = true
-            root.color = value
-            root.updatingCommittedColor = false
-            Qt.callLater(function() { root.selected(value) })
-        }
+        onSelected: function(value) { Qt.callLater(function() { root.selected(value) }) }
         onScreenColorFailed: function(message) { root.screenColorFailed(message) }
     }
     Component.onCompleted: backend.configure(root.color, root.withAlpha)
-    onColorChanged: {
-        if (!root.updatingCommittedColor)
-            backend.configure(root.color, root.withAlpha)
-    }
+    onColorChanged: backend.configure(root.color, root.withAlpha)
     onWithAlphaChanged: backend.configure(root.color, root.withAlpha)
 
     Button {

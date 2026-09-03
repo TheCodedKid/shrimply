@@ -90,11 +90,7 @@ pub(super) fn presentation(
     ));
     for (field, label, timeline) in [
         ("opacity", "Opacity", &value.opacity),
-        (
-            "shadow_strength",
-            "Shadow strength",
-            &value.shadow_strength,
-        ),
+        ("shadow_strength", "Shadow strength", &value.shadow_strength),
         ("reflection", "Reflection opacity", &value.reflection),
         ("roughness", "Roughness", &value.roughness),
     ] {

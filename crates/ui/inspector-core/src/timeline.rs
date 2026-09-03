@@ -2,7 +2,8 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 use shrimply_core::timeline_value::{
-    Interpolation, TimelineBool, TimelineExpressionValue, TimelineStep, TimelineValue,
+    CurveEditPolicy, CurveKeyframeInsert, Interpolation, TimelineBase, TimelineBool,
+    TimelineExpressionValue, TimelineStep, TimelineValue, edit_curve_value, set_keyframes_enabled,
 };
 use shrimply_project::project::{ItemAddress, Time};
 
@@ -75,6 +76,10 @@ impl InspectorController {
                 .set_video_step_keyframes_enabled::<shrimply_core::LayerBlendMode>(
                     target, path, enabled,
                 ),
+            path if path.ends_with("/effect/effect/config/operation") => self
+                .set_video_step_keyframes_enabled::<
+                    shrimply_video_modifiers::erode_dilate::ErodeDilateOperation,
+                >(target, path, enabled),
             _ => Err(format!("unknown step timeline: {path}")),
         }
     }
@@ -132,6 +137,7 @@ impl InspectorController {
         &self,
         target: &InspectorTarget,
         path: &str,
+        timeline_id: Option<uuid::Uuid>,
     ) -> Result<InspectorExpressionOutput<String>, String> {
         match path {
             "/sample_method" => {
@@ -139,6 +145,27 @@ impl InspectorController {
             }
             "/compositing/blend_mode" => {
                 self.step_expression_output_as::<shrimply_core::LayerBlendMode>(target, path)
+            }
+            path if path.ends_with("/effect/effect/config/operation") => {
+                let timeline_id = timeline_id
+                    .ok_or_else(|| "visual modifier step timeline ID is unavailable".to_string())?;
+                let outcome = self.video_modifier_expression_output(
+                    target,
+                    path,
+                    timeline_id,
+                    crate::visual_modifiers::erode_dilate_operation,
+                )?;
+                let value =
+                    shrimply_video_modifiers::erode_dilate::ErodeDilateOperation::variants()
+                        .iter()
+                        .find(|variant| variant.value == outcome.value)
+                        .expect("evaluated erode/dilate operation must be a declared variant")
+                        .key
+                        .to_string();
+                Ok(InspectorExpressionOutput {
+                    value,
+                    error: outcome.error,
+                })
             }
             _ => Err(format!("unknown step timeline: {path}")),
         }
@@ -210,6 +237,365 @@ impl InspectorController {
             value: outcome.value,
             error: outcome.error,
         })
+    }
+
+    pub(crate) fn video_modifier_expression_output<T>(
+        &self,
+        target: &InspectorTarget,
+        path: &str,
+        timeline_id: uuid::Uuid,
+        timeline: for<'a> fn(
+            &'a shrimply_project::project::VideoItem,
+            &str,
+            uuid::Uuid,
+        ) -> Option<&'a TimelineValue<T>>,
+    ) -> Result<InspectorExpressionOutput<T>, String>
+    where
+        T: TimelineExpressionValue,
+    {
+        if &self.target() != target {
+            return Err("inspector target changed".to_string());
+        }
+        let player = shrimply_state::player_state::snapshot(&self.player_state);
+        let project = self.project.borrow();
+        let address = video_item_address(target)?;
+        let position = project
+            .timeline_time_to_sequence(&address.track(), player.position)
+            .ok_or_else(|| "modifier expression time is no longer available".to_string())?;
+        let item = project
+            .video_item(address)
+            .ok_or_else(|| "modifier expression item is no longer available".to_string())?;
+        let value = timeline(item, path, timeline_id)
+            .ok_or_else(|| format!("modifier expression timeline is unavailable: {path}"))?;
+        let audio =
+            self.audio_sampler
+                .borrow_mut()
+                .sample(&project, player.position, player.revision);
+        let evaluation = shrimply_evaluation::VisualEvaluation::for_item_with_audio(
+            &project, item, position, &audio,
+        );
+        let outcome = shrimply_evaluation::resolve_with_error(
+            value,
+            &evaluation,
+            &mut self.expression_cache.borrow_mut(),
+        );
+        Ok(InspectorExpressionOutput {
+            value: outcome.value,
+            error: outcome.error,
+        })
+    }
+
+    pub fn set_color_value(
+        &self,
+        target: &InspectorTarget,
+        path: &str,
+        timeline_id: uuid::Uuid,
+        next: shrimply_core::Color<u8>,
+    ) -> Result<(), String> {
+        let (mut value, runtime) = self.color_timeline(target, path, timeline_id)?;
+        let current = value.value_at(runtime.local_time.unwrap_or(Time::ZERO));
+        let time = runtime
+            .keyframe_playhead
+            .ok_or_else(|| "color keyframe time is no longer available".to_string())?;
+        if !edit_curve_value(
+            &mut value,
+            time,
+            next,
+            PartialEq::eq,
+            CurveEditPolicy {
+                unchanged_keyframe_is_noop: true,
+                insert: if current == next {
+                    CurveKeyframeInsert::Skip
+                } else {
+                    CurveKeyframeInsert::Default
+                },
+            },
+        ) {
+            return Ok(());
+        }
+        self.set_live_value(target, path, serialize_color_timeline(value))
+    }
+
+    pub fn set_color_keyframes_enabled(
+        &self,
+        target: &InspectorTarget,
+        path: &str,
+        timeline_id: uuid::Uuid,
+        enabled: bool,
+    ) -> Result<(), String> {
+        let (mut value, runtime) = self.color_timeline(target, path, timeline_id)?;
+        let current = value.value_at(runtime.local_time.unwrap_or(Time::ZERO));
+        let time = runtime
+            .keyframe_playhead
+            .ok_or_else(|| "color keyframe time is no longer available".to_string())?;
+        if !set_keyframes_enabled(&mut value, time, current, enabled) {
+            return Ok(());
+        }
+        self.set_value(target, path, serialize_color_timeline(value))
+    }
+
+    pub fn color_expression_output(
+        &self,
+        target: &InspectorTarget,
+        path: &str,
+        timeline_id: uuid::Uuid,
+    ) -> Result<InspectorExpressionOutput<shrimply_core::Color<u8>>, String> {
+        if &self.target() != target {
+            return Err("inspector target changed".to_string());
+        }
+        let player = shrimply_state::player_state::snapshot(&self.player_state);
+        let project = self.project.borrow();
+        let address = video_item_address(target)?;
+        let position = project
+            .timeline_time_to_sequence(&address.track(), player.position)
+            .ok_or_else(|| "color expression time is no longer available".to_string())?;
+        let item = project
+            .video_item(address)
+            .ok_or_else(|| "color expression item is no longer available".to_string())?;
+        let value = crate::visual_modifiers::visual_modifier_color(item, path, timeline_id)
+            .ok_or_else(|| format!("color timeline is no longer available: {path}"))?;
+        let audio =
+            self.audio_sampler
+                .borrow_mut()
+                .sample(&project, player.position, player.revision);
+        let evaluation = shrimply_evaluation::VisualEvaluation::for_item_with_audio(
+            &project, item, position, &audio,
+        );
+        let outcome = shrimply_evaluation::resolve_with_error(
+            value,
+            &evaluation,
+            &mut self.expression_cache.borrow_mut(),
+        );
+        Ok(InspectorExpressionOutput {
+            value: outcome.value,
+            error: outcome.error,
+        })
+    }
+
+    pub fn color_value(
+        &self,
+        target: &InspectorTarget,
+        path: &str,
+        timeline_id: uuid::Uuid,
+    ) -> Result<shrimply_core::Color<u8>, String> {
+        if &self.target() != target {
+            return Err("inspector target changed".to_string());
+        }
+        let player = shrimply_state::player_state::snapshot(&self.player_state);
+        let project = self.project.borrow();
+        let address = video_item_address(target)?;
+        let sequence_time = project
+            .timeline_time_to_sequence(&address.track(), player.position)
+            .ok_or_else(|| "color time is no longer available".to_string())?;
+        let item = project
+            .video_item(address)
+            .ok_or_else(|| "color item is no longer available".to_string())?;
+        let local_time = shrimply_project::project::generated_item_time(item, sequence_time)
+            .ok_or_else(|| "color time is outside the item".to_string())?;
+        let value = crate::visual_modifiers::visual_modifier_color(item, path, timeline_id)
+            .ok_or_else(|| format!("color timeline is no longer available: {path}"))?;
+        Ok(value.value_at(local_time))
+    }
+
+    pub fn move_color_keyframes(
+        &self,
+        target: &InspectorTarget,
+        path: &str,
+        timeline_id: uuid::Uuid,
+        moves: &[(Time, Time)],
+    ) -> Result<Vec<Time>, String> {
+        let moves = self.canonical_video_keyframe_moves(target, moves)?;
+        let (mut value, _) = self.color_timeline(target, path, timeline_id)?;
+        if !crate::keyframe_model::move_discrete_keyframes(&mut value, &moves) {
+            return Err("color keyframe move targets are no longer available".to_string());
+        }
+        self.set_live_keyframe_graph_value(target, path, serialize_color_timeline(value))?;
+        Ok(moves.into_iter().map(|(_, time)| time).collect())
+    }
+
+    pub fn delete_color_keyframe(
+        &self,
+        target: &InspectorTarget,
+        path: &str,
+        timeline_id: uuid::Uuid,
+        time: Time,
+    ) -> Result<(), String> {
+        let (mut value, _) = self.color_timeline(target, path, timeline_id)?;
+        let TimelineBase::Keyframes(keyframes) = &mut value.base else {
+            return Ok(());
+        };
+        let Some(index) = keyframes
+            .iter()
+            .position(|keyframe| keyframe.time.approx_eq(time))
+        else {
+            return Ok(());
+        };
+        let removed = keyframes.remove(index);
+        if keyframes.is_empty() {
+            value.base = TimelineBase::Const(removed.value);
+        }
+        self.set_value(target, path, serialize_color_timeline(value))
+    }
+
+    pub fn add_color_keyframe(
+        &self,
+        target: &InspectorTarget,
+        path: &str,
+        timeline_id: uuid::Uuid,
+        time: Time,
+    ) -> Result<(), String> {
+        let time = self.canonical_video_keyframe_time(target, time)?;
+        let (mut value, _) = self.color_timeline(target, path, timeline_id)?;
+        let current = value.value_at(time);
+        if !edit_curve_value(
+            &mut value,
+            time,
+            current,
+            |_, _| false,
+            CurveEditPolicy {
+                unchanged_keyframe_is_noop: false,
+                insert: CurveKeyframeInsert::InheritPreviousInterpolation,
+            },
+        ) {
+            return Ok(());
+        }
+        self.set_value(target, path, serialize_color_timeline(value))
+    }
+
+    pub fn copy_color_keyframes(
+        &self,
+        target: &InspectorTarget,
+        path: &str,
+        timeline_id: uuid::Uuid,
+        selected: &[Time],
+    ) -> Result<usize, String> {
+        let (value, _) = self.color_timeline(target, path, timeline_id)?;
+        let Some(mut clipboard) = crate::keyframe_model::copy_keyframes(&value, selected) else {
+            self.keyframe_clipboard.replace(None);
+            return Ok(0);
+        };
+        let project = self.project.borrow();
+        let address = video_item_address(target)?;
+        let timeline_times = clipboard
+            .times
+            .iter()
+            .map(|time| {
+                project
+                    .keyframe_timeline_time(address, *time)
+                    .unwrap_or(*time)
+                    .snapped(project.frame_step())
+            })
+            .collect::<Vec<_>>();
+        let Some(origin) = timeline_times.first().copied() else {
+            self.keyframe_clipboard.replace(None);
+            return Ok(0);
+        };
+        clipboard.times = timeline_times
+            .into_iter()
+            .map(|time| Time {
+                seconds: time.seconds - origin.seconds,
+            })
+            .collect();
+        let count = clipboard.len();
+        self.keyframe_clipboard.replace(Some(clipboard));
+        Ok(count)
+    }
+
+    pub fn paste_color_keyframes(
+        &self,
+        target: &InspectorTarget,
+        path: &str,
+        timeline_id: uuid::Uuid,
+        time: Time,
+    ) -> Result<usize, String> {
+        let Some(clipboard) = self.keyframe_clipboard.borrow().clone() else {
+            return Ok(0);
+        };
+        let project = self.project.borrow();
+        let address = video_item_address(target)?;
+        let anchor = project
+            .keyframe_timeline_time(address, time)
+            .unwrap_or(time)
+            .snapped(project.frame_step());
+        let times = clipboard
+            .times
+            .iter()
+            .filter_map(|offset| {
+                project.keyframe_time(
+                    address,
+                    Time {
+                        seconds: anchor.seconds + offset.seconds,
+                    },
+                )
+            })
+            .collect::<Vec<_>>();
+        drop(project);
+        if times.len() != clipboard.len() {
+            return Err("color keyframes cannot be pasted at this time".to_string());
+        }
+        let (mut value, _) = self.color_timeline(target, path, timeline_id)?;
+        let Some(pasted) = crate::keyframe_model::paste_keyframes(&mut value, &clipboard, &times)
+        else {
+            return Ok(0);
+        };
+        self.set_value(target, path, serialize_color_timeline(value))?;
+        Ok(pasted.len())
+    }
+
+    pub fn set_color_interpolation(
+        &self,
+        target: &InspectorTarget,
+        path: &str,
+        timeline_id: uuid::Uuid,
+        owner_id: uuid::Uuid,
+        interpolation_index: usize,
+    ) -> Result<(), String> {
+        let interpolation = Interpolation::KEYFRAME
+            .get(interpolation_index)
+            .copied()
+            .ok_or_else(|| "color interpolation is invalid".to_string())?;
+        let (mut value, _) = self.color_timeline(target, path, timeline_id)?;
+        let TimelineBase::Keyframes(keyframes) = &mut value.base else {
+            return Ok(());
+        };
+        let Some(keyframe) = keyframes
+            .iter_mut()
+            .find(|keyframe| keyframe.id == owner_id)
+        else {
+            return Ok(());
+        };
+        if keyframe.interpolation_to_next == interpolation {
+            return Ok(());
+        }
+        keyframe.interpolation_to_next = interpolation;
+        self.set_value(target, path, serialize_color_timeline(value))
+    }
+
+    fn color_timeline(
+        &self,
+        target: &InspectorTarget,
+        path: &str,
+        timeline_id: uuid::Uuid,
+    ) -> Result<
+        (
+            TimelineValue<shrimply_core::Color<u8>>,
+            crate::InspectorRuntime,
+        ),
+        String,
+    > {
+        if &self.target() != target {
+            return Err("inspector target changed".to_string());
+        }
+        let project = self.project.borrow();
+        let address = video_item_address(target)?;
+        let item = project
+            .video_item(address)
+            .ok_or_else(|| "color item is no longer available".to_string())?;
+        let value = crate::visual_modifiers::visual_modifier_color(item, path, timeline_id)
+            .cloned()
+            .ok_or_else(|| format!("color timeline is no longer available: {path}"))?;
+        let runtime = crate::model::target_runtime(&project, &self.player_state, target);
+        Ok((value, runtime))
     }
 
     pub fn move_bool_keyframes(
@@ -602,8 +988,17 @@ impl InspectorController {
         &self,
         target: &InspectorTarget,
         path: &str,
+        timeline_id: Option<uuid::Uuid>,
     ) -> Result<InspectorExpressionOutput, String> {
         if matches!(target, InspectorTarget::Item(ItemAddress::Video { .. })) {
+            if let Some(timeline_id) = timeline_id {
+                return self.video_modifier_expression_output(
+                    target,
+                    path,
+                    timeline_id,
+                    crate::visual_modifiers::visual_modifier_number,
+                );
+            }
             return self.video_expression_output(target, path);
         }
         let value = self.scalar_timeline(target, path)?;
@@ -817,6 +1212,10 @@ fn serialize_bool_timeline(value: TimelineValue<TimelineBool>) -> Value {
     serde_json::to_value(value).expect("boolean timeline must serialize")
 }
 
+fn serialize_color_timeline(value: TimelineValue<shrimply_core::Color<u8>>) -> Value {
+    serde_json::to_value(value).expect("color timeline must serialize")
+}
+
 fn video_item_address(target: &InspectorTarget) -> Result<&ItemAddress, String> {
     let InspectorTarget::Item(address @ ItemAddress::Video { .. }) = target else {
         return Err("boolean keyframe target is not a video item".to_string());
@@ -837,6 +1236,9 @@ fn step_timeline_type(path: &str) -> Result<&'static str, String> {
     match path {
         "/sample_method" => Ok(std::any::type_name::<shrimply_core::VideoSampleMethod>()),
         "/compositing/blend_mode" => Ok(std::any::type_name::<shrimply_core::LayerBlendMode>()),
+        path if path.ends_with("/effect/effect/config/operation") => Ok(std::any::type_name::<
+            shrimply_video_modifiers::erode_dilate::ErodeDilateOperation,
+        >()),
         _ => Err(format!("unknown step timeline: {path}")),
     }
 }

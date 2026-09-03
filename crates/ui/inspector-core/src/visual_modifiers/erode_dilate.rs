@@ -18,19 +18,22 @@ pub(super) fn presentation(
         )
         .live_commit("edit-erode-dilate-operation"),
     );
-    section.add(super::modifier_scalar_control(
-        format!("{base}/radius"),
-        "Radius",
-        &value.radius,
-        runtime,
-        NumberSpec {
-            minimum: 0.0,
-            maximum: 128.0,
-            drag_step: 1.0,
-            digits: 0,
-            unit: "px",
-        },
-        false,
-    ));
+    section.add(
+        super::modifier_scalar_control(
+            format!("{base}/radius"),
+            "Radius",
+            &value.radius,
+            runtime,
+            NumberSpec {
+                minimum: 0.0,
+                maximum: 128.0,
+                drag_step: 1.0,
+                digits: 0,
+                unit: "px",
+            },
+            false,
+        )
+        .integer(),
+    );
     section
 }

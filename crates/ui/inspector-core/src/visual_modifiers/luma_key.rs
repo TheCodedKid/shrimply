@@ -5,6 +5,7 @@ use crate::{InspectorRuntime, InspectorSection, NumberSpec};
 pub(super) fn presentation(
     value: &LumaKeyModifier,
     index: usize,
+    modifier_id: uuid::Uuid,
     runtime: InspectorRuntime,
 ) -> InspectorSection {
     let base = format!("/modifiers/{index}/effect/effect/config");
@@ -27,11 +28,14 @@ pub(super) fn presentation(
             false,
         ));
     }
-    section.add(super::modifier_boolean_control(
-        format!("{base}/invert"),
-        "Invert",
-        value.invert,
-        "edit-luma-key-invert",
-    ));
+    section.add(
+        super::modifier_boolean_control(
+            format!("{base}/invert"),
+            "Invert",
+            value.invert,
+            "edit-luma-key-invert",
+        )
+        .target(modifier_id),
+    );
     section
 }

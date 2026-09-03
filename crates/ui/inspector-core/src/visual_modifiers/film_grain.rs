@@ -29,18 +29,21 @@ pub(super) fn presentation(
             false,
         ));
     }
-    section.add(super::modifier_scalar_control(
-        format!("{base}/seed"),
-        "Seed",
-        &value.seed,
-        runtime,
-        NumberSpec {
-            minimum: 0.0,
-            drag_step: 1.0,
-            digits: 0,
-            ..NumberSpec::default()
-        },
-        false,
-    ));
+    section.add(
+        super::modifier_scalar_control(
+            format!("{base}/seed"),
+            "Seed",
+            &value.seed,
+            runtime,
+            NumberSpec {
+                minimum: 0.0,
+                drag_step: 1.0,
+                digits: 0,
+                ..NumberSpec::default()
+            },
+            false,
+        )
+        .integer(),
+    );
     section
 }

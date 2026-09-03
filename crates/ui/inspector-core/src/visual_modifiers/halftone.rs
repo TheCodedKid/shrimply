@@ -9,7 +9,9 @@ pub(super) fn presentation(
     runtime: InspectorRuntime,
 ) -> InspectorSection {
     let base = format!("/modifiers/{index}/effect/effect/config");
-    let mode = value.mode.value_at(runtime.local_time.unwrap_or(Time::ZERO));
+    let mode = value
+        .mode
+        .value_at(runtime.local_time.unwrap_or(Time::ZERO));
     let mut section = InspectorSection::default();
     section.add(scalar(
         &base,

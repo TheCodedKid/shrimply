@@ -66,6 +66,7 @@ pub(crate) mod qobject {
         #[qproperty(i32, cache_revision, cxx_name = "cacheRevision")]
         #[qproperty(i32, document_revision, cxx_name = "documentRevision")]
         #[qproperty(i32, expression_revision, cxx_name = "expressionRevision")]
+        #[qproperty(i32, graph_revision, cxx_name = "graphRevision")]
         #[qproperty(i32, playhead_revision, cxx_name = "playheadRevision")]
         #[qproperty(i32, transform_revision, cxx_name = "transformRevision")]
         #[qproperty(i32, active_category, cxx_name = "activeCategory")]
@@ -282,6 +283,14 @@ pub(crate) mod qobject {
             control: i32,
             component: i32,
         ) -> f64;
+        #[qinvokable]
+        #[cxx_name = "controlColor"]
+        fn control_color(
+            self: &InspectorBackend,
+            category: i32,
+            item: i32,
+            control: i32,
+        ) -> QStringList;
         #[qinvokable]
         #[cxx_name = "controlComponentText"]
         fn control_component_text(
@@ -684,6 +693,7 @@ pub struct InspectorBackendRust {
     cache_revision: i32,
     document_revision: i32,
     expression_revision: i32,
+    graph_revision: i32,
     playhead_revision: i32,
     transform_revision: i32,
     active_category: i32,
@@ -739,6 +749,7 @@ impl qobject::InspectorBackend {
         let document = super::take_document();
         let cache_dirty = super::take_cache_dirty();
         let expression_dirty = super::take_expression_dirty();
+        let graph_dirty = super::take_graph_dirty();
         let playhead_dirty = super::take_playhead_dirty();
         let transform_dirty = super::take_transform_dirty();
         let focus_dirty = super::take_focus_dirty();
@@ -750,6 +761,16 @@ impl qobject::InspectorBackend {
             if expression_dirty {
                 let revision = self.expression_revision().wrapping_add(1);
                 self.as_mut().set_expression_revision(revision);
+            }
+            if graph_dirty {
+                let target = self.document().map(|document| document.target.clone());
+                if let Some(target) = target
+                    && let Some(document) = self.as_mut().rust_mut().document.as_mut()
+                {
+                    crate::graph_backend::update_visual_modifier_graphs(document, &target);
+                }
+                let revision = self.graph_revision().wrapping_add(1);
+                self.as_mut().set_graph_revision(revision);
             }
             let transform_active = self.transform_active();
             if (playhead_dirty || transform_dirty) && transform_active {
@@ -768,7 +789,7 @@ impl qobject::InspectorBackend {
                 let revision = self.transform_revision().wrapping_add(1);
                 self.as_mut().set_transform_revision(revision);
             }
-            if playhead_dirty && transform_active {
+            if playhead_dirty {
                 let revision = self.playhead_revision().wrapping_add(1);
                 self.as_mut().set_playhead_revision(revision);
             }
@@ -885,7 +906,8 @@ impl qobject::InspectorBackend {
         let Some(document) = self.document() else {
             return QStringList::default();
         };
-        let Some(category) = index(category).and_then(|index| document.categories.get(index)) else {
+        let Some(category) = index(category).and_then(|index| document.categories.get(index))
+        else {
             return QStringList::default();
         };
         category
@@ -1227,6 +1249,7 @@ impl qobject::InspectorBackend {
     }
 
     pub fn control_component(&self, category: i32, item: i32, control: i32, component: i32) -> f64 {
+        let target = self.document().map(|document| document.target.clone());
         self.control(category, item, control)
             .and_then(|control| {
                 if control.kind == ControlKind::AudioCache && component == 0 {
@@ -1253,6 +1276,16 @@ impl qobject::InspectorBackend {
                             }
                         })
                         .or_else(|| {
+                            target.as_ref().and_then(|target| {
+                                super::timeline_vector2_value(
+                                    target,
+                                    control.timeline_id,
+                                    control.timeline_path.as_deref().unwrap_or(&control.path),
+                                )
+                                .ok()
+                            })
+                        })
+                        .or_else(|| {
                             Some(glam::Vec2::new(
                                 control.components.first()?.parse().ok()?,
                                 control.components.get(1)?.parse().ok()?,
@@ -1267,6 +1300,24 @@ impl qobject::InspectorBackend {
                 control.components.get(index(component)?)?.parse().ok()
             })
             .unwrap_or_default()
+    }
+
+    pub fn control_color(&self, category: i32, item: i32, control: i32) -> QStringList {
+        let Some((target, control)) = self.control_target(category, item, control) else {
+            return QStringList::default();
+        };
+        if control.kind != ControlKind::LayeredColor {
+            return QStringList::default();
+        }
+        let Some(timeline_id) = control.timeline_id else {
+            return QStringList::default();
+        };
+        super::color_value(&target, &control.path, timeline_id)
+            .map(|color| [color.r, color.g, color.b, color.a])
+            .unwrap_or_default()
+            .into_iter()
+            .map(|channel| QString::from(channel.to_string()))
+            .collect()
     }
 
     pub fn control_component_text(
@@ -1496,7 +1547,9 @@ impl qobject::InspectorBackend {
                 .collect();
         }
         if control.kind == ControlKind::LayeredSelector {
-            let Ok(output) = super::step_expression_output(&document.target, path) else {
+            let Ok(output) =
+                super::step_expression_output(&document.target, path, control.timeline_id)
+            else {
                 return QStringList::default();
             };
             return [output.value, output.error.unwrap_or_default()]
@@ -1505,13 +1558,44 @@ impl qobject::InspectorBackend {
                 .collect();
         }
         if control.kind == ControlKind::LayeredVector2 {
-            let Ok(output) = super::vector2_expression_output(&document.target, path) else {
+            let Ok(output) =
+                super::vector2_expression_output(&document.target, path, control.timeline_id)
+            else {
+                return QStringList::default();
+            };
+            let digits = usize::try_from(control.number.digits).unwrap_or_default();
+            let first_prefix = control.prefixes.first().map_or("X", String::as_str);
+            let second_prefix = control.prefixes.get(1).map_or("Y", String::as_str);
+            return [
+                format!(
+                    "{} {:.*}{}  {} {:.*}{}",
+                    first_prefix,
+                    digits,
+                    output.value.x,
+                    control.number.unit,
+                    second_prefix,
+                    digits,
+                    output.value.y,
+                    control.number.unit,
+                ),
+                output.error.unwrap_or_default(),
+            ]
+            .into_iter()
+            .map(QString::from)
+            .collect();
+        }
+        if control.kind == ControlKind::LayeredColor {
+            let Some(timeline_id) = control.timeline_id else {
+                return QStringList::default();
+            };
+            let Ok(output) = super::color_expression_output(&document.target, path, timeline_id)
+            else {
                 return QStringList::default();
             };
             return [
                 format!(
-                    "X {:.0}{}  Y {:.0}{}",
-                    output.value.x, control.number.unit, output.value.y, control.number.unit,
+                    "#{:02X}{:02X}{:02X}{:02X}",
+                    output.value.r, output.value.g, output.value.b, output.value.a,
                 ),
                 output.error.unwrap_or_default(),
             ]
@@ -1532,7 +1616,7 @@ impl qobject::InspectorBackend {
                     )
                 })
         } else {
-            super::scalar_expression_output(&document.target, path)
+            super::scalar_expression_output(&document.target, path, control.timeline_id)
         };
         let Ok(output) = output else {
             return QStringList::default();
@@ -1566,6 +1650,10 @@ impl qobject::InspectorBackend {
         let Some((target, control)) = self.control_target(category, item, control) else {
             return;
         };
+        if let Err(error) = super::ensure_control_timeline(&target, &control) {
+            self.as_mut().finish(Err(error));
+            return;
+        }
         let value = value.to_string();
         if control.kind == ControlKind::AudioModifierMenu {
             if value == "__paste__" {
@@ -1748,6 +1836,10 @@ impl qobject::InspectorBackend {
         let Some((target, control)) = self.control_target(category, item, control) else {
             return;
         };
+        if let Err(error) = super::ensure_control_timeline(&target, &control) {
+            self.as_mut().finish(Err(error));
+            return;
+        }
         let count = if matches!(
             control.kind,
             ControlKind::Vector3 | ControlKind::LayeredVector3
@@ -1789,10 +1881,32 @@ impl qobject::InspectorBackend {
             return;
         };
         let alpha = if control.with_alpha { alpha } else { 1.0 };
-        let values = [red, green, blue, alpha]
+        let channels =
+            [red, green, blue, alpha].map(|value| (value.clamp(0.0, 1.0) * 255.0).round() as u8);
+        if control.kind == ControlKind::LayeredColor {
+            let result = control
+                .timeline_id
+                .ok_or_else(|| "timeline color ID is unavailable".to_string())
+                .and_then(|timeline_id| {
+                    super::set_color_value(
+                        &target,
+                        &control.path,
+                        timeline_id,
+                        shrimply_core::Color::new(
+                            channels[0],
+                            channels[1],
+                            channels[2],
+                            channels[3],
+                        ),
+                    )
+                });
+            self.as_mut().finish(result);
+            return;
+        }
+        let values = channels
             .into_iter()
             .enumerate()
-            .map(|(component, value)| (component, (value * 255.0).round().to_string()))
+            .map(|(component, value)| (component, value.to_string()))
             .collect::<Vec<_>>();
         let result = if matches!(target, InspectorTarget::Transition { .. })
             && !control.commit_name.is_empty()
@@ -1828,6 +1942,10 @@ impl qobject::InspectorBackend {
         let Some((target, control)) = self.control_target(category, item, control) else {
             return;
         };
+        if let Err(error) = super::ensure_control_timeline(&target, &control) {
+            self.as_mut().finish(Err(error));
+            return;
+        }
         let path = control.timeline_path.as_deref().unwrap_or(&control.path);
         let result = if control.audio_modifier {
             control
@@ -1856,6 +1974,13 @@ impl qobject::InspectorBackend {
             super::set_scalar_keyframes_enabled(&target, path, enabled)
         } else if control.kind == ControlKind::LayeredVector2 {
             super::set_vector2_keyframes_enabled(&target, path, enabled)
+        } else if control.kind == ControlKind::LayeredColor {
+            control
+                .timeline_id
+                .ok_or_else(|| "timeline color ID is unavailable".to_string())
+                .and_then(|timeline_id| {
+                    super::set_color_keyframes_enabled(&target, path, timeline_id, enabled)
+                })
         } else if control.kind == ControlKind::LayeredBoolean {
             super::set_bool_keyframes_enabled(&target, path, enabled)
         } else if control.kind == ControlKind::LayeredSelector {
@@ -1885,6 +2010,10 @@ impl qobject::InspectorBackend {
         let Some((target, control)) = self.control_target(category, item, control) else {
             return;
         };
+        if let Err(error) = super::ensure_control_timeline(&target, &control) {
+            self.as_mut().finish(Err(error));
+            return;
+        }
         let path = control.timeline_path.as_deref().unwrap_or(&control.path);
         let result = if control.audio_modifier {
             control
@@ -1934,6 +2063,10 @@ impl qobject::InspectorBackend {
         let Some((target, control)) = self.control_target(category, item, control) else {
             return;
         };
+        if let Err(error) = super::ensure_control_timeline(&target, &control) {
+            self.as_mut().finish(Err(error));
+            return;
+        }
         let path = control.timeline_path.as_deref().unwrap_or(&control.path);
         let source = source.to_string();
         let result = if control.audio_modifier {

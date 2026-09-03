@@ -16,6 +16,9 @@ ApplicationWindow {
     minimumHeight: 640
     visible: true
     title: backend.projectTitle
+    palette.inactive.windowText: palette.active.windowText
+    palette.inactive.buttonText: palette.active.buttonText
+    palette.inactive.text: palette.active.text
     property bool inspectorVisible: true
     property bool timelineVisible: true
     property bool fullscreenPreview: false
@@ -95,9 +98,6 @@ ApplicationWindow {
 
     menuBar: MenuBar {
         visible: backend.ready && !window.fullscreenPreview
-        palette.inactive.windowText: palette.active.windowText
-        palette.inactive.buttonText: palette.active.buttonText
-        palette.inactive.text: palette.active.text
 
         Menu {
             title: backend.translate("File")

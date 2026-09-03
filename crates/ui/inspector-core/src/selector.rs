@@ -116,7 +116,7 @@ pub fn layered_step_selector<T: TimelineStep>(
         }),
     )
     .layered(path, LayeredState::from(value))
-    .graph(step_graph(value, runtime))
+    .timeline(value.id, step_graph(value, runtime))
 }
 
 pub fn complete_icons<T>(icons: impl IntoIterator<Item = Option<T>>) -> Option<Vec<T>> {
@@ -141,7 +141,7 @@ fn build_optional_selector(
     build_selector(kind, path, label, selected, choices)
 }
 
-fn step_graph<T: TimelineStep>(
+pub(crate) fn step_graph<T: TimelineStep>(
     value: &TimelineValue<T>,
     runtime: InspectorRuntime,
 ) -> Option<ScalarGraph> {

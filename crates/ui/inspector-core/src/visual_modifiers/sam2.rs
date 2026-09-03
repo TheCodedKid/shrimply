@@ -81,10 +81,14 @@ pub(super) fn presentation(
     }
     if let Some(box_prompt) = value.box_prompt {
         section.add(
-            InspectorControl::new(ControlKind::Action, format!("{base}/box_prompt/remove"), "Box")
-                .value("Remove box")
-                .tooltip("Remove box")
-                .target(box_prompt.id),
+            InspectorControl::new(
+                ControlKind::Action,
+                format!("{base}/box_prompt/remove"),
+                "Box",
+            )
+            .value("Remove box")
+            .tooltip("Remove box")
+            .target(box_prompt.id),
         );
     }
     section.add(

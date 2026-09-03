@@ -43,6 +43,63 @@ pub(crate) fn update_transform_graphs(
     }
 }
 
+pub(crate) fn update_visual_modifier_graphs(
+    document: &mut crate::list::InspectorDocument,
+    target: &shrimply_inspector_core::InspectorTarget,
+) {
+    for category in &mut document.categories {
+        for item in &mut category.items {
+            let section = match item {
+                crate::item::InspectorListItem::Item(item) => &mut item.section,
+                crate::item::InspectorListItem::Flat(section) => section,
+            };
+            for control in &mut section.controls {
+                if !control.path.starts_with("/modifiers/") {
+                    continue;
+                }
+                let graph = match control.kind {
+                    crate::section::ControlKind::LayeredNumber => control.timeline_id.map_or_else(
+                        || Err("visual modifier number has no timeline ID".to_string()),
+                        |timeline_id| {
+                            super::visual_modifier_number_graph(target, &control.path, timeline_id)
+                        },
+                    ),
+                    crate::section::ControlKind::LayeredVector2 => control.timeline_id.map_or_else(
+                        || Err("visual modifier vector has no timeline ID".to_string()),
+                        |timeline_id| {
+                            super::visual_modifier_vector2_graph(target, &control.path, timeline_id)
+                        },
+                    ),
+                    crate::section::ControlKind::LayeredColor => control.timeline_id.map_or_else(
+                        || Err("visual modifier color has no timeline ID".to_string()),
+                        |timeline_id| {
+                            super::visual_modifier_color_graph(target, &control.path, timeline_id)
+                        },
+                    ),
+                    crate::section::ControlKind::LayeredSelector
+                        if control.path.ends_with("/effect/effect/config/operation") =>
+                    {
+                        control.timeline_id.map_or_else(
+                            || Err("visual modifier selector has no timeline ID".to_string()),
+                            |timeline_id| {
+                                super::erode_dilate_operation_graph(
+                                    target,
+                                    &control.path,
+                                    timeline_id,
+                                )
+                            },
+                        )
+                    }
+                    _ => continue,
+                };
+                if let Ok(graph) = graph {
+                    control.scalar_graph = graph;
+                }
+            }
+        }
+    }
+}
+
 impl InspectorBackend {
     pub fn control_graph_point_times(&self, category: i32, item: i32, control: i32) -> QStringList {
         self.control(category, item, control)
@@ -78,7 +135,13 @@ impl InspectorBackend {
     pub fn control_graph_segments(&self, category: i32, item: i32, control: i32) -> QStringList {
         let speed = self
             .control(category, item, control)
-            .is_some_and(|control| control.kind == crate::section::ControlKind::LayeredVector2);
+            .is_some_and(|control| {
+                matches!(
+                    control.kind,
+                    crate::section::ControlKind::LayeredVector2
+                        | crate::section::ControlKind::LayeredColor
+                )
+            });
         self.control(category, item, control)
             .and_then(|control| control.scalar_graph.as_ref())
             .map(|graph| {
@@ -184,6 +247,10 @@ impl InspectorBackend {
         let Some((target, control)) = self.control_target(category, item, control) else {
             return QStringList::default();
         };
+        if let Err(error) = super::ensure_control_timeline(&target, &control) {
+            self.as_mut().finish(Err(error));
+            return QStringList::default();
+        }
         let result = (|| {
             if control.scalar_graph.is_none() {
                 return Err("control has no keyframe graph".to_string());
@@ -208,16 +275,23 @@ impl InspectorBackend {
                 super::move_step_keyframes(&target, path, &moves)?
             } else if control.kind == crate::section::ControlKind::LayeredVector2 {
                 super::move_vector2_keyframes(&target, path, &moves)?
+            } else if control.kind == crate::section::ControlKind::LayeredColor {
+                super::move_color_keyframes(&target, path, timeline_id(&control)?, &moves)?
             } else {
                 let modifier = control
                     .audio_modifier
                     .then(|| modifier_ids(&control))
                     .transpose()?;
                 for (&(old_time, time), value) in moves.iter().zip(values.iter()) {
+                    let displayed_value = parse_graph_value(&value.to_string())?;
                     let change = shrimply_inspector_core::AudioModifierKeyframeMove {
                         old_time,
                         time,
-                        displayed_value: parse_graph_value(&value.to_string())?,
+                        displayed_value: if control.integer {
+                            displayed_value.round()
+                        } else {
+                            displayed_value
+                        },
                         store_multiplier: control.store_multiplier,
                     };
                     if let Some((modifier_id, timeline_id)) = modifier {
@@ -257,6 +331,10 @@ impl InspectorBackend {
         let Some((target, control)) = self.control_target(category, item, control) else {
             return;
         };
+        if let Err(error) = super::ensure_control_timeline(&target, &control) {
+            self.as_mut().finish(Err(error));
+            return;
+        }
         let result = (|| {
             if control.scalar_graph.is_none() {
                 return Err("control has no keyframe graph".to_string());
@@ -274,6 +352,8 @@ impl InspectorBackend {
                     super::delete_step_keyframe(&target, path, time)?;
                 } else if control.kind == crate::section::ControlKind::LayeredVector2 {
                     super::delete_vector2_keyframe(&target, path, time)?;
+                } else if control.kind == crate::section::ControlKind::LayeredColor {
+                    super::delete_color_keyframe(&target, path, timeline_id(&control)?, time)?;
                 } else if let Some((modifier_id, timeline_id)) = modifier {
                     super::delete_audio_modifier_keyframe(&target, modifier_id, timeline_id, time)?;
                 } else if path == "/transform/rotation_degrees" {
@@ -298,6 +378,10 @@ impl InspectorBackend {
         let Some((target, control)) = self.control_target(category, item, control) else {
             return;
         };
+        if let Err(error) = super::ensure_control_timeline(&target, &control) {
+            self.as_mut().finish(Err(error));
+            return;
+        }
         let result = exact_time(numerator, denominator).and_then(|time| {
             if control.scalar_graph.is_none() {
                 return Err("control has no keyframe graph".to_string());
@@ -308,6 +392,13 @@ impl InspectorBackend {
                 super::add_step_keyframe(&target, timeline_path(&control), time)
             } else if control.kind == crate::section::ControlKind::LayeredVector2 {
                 super::add_vector2_keyframe(&target, timeline_path(&control), time)
+            } else if control.kind == crate::section::ControlKind::LayeredColor {
+                super::add_color_keyframe(
+                    &target,
+                    timeline_path(&control),
+                    timeline_id(&control)?,
+                    time,
+                )
             } else if control.audio_modifier {
                 let (modifier_id, timeline_id) = modifier_ids(&control)?;
                 super::add_audio_modifier_keyframe(&target, modifier_id, timeline_id, time)
@@ -328,6 +419,10 @@ impl InspectorBackend {
         let Some((target, control)) = self.control_target(category, item, control) else {
             return false;
         };
+        if let Err(error) = super::ensure_control_timeline(&target, &control) {
+            self.as_mut().finish(Err(error));
+            return false;
+        }
         let result = parse_times(times)
             .and_then(|times| {
                 if control.scalar_graph.is_none() {
@@ -339,6 +434,13 @@ impl InspectorBackend {
                     super::copy_step_keyframes(&target, timeline_path(&control), &times)
                 } else if control.kind == crate::section::ControlKind::LayeredVector2 {
                     super::copy_vector2_keyframes(&target, timeline_path(&control), &times)
+                } else if control.kind == crate::section::ControlKind::LayeredColor {
+                    super::copy_color_keyframes(
+                        &target,
+                        timeline_path(&control),
+                        timeline_id(&control)?,
+                        &times,
+                    )
                 } else if control.audio_modifier {
                     let (modifier_id, timeline_id) = modifier_ids(&control)?;
                     super::copy_audio_modifier_keyframes(&target, modifier_id, timeline_id, &times)
@@ -363,6 +465,10 @@ impl InspectorBackend {
         let Some((target, control)) = self.control_target(category, item, control) else {
             return;
         };
+        if let Err(error) = super::ensure_control_timeline(&target, &control) {
+            self.as_mut().finish(Err(error));
+            return;
+        }
         let result = exact_time(numerator, denominator)
             .and_then(|time| {
                 if control.scalar_graph.is_none() {
@@ -374,6 +480,13 @@ impl InspectorBackend {
                     super::paste_step_keyframes(&target, timeline_path(&control), time)
                 } else if control.kind == crate::section::ControlKind::LayeredVector2 {
                     super::paste_vector2_keyframes(&target, timeline_path(&control), time)
+                } else if control.kind == crate::section::ControlKind::LayeredColor {
+                    super::paste_color_keyframes(
+                        &target,
+                        timeline_path(&control),
+                        timeline_id(&control)?,
+                        time,
+                    )
                 } else if control.audio_modifier {
                     let (modifier_id, timeline_id) = modifier_ids(&control)?;
                     super::paste_audio_modifier_keyframes(&target, modifier_id, timeline_id, time)
@@ -396,6 +509,10 @@ impl InspectorBackend {
         let Some((target, control)) = self.control_target(category, item, control) else {
             return;
         };
+        if let Err(error) = super::ensure_control_timeline(&target, &control) {
+            self.as_mut().finish(Err(error));
+            return;
+        }
         let result = (|| {
             if control.scalar_graph.is_none() {
                 return Err("control has no keyframe graph".to_string());
@@ -408,6 +525,14 @@ impl InspectorBackend {
                 super::set_vector2_interpolation(
                     &target,
                     timeline_path(&control),
+                    owner_id,
+                    interpolation,
+                )
+            } else if control.kind == crate::section::ControlKind::LayeredColor {
+                super::set_color_interpolation(
+                    &target,
+                    timeline_path(&control),
+                    timeline_id(&control)?,
                     owner_id,
                     interpolation,
                 )
@@ -453,6 +578,12 @@ fn modifier_ids(control: &InspectorControl) -> Result<(uuid::Uuid, uuid::Uuid), 
         .target_id
         .zip(control.timeline_id)
         .ok_or_else(|| "audio modifier keyframe target is unavailable".to_string())
+}
+
+fn timeline_id(control: &InspectorControl) -> Result<uuid::Uuid, String> {
+    control
+        .timeline_id
+        .ok_or_else(|| "keyframe timeline ID is unavailable".to_string())
 }
 
 fn exact_time(numerator: i64, denominator: i64) -> Result<shrimply_project::project::Time, String> {
