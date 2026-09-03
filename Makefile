@@ -55,6 +55,7 @@ QT_COMPONENTS_PACKAGE := shrimply-qt-components
 GTK_COMPONENTS_DEMO_PACKAGE := shrimply-gtk-components-demo
 QT_COMPONENTS_DEMO_PACKAGE := shrimply-qt-components-demo
 QT_BIN_NAME := shrimply-qt
+QT_EDITOR_BIN_NAME := shrimply-editor-qt
 MCP_PACKAGE := shrimply-mcp
 MCP_BIN_NAME := shrimply-mcp
 MCP_SERVER_NAME ?= shrimply
@@ -80,6 +81,7 @@ RHUBARB_LIBRARY := target/release/libshrimply-rhubarb.so
 RHUBARB_MODEL_SOURCE := external/rhubarb-lip-sync/rhubarb/lib/pocketsphinx-rev13216/model/en-us
 RHUBARB_ACOUSTIC_MODEL_SOURCE := external/rhubarb-lip-sync/rhubarb/lib/cmusphinx-en-us-5.2
 RHUBARB_RESOURCE_DIR := $(DATADIR)/shrimply/rhubarb/sphinx
+ICONS_RESOURCE_DIR := $(DATADIR)/shrimply/icons
 
 FEDORA_PACKAGES := \
 	rust \
@@ -105,10 +107,11 @@ FEDORA_PACKAGES := \
 	gtksourceview5-devel \
 	vte291-gtk4-devel \
 	poppler-glib-devel \
-	freetype-devel
+	freetype-devel \
+	qt6-qtbase-devel \
+	qt6-qtdeclarative-devel
 
-.PHONY: native-deps qt-native-deps qt-desktop-file cuda-target-check cuda-artifacts dev qt-build dev-qt dev-server docs docs-check run run-qt build release check components-check gtk-components-showcase qt-components-showcase server-python-check manim manim-python-check manim-parameter-check cargo-check fmt fmt-check lint test frame-rate-test video-lifecycle-test transparent-fill-frame-range-test transparent-fill-decoder-test transparent-fill-kernel-test transparent-fill-compositor-test transparent-fill-playback-test transparent-fill-e2e-fixture transparent-fill-e2e-test decode-ahead-benchmark paint-interpolation-test crash-report oxide-doctor oxide-setup clean-dev clean deps-fedora install install-codex-mcp-dev install-agy-mcp-dev uninstall
-
+.PHONY: native-deps qt-native-deps qt-desktop-file cuda-target-check cuda-artifacts dev qt-build dev-qt dev-server docs docs-check run run-qt build release check components-check gtk-components-showcase qt-components-showcase server-python-check manim manim-python-check manim-parameter-check cargo-check fmt fmt-check lint test frame-rate-test video-lifecycle-test transparent-fill-frame-range-test transparent-fill-decoder-test transparent-fill-kernel-test transparent-fill-compositor-test transparent-fill-playback-test transparent-fill-e2e-fixture transparent-fill-e2e-test decode-ahead-benchmark paint-interpolation-test crash-report oxide-doctor oxide-setup clean-dev clean deps-fedora deps-fedora-qt qt-release install install-qt install-codex-mcp-dev install-agy-mcp-dev uninstall uninstall-qt dist-image dist
 native-deps:
 	@$(PKG_CONFIG) --exists rubberband || { echo "Missing Rubber Band development files (pkg-config: rubberband)" >&2; exit 1; }
 	@$(PKG_CONFIG) --exists libpipewire-0.3 || { echo "Missing PipeWire development files (pkg-config: libpipewire-0.3)" >&2; exit 1; }
@@ -382,6 +385,9 @@ clean:
 deps-fedora:
 	$(DNF) install $(FEDORA_PACKAGES)
 
+qt-release: native-deps qt-native-deps cuda-artifacts
+	$(DEV_BUILD_ENV) QMAKE=$(QT_QMAKE) CARGO_TERM_COLOR=always $(CARGO) build --release -p $(QT_EDITOR_PACKAGE) -p $(QT_LAUNCHER_PACKAGE)
+
 install: release
 	$(INSTALL) -Dm755 target/release/$(BIN_NAME) "$(DESTDIR)$(BINDIR)/$(BIN_NAME)"
 	$(INSTALL) -Dm755 target/release/$(EDITOR_BIN_NAME) "$(DESTDIR)$(BINDIR)/$(EDITOR_BIN_NAME)"
@@ -391,6 +397,8 @@ install: release
 	cp -a $(RHUBARB_MODEL_SOURCE)/. "$(DESTDIR)$(RHUBARB_RESOURCE_DIR)/"
 	$(INSTALL) -d "$(DESTDIR)$(RHUBARB_RESOURCE_DIR)/acoustic-model"
 	cp -a $(RHUBARB_ACOUSTIC_MODEL_SOURCE)/. "$(DESTDIR)$(RHUBARB_RESOURCE_DIR)/acoustic-model/"
+	$(INSTALL) -d "$(DESTDIR)$(ICONS_RESOURCE_DIR)"
+    cp -a assets/icons/. "$(DESTDIR)$(ICONS_RESOURCE_DIR)/"
 	sed -e 's|^Exec=.*|Exec=$(BINDIR)/$(BIN_NAME) %f|' -e 's|^TryExec=.*|TryExec=$(BINDIR)/$(BIN_NAME)|' $(DESKTOP_FILE) | $(INSTALL) -Dm644 /dev/stdin "$(DESTDIR)$(APPLICATIONSDIR)/dev.shrimply.Shrimply.desktop"
 	$(INSTALL) -Dm644 $(APP_ICON) "$(DESTDIR)$(ICONDIR)/dev.shrimply.Shrimply.svg"
 	@if test -z "$(DESTDIR)"; then \
@@ -398,6 +406,15 @@ install: release
 		command -v gtk-update-icon-cache >/dev/null 2>&1 && gtk-update-icon-cache -f -t "$(DATADIR)/icons/hicolor" >/dev/null || true; \
 	fi
 	@echo "Installed $(APP_NAME) under $(DESTDIR)$(PREFIX)"
+
+install-qt: qt-release
+	$(INSTALL) -Dm755 target/release/$(QT_BIN_NAME) "$(DESTDIR)$(BINDIR)/$(QT_BIN_NAME)"
+	$(INSTALL) -Dm755 target/release/$(QT_EDITOR_BIN_NAME) "$(DESTDIR)$(BINDIR)/$(QT_EDITOR_BIN_NAME)"
+	sed -e 's|^Exec=.*|Exec=$(BINDIR)/$(QT_BIN_NAME) %f|' -e 's|^TryExec=.*|TryExec=$(BINDIR)/$(QT_BIN_NAME)|' $(QT_DESKTOP_FILE) | $(INSTALL) -Dm644 /dev/stdin "$(DESTDIR)$(APPLICATIONSDIR)/dev.shrimply.Shrimply.Qt.desktop"
+	@if test -z "$(DESTDIR)"; then \
+		command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database "$(APPLICATIONSDIR)" >/dev/null || true; \
+	fi
+	@echo "Installed Qt launcher/editor under $(DESTDIR)$(PREFIX)"
 
 install-codex-mcp-dev:
 	@test -x "$(CURDIR)/target/debug/$(MCP_BIN_NAME)" || { echo "Run make dev first to build target/debug/$(MCP_BIN_NAME)" >&2; exit 2; }
@@ -416,10 +433,18 @@ uninstall:
 	rm -f "$(DESTDIR)$(BINDIR)/$(MCP_BIN_NAME)"
 	rm -f "$(DESTDIR)$(BINDIR)/libshrimply-rhubarb.so"
 	rm -rf "$(DESTDIR)$(DATADIR)/shrimply/rhubarb"
+	rm -rf "$(DESTDIR)$(ICONS_RESOURCE_DIR)"
 	rm -f "$(DESTDIR)$(APPLICATIONSDIR)/dev.shrimply.Shrimply.desktop"
-	rm -f "$(DESTDIR)$(APPLICATIONSDIR)/dev.shrimply.Shrimply.Qt.desktop"
 	rm -f "$(DESTDIR)$(ICONDIR)/dev.shrimply.Shrimply.svg"
 	@if test -z "$(DESTDIR)"; then \
 		command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database "$(APPLICATIONSDIR)" >/dev/null || true; \
 		command -v gtk-update-icon-cache >/dev/null 2>&1 && gtk-update-icon-cache -f -t "$(DATADIR)/icons/hicolor" >/dev/null || true; \
+	fi
+
+uninstall-qt:
+	rm -f "$(DESTDIR)$(BINDIR)/$(QT_BIN_NAME)"
+	rm -f "$(DESTDIR)$(BINDIR)/$(QT_EDITOR_BIN_NAME)"
+	rm -f "$(DESTDIR)$(APPLICATIONSDIR)/dev.shrimply.Shrimply.Qt.desktop"
+	@if test -z "$(DESTDIR)"; then \
+		command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database "$(APPLICATIONSDIR)" >/dev/null || true; \
 	fi
