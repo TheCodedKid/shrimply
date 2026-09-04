@@ -128,13 +128,3 @@ pub(crate) fn boolean_action(action: InspectorAction, active: bool) -> Inspector
         action => action,
     }
 }
-
-pub(crate) fn optional_action(action: InspectorAction, active: bool) -> InspectorAction {
-    match action {
-        InspectorAction::SetOptional { path, value } => InspectorAction::SetOptional {
-            path,
-            value: active.then_some(value).flatten(),
-        },
-        action => boolean_action(action, active),
-    }
-}

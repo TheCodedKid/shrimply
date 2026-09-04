@@ -1,11 +1,7 @@
 use super::*;
 use shrimply_inspector_core::{
     AudioModifierKeyframeMove, InspectorCommit, InspectorTarget, NumberConstraint,
-    transform::{
-        ADD_TRANSFORM_KEYFRAME_COMMIT, DELETE_TRANSFORM_KEYFRAME_COMMIT,
-        PASTE_TRANSFORM_KEYFRAMES_COMMIT, TRANSFORM_KEYFRAME_INTERPOLATION_COMMIT,
-        TRANSFORM_KEYFRAME_POINT_COMMIT,
-    },
+    transform::TRANSFORM_KEYFRAME_COMMITS,
 };
 
 struct TransformKeyframeEditorInput {
@@ -139,14 +135,14 @@ fn transform_keyframe_actions(
                             &add_target,
                             path,
                             time,
-                            InspectorCommit::Immediate(ADD_TRANSFORM_KEYFRAME_COMMIT),
+                            InspectorCommit::Immediate(TRANSFORM_KEYFRAME_COMMITS.add),
                         ),
                         TransformField::Scalar(_) => add_controller.add_scalar_keyframe(
                             &add_target,
                             path,
                             time,
                             NumberConstraint::default(),
-                            InspectorCommit::Immediate(ADD_TRANSFORM_KEYFRAME_COMMIT),
+                            InspectorCommit::Immediate(TRANSFORM_KEYFRAME_COMMITS.add),
                         ),
                     }),
             );
@@ -161,15 +157,14 @@ fn transform_keyframe_actions(
                             &delete_target,
                             path,
                             time,
-                            InspectorCommit::Immediate(DELETE_TRANSFORM_KEYFRAME_COMMIT),
+                            InspectorCommit::Immediate(TRANSFORM_KEYFRAME_COMMITS.delete),
                         ),
-                        TransformField::Scalar(_) => delete_controller
-                            .delete_transform_scalar_keyframe(
-                                &delete_target,
-                                path,
-                                time,
-                                InspectorCommit::Immediate(DELETE_TRANSFORM_KEYFRAME_COMMIT),
-                            ),
+                        TransformField::Scalar(_) => delete_controller.delete_scalar_keyframe(
+                            &delete_target,
+                            path,
+                            time,
+                            InspectorCommit::Immediate(TRANSFORM_KEYFRAME_COMMITS.delete),
+                        ),
                     }),
             );
         }),
@@ -184,7 +179,9 @@ fn transform_keyframe_actions(
                                 &move_target,
                                 path,
                                 &[(old_time, time)],
-                                InspectorCommit::Coalesced(TRANSFORM_KEYFRAME_POINT_COMMIT),
+                                InspectorCommit::Coalesced(
+                                    TRANSFORM_KEYFRAME_COMMITS.move_keyframe,
+                                ),
                             )
                             .map(|_| ()),
                         TransformField::Scalar(_) => move_controller.move_scalar_keyframe(
@@ -197,7 +194,7 @@ fn transform_keyframe_actions(
                                 store_multiplier: 1.0,
                             },
                             NumberConstraint::default(),
-                            InspectorCommit::Coalesced(TRANSFORM_KEYFRAME_POINT_COMMIT),
+                            InspectorCommit::Coalesced(TRANSFORM_KEYFRAME_COMMITS.move_keyframe),
                         ),
                     }),
             );
@@ -228,14 +225,14 @@ fn transform_keyframe_actions(
                                 &paste_target,
                                 path,
                                 time,
-                                InspectorCommit::Immediate(PASTE_TRANSFORM_KEYFRAMES_COMMIT),
+                                InspectorCommit::Immediate(TRANSFORM_KEYFRAME_COMMITS.paste),
                             ),
                             TransformField::Scalar(_) => paste_controller.paste_scalar_keyframes(
                                 &paste_target,
                                 path,
                                 time,
                                 NumberConstraint::default(),
-                                InspectorCommit::Immediate(PASTE_TRANSFORM_KEYFRAMES_COMMIT),
+                                InspectorCommit::Immediate(TRANSFORM_KEYFRAME_COMMITS.paste),
                             ),
                         }),
                 )
@@ -257,7 +254,9 @@ fn transform_keyframe_actions(
                                 path,
                                 owner_id,
                                 interpolation,
-                                InspectorCommit::Immediate(TRANSFORM_KEYFRAME_INTERPOLATION_COMMIT),
+                                InspectorCommit::Immediate(
+                                    TRANSFORM_KEYFRAME_COMMITS.interpolation,
+                                ),
                             ),
                         TransformField::Scalar(_) => interpolation_controller
                             .set_scalar_keyframe_interpolation(
@@ -265,7 +264,9 @@ fn transform_keyframe_actions(
                                 path,
                                 owner_id,
                                 interpolation,
-                                InspectorCommit::Immediate(TRANSFORM_KEYFRAME_INTERPOLATION_COMMIT),
+                                InspectorCommit::Immediate(
+                                    TRANSFORM_KEYFRAME_COMMITS.interpolation,
+                                ),
                             ),
                     }),
             );

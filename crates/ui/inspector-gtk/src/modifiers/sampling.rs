@@ -26,11 +26,13 @@ pub fn add_rows(
         &method,
         "method",
         &value.method,
-        modifier_id,
         context,
-        shrimply_inspector_core::visual_modifiers::SAMPLING_METHOD_COMMIT,
-        shrimply_inspector_core::visual_modifiers::sampling_method,
-        shrimply_inspector_core::visual_modifiers::sampling_method_mut,
+        super::ModifierStepTarget {
+            modifier_id,
+            commit_name: shrimply_inspector_core::visual_modifiers::SAMPLING_METHOD_COMMIT,
+            get: shrimply_inspector_core::visual_modifiers::sampling_method,
+            get_mut: shrimply_inspector_core::visual_modifiers::sampling_method_mut,
+        },
     );
     method_row.set_sensitive(method.sensitive);
     if method.visible {

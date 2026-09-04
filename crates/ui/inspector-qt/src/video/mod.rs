@@ -1,6 +1,8 @@
 use shrimply_inspector_core::{VideoCard, VideoPresentation};
 
-use crate::item::{HeaderButtonToggle, InspectorAction, InspectorItem, InspectorListItem};
+use crate::item::{
+    HeaderAction, HeaderButtonToggle, InspectorAction, InspectorItem, InspectorListItem,
+};
 use crate::list::InspectorCategory;
 use crate::section::InspectorSection;
 
@@ -10,9 +12,36 @@ pub(crate) fn categories(
     video: &VideoPresentation,
     details: &[shrimply_inspector_core::InspectorDetail],
     metadata: Option<crate::MediaMetadataState>,
+    blender_metadata: Option<shrimply_inspector_core::video::blender::MetadataState>,
     can_paste_modifiers: bool,
 ) -> Vec<InspectorCategory> {
-    let mut visual_items = video.visual.iter().cloned().map(item).collect::<Vec<_>>();
+    let mut visual_items = Vec::new();
+    if let Some(manim) = &video.manim {
+        visual_items.push(item_with_reset(
+            manim.main.clone(),
+            InspectorAction::ResetManim {
+                reset: manim.main_reset.clone(),
+            },
+        ));
+        if let Some((parameters, reset)) =
+            manim.parameters.clone().zip(manim.parameters_reset.clone())
+        {
+            visual_items.push(item_with_reset(
+                parameters,
+                InspectorAction::ResetManimParameters { reset },
+            ));
+        }
+    }
+    if let Some(blender) = &video.blender {
+        let metadata = blender_metadata
+            .unwrap_or(shrimply_inspector_core::video::blender::MetadataState::Loading);
+        visual_items.push(item(shrimply_inspector_core::video::blender::card(
+            &blender.item,
+            &blender.asset,
+            &metadata,
+        )));
+    }
+    visual_items.extend(video.visual.iter().cloned().map(item));
     visual_items.extend(crate::modifiers::items(&video.modifiers));
     let mut modifier_menu = InspectorSection::default();
     modifier_menu.add(
@@ -65,7 +94,30 @@ pub(crate) fn categories(
     ]
 }
 
+fn item_with_reset(card: VideoCard, reset: InspectorAction) -> InspectorListItem {
+    let mut item = item(card);
+    let InspectorListItem::Item(card) = &mut item else {
+        unreachable!("video cards must create inspector card items")
+    };
+    card.reset = Some(reset);
+    item
+}
+
 pub(super) fn item(card: VideoCard) -> InspectorListItem {
+    let actions = card
+        .actions
+        .into_iter()
+        .map(|action| HeaderAction {
+            icon: action.icon,
+            tooltip: action.tooltip,
+            sensitive: action.sensitive,
+            activate: match action.activate {
+                shrimply_inspector_core::video::VideoCardAction::ReloadAsset { asset, kind } => {
+                    InspectorAction::ReloadAsset { asset, kind }
+                }
+            },
+        })
+        .collect();
     let mut section = card.section;
     if let Some(mask) = &card.alpha_mask {
         section
@@ -73,6 +125,7 @@ pub(super) fn item(card: VideoCard) -> InspectorListItem {
             .extend(mask.section.controls.iter().cloned());
     }
     let mut item = InspectorItem::new(card.key, card.title, section);
+    item = item.actions(actions);
     if let Some(reset) = card.reset {
         item = item.reset(InspectorAction::ResetVideo { reset });
     }
@@ -134,21 +187,4 @@ fn info_item(
     }
     crate::info::append(&mut section, details, metadata, video.source_metadata);
     InspectorListItem::Flat(section)
-}
-
-pub(crate) fn reload_blender(asset: &str) -> Result<(), String> {
-    let asset = shrimply_project::project::Asset::from(std::path::Path::new(asset));
-    shrimply_blender::invalidate_metadata(asset.path());
-    asset
-        .mark_dirty()
-        .map_err(|error| format!("could not mark Blender source dirty: {error}"))
-}
-
-pub(crate) fn reload_manim(asset: &str) -> Result<(), String> {
-    let asset = shrimply_project::project::Asset::from(std::path::Path::new(asset));
-    shrimply_manim_parser::invalidate_ir_cache(&asset)
-        .map_err(|error| format!("could not invalidate Manim source: {error}"))?;
-    asset
-        .mark_dirty()
-        .map_err(|error| format!("could not mark Manim source dirty: {error}"))
 }

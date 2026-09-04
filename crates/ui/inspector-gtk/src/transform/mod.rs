@@ -9,8 +9,8 @@ use shrimply_component_core::layered::{LayeredEdit, LayeredPropertyController};
 use shrimply_inspector_core::{
     ControlKind, InspectorControl, NumberSpec,
     transform::{
-        RESET_TRANSFORM_COMMIT, ScalarField, TRANSFORM_CARD_TITLE, TRANSFORM_KEYFRAME_COMMIT,
-        TRANSFORM_KEYFRAMES_COMMIT, TRANSFORM_LIVE_COMMIT, TransformField, Vec2Field,
+        RESET_TRANSFORM_COMMIT, ScalarField, TRANSFORM_CARD_TITLE, TRANSFORM_KEYFRAME_COMMITS,
+        TRANSFORM_LIVE_COMMIT, TransformField, Vec2Field,
     },
 };
 
@@ -364,6 +364,7 @@ fn add_vec2_meta_control(
             label: field.label(),
             editor,
             field: TransformField::Vec2(field),
+            timeline_id: current.id,
             keyframe_section,
             expression_section: expression_section.upcast(),
             controller,
@@ -418,6 +419,7 @@ fn add_scalar_meta_control(
             label: field.label(),
             editor,
             field: TransformField::Scalar(field),
+            timeline_id: current.id,
             keyframe_section,
             expression_section: expression_section.upcast(),
             controller,
@@ -429,6 +431,7 @@ struct LayeredControlInput<'a> {
     label: &'a str,
     editor: gtk::Widget,
     field: TransformField,
+    timeline_id: uuid::Uuid,
     keyframe_section: FrameGraph,
     expression_section: gtk::Widget,
     controller: LayeredPropertyController,
@@ -443,6 +446,7 @@ fn layered_control(
         label,
         editor,
         field,
+        timeline_id,
         keyframe_section,
         expression_section,
         controller,
@@ -459,10 +463,14 @@ fn layered_control(
         controller,
     );
     property.connect_keyframes_changed(move |enabled| {
-        assert!(
-            set_keyframes_enabled(&keyframe_context, keyframe_key.clone(), field, enabled),
-            "transform keyframe mode could not be updated",
-        );
+        set_keyframes_enabled(
+            &keyframe_context,
+            keyframe_key.clone(),
+            field,
+            timeline_id,
+            enabled,
+        )
+        .unwrap_or_else(|error| panic!("transform keyframe mode could not be updated: {error}"));
     });
     property.connect_expression_changed(move |enabled| {
         assert!(
@@ -650,7 +658,10 @@ fn commit_dynamic_transform(
             shrimply_project::project::commit_edit(&project.borrow(), TRANSFORM_LIVE_COMMIT);
         }
         LayeredEdit::Keyframe(()) => {
-            shrimply_project::project::commit_edit(&project.borrow(), TRANSFORM_KEYFRAME_COMMIT);
+            shrimply_project::project::commit_edit(
+                &project.borrow(),
+                TRANSFORM_KEYFRAME_COMMITS.edit,
+            );
             refresh_video(player_state);
         }
     }
@@ -660,10 +671,15 @@ fn set_keyframes_enabled(
     context: &InspectorContext,
     key: SelectedItem,
     field: TransformField,
+    timeline_id: uuid::Uuid,
     enabled: bool,
-) -> bool {
+) -> Result<(), String> {
     let target = shrimply_inspector_core::InspectorTarget::Item(key);
-    let commit = shrimply_inspector_core::InspectorCommit::Immediate(TRANSFORM_KEYFRAMES_COMMIT);
+    context
+        .inspector_core
+        .ensure_timeline(&target, field.path(), timeline_id)?;
+    let commit =
+        shrimply_inspector_core::InspectorCommit::Immediate(TRANSFORM_KEYFRAME_COMMITS.toggle);
     match field {
         TransformField::Vec2(field) => context.inspector_core.set_vector2_keyframes_enabled(
             &target,
@@ -679,7 +695,6 @@ fn set_keyframes_enabled(
             commit,
         ),
     }
-    .is_ok()
 }
 
 fn display_transform(context: &InspectorContext, key: SelectedItem) -> Option<ResolvedTransform> {
@@ -913,7 +928,6 @@ fn update_vec2_base_display(
         let eval = transform_eval::TransformEvaluation::for_item(&project, item, position);
         transform_eval::resolve_base(field.timeline(&item.transform), &eval)
     };
-    let value = value;
     if !value.x.is_finite() || !value.y.is_finite() {
         tracing::debug!(
             "transform: skip vec2 base display key={} field={field:?} position={} reason=non-finite x={} y={}",

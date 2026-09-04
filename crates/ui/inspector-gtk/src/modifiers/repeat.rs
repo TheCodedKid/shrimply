@@ -115,11 +115,13 @@ pub fn add_rows(value: &RepeatModifier, out: &gtk::Box, id: Uuid, context: &Insp
         &offset_axis,
         "row_offset_axis",
         &value.row_offset_axis,
-        id,
         context,
-        shrimply_inspector_core::visual_modifiers::REPEAT_OFFSET_AXIS_COMMIT,
-        shrimply_inspector_core::visual_modifiers::repeat_offset_axis,
-        shrimply_inspector_core::visual_modifiers::repeat_offset_axis_mut,
+        super::ModifierStepTarget {
+            modifier_id: id,
+            commit_name: shrimply_inspector_core::visual_modifiers::REPEAT_OFFSET_AXIS_COMMIT,
+            get: shrimply_inspector_core::visual_modifiers::repeat_offset_axis,
+            get_mut: shrimply_inspector_core::visual_modifiers::repeat_offset_axis_mut,
+        },
     );
     offset_axis_row.set_sensitive(offset_axis.sensitive);
     if offset_axis.visible {

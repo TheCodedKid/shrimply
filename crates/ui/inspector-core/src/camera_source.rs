@@ -30,8 +30,10 @@ const QUALITY_COMMIT: &str = "edit-colmap-quality";
 const ANALYSIS_FPS_COMMIT: &str = "edit-colmap-analysis-fps";
 const CAMERA_MODEL_COMMIT: &str = "edit-colmap-camera-model";
 
-static MODEL_CATALOGS: OnceLock<Mutex<HashMap<String, Result<Vec<String>, String>>>> =
-    OnceLock::new();
+pub type TrackingModels = Result<Vec<String>, String>;
+type TrackingModelCatalogs = HashMap<String, TrackingModels>;
+
+static MODEL_CATALOGS: OnceLock<Mutex<TrackingModelCatalogs>> = OnceLock::new();
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct CameraSourcePresentation {
@@ -43,7 +45,7 @@ pub fn presentation(
     project: &Project,
     address: &ItemAddress,
     source: &CameraSource,
-    models: Option<&Result<Vec<String>, String>>,
+    models: Option<&TrackingModels>,
 ) -> CameraSourcePresentation {
     let status = tracking_status(project, address, source);
     let running = status.as_ref().is_some_and(analysis_running);
@@ -200,7 +202,7 @@ pub fn presentation(
     }
 }
 
-pub fn cached_tracking_models(server_url: &str) -> Option<Result<Vec<String>, String>> {
+pub fn cached_tracking_models(server_url: &str) -> Option<TrackingModels> {
     MODEL_CATALOGS
         .get_or_init(Mutex::default)
         .lock()
@@ -209,7 +211,7 @@ pub fn cached_tracking_models(server_url: &str) -> Option<Result<Vec<String>, St
         .cloned()
 }
 
-pub fn tracking_models(server_url: &str) -> Result<Vec<String>, String> {
+pub fn tracking_models(server_url: &str) -> TrackingModels {
     if let Some(models) = cached_tracking_models(server_url) {
         return models;
     }

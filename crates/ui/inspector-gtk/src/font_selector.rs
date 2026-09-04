@@ -499,7 +499,7 @@ fn connect_canvas(state: &FontBrowserState) {
                 families.len(),
                 |index| TypefaceKey {
                     name: families[index].name.clone(),
-                    source: families[index].source.clone(),
+                    source: families[index].source,
                     revision: families[index].revision,
                 },
             );
@@ -510,7 +510,7 @@ fn connect_canvas(state: &FontBrowserState) {
                 let family = &families[index];
                 let key = TypefaceKey {
                     name: family.name.clone(),
-                    source: family.source.clone(),
+                    source: family.source,
                     revision: family.revision,
                 };
                 let typeface = font_loader.typeface(&key);

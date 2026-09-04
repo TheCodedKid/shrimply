@@ -22,12 +22,6 @@ backends in the pipeline, and pass the required fresh reviews.
 
 ## Top-level and shared source ports remaining
 
-- [ ] `transform/expressions.rs`
-- [ ] `transform/keyframes.rs`
-- [ ] `transform/mod.rs`
-- [ ] `video/blender.rs`
-- [ ] `video/manim_parameters.rs`
-- [ ] `video/pdf.rs`
 - [ ] `video/playback.rs`
 
 ## Cross-cutting parity remaining
@@ -46,10 +40,6 @@ backends in the pipeline, and pass the required fresh reviews.
 ## Required checks and acceptance
 
 - [ ] `make components-check`
-- [ ] `make source-size-check`
-- [ ] `make cargo-check` with no missing-file stop
-- [ ] `make lint` with no missing-file stop
-- [ ] `make check` after the complete large change
 - [ ] Verify the CI pipeline builds/supports both GTK and Qt variants
 - [ ] Fresh adversarial integration review 1: accepted
 - [ ] Fresh adversarial integration review 2: accepted

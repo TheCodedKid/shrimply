@@ -16,6 +16,8 @@ pub mod keyframe_graph;
 pub mod keyframe_model;
 mod layered;
 pub mod list;
+#[path = "video/manim_parameters.rs"]
+pub mod manim_parameters;
 mod model;
 pub mod paint;
 pub mod project;
@@ -61,8 +63,8 @@ pub use model::{
 pub use project::ProjectPresentation;
 pub use section::{
     AnalysisControlPresentation, AnalysisTooltip, ControlKind, ControlRowRole, InspectorControl,
-    InspectorControlAction, InspectorSection, NumberConstraint, NumberMapping, NumberSpec,
-    TextKeyframeCommits,
+    InspectorControlAction, InspectorSection, KeyframeCommits, NumberConstraint, NumberMapping,
+    NumberSpec, TextKeyframeCommits,
 };
 pub use target::InspectorTarget;
 pub use track::TrackPresentation;

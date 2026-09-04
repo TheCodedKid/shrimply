@@ -15,13 +15,12 @@ use crate::player_state::{self, ProjectChange, SharedPlayerState};
 use crate::timeline_value::*;
 use shrimply_gtk_components::resource_pipeline::{UiSubscription, deliver};
 use shrimply_gtk_components::ui::{ColorPicker, control_row, dropdown};
-use shrimply_math_core::{fraction_denominator, fraction_new, fraction_numerator};
+use shrimply_math_core::{fraction_denominator, fraction_numerator};
 use shrimply_project::project::{
     AssetSnapshot, AudioItem, AudioSource, AudioTrack, Color, LayerBlendMode, LayerVisibility,
-    ManimParameter, ManimParameterControl, ManimParameterValue, MeshFlowAdaptiveWeights, Project,
-    ResolvedTransform, SkiaDrawingStrategy, SvgColorOverride, SvgPaintKind, Time, Transform,
-    VideoItem, VideoItemContent, VideoSampleMethod, VideoStabilizationMethod,
-    VisualAlphaMaskTarget, VisualCompositing,
+    ManimParameterValue, MeshFlowAdaptiveWeights, Project, ResolvedTransform, SkiaDrawingStrategy,
+    SvgColorOverride, SvgPaintKind, Time, Transform, VideoItem, VideoItemContent,
+    VideoSampleMethod, VideoStabilizationMethod, VisualAlphaMaskTarget, VisualCompositing,
 };
 use shrimply_project::svg_color;
 use shrimply_resource_pipeline::{Event, JobContext, Pipeline, Processor};
@@ -44,6 +43,30 @@ mod pdf;
 mod playback;
 
 const SVG_COLOR_DELIVERY_INTERVAL: Duration = Duration::from_millis(50);
+
+fn header_actions(
+    actions: Vec<
+        shrimply_inspector_core::item::HeaderAction<
+            shrimply_inspector_core::video::VideoCardAction,
+        >,
+    >,
+) -> Vec<HeaderAction> {
+    actions
+        .into_iter()
+        .map(|action| HeaderAction {
+            icon: action.icon,
+            tooltip: action.tooltip,
+            sensitive: action.sensitive,
+            activate: Rc::new(move || match &action.activate {
+                shrimply_inspector_core::video::VideoCardAction::ReloadAsset { asset, kind } => {
+                    if let Err(error) = shrimply_inspector_core::video::reload_asset(asset, *kind) {
+                        tracing::warn!(%error, "Could not reload video source");
+                    }
+                }
+            }),
+        })
+        .collect()
+}
 
 impl Inspectable for VideoItem {
     fn title(&self) -> &'static str {
@@ -142,40 +165,19 @@ impl Inspectable for VideoItem {
                 },
             },
         )];
-        if let VideoItemContent::Manim(manim) = &self.content {
-            let source_revision = self
-                .file
-                .snapshot()
-                .map_or(0, |snapshot| snapshot.revision());
-            let parameters =
-                shrimply_state::manim_status::parameters(self.id, source_revision, &manim.scene)
-                    .unwrap_or_default();
-            let anti_aliasing = parameters
-                .iter()
-                .find(|parameter| matches!(parameter.control, ManimParameterControl::AntiAliasing))
-                .cloned();
-            visual_items.push(manim_item(
-                manim,
-                self.id,
-                self.file.clone(),
-                anti_aliasing,
-                context,
-            ));
-            let parameters = parameters
-                .into_iter()
-                .filter(|parameter| {
-                    !matches!(parameter.control, ManimParameterControl::AntiAliasing)
-                })
-                .collect::<Vec<_>>();
-            if !parameters.is_empty() {
-                visual_items.push(manim_parameters::item(parameters));
+        if let Some(manim) = shrimply_inspector_core::manim_parameters::presentation(self) {
+            visual_items.push(manim_item(manim.clone()));
+            if let Some((card, reset)) =
+                manim.parameters.clone().zip(manim.parameters_reset.clone())
+            {
+                visual_items.push(manim_parameters::item(card, reset));
             }
         }
         if let VideoItemContent::Blender(blender) = &self.content {
             visual_items.push(blender::item(blender, self.file.clone(), context));
         }
         if let VideoItemContent::Pdf(pdf) = &self.content {
-            visual_items.push(pdf::item(pdf, self.file.clone(), context));
+            visual_items.push(pdf::item(pdf, context));
         }
         if let Some(items) = super::generated::items(self, context) {
             visual_items.extend(items);
@@ -1668,148 +1670,136 @@ fn update_svg_color_override(
 }
 
 fn manim_item(
-    manim: &shrimply_project::project::ManimItem,
-    item_id: uuid::Uuid,
-    source: shrimply_project::project::Asset,
-    anti_aliasing: Option<ManimParameter>,
-    _context: &InspectorContext,
+    presentation: shrimply_inspector_core::manim_parameters::ManimPresentation,
 ) -> InspectorListItem {
-    let reload_source = source.clone();
-    let controls_source = source.clone();
-    let controls_anti_aliasing = anti_aliasing.clone();
-    let anti_aliasing_key = anti_aliasing.map(|parameter| parameter.key);
-    DefaultInspectorItem::new(
-        "manim",
-        "Manim",
-        manim.clone(),
-        move |manim, context| {
-            manim_controls(
-                manim,
-                item_id,
-                &controls_source,
-                controls_anti_aliasing.as_ref(),
-                context,
-            )
-        },
-        move |context, value| {
-            let Some(key) = context.selected_item.clone() else {
+    let default = presentation.clone();
+    let reset = presentation.main_reset.clone();
+    let actions = header_actions(presentation.main.actions.clone());
+    DefaultInspectorItem::new_with_default(
+        presentation.main.key,
+        presentation.main.title,
+        presentation,
+        manim_controls,
+        move |_| default.clone(),
+        move |context, _| {
+            let Some(item) = context.selected_item.clone() else {
                 return;
             };
-            let anti_aliasing_key = anti_aliasing_key.clone();
-            update_video_item(
-                &context.project,
-                &context.player_state,
-                key.clone(),
-                "reset-manim-scene",
-                move |item| {
-                    let VideoItemContent::Manim(manim) = &mut item.content else {
-                        return false;
-                    };
-                    let scene_changed = manim.scene != value.scene;
-                    let anti_aliasing_changed = anti_aliasing_key
-                        .as_ref()
-                        .is_some_and(|key| manim.parameters.contains_key(key));
-                    if !scene_changed && !anti_aliasing_changed {
-                        return false;
-                    }
-                    if scene_changed {
-                        manim.scene = value.scene;
-                        manim.parameters.clear();
-                    } else if let Some(key) = &anti_aliasing_key {
-                        manim.parameters.remove(key);
-                    }
-                    true
-                },
-            );
+            if let Err(error) = context.inspector_core.reset_manim(
+                &shrimply_inspector_core::InspectorTarget::Item(item),
+                &reset,
+            ) {
+                tracing::error!(%error, "Could not reset GTK Manim scene");
+            }
         },
     )
-    .actions(vec![HeaderAction {
-        icon: "view-refresh-symbolic",
-        tooltip: "Reload Python source and rebuild Manim scene states",
-        sensitive: true,
-        activate: Rc::new(move || {
-            if let Err(error) = shrimply_manim_parser::invalidate_ir_cache(&reload_source) {
-                tracing::warn!("Could not invalidate Manim IR cache: {error}");
-            }
-            if let Err(error) = reload_source.mark_dirty() {
-                tracing::warn!("Could not mark Manim source dirty: {error}");
-            }
-        }),
-    }])
+    .actions(actions)
     .boxed()
 }
 
 fn manim_controls(
-    manim: &shrimply_project::project::ManimItem,
-    item_id: uuid::Uuid,
-    source: &shrimply_project::project::Asset,
-    anti_aliasing: Option<&ManimParameter>,
+    presentation: &shrimply_inspector_core::manim_parameters::ManimPresentation,
     context: &InspectorContext,
 ) -> Vec<gtk::Widget> {
+    use shrimply_inspector_core::manim_parameters as shared;
+
     let section = InspectorSection::controls();
     let Some(key) = context.selected_item.clone() else {
         return vec![section.into_widget()];
     };
-    let placeholder = if manim.scene.is_empty() {
-        "Loading scenes...".to_string()
-    } else {
-        manim.scene.clone()
-    };
-    let project = context.project.clone();
-    let player_state = context.player_state.clone();
-    let scene_key = key.clone();
+    let target = shrimply_inspector_core::InspectorTarget::Item(key);
+    let scene = presentation
+        .main
+        .section
+        .controls
+        .iter()
+        .find(|control| control.path == shared::SCENE_PATH)
+        .expect("shared Manim card must contain its scene selector");
     let scenes = labeled_string_selector(
-        "Scene",
-        &placeholder,
-        vec![StringChoice {
-            value: placeholder.clone(),
-            label: if manim.scene.is_empty() {
-                tr!(&placeholder).into_owned()
-            } else {
-                placeholder.clone()
-            },
-        }],
-        move |value| {
-            update_video_item(
-                &project,
-                &player_state,
-                scene_key.clone(),
-                "manim-scene",
-                move |item| {
-                    let VideoItemContent::Manim(manim) = &mut item.content else {
-                        return false;
-                    };
-                    if manim.scene == value {
-                        return false;
-                    }
-                    manim.scene = value;
-                    manim.parameters.clear();
-                    true
+        &scene.label,
+        &scene.value,
+        scene
+            .values
+            .iter()
+            .zip(&scene.labels)
+            .map(|(value, label)| StringChoice {
+                value: value.clone(),
+                label: if presentation.current_scene.is_empty() {
+                    tr!(label).into_owned()
+                } else {
+                    label.clone()
                 },
-            );
+            })
+            .collect(),
+        {
+            let controller = context.inspector_core.clone();
+            let target = target.clone();
+            let commit_name = scene.commit_name.clone();
+            move |value| {
+                if let Err(error) = controller.set_manim_scene(&target, value, &commit_name) {
+                    tracing::error!(%error, "Could not select GTK Manim scene");
+                }
+            }
         },
     );
-    scenes.set_sensitive(false);
+    scenes.set_sensitive(scene.sensitive);
+    if !scene.tooltip.is_empty() {
+        scenes.widget().set_tooltip_text(Some(&scene.tooltip));
+    }
     section.add_wide_control(scenes.widget());
-    if let Some(parameter) = anti_aliasing
-        && let ManimParameterValue::Integer(value) = parameter.value
+
+    if let Some(control) = presentation
+        .main
+        .section
+        .controls
+        .iter()
+        .find(|control| shared::parameter_key(&control.path).is_some())
     {
-        let update = manim_parameters::parameter_update(context, key.clone(), parameter);
+        let key = shared::parameter_key(&control.path)
+            .expect("shared anti-aliasing control must have a parameter path")
+            .to_string();
+        let controller = context.inspector_core.clone();
+        let target = target.clone();
+        let commit_name = control.commit_name.clone();
         section.add_wide_control(&selector(
-            "Anti-aliasing",
-            value,
-            [
-                (0, "Off"),
-                (2, "2× MSAA"),
-                (4, "4× MSAA"),
-                (8, "8× MSAA"),
-                (16, "16× MSAA"),
-            ],
-            move |value| update(ManimParameterValue::Integer(value)),
+            &control.label,
+            control
+                .value
+                .parse::<i64>()
+                .expect("shared anti-aliasing value must be an integer"),
+            control
+                .values
+                .iter()
+                .zip(&control.labels)
+                .map(|(value, label)| {
+                    (
+                        value
+                            .parse::<i64>()
+                            .expect("shared anti-aliasing option must be an integer"),
+                        label.clone(),
+                    )
+                }),
+            move |value| {
+                if let Err(error) = controller.set_manim_parameter(
+                    &target,
+                    &key,
+                    ManimParameterValue::Integer(value),
+                    &commit_name,
+                ) {
+                    tracing::error!(%error, "Could not change GTK Manim anti-aliasing");
+                }
+            },
         ));
     }
-    let source_revision = source.snapshot().map_or(0, |snapshot| snapshot.revision());
-    if let Some(error) = shrimply_state::manim_status::error(item_id, source_revision) {
+
+    if let Some(error) = presentation
+        .main
+        .section
+        .controls
+        .iter()
+        .find(|control| control.kind == shrimply_inspector_core::ControlKind::ReadOnly)
+        .map(|control| &control.value)
+    {
         let error = gtk::Label::builder()
             .label(error)
             .halign(gtk::Align::Fill)
@@ -1822,57 +1812,58 @@ fn manim_controls(
         section.add_wide_control(&error);
     }
 
-    let (sender, receiver) = async_channel::bounded(1);
-    let source = source.clone();
-    std::thread::spawn(move || {
-        let _ = sender.send_blocking(shrimply_manim_parser::discover_scenes(&source));
-    });
-    let current_scene = manim.scene.clone();
+    let source = shrimply_project::project::Asset::from(std::path::Path::new(&presentation.source));
+    let current_scene = presentation.current_scene.clone();
     let listener_scope = Rc::downgrade(&context.listener_scope);
-    let project = context.project.clone();
-    let player_state = context.player_state.clone();
-    glib::spawn_future_local(async move {
-        let Ok(result) = receiver.recv().await else {
-            return;
-        };
-        if listener_scope.upgrade().is_none() {
-            return;
+    let controller = context.inspector_core.clone();
+    if scene.sensitive {
+        if scene.value != current_scene {
+            let selected = scene.value.clone();
+            glib::idle_add_local_once(move || {
+                if listener_scope.upgrade().is_some()
+                    && let Err(error) =
+                        controller.set_manim_scene(&target, selected, "select-manim-scene")
+                {
+                    tracing::error!(%error, "Could not select the default GTK Manim scene");
+                }
+            });
         }
-        match result {
-            Ok(options) => {
-                let selected = options
-                    .iter()
-                    .find(|option| **option == current_scene)
-                    .cloned()
-                    .unwrap_or_else(|| options[0].clone());
-                scenes.set_options(&selected, options);
-                scenes.set_sensitive(true);
-                if selected != current_scene {
-                    update_video_item(
-                        &project,
-                        &player_state,
-                        key.clone(),
-                        "select-manim-scene",
-                        move |item| {
-                            let VideoItemContent::Manim(manim) = &mut item.content else {
-                                return false;
-                            };
-                            manim.scene = selected;
-                            manim.parameters.clear();
-                            true
-                        },
-                    );
+    } else if scene.tooltip.is_empty() {
+        glib::spawn_future_local(async move {
+            loop {
+                glib::timeout_future(Duration::from_millis(50)).await;
+                if listener_scope.upgrade().is_none() {
+                    return;
+                }
+                shared::poll_scenes();
+                match shared::scenes(&source, &current_scene) {
+                    shared::ManimScenes::Loading => continue,
+                    shared::ManimScenes::Ready(discovery) => {
+                        let control = shared::discovered_scene_control(&discovery);
+                        scenes.set_options(&control.value, control.values);
+                        scenes.set_sensitive(control.sensitive);
+                        if discovery.changed
+                            && let Err(error) = controller.set_manim_scene(
+                                &target,
+                                discovery.selected,
+                                "select-manim-scene",
+                            )
+                        {
+                            tracing::error!(%error, "Could not select the default GTK Manim scene");
+                        }
+                        return;
+                    }
+                    shared::ManimScenes::Failed(error) => {
+                        let control = shared::failed_scene_control(&error);
+                        scenes.set_options(&control.value, control.values);
+                        scenes.set_sensitive(control.sensitive);
+                        scenes.widget().set_tooltip_text(Some(&control.tooltip));
+                        return;
+                    }
                 }
             }
-            Err(error) => {
-                scenes.set_options(
-                    "Could not parse scenes",
-                    vec!["Could not parse scenes".into()],
-                );
-                scenes.widget().set_tooltip_text(Some(&error));
-            }
-        }
-    });
+        });
+    }
 
     vec![section.into_widget()]
 }

@@ -388,9 +388,9 @@ impl InspectorController {
     ) -> Result<(), String> {
         let mut project = self.project.borrow_mut();
         let sam2 = sam2_modifier_mut(&mut project, target, modifier_id)?;
-        if !sam2
+        if sam2
             .box_prompt
-            .is_some_and(|box_prompt| box_prompt.id == box_id)
+            .is_none_or(|box_prompt| box_prompt.id != box_id)
         {
             return Err("SAM2 box is no longer available".to_string());
         }

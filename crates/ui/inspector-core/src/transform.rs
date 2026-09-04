@@ -7,8 +7,8 @@ use shrimply_video_modifiers::{ModifierEffect, RasterModifierEffect, VectorModif
 
 use crate::{
     ControlKind, GraphPoint, GraphSegment, InspectorCommit, InspectorControl, InspectorController,
-    InspectorExpressionOutput, InspectorRuntime, InspectorSection, InspectorTarget, LayeredState,
-    NumberSpec, ScalarGraph, VideoCard,
+    InspectorExpressionOutput, InspectorRuntime, InspectorSection, InspectorTarget,
+    KeyframeCommits, LayeredState, NumberSpec, ScalarGraph, VideoCard,
 };
 
 pub mod expressions;
@@ -16,14 +16,16 @@ pub mod expressions;
 pub const TRANSFORM_CARD_KEY: &str = "transform";
 pub const TRANSFORM_CARD_TITLE: &str = "Transform";
 pub const TRANSFORM_LIVE_COMMIT: &str = "video-transform";
-pub const TRANSFORM_KEYFRAME_COMMIT: &str = "video-transform-keyframe";
-pub const TRANSFORM_KEYFRAMES_COMMIT: &str = "video-transform-keyframes";
 pub const RESET_TRANSFORM_COMMIT: &str = "reset-transform";
-pub const ADD_TRANSFORM_KEYFRAME_COMMIT: &str = "add-transform-keyframe";
-pub const DELETE_TRANSFORM_KEYFRAME_COMMIT: &str = "delete-transform-keyframe";
-pub const PASTE_TRANSFORM_KEYFRAMES_COMMIT: &str = "paste-transform-keyframes";
-pub const TRANSFORM_KEYFRAME_POINT_COMMIT: &str = "video-transform-keyframe-point";
-pub const TRANSFORM_KEYFRAME_INTERPOLATION_COMMIT: &str = "video-transform-keyframe-interpolation";
+pub const TRANSFORM_KEYFRAME_COMMITS: KeyframeCommits = KeyframeCommits {
+    toggle: "video-transform-keyframes",
+    edit: "video-transform-keyframe",
+    add: "add-transform-keyframe",
+    delete: "delete-transform-keyframe",
+    move_keyframe: "video-transform-keyframe-point",
+    paste: "paste-transform-keyframes",
+    interpolation: "video-transform-keyframe-interpolation",
+};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Vec2Field {
@@ -102,7 +104,7 @@ impl Vec2Field {
         }
     }
 
-    pub fn timeline<'a>(self, transform: &'a Transform) -> &'a TimelineValue<Vec2> {
+    pub fn timeline(self, transform: &Transform) -> &TimelineValue<Vec2> {
         match self {
             Self::Position => &transform.position,
             Self::Anchor => &transform.anchor,
@@ -111,7 +113,7 @@ impl Vec2Field {
         }
     }
 
-    pub fn timeline_mut<'a>(self, transform: &'a mut Transform) -> &'a mut TimelineValue<Vec2> {
+    pub fn timeline_mut(self, transform: &mut Transform) -> &mut TimelineValue<Vec2> {
         match self {
             Self::Position => &mut transform.position,
             Self::Anchor => &mut transform.anchor,
@@ -174,13 +176,13 @@ impl ScalarField {
         }
     }
 
-    pub fn timeline<'a>(self, transform: &'a Transform) -> &'a TimelineValue<f32> {
+    pub fn timeline(self, transform: &Transform) -> &TimelineValue<f32> {
         match self {
             Self::RotationDegrees => &transform.rotation_degrees,
         }
     }
 
-    pub fn timeline_mut<'a>(self, transform: &'a mut Transform) -> &'a mut TimelineValue<f32> {
+    pub fn timeline_mut(self, transform: &mut Transform) -> &mut TimelineValue<f32> {
         match self {
             Self::RotationDegrees => &mut transform.rotation_degrees,
         }
@@ -284,6 +286,7 @@ pub(crate) fn card(
             reset: None,
             alpha_mask: None,
             preview_facet: None,
+            actions: Vec::new(),
         }
         .reset(
             "/transform",
@@ -333,7 +336,8 @@ fn vector_control(
         .prefixes(field.prefixes())
         .layered(path, LayeredState::from(timeline))
         .timeline(timeline.id, vector_speed_graph(timeline, runtime))
-        .live_commit(TRANSFORM_LIVE_COMMIT);
+        .live_commit(TRANSFORM_LIVE_COMMIT)
+        .keyframe_commits(TRANSFORM_KEYFRAME_COMMITS);
     if field.lock() {
         control.lock()
     } else {
@@ -356,6 +360,7 @@ fn scalar_control(
         .layered(path, LayeredState::from(timeline))
         .timeline(timeline.id, scalar_graph(timeline, display as f32, runtime))
         .live_commit(TRANSFORM_LIVE_COMMIT)
+        .keyframe_commits(TRANSFORM_KEYFRAME_COMMITS)
 }
 
 fn graph_shell(
@@ -900,37 +905,6 @@ impl InspectorController {
             crate::model::EditKind::Structural,
             path,
             serde_json::to_value(timeline).expect("transform vector must serialize"),
-            crate::refresh::audio_path_change(target, path, crate::model::EditKind::Structural),
-            commit,
-        )
-    }
-
-    pub fn delete_transform_scalar_keyframe(
-        &self,
-        target: &InspectorTarget,
-        path: &str,
-        time: Time,
-        commit: InspectorCommit<'_>,
-    ) -> Result<(), String> {
-        if ScalarField::from_path(path).is_none() {
-            return Err(format!("unknown transform scalar: {path}"));
-        }
-        let mut timeline = self.scalar_timeline(target, path)?;
-        let TimelineBase::Keyframes(keyframes) = &mut timeline.base else {
-            return Ok(());
-        };
-        let Some(index) = keyframes
-            .iter()
-            .position(|keyframe| keyframe.time.approx_eq(time))
-        else {
-            return Ok(());
-        };
-        keyframes.remove(index);
-        self.replace_value_with_commit(
-            target,
-            crate::model::EditKind::Structural,
-            path,
-            serde_json::to_value(timeline).expect("transform scalar must serialize"),
             crate::refresh::audio_path_change(target, path, crate::model::EditKind::Structural),
             commit,
         )

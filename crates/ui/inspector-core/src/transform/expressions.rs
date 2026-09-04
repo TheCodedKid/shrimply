@@ -28,9 +28,12 @@ pub fn enabled(transform: &Transform, field: TransformField) -> bool {
 }
 
 pub fn format_vec2(field: Vec2Field, value: glam::Vec2) -> String {
-    let unit = field.number().unit;
-    let x = format_number(f64::from(value.x), 0);
-    let y = format_number(f64::from(value.y), 0);
+    let number = field.number();
+    let digits =
+        usize::try_from(number.digits).expect("transform vector digits must be nonnegative");
+    let x = format_number(f64::from(value.x), digits);
+    let y = format_number(f64::from(value.y), digits);
+    let unit = number.unit;
     format!("X {x}{unit}  Y {y}{unit}")
 }
 

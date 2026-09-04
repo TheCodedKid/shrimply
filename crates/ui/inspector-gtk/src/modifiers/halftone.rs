@@ -57,22 +57,24 @@ pub fn add_rows(value: &HalftoneModifier, out: &gtk::Box, id: Uuid, context: &In
     out.append(&super::step_row(
         "Mode",
         &value.mode,
-        id,
         context,
-        "edit-halftone-mode",
-        |modifier| match modifier {
-            ModifierEffect::Raster(effect) => match &**effect {
-                RasterModifierEffect::Halftone(effect) => Some(&effect.mode),
+        super::ModifierStepTarget {
+            modifier_id: id,
+            commit_name: "edit-halftone-mode",
+            get: |modifier| match modifier {
+                ModifierEffect::Raster(effect) => match &**effect {
+                    RasterModifierEffect::Halftone(effect) => Some(&effect.mode),
+                    _ => None,
+                },
                 _ => None,
             },
-            _ => None,
-        },
-        |modifier| match modifier {
-            ModifierEffect::Raster(effect) => match &mut **effect {
-                RasterModifierEffect::Halftone(effect) => Some(&mut effect.mode),
+            get_mut: |modifier| match modifier {
+                ModifierEffect::Raster(effect) => match &mut **effect {
+                    RasterModifierEffect::Halftone(effect) => Some(&mut effect.mode),
+                    _ => None,
+                },
                 _ => None,
             },
-            _ => None,
         },
     ));
     if mode != HalftoneMode::Monochrome {

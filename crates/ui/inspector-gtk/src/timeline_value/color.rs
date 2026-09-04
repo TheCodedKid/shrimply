@@ -322,12 +322,11 @@ fn connect_color_display(
                 return;
             };
             if shrimply_inspector_core::timeline_color::validate_timeline(value, timeline_id)
-                .is_err()
-                || !picker.set_color(shrimply_inspector_core::timeline_color::value_at(
-                    value, time,
-                ))
+                .is_ok()
             {
-                return;
+                picker.set_color(shrimply_inspector_core::timeline_color::value_at(
+                    value, time,
+                ));
             }
         },
     );

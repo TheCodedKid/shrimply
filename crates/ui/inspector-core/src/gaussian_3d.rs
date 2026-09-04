@@ -242,6 +242,7 @@ fn card(
         reset: Some(reset),
         alpha_mask: None,
         preview_facet: None,
+        actions: Vec::new(),
     }
 }
 

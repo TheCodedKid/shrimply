@@ -25,10 +25,6 @@ pub(crate) type VecGetMut =
 
 #[derive(Clone, Copy)]
 pub(crate) enum VecAccess {
-    Item {
-        get: VecGet,
-        get_mut: VecGetMut,
-    },
     ItemScoped {
         get: VecGet,
         get_mut: VecGetMut,
@@ -55,7 +51,6 @@ pub(crate) enum VecAccess {
 impl VecAccess {
     fn get(self, p: &Project, k: SelectedItem) -> Option<&TimelineValue<glam::Vec2>> {
         match self {
-            Self::Item { get, .. } => get(p, k.clone()),
             Self::ItemScoped { get, value_id, .. }
             | Self::ItemWithMutation { get, value_id, .. } => {
                 get(p, k.clone()).filter(|value| value.id == value_id)
@@ -79,7 +74,6 @@ impl VecAccess {
     }
     fn get_mut(self, p: &mut Project, k: SelectedItem) -> Option<&mut TimelineValue<glam::Vec2>> {
         match self {
-            Self::Item { get_mut, .. } => get_mut(p, k.clone()),
             Self::ItemScoped {
                 get_mut, value_id, ..
             }

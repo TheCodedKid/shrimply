@@ -37,9 +37,8 @@ pub(super) fn presentation(
         ],
         "edit-3d-shape-kind",
     ));
-    section.add(vector3_control(
-        &base,
-        "size",
+    section.add(super::modifier_vector3_control(
+        format!("{base}/size"),
         "Size",
         &value.size,
         runtime,
@@ -181,9 +180,8 @@ pub(super) fn presentation(
             "",
         ),
     ));
-    section.add(vector3_control(
-        &base,
-        "transform/position",
+    section.add(super::modifier_vector3_control(
+        format!("{base}/transform/position"),
         "Position",
         &value.transform.position,
         runtime,
@@ -191,9 +189,8 @@ pub(super) fn presentation(
         false,
         false,
     ));
-    section.add(vector3_control(
-        &base,
-        "transform/anchor",
+    section.add(super::modifier_vector3_control(
+        format!("{base}/transform/anchor"),
         "Anchor",
         &value.transform.anchor,
         runtime,
@@ -201,9 +198,8 @@ pub(super) fn presentation(
         false,
         false,
     ));
-    section.add(vector3_control(
-        &base,
-        "transform/rotation_degrees",
+    section.add(super::modifier_vector3_control(
+        format!("{base}/transform/rotation_degrees"),
         "Rotation",
         &value.transform.rotation_degrees,
         runtime,
@@ -211,9 +207,8 @@ pub(super) fn presentation(
         false,
         true,
     ));
-    section.add(vector3_control(
-        &base,
-        "transform/scale",
+    section.add(super::modifier_vector3_control(
+        format!("{base}/transform/scale"),
         "Scale",
         &value.transform.scale,
         runtime,
@@ -322,26 +317,6 @@ fn scalar_control(
         runtime,
         spec,
         false,
-    )
-}
-fn vector3_control(
-    base: &str,
-    field: &str,
-    label: &'static str,
-    value: &shrimply_core::timeline_value::TimelineValue<glam::Vec3>,
-    runtime: InspectorRuntime,
-    spec: NumberSpec,
-    lock: bool,
-    rotating: bool,
-) -> InspectorControl {
-    super::modifier_vector3_control(
-        format!("{base}/{field}"),
-        label,
-        value,
-        runtime,
-        spec,
-        lock,
-        rotating,
     )
 }
 fn vector_spec(degrees: bool) -> NumberSpec {

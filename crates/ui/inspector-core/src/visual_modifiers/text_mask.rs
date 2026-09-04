@@ -28,7 +28,7 @@ pub(super) fn presentation(
         format!("{base}/partial_mode"),
         "Partial mode",
         enum_text(value.partial_mode),
-        &[(&"clip", &"Clip"), (&"fade", &"Fade"), (&"snap", &"Snap")],
+        &[("clip", "Clip"), ("fade", "Fade"), ("snap", "Snap")],
         modifier_id,
     ));
     section.add(selector(
@@ -36,10 +36,10 @@ pub(super) fn presentation(
         "Direction",
         enum_text(value.direction),
         &[
-            (&"left_to_right", &"Left to right"),
-            (&"right_to_left", &"Right to left"),
-            (&"top_to_bottom", &"Top to bottom"),
-            (&"bottom_to_top", &"Bottom to top"),
+            ("left_to_right", "Left to right"),
+            ("right_to_left", "Right to left"),
+            ("top_to_bottom", "Top to bottom"),
+            ("bottom_to_top", "Bottom to top"),
         ],
         modifier_id,
     ));

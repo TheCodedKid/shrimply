@@ -1,3 +1,4 @@
+mod action_controller;
 mod audio;
 mod audio_generator;
 mod audio_modifiers;
@@ -11,6 +12,7 @@ mod modifiers;
 mod project;
 mod section;
 mod selector;
+mod timeline_controller;
 mod track;
 mod transition;
 mod value_backend;
@@ -31,8 +33,10 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::item::{InspectorAction, ReloadKind};
+use crate::item::InspectorAction;
 use crate::list::{InspectorDocument, PreviewItem};
+use action_controller::*;
+use timeline_controller::*;
 
 const VOICE_MODEL_RETRY_INTERVAL: Duration = Duration::from_secs(5);
 
@@ -66,6 +70,9 @@ struct PendingFontEdit {
     source_value: String,
     value: String,
 }
+
+type FontEditActivation = (PendingFontEdit, Result<(), String>);
+type FontBrowserPoll = (bool, Vec<FontEditActivation>);
 
 struct MediaMetadata {
     sender: mpsc::Sender<(MediaMetadataKey, Result<Arc<CachedMediaInfo>, String>)>,
@@ -256,8 +263,15 @@ fn target_change_pending(current: &InspectorTarget) -> bool {
 
 fn take_document() -> Option<InspectorDocument> {
     audio::poll_tts_runtime();
+    receive_pdf_pages();
     receive_project_fonts();
     receive_media_metadata();
+    if shrimply_inspector_core::video::blender::poll_metadata() {
+        mark_dirty();
+    }
+    if shrimply_inspector_core::manim_parameters::poll_scenes() {
+        mark_dirty();
+    }
     receive_voice_models();
     receive_camera_models();
     receive_cache_statuses();
@@ -280,7 +294,7 @@ fn take_document() -> Option<InspectorDocument> {
                 shrimply_inspector_core::camera_source::cached_tracking_models(&server_url);
             (server_url, models)
         });
-        let snapshot = controller.snapshot_with_camera_models(camera_models.as_ref());
+        let mut snapshot = controller.snapshot_with_camera_models(camera_models.as_ref());
         if camera_models.is_none()
             && snapshot.video.as_ref().is_some_and(|video| {
                 video.visual.iter().any(|card| {
@@ -292,10 +306,68 @@ fn take_document() -> Option<InspectorDocument> {
         {
             request_camera_models(&server_url);
         }
-        let document = document(snapshot);
+        let blender_metadata = blender_metadata(snapshot.video.as_ref());
+        if let Some(shrimply_inspector_core::video::blender::MetadataState::Ready(metadata)) =
+            blender_metadata.as_ref()
+            && controller
+                .sync_blender_metadata(&snapshot.target, metadata)
+                .unwrap_or_else(|error| panic!("could not synchronize Blender metadata: {error}"))
+        {
+            snapshot = controller.snapshot_with_camera_models(camera_models.as_ref());
+        }
+        if let Some(manim) = snapshot
+            .video
+            .as_ref()
+            .and_then(|video| video.manim.as_ref())
+            && let Some(scene) = manim.main.section.controls.iter().find(|control| {
+                control.path == shrimply_inspector_core::manim_parameters::SCENE_PATH
+            })
+            && scene.sensitive
+            && scene.value != manim.current_scene
+        {
+            controller
+                .set_manim_scene(&snapshot.target, scene.value.clone(), "select-manim-scene")
+                .unwrap_or_else(|error| panic!("could not select default Manim scene: {error}"));
+            snapshot = controller.snapshot_with_camera_models(camera_models.as_ref());
+        }
+        let document = document(snapshot, blender_metadata);
         retain_cache_statuses(&document);
         Some(document)
     })
+}
+
+fn receive_pdf_pages() {
+    if !shrimply_inspector_core::video::pdf::poll_pages() {
+        return;
+    }
+    CONTROLLER.with_borrow(|controller| {
+        let controller = controller
+            .as_ref()
+            .expect("Qt PDF pages received before inspector installation");
+        controller
+            .normalize_pdf_page(&controller.target())
+            .unwrap_or_else(|error| panic!("could not normalize Qt PDF page: {error}"));
+    });
+    mark_dirty();
+}
+
+fn blender_metadata(
+    video: Option<&shrimply_inspector_core::VideoPresentation>,
+) -> Option<shrimply_inspector_core::video::blender::MetadataState> {
+    let source = video?.blender.as_ref()?;
+    let asset = shrimply_project::project::Asset::from(std::path::Path::new(&source.asset));
+    let binary = PREFERENCES.with_borrow(|preferences| {
+        shrimply_state::preferences::snapshot(
+            preferences
+                .as_ref()
+                .expect("Qt inspector preferences requested before installation"),
+        )
+        .blender_binary
+    });
+    Some(shrimply_inspector_core::video::blender::metadata(
+        &asset,
+        binary.as_deref(),
+    ))
 }
 
 fn receive_camera_models() {
@@ -468,7 +540,7 @@ fn apply_font_browser_edit(edit: &PendingFontEdit) -> Result<(), String> {
     })
 }
 
-fn receive_font_browser() -> (bool, Vec<(PendingFontEdit, Result<(), String>)>) {
+fn receive_font_browser() -> FontBrowserPoll {
     let poll = FONT_BROWSER.with_borrow_mut(|browser| browser.poll());
     let edits = poll
         .activations
@@ -486,7 +558,10 @@ fn cancel_font_browser_edit() {
     PENDING_FONT_EDIT.with_borrow_mut(|pending| drop(pending.take()));
 }
 
-fn document(snapshot: InspectorSnapshot) -> InspectorDocument {
+fn document(
+    snapshot: InspectorSnapshot,
+    blender_metadata: Option<shrimply_inspector_core::video::blender::MetadataState>,
+) -> InspectorDocument {
     let preview_item = match &snapshot.target {
         InspectorTarget::Item(address @ ItemAddress::Video { .. }) => Some(PreviewItem {
             address: address.clone(),
@@ -537,6 +612,7 @@ fn document(snapshot: InspectorSnapshot) -> InspectorDocument {
                     .expect("video inspector snapshot must include video presentation"),
                 &snapshot.details,
                 metadata,
+                blender_metadata,
                 can_paste_visual_modifiers(&snapshot.target),
             ),
         },
@@ -1206,6 +1282,19 @@ fn set_control_fraction(
     numerator: i64,
     denominator: i64,
 ) -> Result<(), String> {
+    if denominator <= 0 {
+        return Err("fraction denominator must be positive".to_string());
+    }
+    if let Some(result) = with_controller(|controller| {
+        Ok(controller.set_manim_fraction(
+            target,
+            &control.path,
+            shrimply_math_core::fraction_new(numerator, denominator),
+            &control.commit_name,
+        ))
+    })? {
+        return result;
+    }
     if matches!(target, InspectorTarget::Item(ItemAddress::Video { .. }))
         && !control.commit_name.is_empty()
     {
@@ -1219,6 +1308,34 @@ fn set_control_fraction(
     } else {
         set_fraction(target, &control.path, numerator, denominator)
     }
+}
+
+fn set_manim_text_field(
+    target: &InspectorTarget,
+    path: &str,
+    value: &str,
+    commit_name: &str,
+) -> Option<Result<(), String>> {
+    CONTROLLER.with_borrow(|controller| {
+        controller
+            .as_ref()
+            .expect("Qt Manim edit requested before installation")
+            .set_manim_text_field(target, path, value, commit_name)
+    })
+}
+
+fn set_manim_color(
+    target: &InspectorTarget,
+    path: &str,
+    value: shrimply_core::Color<u8>,
+    commit_name: &str,
+) -> Option<Result<(), String>> {
+    CONTROLLER.with_borrow(|controller| {
+        controller
+            .as_ref()
+            .expect("Qt Manim edit requested before installation")
+            .set_manim_color(target, path, value, commit_name)
+    })
 }
 
 fn set_optional_field(
@@ -1326,9 +1443,21 @@ fn ensure_control_timeline(
                     })
                 });
         }
-        if path.starts_with("/transform/")
-            && matches!(control.kind, section::ControlKind::LayeredVector2)
-        {
+        if matches!(
+            (
+                shrimply_inspector_core::transform::TransformField::from_path(path),
+                control.kind,
+            ),
+            (
+                Some(shrimply_inspector_core::transform::TransformField::Vec2(_)),
+                section::ControlKind::LayeredVector2,
+            ) | (
+                Some(shrimply_inspector_core::transform::TransformField::Scalar(
+                    _
+                )),
+                section::ControlKind::LayeredNumber,
+            )
+        ) {
             return control
                 .timeline_id
                 .ok_or_else(|| "transform timeline ID is unavailable".to_string())
@@ -1498,1987 +1627,6 @@ fn set_paint_drawing_interpolation(
     with_controller(|controller| {
         controller.set_paint_drawing_interpolation(target, timeline_id, owner_id, interpolation)
     })
-}
-
-fn transform_live_presentation(
-    target: &InspectorTarget,
-) -> Option<shrimply_inspector_core::transform::TransformLivePresentation> {
-    CONTROLLER.with_borrow(|controller| {
-        controller
-            .as_ref()
-            .expect("Qt inspector transform requested before installation")
-            .transform_live_presentation(target)
-    })
-}
-
-fn resolved_transform(
-    target: &InspectorTarget,
-) -> Option<shrimply_project::project::ResolvedTransform> {
-    CONTROLLER.with_borrow(|controller| {
-        controller
-            .as_ref()
-            .expect("Qt inspector transform requested before installation")
-            .resolved_transform(target)
-    })
-}
-
-fn set_fraction(
-    target: &InspectorTarget,
-    path: &str,
-    numerator: i64,
-    denominator: i64,
-) -> Result<(), String> {
-    if denominator <= 0 {
-        return Err("inspector fraction denominator must be positive".to_string());
-    }
-    with_controller(|controller| {
-        controller.set_fraction(
-            target,
-            path,
-            shrimply_math_core::fraction_new(numerator, denominator),
-        )
-    })
-}
-
-fn set_timeline_mode(
-    target: &InspectorTarget,
-    path: &str,
-    keyframes: bool,
-    enabled: bool,
-    current: Value,
-    default_expression: &str,
-    commit_name: &str,
-) -> Result<(), String> {
-    with_controller(|controller| {
-        controller.set_timeline_mode_with_commit(
-            target,
-            path,
-            shrimply_inspector_core::TimelineModeChange {
-                keyframes,
-                enabled,
-                current,
-                default_expression,
-            },
-            shrimply_inspector_core::InspectorCommit::Immediate(commit_name),
-        )
-    })
-}
-
-fn set_scalar_keyframes_enabled(
-    target: &InspectorTarget,
-    path: &str,
-    enabled: bool,
-    constraint: shrimply_inspector_core::NumberConstraint,
-    commit_name: &str,
-) -> Result<(), String> {
-    with_controller(|controller| {
-        controller.set_scalar_keyframes_enabled(
-            target,
-            path,
-            enabled,
-            constraint,
-            shrimply_inspector_core::InspectorCommit::Immediate(commit_name),
-        )
-    })
-}
-
-fn set_background_integer_keyframes_enabled(
-    target: &InspectorTarget,
-    path: &str,
-    timeline_id: uuid::Uuid,
-    enabled: bool,
-) -> Result<(), String> {
-    with_controller(|controller| {
-        controller.set_background_integer_keyframes_enabled(target, path, timeline_id, enabled)
-    })
-}
-
-fn set_background_integer_value(
-    target: &InspectorTarget,
-    path: &str,
-    timeline_id: uuid::Uuid,
-    value: u32,
-) -> Result<(), String> {
-    with_controller(|controller| {
-        controller.set_background_integer_value(target, path, timeline_id, value)
-    })
-}
-
-fn commit_background_integer_value(
-    target: &InspectorTarget,
-    path: &str,
-    timeline_id: uuid::Uuid,
-) -> Result<(), String> {
-    with_controller(|controller| {
-        controller.commit_background_integer_value(target, path, timeline_id)
-    })
-}
-
-fn set_background_integer_expression_enabled(
-    target: &InspectorTarget,
-    path: &str,
-    timeline_id: uuid::Uuid,
-    enabled: bool,
-) -> Result<(), String> {
-    with_controller(|controller| {
-        controller.set_background_integer_expression_enabled(target, path, timeline_id, enabled)
-    })
-}
-
-fn set_background_integer_expression_source(
-    target: &InspectorTarget,
-    path: &str,
-    timeline_id: uuid::Uuid,
-    source: String,
-) -> Result<(), String> {
-    with_controller(|controller| {
-        controller.set_background_integer_expression_source(target, path, timeline_id, source)
-    })
-}
-
-fn set_vector2_keyframes_enabled(
-    target: &InspectorTarget,
-    path: &str,
-    enabled: bool,
-    commit_name: &str,
-) -> Result<(), String> {
-    with_controller(|controller| {
-        controller.set_vector2_keyframes_enabled(
-            target,
-            path,
-            enabled,
-            shrimply_inspector_core::InspectorCommit::Immediate(commit_name),
-        )
-    })
-}
-
-fn set_vector2_expression_enabled(
-    target: &InspectorTarget,
-    path: &str,
-    enabled: bool,
-    commit_name: &str,
-) -> Result<(), String> {
-    with_controller(|controller| {
-        controller.set_vector2_expression_enabled(
-            target,
-            path,
-            enabled,
-            shrimply_inspector_core::InspectorCommit::Immediate(commit_name),
-        )
-    })
-}
-
-fn set_transform_expression_enabled(
-    target: &InspectorTarget,
-    field: shrimply_inspector_core::transform::TransformField,
-    timeline_id: uuid::Uuid,
-    enabled: bool,
-) -> Result<(), String> {
-    let result = with_controller(|controller| {
-        controller.set_transform_expression_enabled(
-            target,
-            field,
-            timeline_id,
-            enabled,
-            shrimply_inspector_core::InspectorCommit::Immediate(
-                shrimply_inspector_core::transform::expressions::TOGGLE_COMMIT,
-            ),
-        )
-    });
-    if result.is_ok() {
-        EXPRESSION_DIRTY.set(true);
-    }
-    result
-}
-
-fn set_vector3_keyframes_enabled(
-    target: &InspectorTarget,
-    path: &str,
-    enabled: bool,
-    commit_name: &str,
-) -> Result<(), String> {
-    with_controller(|controller| {
-        controller.set_vector3_keyframes_enabled(
-            target,
-            path,
-            enabled,
-            shrimply_inspector_core::InspectorCommit::Immediate(commit_name),
-        )
-    })
-}
-
-fn vector2_expression_output(
-    target: &InspectorTarget,
-    path: &str,
-    timeline_id: Option<uuid::Uuid>,
-) -> Result<shrimply_inspector_core::InspectorExpressionOutput<glam::Vec2>, String> {
-    with_controller(|controller| controller.vector2_expression_output(target, path, timeline_id))
-}
-
-fn transform_vec2_expression_output(
-    target: &InspectorTarget,
-    field: shrimply_inspector_core::transform::Vec2Field,
-    timeline_id: uuid::Uuid,
-) -> Result<Option<shrimply_inspector_core::InspectorExpressionOutput<glam::Vec2>>, String> {
-    with_controller(|controller| {
-        controller.transform_vec2_expression_output(target, field, timeline_id)
-    })
-}
-
-fn vector3_expression_output(
-    target: &InspectorTarget,
-    path: &str,
-    timeline_id: uuid::Uuid,
-) -> Result<shrimply_inspector_core::InspectorExpressionOutput<glam::Vec3>, String> {
-    with_controller(|controller| controller.vector3_expression_output(target, path, timeline_id))
-}
-
-fn set_color_value(
-    target: &InspectorTarget,
-    path: &str,
-    timeline_id: uuid::Uuid,
-    value: shrimply_core::Color<u8>,
-    commit_name: &str,
-) -> Result<(), String> {
-    let result = with_controller(|controller| {
-        controller.set_color_value(
-            target,
-            path,
-            timeline_id,
-            value,
-            shrimply_inspector_core::InspectorCommit::Coalesced(commit_name),
-        )
-    });
-    if result.is_ok() {
-        mark_dirty();
-    }
-    result
-}
-
-fn set_color_keyframes_enabled(
-    target: &InspectorTarget,
-    path: &str,
-    timeline_id: uuid::Uuid,
-    enabled: bool,
-    commit_name: &str,
-) -> Result<(), String> {
-    with_controller(|controller| {
-        controller.set_color_keyframes_enabled(
-            target,
-            path,
-            timeline_id,
-            enabled,
-            shrimply_inspector_core::InspectorCommit::Immediate(commit_name),
-        )
-    })
-}
-
-fn color_expression_output(
-    target: &InspectorTarget,
-    path: &str,
-    timeline_id: uuid::Uuid,
-) -> Result<shrimply_inspector_core::InspectorExpressionOutput<shrimply_core::Color<u8>>, String> {
-    with_controller(|controller| controller.color_expression_output(target, path, timeline_id))
-}
-
-fn color_value(
-    target: &InspectorTarget,
-    path: &str,
-    timeline_id: uuid::Uuid,
-) -> Result<shrimply_core::Color<u8>, String> {
-    with_controller(|controller| controller.color_value(target, path, timeline_id))
-}
-
-fn set_bool_value(target: &InspectorTarget, path: &str, value: bool) -> Result<(), String> {
-    let result = with_controller(|controller| controller.set_bool_value(target, path, value));
-    if result.is_ok() {
-        EXPRESSION_DIRTY.set(true);
-    }
-    result
-}
-
-fn set_bool_keyframes_enabled(
-    target: &InspectorTarget,
-    path: &str,
-    enabled: bool,
-    commit_name: &str,
-) -> Result<(), String> {
-    with_controller(|controller| {
-        controller.set_bool_keyframes_enabled(
-            target,
-            path,
-            enabled,
-            shrimply_inspector_core::InspectorCommit::Immediate(commit_name),
-        )
-    })
-}
-
-fn set_text_value(
-    target: &InspectorTarget,
-    path: &str,
-    timeline_id: uuid::Uuid,
-    value: String,
-    commit_name: &str,
-) -> Result<(), String> {
-    let result = with_controller(|controller| {
-        controller.set_text_value(
-            target,
-            path,
-            timeline_id,
-            value,
-            shrimply_inspector_core::InspectorCommit::Coalesced(commit_name),
-        )
-    });
-    if result.is_ok() {
-        EXPRESSION_DIRTY.set(true);
-        GRAPH_DIRTY.set(true);
-    }
-    result
-}
-
-fn set_text_keyframes_enabled(
-    target: &InspectorTarget,
-    path: &str,
-    timeline_id: uuid::Uuid,
-    enabled: bool,
-    commit_name: &str,
-) -> Result<(), String> {
-    let result = with_controller(|controller| {
-        controller.set_text_keyframes_enabled(
-            target,
-            path,
-            timeline_id,
-            enabled,
-            shrimply_inspector_core::InspectorCommit::Immediate(commit_name),
-        )
-    });
-    if result.is_ok() {
-        EXPRESSION_DIRTY.set(true);
-        GRAPH_DIRTY.set(true);
-    }
-    result
-}
-
-fn set_step_keyframes_enabled(
-    target: &InspectorTarget,
-    path: &str,
-    enabled: bool,
-    commit_name: &str,
-) -> Result<(), String> {
-    with_controller(|controller| {
-        controller.set_step_keyframes_enabled_with_commit(
-            target,
-            path,
-            enabled,
-            shrimply_inspector_core::InspectorCommit::Immediate(commit_name),
-        )
-    })
-}
-
-fn set_expression_source(
-    target: &InspectorTarget,
-    path: &str,
-    source: &str,
-    commit_name: &str,
-) -> Result<(), String> {
-    let result = with_controller(|controller| {
-        controller.set_expression_source_with_commit(
-            target,
-            path,
-            source,
-            shrimply_inspector_core::InspectorCommit::Coalesced(commit_name),
-        )
-    });
-    if result.is_ok() {
-        EXPRESSION_DIRTY.set(true);
-    }
-    result
-}
-
-fn set_vector2_expression_source(
-    target: &InspectorTarget,
-    path: &str,
-    source: String,
-    commit_name: &str,
-) -> Result<(), String> {
-    let result = with_controller(|controller| {
-        controller.set_vector2_expression_source(
-            target,
-            path,
-            source,
-            shrimply_inspector_core::InspectorCommit::Coalesced(commit_name),
-        )
-    });
-    if result.is_ok() {
-        EXPRESSION_DIRTY.set(true);
-    }
-    result
-}
-
-fn set_transform_expression_source(
-    target: &InspectorTarget,
-    field: shrimply_inspector_core::transform::TransformField,
-    timeline_id: uuid::Uuid,
-    source: String,
-) -> Result<(), String> {
-    let result = with_controller(|controller| {
-        controller.set_transform_expression_source(
-            target,
-            field,
-            timeline_id,
-            source,
-            shrimply_inspector_core::InspectorCommit::Coalesced(
-                shrimply_inspector_core::transform::expressions::SOURCE_COMMIT,
-            ),
-        )
-    });
-    if result.is_ok() {
-        EXPRESSION_DIRTY.set(true);
-    }
-    result
-}
-
-fn set_text_expression_source(
-    target: &InspectorTarget,
-    path: &str,
-    timeline_id: uuid::Uuid,
-    source: &str,
-    commit_name: &str,
-) -> Result<(), String> {
-    let result = with_controller(|controller| {
-        controller.set_text_expression_source(
-            target,
-            path,
-            timeline_id,
-            source.to_string(),
-            shrimply_inspector_core::InspectorCommit::Coalesced(commit_name),
-        )
-    });
-    if result.is_ok() {
-        EXPRESSION_DIRTY.set(true);
-    }
-    result
-}
-
-fn set_text_expression_enabled(
-    target: &InspectorTarget,
-    path: &str,
-    timeline_id: uuid::Uuid,
-    enabled: bool,
-    commit_name: &str,
-) -> Result<(), String> {
-    with_controller(|controller| {
-        controller.set_text_expression_enabled(
-            target,
-            path,
-            timeline_id,
-            enabled,
-            shrimply_inspector_core::InspectorCommit::Immediate(commit_name),
-        )
-    })
-}
-
-fn set_timeline_base(
-    target: &InspectorTarget,
-    path: &str,
-    value: Value,
-    commit_name: &str,
-    commit_immediately: bool,
-) -> Result<(), String> {
-    let result = with_controller(|controller| {
-        let commit = if commit_immediately {
-            shrimply_inspector_core::InspectorCommit::Immediate(commit_name)
-        } else {
-            shrimply_inspector_core::InspectorCommit::Coalesced(commit_name)
-        };
-        controller.set_timeline_base_with_commit(target, path, value, commit)
-    });
-    if result.is_ok() {
-        EXPRESSION_DIRTY.set(true);
-        GRAPH_DIRTY.set(true);
-    }
-    result
-}
-
-fn set_audio_modifier_field(
-    target: &InspectorTarget,
-    id: uuid::Uuid,
-    path: &str,
-    value: &str,
-) -> Result<(), String> {
-    let result =
-        with_controller(|controller| controller.set_audio_modifier_field(target, id, path, value));
-    if result.is_ok() {
-        EXPRESSION_DIRTY.set(true);
-    }
-    result
-}
-
-fn set_audio_modifier_live_field(
-    target: &InspectorTarget,
-    id: uuid::Uuid,
-    path: &str,
-    value: &str,
-) -> Result<(), String> {
-    with_controller(|controller| controller.set_audio_modifier_live_field(target, id, path, value))
-}
-
-fn set_audio_modifier_timeline_base(
-    target: &InspectorTarget,
-    modifier_id: uuid::Uuid,
-    timeline_id: uuid::Uuid,
-    value: Value,
-) -> Result<(), String> {
-    let result = with_controller(|controller| {
-        controller.set_audio_modifier_timeline_base(
-            target,
-            modifier_id,
-            timeline_id,
-            serde_json::from_value(value)
-                .map_err(|error| format!("invalid audio modifier scalar: {error}"))?,
-        )
-    });
-    if result.is_ok() {
-        EXPRESSION_DIRTY.set(true);
-    }
-    result
-}
-
-fn timeline_number_value(
-    target: &InspectorTarget,
-    audio_modifier: bool,
-    target_id: Option<uuid::Uuid>,
-    timeline_id: Option<uuid::Uuid>,
-    path: &str,
-) -> Result<f64, String> {
-    with_controller(|controller| {
-        if audio_modifier {
-            controller.audio_modifier_number_value(
-                target,
-                target_id
-                    .ok_or_else(|| "audio modifier target is no longer available".to_string())?,
-                timeline_id.ok_or_else(|| {
-                    "audio modifier timeline ID is no longer available".to_string()
-                })?,
-            )
-        } else {
-            controller.timeline_number_value(target, path, timeline_id)
-        }
-    })
-}
-
-fn timeline_vector2_value(
-    target: &InspectorTarget,
-    timeline_id: Option<uuid::Uuid>,
-    path: &str,
-) -> Result<glam::Vec2, String> {
-    with_controller(|controller| controller.timeline_vector2_value(target, path, timeline_id))
-}
-
-fn timeline_vector3_value(
-    target: &InspectorTarget,
-    timeline_id: uuid::Uuid,
-    path: &str,
-) -> Result<glam::Vec3, String> {
-    with_controller(|controller| controller.timeline_vector3_value(target, path, timeline_id))
-}
-
-fn scalar_expression_output(
-    target: &InspectorTarget,
-    path: &str,
-    timeline_id: Option<uuid::Uuid>,
-) -> Result<shrimply_inspector_core::InspectorExpressionOutput, String> {
-    with_controller(|controller| controller.scalar_expression_output(target, path, timeline_id))
-}
-
-fn transform_scalar_expression_output(
-    target: &InspectorTarget,
-    field: shrimply_inspector_core::transform::ScalarField,
-    timeline_id: uuid::Uuid,
-) -> Result<Option<shrimply_inspector_core::InspectorExpressionOutput>, String> {
-    with_controller(|controller| {
-        controller.transform_scalar_expression_output(target, field, timeline_id)
-    })
-}
-
-fn background_integer_expression_output(
-    target: &InspectorTarget,
-    path: &str,
-    timeline_id: uuid::Uuid,
-) -> Result<shrimply_inspector_core::InspectorExpressionOutput<u32>, String> {
-    with_controller(|controller| {
-        controller.background_integer_expression_output(target, path, timeline_id)
-    })
-}
-
-fn bool_expression_output(
-    target: &InspectorTarget,
-    path: &str,
-) -> Result<shrimply_inspector_core::InspectorExpressionOutput<bool>, String> {
-    with_controller(|controller| controller.bool_expression_output(target, path))
-}
-
-fn text_expression_output(
-    target: &InspectorTarget,
-    path: &str,
-    timeline_id: uuid::Uuid,
-) -> Result<shrimply_inspector_core::InspectorExpressionOutput<String>, String> {
-    with_controller(|controller| controller.text_expression_output(target, path, timeline_id))
-}
-
-fn step_expression_output(
-    target: &InspectorTarget,
-    path: &str,
-    timeline_id: Option<uuid::Uuid>,
-) -> Result<shrimply_inspector_core::InspectorExpressionOutput<String>, String> {
-    with_controller(|controller| controller.step_expression_output(target, path, timeline_id))
-}
-
-fn move_scalar_keyframe(
-    target: &InspectorTarget,
-    path: &str,
-    change: shrimply_inspector_core::AudioModifierKeyframeMove,
-    constraint: shrimply_inspector_core::NumberConstraint,
-    commit_name: &str,
-) -> Result<(), String> {
-    let result = with_controller(|controller| {
-        controller.move_scalar_keyframe(
-            target,
-            path,
-            change,
-            constraint,
-            shrimply_inspector_core::InspectorCommit::Coalesced(commit_name),
-        )
-    });
-    if result.is_ok() {
-        EXPRESSION_DIRTY.set(true);
-        GRAPH_DIRTY.set(true);
-    }
-    result
-}
-
-fn move_background_integer_keyframe(
-    target: &InspectorTarget,
-    path: &str,
-    timeline_id: uuid::Uuid,
-    change: shrimply_inspector_core::AudioModifierKeyframeMove,
-) -> Result<(), String> {
-    let result = with_controller(|controller| {
-        controller.move_background_integer_keyframe(target, path, timeline_id, change)
-    });
-    if result.is_ok() {
-        EXPRESSION_DIRTY.set(true);
-        GRAPH_DIRTY.set(true);
-    }
-    result
-}
-
-fn delete_scalar_keyframe(
-    target: &InspectorTarget,
-    path: &str,
-    time: shrimply_project::project::Time,
-    commit_name: &str,
-) -> Result<(), String> {
-    let result = with_controller(|controller| {
-        controller.delete_scalar_keyframe(
-            target,
-            path,
-            time,
-            shrimply_inspector_core::InspectorCommit::Immediate(commit_name),
-        )
-    });
-    if result.is_ok() {
-        EXPRESSION_DIRTY.set(true);
-        GRAPH_DIRTY.set(true);
-    }
-    result
-}
-
-fn delete_background_integer_keyframe(
-    target: &InspectorTarget,
-    path: &str,
-    timeline_id: uuid::Uuid,
-    time: shrimply_project::project::Time,
-) -> Result<(), String> {
-    let result = with_controller(|controller| {
-        controller.delete_background_integer_keyframe(target, path, timeline_id, time)
-    });
-    if result.is_ok() {
-        EXPRESSION_DIRTY.set(true);
-        GRAPH_DIRTY.set(true);
-    }
-    result
-}
-
-fn add_scalar_keyframe(
-    target: &InspectorTarget,
-    path: &str,
-    time: shrimply_project::project::Time,
-    constraint: shrimply_inspector_core::NumberConstraint,
-    commit_name: &str,
-) -> Result<(), String> {
-    let result = with_controller(|controller| {
-        controller.add_scalar_keyframe(
-            target,
-            path,
-            time,
-            constraint,
-            shrimply_inspector_core::InspectorCommit::Immediate(commit_name),
-        )
-    });
-    if result.is_ok() {
-        EXPRESSION_DIRTY.set(true);
-        GRAPH_DIRTY.set(true);
-    }
-    result
-}
-
-fn add_background_integer_keyframe(
-    target: &InspectorTarget,
-    path: &str,
-    timeline_id: uuid::Uuid,
-    time: shrimply_project::project::Time,
-) -> Result<(), String> {
-    let result = with_controller(|controller| {
-        controller.add_background_integer_keyframe(target, path, timeline_id, time)
-    });
-    if result.is_ok() {
-        EXPRESSION_DIRTY.set(true);
-        GRAPH_DIRTY.set(true);
-    }
-    result
-}
-
-fn set_scalar_keyframe_interpolation(
-    target: &InspectorTarget,
-    path: &str,
-    owner_id: uuid::Uuid,
-    interpolation: usize,
-    commit_name: &str,
-) -> Result<(), String> {
-    let result = with_controller(|controller| {
-        controller.set_scalar_keyframe_interpolation(
-            target,
-            path,
-            owner_id,
-            interpolation,
-            shrimply_inspector_core::InspectorCommit::Immediate(commit_name),
-        )
-    });
-    if result.is_ok() {
-        EXPRESSION_DIRTY.set(true);
-        GRAPH_DIRTY.set(true);
-    }
-    result
-}
-
-fn set_background_integer_interpolation(
-    target: &InspectorTarget,
-    path: &str,
-    timeline_id: uuid::Uuid,
-    owner_id: uuid::Uuid,
-    interpolation: usize,
-) -> Result<(), String> {
-    let result = with_controller(|controller| {
-        controller.set_background_integer_interpolation(
-            target,
-            path,
-            timeline_id,
-            owner_id,
-            interpolation,
-        )
-    });
-    if result.is_ok() {
-        EXPRESSION_DIRTY.set(true);
-        GRAPH_DIRTY.set(true);
-    }
-    result
-}
-
-fn copy_scalar_keyframes(
-    target: &InspectorTarget,
-    path: &str,
-    times: &[shrimply_project::project::Time],
-) -> Result<usize, String> {
-    with_controller(|controller| controller.copy_scalar_keyframes(target, path, times))
-}
-
-fn copy_background_integer_keyframes(
-    target: &InspectorTarget,
-    path: &str,
-    timeline_id: uuid::Uuid,
-    times: &[shrimply_project::project::Time],
-) -> Result<usize, String> {
-    with_controller(|controller| {
-        controller.copy_background_integer_keyframes(target, path, timeline_id, times)
-    })
-}
-
-fn paste_scalar_keyframes(
-    target: &InspectorTarget,
-    path: &str,
-    time: shrimply_project::project::Time,
-    constraint: shrimply_inspector_core::NumberConstraint,
-    commit_name: &str,
-) -> Result<usize, String> {
-    let result = with_controller(|controller| {
-        controller.paste_scalar_keyframes(
-            target,
-            path,
-            time,
-            constraint,
-            shrimply_inspector_core::InspectorCommit::Immediate(commit_name),
-        )
-    });
-    if result.is_ok() {
-        EXPRESSION_DIRTY.set(true);
-        GRAPH_DIRTY.set(true);
-    }
-    result
-}
-
-fn paste_background_integer_keyframes(
-    target: &InspectorTarget,
-    path: &str,
-    timeline_id: uuid::Uuid,
-    time: shrimply_project::project::Time,
-) -> Result<usize, String> {
-    let result = with_controller(|controller| {
-        controller.paste_background_integer_keyframes(target, path, timeline_id, time)
-    });
-    if result.is_ok() {
-        EXPRESSION_DIRTY.set(true);
-        GRAPH_DIRTY.set(true);
-    }
-    result
-}
-
-fn seek_scalar_keyframe(
-    target: &InspectorTarget,
-    time: shrimply_project::project::Time,
-) -> Result<(), String> {
-    with_controller(|controller| controller.seek_scalar_keyframe(target, time))
-}
-
-fn move_vector2_keyframes(
-    target: &InspectorTarget,
-    path: &str,
-    moves: &[(
-        shrimply_project::project::Time,
-        shrimply_project::project::Time,
-    )],
-    commit_name: &str,
-) -> Result<Vec<shrimply_project::project::Time>, String> {
-    let result = with_controller(|controller| {
-        controller.move_vector2_keyframes(
-            target,
-            path,
-            moves,
-            shrimply_inspector_core::InspectorCommit::Coalesced(commit_name),
-        )
-    });
-    if result.is_ok() {
-        EXPRESSION_DIRTY.set(true);
-        GRAPH_DIRTY.set(true);
-    }
-    result
-}
-
-fn delete_vector2_keyframe(
-    target: &InspectorTarget,
-    path: &str,
-    time: shrimply_project::project::Time,
-    commit_name: &str,
-) -> Result<(), String> {
-    let result = with_controller(|controller| {
-        controller.delete_vector2_keyframe(
-            target,
-            path,
-            time,
-            shrimply_inspector_core::InspectorCommit::Immediate(commit_name),
-        )
-    });
-    if result.is_ok() {
-        EXPRESSION_DIRTY.set(true);
-        GRAPH_DIRTY.set(true);
-    }
-    result
-}
-
-fn delete_transform_scalar_keyframe(
-    target: &InspectorTarget,
-    path: &str,
-    time: shrimply_project::project::Time,
-    commit_name: &str,
-) -> Result<(), String> {
-    let result = with_controller(|controller| {
-        controller.delete_transform_scalar_keyframe(
-            target,
-            path,
-            time,
-            shrimply_inspector_core::InspectorCommit::Immediate(commit_name),
-        )
-    });
-    if result.is_ok() {
-        EXPRESSION_DIRTY.set(true);
-        GRAPH_DIRTY.set(true);
-    }
-    result
-}
-
-fn add_vector2_keyframe(
-    target: &InspectorTarget,
-    path: &str,
-    time: shrimply_project::project::Time,
-    commit_name: &str,
-) -> Result<(), String> {
-    let result = with_controller(|controller| {
-        controller.add_vector2_keyframe(
-            target,
-            path,
-            time,
-            shrimply_inspector_core::InspectorCommit::Immediate(commit_name),
-        )
-    });
-    if result.is_ok() {
-        EXPRESSION_DIRTY.set(true);
-        GRAPH_DIRTY.set(true);
-    }
-    result
-}
-
-fn copy_vector2_keyframes(
-    target: &InspectorTarget,
-    path: &str,
-    times: &[shrimply_project::project::Time],
-) -> Result<usize, String> {
-    with_controller(|controller| controller.copy_vector2_keyframes(target, path, times))
-}
-
-fn paste_vector2_keyframes(
-    target: &InspectorTarget,
-    path: &str,
-    time: shrimply_project::project::Time,
-    commit_name: &str,
-) -> Result<usize, String> {
-    let result = with_controller(|controller| {
-        controller.paste_vector2_keyframes(
-            target,
-            path,
-            time,
-            shrimply_inspector_core::InspectorCommit::Immediate(commit_name),
-        )
-    });
-    if result.is_ok() {
-        EXPRESSION_DIRTY.set(true);
-        GRAPH_DIRTY.set(true);
-    }
-    result
-}
-
-fn set_vector2_interpolation(
-    target: &InspectorTarget,
-    path: &str,
-    owner_id: uuid::Uuid,
-    interpolation: usize,
-    commit_name: &str,
-) -> Result<(), String> {
-    let result = with_controller(|controller| {
-        controller.set_vector2_interpolation(
-            target,
-            path,
-            owner_id,
-            interpolation,
-            shrimply_inspector_core::InspectorCommit::Immediate(commit_name),
-        )
-    });
-    if result.is_ok() {
-        EXPRESSION_DIRTY.set(true);
-        GRAPH_DIRTY.set(true);
-    }
-    result
-}
-
-fn move_vector3_keyframes(
-    target: &InspectorTarget,
-    path: &str,
-    moves: &[(
-        shrimply_project::project::Time,
-        shrimply_project::project::Time,
-    )],
-    commit_name: &str,
-) -> Result<Vec<shrimply_project::project::Time>, String> {
-    let result = with_controller(|controller| {
-        controller.move_vector3_keyframes(
-            target,
-            path,
-            moves,
-            shrimply_inspector_core::InspectorCommit::Coalesced(commit_name),
-        )
-    });
-    if result.is_ok() {
-        EXPRESSION_DIRTY.set(true);
-        GRAPH_DIRTY.set(true);
-    }
-    result
-}
-
-fn delete_vector3_keyframe(
-    target: &InspectorTarget,
-    path: &str,
-    time: shrimply_project::project::Time,
-    commit_name: &str,
-) -> Result<(), String> {
-    let result = with_controller(|controller| {
-        controller.delete_vector3_keyframe(
-            target,
-            path,
-            time,
-            shrimply_inspector_core::InspectorCommit::Immediate(commit_name),
-        )
-    });
-    if result.is_ok() {
-        EXPRESSION_DIRTY.set(true);
-        GRAPH_DIRTY.set(true);
-    }
-    result
-}
-
-fn add_vector3_keyframe(
-    target: &InspectorTarget,
-    path: &str,
-    time: shrimply_project::project::Time,
-    commit_name: &str,
-) -> Result<(), String> {
-    let result = with_controller(|controller| {
-        controller.add_vector3_keyframe(
-            target,
-            path,
-            time,
-            shrimply_inspector_core::InspectorCommit::Immediate(commit_name),
-        )
-    });
-    if result.is_ok() {
-        EXPRESSION_DIRTY.set(true);
-        GRAPH_DIRTY.set(true);
-    }
-    result
-}
-
-fn copy_vector3_keyframes(
-    target: &InspectorTarget,
-    path: &str,
-    times: &[shrimply_project::project::Time],
-) -> Result<usize, String> {
-    with_controller(|controller| controller.copy_vector3_keyframes(target, path, times))
-}
-
-fn paste_vector3_keyframes(
-    target: &InspectorTarget,
-    path: &str,
-    time: shrimply_project::project::Time,
-    commit_name: &str,
-) -> Result<usize, String> {
-    let result = with_controller(|controller| {
-        controller.paste_vector3_keyframes(
-            target,
-            path,
-            time,
-            shrimply_inspector_core::InspectorCommit::Immediate(commit_name),
-        )
-    });
-    if result.is_ok() {
-        EXPRESSION_DIRTY.set(true);
-        GRAPH_DIRTY.set(true);
-    }
-    result
-}
-
-fn set_vector3_interpolation(
-    target: &InspectorTarget,
-    path: &str,
-    owner_id: uuid::Uuid,
-    interpolation: usize,
-    commit_name: &str,
-) -> Result<(), String> {
-    let result = with_controller(|controller| {
-        controller.set_vector3_interpolation(
-            target,
-            path,
-            owner_id,
-            interpolation,
-            shrimply_inspector_core::InspectorCommit::Immediate(commit_name),
-        )
-    });
-    if result.is_ok() {
-        EXPRESSION_DIRTY.set(true);
-        GRAPH_DIRTY.set(true);
-    }
-    result
-}
-
-fn move_color_keyframes(
-    target: &InspectorTarget,
-    path: &str,
-    timeline_id: uuid::Uuid,
-    moves: &[(
-        shrimply_project::project::Time,
-        shrimply_project::project::Time,
-    )],
-    commit_name: &str,
-) -> Result<Vec<shrimply_project::project::Time>, String> {
-    let result = with_controller(|controller| {
-        controller.move_color_keyframes(
-            target,
-            path,
-            timeline_id,
-            moves,
-            shrimply_inspector_core::InspectorCommit::Coalesced(commit_name),
-        )
-    });
-    if result.is_ok() {
-        EXPRESSION_DIRTY.set(true);
-        GRAPH_DIRTY.set(true);
-    }
-    result
-}
-
-fn delete_color_keyframe(
-    target: &InspectorTarget,
-    path: &str,
-    timeline_id: uuid::Uuid,
-    time: shrimply_project::project::Time,
-    commit_name: &str,
-) -> Result<(), String> {
-    let result = with_controller(|controller| {
-        controller.delete_color_keyframe(
-            target,
-            path,
-            timeline_id,
-            time,
-            shrimply_inspector_core::InspectorCommit::Immediate(commit_name),
-        )
-    });
-    if result.is_ok() {
-        EXPRESSION_DIRTY.set(true);
-        GRAPH_DIRTY.set(true);
-    }
-    result
-}
-
-fn add_color_keyframe(
-    target: &InspectorTarget,
-    path: &str,
-    timeline_id: uuid::Uuid,
-    time: shrimply_project::project::Time,
-    commit_name: &str,
-) -> Result<(), String> {
-    let result = with_controller(|controller| {
-        controller.add_color_keyframe(
-            target,
-            path,
-            timeline_id,
-            time,
-            shrimply_inspector_core::InspectorCommit::Immediate(commit_name),
-        )
-    });
-    if result.is_ok() {
-        EXPRESSION_DIRTY.set(true);
-        GRAPH_DIRTY.set(true);
-    }
-    result
-}
-
-fn copy_color_keyframes(
-    target: &InspectorTarget,
-    path: &str,
-    timeline_id: uuid::Uuid,
-    times: &[shrimply_project::project::Time],
-) -> Result<usize, String> {
-    with_controller(|controller| controller.copy_color_keyframes(target, path, timeline_id, times))
-}
-
-fn paste_color_keyframes(
-    target: &InspectorTarget,
-    path: &str,
-    timeline_id: uuid::Uuid,
-    time: shrimply_project::project::Time,
-    commit_name: &str,
-) -> Result<usize, String> {
-    let result = with_controller(|controller| {
-        controller.paste_color_keyframes(
-            target,
-            path,
-            timeline_id,
-            time,
-            shrimply_inspector_core::InspectorCommit::Immediate(commit_name),
-        )
-    });
-    if result.is_ok() {
-        EXPRESSION_DIRTY.set(true);
-        GRAPH_DIRTY.set(true);
-    }
-    result
-}
-
-fn set_color_interpolation(
-    target: &InspectorTarget,
-    path: &str,
-    timeline_id: uuid::Uuid,
-    owner_id: uuid::Uuid,
-    interpolation: usize,
-    commit_name: &str,
-) -> Result<(), String> {
-    let result = with_controller(|controller| {
-        controller.set_color_interpolation(
-            target,
-            path,
-            timeline_id,
-            owner_id,
-            interpolation,
-            shrimply_inspector_core::InspectorCommit::Immediate(commit_name),
-        )
-    });
-    if result.is_ok() {
-        EXPRESSION_DIRTY.set(true);
-        GRAPH_DIRTY.set(true);
-    }
-    result
-}
-
-fn move_bool_keyframes(
-    target: &InspectorTarget,
-    path: &str,
-    moves: &[(
-        shrimply_project::project::Time,
-        shrimply_project::project::Time,
-    )],
-) -> Result<Vec<shrimply_project::project::Time>, String> {
-    with_controller(|controller| controller.move_bool_keyframes(target, path, moves))
-}
-
-fn delete_bool_keyframe(
-    target: &InspectorTarget,
-    path: &str,
-    time: shrimply_project::project::Time,
-) -> Result<(), String> {
-    with_controller(|controller| controller.delete_bool_keyframe(target, path, time))
-}
-
-fn add_bool_keyframe(
-    target: &InspectorTarget,
-    path: &str,
-    time: shrimply_project::project::Time,
-) -> Result<(), String> {
-    with_controller(|controller| controller.add_bool_keyframe(target, path, time))
-}
-
-fn copy_bool_keyframes(
-    target: &InspectorTarget,
-    path: &str,
-    times: &[shrimply_project::project::Time],
-) -> Result<usize, String> {
-    with_controller(|controller| controller.copy_bool_keyframes(target, path, times))
-}
-
-fn paste_bool_keyframes(
-    target: &InspectorTarget,
-    path: &str,
-    time: shrimply_project::project::Time,
-) -> Result<usize, String> {
-    with_controller(|controller| controller.paste_bool_keyframes(target, path, time))
-}
-
-fn move_text_keyframes(
-    target: &InspectorTarget,
-    path: &str,
-    timeline_id: uuid::Uuid,
-    moves: &[(
-        shrimply_project::project::Time,
-        shrimply_project::project::Time,
-    )],
-    commits: shrimply_inspector_core::TextKeyframeCommits,
-) -> Result<Vec<shrimply_project::project::Time>, String> {
-    let result = with_controller(|controller| {
-        controller.move_text_keyframes(target, path, timeline_id, moves, commits)
-    });
-    if result.is_ok() {
-        EXPRESSION_DIRTY.set(true);
-        GRAPH_DIRTY.set(true);
-    }
-    result
-}
-
-fn delete_text_keyframe(
-    target: &InspectorTarget,
-    path: &str,
-    timeline_id: uuid::Uuid,
-    time: shrimply_project::project::Time,
-    commits: shrimply_inspector_core::TextKeyframeCommits,
-) -> Result<(), String> {
-    with_controller(|controller| {
-        controller.delete_text_keyframe(target, path, timeline_id, time, commits)
-    })
-}
-
-fn add_text_keyframe(
-    target: &InspectorTarget,
-    path: &str,
-    timeline_id: uuid::Uuid,
-    time: shrimply_project::project::Time,
-    commits: shrimply_inspector_core::TextKeyframeCommits,
-) -> Result<(), String> {
-    with_controller(|controller| {
-        controller.add_text_keyframe(target, path, timeline_id, time, commits)
-    })
-}
-
-fn copy_text_keyframes(
-    target: &InspectorTarget,
-    path: &str,
-    timeline_id: uuid::Uuid,
-    times: &[shrimply_project::project::Time],
-) -> Result<usize, String> {
-    with_controller(|controller| controller.copy_text_keyframes(target, path, timeline_id, times))
-}
-
-fn paste_text_keyframes(
-    target: &InspectorTarget,
-    path: &str,
-    timeline_id: uuid::Uuid,
-    time: shrimply_project::project::Time,
-    commits: shrimply_inspector_core::TextKeyframeCommits,
-) -> Result<usize, String> {
-    with_controller(|controller| {
-        controller.paste_text_keyframes(target, path, timeline_id, time, commits)
-    })
-}
-
-fn set_text_keyframe_interpolation(
-    target: &InspectorTarget,
-    path: &str,
-    timeline_id: uuid::Uuid,
-    owner_id: uuid::Uuid,
-    interpolation: usize,
-    commit_name: &str,
-) -> Result<(), String> {
-    let result = with_controller(|controller| {
-        controller.set_text_keyframe_interpolation(
-            target,
-            path,
-            timeline_id,
-            owner_id,
-            interpolation,
-            commit_name,
-        )
-    });
-    if result.is_ok() {
-        GRAPH_DIRTY.set(true);
-    }
-    result
-}
-
-fn text_keyframe_text_interpolation(
-    target: &InspectorTarget,
-    path: &str,
-    timeline_id: uuid::Uuid,
-    owner_id: uuid::Uuid,
-) -> Result<usize, String> {
-    with_controller(|controller| {
-        controller.text_keyframe_text_interpolation(target, path, timeline_id, owner_id)
-    })
-}
-
-fn set_text_keyframe_text_interpolation(
-    target: &InspectorTarget,
-    path: &str,
-    timeline_id: uuid::Uuid,
-    owner_id: uuid::Uuid,
-    interpolation: usize,
-    commit_name: &str,
-) -> Result<(), String> {
-    let result = with_controller(|controller| {
-        controller.set_text_keyframe_text_interpolation(
-            target,
-            path,
-            timeline_id,
-            owner_id,
-            interpolation,
-            commit_name,
-        )
-    });
-    if result.is_ok() {
-        GRAPH_DIRTY.set(true);
-    }
-    result
-}
-
-fn seek_discrete_keyframe(
-    target: &InspectorTarget,
-    time: shrimply_project::project::Time,
-) -> Result<(), String> {
-    with_controller(|controller| controller.seek_discrete_keyframe(target, time))
-}
-
-fn move_step_keyframes(
-    target: &InspectorTarget,
-    path: &str,
-    moves: &[(
-        shrimply_project::project::Time,
-        shrimply_project::project::Time,
-    )],
-    commit_name: &str,
-) -> Result<Vec<shrimply_project::project::Time>, String> {
-    let result = with_controller(|controller| {
-        controller.move_step_keyframes(
-            target,
-            path,
-            moves,
-            shrimply_inspector_core::InspectorCommit::Coalesced(commit_name),
-        )
-    });
-    if result.is_ok() {
-        EXPRESSION_DIRTY.set(true);
-        GRAPH_DIRTY.set(true);
-    }
-    result
-}
-
-fn delete_step_keyframe(
-    target: &InspectorTarget,
-    path: &str,
-    time: shrimply_project::project::Time,
-    commit_name: &str,
-) -> Result<(), String> {
-    let result = with_controller(|controller| {
-        controller.delete_step_keyframe(
-            target,
-            path,
-            time,
-            shrimply_inspector_core::InspectorCommit::Immediate(commit_name),
-        )
-    });
-    if result.is_ok() {
-        EXPRESSION_DIRTY.set(true);
-        GRAPH_DIRTY.set(true);
-    }
-    result
-}
-
-fn add_step_keyframe(
-    target: &InspectorTarget,
-    path: &str,
-    time: shrimply_project::project::Time,
-    commit_name: &str,
-) -> Result<(), String> {
-    let result = with_controller(|controller| {
-        controller.add_step_keyframe(
-            target,
-            path,
-            time,
-            shrimply_inspector_core::InspectorCommit::Immediate(commit_name),
-        )
-    });
-    if result.is_ok() {
-        EXPRESSION_DIRTY.set(true);
-        GRAPH_DIRTY.set(true);
-    }
-    result
-}
-
-fn copy_step_keyframes(
-    target: &InspectorTarget,
-    path: &str,
-    times: &[shrimply_project::project::Time],
-) -> Result<usize, String> {
-    with_controller(|controller| controller.copy_step_keyframes(target, path, times))
-}
-
-fn paste_step_keyframes(
-    target: &InspectorTarget,
-    path: &str,
-    time: shrimply_project::project::Time,
-    commit_name: &str,
-) -> Result<usize, String> {
-    let result = with_controller(|controller| {
-        controller.paste_step_keyframes(
-            target,
-            path,
-            time,
-            shrimply_inspector_core::InspectorCommit::Immediate(commit_name),
-        )
-    });
-    if result.is_ok() {
-        EXPRESSION_DIRTY.set(true);
-        GRAPH_DIRTY.set(true);
-    }
-    result
-}
-
-fn current_keyframe_time(
-    target: &InspectorTarget,
-) -> Result<shrimply_project::project::Time, String> {
-    with_controller(|controller| controller.current_keyframe_time(target))
-}
-
-fn audio_modifier_expression_output(
-    target: &InspectorTarget,
-    modifier_id: uuid::Uuid,
-    timeline_id: uuid::Uuid,
-) -> Result<shrimply_inspector_core::InspectorExpressionOutput, String> {
-    with_controller(|controller| {
-        controller.audio_modifier_expression_output(target, modifier_id, timeline_id)
-    })
-}
-
-fn move_audio_modifier_keyframe(
-    target: &InspectorTarget,
-    modifier_id: uuid::Uuid,
-    timeline_id: uuid::Uuid,
-    change: shrimply_inspector_core::AudioModifierKeyframeMove,
-) -> Result<(), String> {
-    let result = with_controller(|controller| {
-        controller.move_audio_modifier_keyframe(target, modifier_id, timeline_id, change)
-    });
-    if result.is_ok() {
-        EXPRESSION_DIRTY.set(true);
-    }
-    result
-}
-
-fn delete_audio_modifier_keyframe(
-    target: &InspectorTarget,
-    modifier_id: uuid::Uuid,
-    timeline_id: uuid::Uuid,
-    time: shrimply_project::project::Time,
-) -> Result<(), String> {
-    let result = with_controller(|controller| {
-        controller.delete_audio_modifier_keyframe(target, modifier_id, timeline_id, time)
-    });
-    if result.is_ok() {
-        EXPRESSION_DIRTY.set(true);
-    }
-    result
-}
-
-fn add_audio_modifier_keyframe(
-    target: &InspectorTarget,
-    modifier_id: uuid::Uuid,
-    timeline_id: uuid::Uuid,
-    time: shrimply_project::project::Time,
-) -> Result<(), String> {
-    let result = with_controller(|controller| {
-        controller.add_audio_modifier_keyframe(target, modifier_id, timeline_id, time)
-    });
-    if result.is_ok() {
-        EXPRESSION_DIRTY.set(true);
-    }
-    result
-}
-
-fn set_audio_modifier_keyframe_interpolation(
-    target: &InspectorTarget,
-    modifier_id: uuid::Uuid,
-    timeline_id: uuid::Uuid,
-    owner_id: uuid::Uuid,
-    interpolation: usize,
-) -> Result<(), String> {
-    let result = with_controller(|controller| {
-        controller.set_audio_modifier_keyframe_interpolation(
-            target,
-            modifier_id,
-            timeline_id,
-            owner_id,
-            interpolation,
-        )
-    });
-    if result.is_ok() {
-        EXPRESSION_DIRTY.set(true);
-    }
-    result
-}
-
-fn seek_audio_modifier_keyframe(
-    target: &InspectorTarget,
-    time: shrimply_project::project::Time,
-) -> Result<(), String> {
-    with_controller(|controller| controller.seek_audio_modifier_keyframe(target, time))
-}
-
-fn toggle_keyframe_playback() {
-    with_controller(|controller| {
-        controller.toggle_keyframe_playback();
-        Ok(())
-    })
-    .expect("Qt inspector controller must be installed before graph playback");
-}
-
-fn copy_audio_modifier_keyframes(
-    target: &InspectorTarget,
-    modifier_id: uuid::Uuid,
-    timeline_id: uuid::Uuid,
-    times: &[shrimply_project::project::Time],
-) -> Result<usize, String> {
-    with_controller(|controller| {
-        controller.copy_audio_modifier_keyframes(target, modifier_id, timeline_id, times)
-    })
-}
-
-fn paste_audio_modifier_keyframes(
-    target: &InspectorTarget,
-    modifier_id: uuid::Uuid,
-    timeline_id: uuid::Uuid,
-    time: shrimply_project::project::Time,
-) -> Result<usize, String> {
-    let result = with_controller(|controller| {
-        controller.paste_audio_modifier_keyframes(target, modifier_id, timeline_id, time)
-    });
-    if result.is_ok() {
-        EXPRESSION_DIRTY.set(true);
-    }
-    result
-}
-
-fn set_audio_modifier_timeline_mode(
-    target: &InspectorTarget,
-    modifier_id: uuid::Uuid,
-    timeline_id: uuid::Uuid,
-    path: &str,
-    change: shrimply_inspector_core::TimelineModeChange<'_>,
-) -> Result<(), String> {
-    with_controller(|controller| {
-        controller.set_audio_modifier_timeline_mode(target, modifier_id, timeline_id, path, change)
-    })
-}
-
-fn set_audio_modifier_expression_source(
-    target: &InspectorTarget,
-    id: uuid::Uuid,
-    path: &str,
-    source: &str,
-) -> Result<(), String> {
-    let result = with_controller(|controller| {
-        controller.set_audio_modifier_expression_source(target, id, path, source)
-    });
-    if result.is_ok() {
-        EXPRESSION_DIRTY.set(true);
-    }
-    result
-}
-
-fn apply_project_settings(
-    width: i32,
-    height: i32,
-    fps_numerator: &str,
-    fps_denominator: &str,
-) -> Result<(), String> {
-    let dimensions = shrimply_project::project::CanvasSize {
-        width: u32::try_from(width).map_err(|_| "project width must be positive".to_string())?,
-        height: u32::try_from(height).map_err(|_| "project height must be positive".to_string())?,
-    };
-    let numerator = fps_numerator
-        .parse::<i64>()
-        .map_err(|_| format!("invalid project frame-rate numerator: {fps_numerator}"))?;
-    let denominator = fps_denominator
-        .parse::<i64>()
-        .map_err(|_| format!("invalid project frame-rate denominator: {fps_denominator}"))?;
-    if numerator <= 0 || denominator <= 0 {
-        return Err("project frame rate must be positive".to_string());
-    }
-    let frame_rate = shrimply_math_core::fraction_new(numerator, denominator);
-    with_controller(|controller| controller.apply_project_settings(dimensions, frame_rate))
-}
-
-fn can_paste_audio_modifiers(target: &InspectorTarget) -> bool {
-    CONTROLLER.with_borrow(|controller| {
-        PROPERTY_CLIPBOARD.with_borrow(|clipboard| {
-            controller
-                .as_ref()
-                .expect("Qt inspector paste check requested before installation")
-                .can_paste_audio_modifiers(
-                    target,
-                    clipboard
-                        .as_ref()
-                        .expect("Qt inspector paste check requested before installation"),
-                )
-        })
-    })
-}
-
-fn can_paste_visual_modifiers(target: &InspectorTarget) -> bool {
-    CONTROLLER.with_borrow(|controller| {
-        PROPERTY_CLIPBOARD.with_borrow(|clipboard| {
-            controller
-                .as_ref()
-                .expect("Qt inspector paste check requested before installation")
-                .can_paste_visual_modifiers(
-                    target,
-                    clipboard
-                        .as_ref()
-                        .expect("Qt inspector paste check requested before installation"),
-                )
-        })
-    })
-}
-
-fn add_visual_modifier(target: &InspectorTarget, kind: &str) -> Result<uuid::Uuid, String> {
-    with_controller(|controller| controller.add_visual_modifier(target, kind))
-}
-
-fn paste_visual_modifiers(target: &InspectorTarget) -> Result<usize, String> {
-    with_controller(|controller| {
-        PROPERTY_CLIPBOARD.with_borrow(|clipboard| {
-            controller.paste_visual_modifiers(
-                target,
-                clipboard
-                    .as_ref()
-                    .expect("Qt inspector paste requested before installation"),
-            )
-        })
-    })
-}
-
-fn add_audio_modifier(target: &InspectorTarget, kind: &str) -> Result<(), String> {
-    with_controller(|controller| controller.add_audio_modifier(target, kind))
-}
-
-fn paste_audio_modifiers(target: &InspectorTarget) -> Result<usize, String> {
-    with_controller(|controller| {
-        PROPERTY_CLIPBOARD.with_borrow(|clipboard| {
-            controller.paste_audio_modifiers(
-                target,
-                clipboard
-                    .as_ref()
-                    .expect("Qt inspector paste requested before installation"),
-            )
-        })
-    })
-}
-
-fn set_audio_cache_preset(
-    target: &InspectorTarget,
-    id: uuid::Uuid,
-    preset: &str,
-) -> Result<(), String> {
-    with_controller(|controller| controller.set_audio_cache_preset(target, id, preset))
-}
-
-fn toggle_audio_cache(target: &InspectorTarget, id: uuid::Uuid) -> Result<(), String> {
-    with_controller(|controller| controller.toggle_audio_cache(target, id))
-}
-
-fn set_visual_cache_quality(
-    target: &InspectorTarget,
-    id: uuid::Uuid,
-    quality: &str,
-) -> Result<(), String> {
-    with_controller(|controller| controller.set_visual_cache_quality(target, id, quality))
-}
-
-fn toggle_visual_cache(target: &InspectorTarget, id: uuid::Uuid) -> Result<(), String> {
-    with_controller(|controller| controller.toggle_visual_cache(target, id))
-}
-
-fn toggle_sam2_analysis(target: &InspectorTarget, id: uuid::Uuid) -> Result<(), String> {
-    let server_url = PREFERENCES.with_borrow(|preferences| {
-        shrimply_state::preferences::snapshot(
-            preferences
-                .as_ref()
-                .expect("Qt inspector preferences requested before installation"),
-        )
-        .compute_server_url
-    });
-    with_controller(|controller| controller.toggle_sam2_analysis(target, id, server_url))
-}
-
-fn transparent_fill_analysis_control(
-    target: &InspectorTarget,
-    id: uuid::Uuid,
-) -> Result<shrimply_inspector_core::AnalysisControlPresentation, String> {
-    with_controller(|controller| controller.transparent_fill_analysis_control(target, id))
-}
-
-fn camera_analysis_control(
-    target: &InspectorTarget,
-) -> Result<shrimply_inspector_core::AnalysisControlPresentation, String> {
-    let server_url = PREFERENCES.with_borrow(|preferences| {
-        shrimply_state::preferences::snapshot(
-            preferences
-                .as_ref()
-                .expect("Qt camera inspector used before preferences were installed"),
-        )
-        .compute_server_url
-    });
-    request_camera_models(&server_url);
-    with_controller(|controller| controller.camera_analysis_control(target, &server_url))
-}
-
-fn toggle_camera_analysis(target: &InspectorTarget) -> Result<(), String> {
-    let server_url = PREFERENCES.with_borrow(|preferences| {
-        shrimply_state::preferences::snapshot(
-            preferences
-                .as_ref()
-                .expect("Qt camera inspector used before preferences were installed"),
-        )
-        .compute_server_url
-    });
-    with_controller(|controller| controller.toggle_camera_analysis(target, server_url))
-}
-
-fn toggle_transparent_fill_analysis(
-    target: &InspectorTarget,
-    id: uuid::Uuid,
-) -> Result<(), String> {
-    with_controller(|controller| controller.toggle_transparent_fill_analysis(target, id))
-}
-
-fn set_sam2_point_label(
-    target: &InspectorTarget,
-    modifier_id: uuid::Uuid,
-    point_id: uuid::Uuid,
-    label: &str,
-) -> Result<(), String> {
-    let label = serde_json::from_value(serde_json::Value::String(label.to_string()))
-        .map_err(|_| format!("unknown SAM2 point type: {label}"))?;
-    with_controller(|controller| {
-        controller.set_sam2_point_label(target, modifier_id, point_id, label)
-    })
-}
-
-fn set_sam2_model(
-    target: &InspectorTarget,
-    modifier_id: uuid::Uuid,
-    model: &str,
-) -> Result<(), String> {
-    let model = serde_json::from_value(serde_json::Value::String(model.to_string()))
-        .map_err(|_| format!("unknown SAM2 model: {model}"))?;
-    with_controller(|controller| controller.set_sam2_model(target, modifier_id, model))
-}
-
-fn set_sam2_point_position(
-    target: &InspectorTarget,
-    modifier_id: uuid::Uuid,
-    point_id: uuid::Uuid,
-    first: f64,
-    second: f64,
-) -> Result<(), String> {
-    with_controller(|controller| {
-        controller.set_sam2_point_position(target, modifier_id, point_id, first, second)
-    })
-}
-
-fn perform_action(
-    target: &InspectorTarget,
-    action: InspectorAction,
-) -> Result<Option<String>, String> {
-    let mut confirmation = None;
-    let result = match action {
-        InspectorAction::Reset { path, value } => {
-            with_controller(|controller| controller.set_value(target, &path, value))
-        }
-        InspectorAction::ResetFields { values } => {
-            with_controller(|controller| controller.set_values(target, &values))
-        }
-        InspectorAction::ResetVideo { reset } => {
-            with_controller(|controller| controller.reset_video(target, &reset))
-        }
-        InspectorAction::SetBoolean { path, value } => {
-            with_controller(|controller| controller.set_value(target, &path, Value::Bool(value)))
-        }
-        InspectorAction::SetOptional { path, value } => with_controller(|controller| {
-            controller.set_value(target, &path, value.unwrap_or(Value::Null))
-        }),
-        InspectorAction::CopyArrayItem { path, index } => with_controller(|controller| {
-            PROPERTY_CLIPBOARD.with_borrow(|clipboard| {
-                controller.copy_array_item(
-                    target,
-                    &path,
-                    index,
-                    clipboard
-                        .as_ref()
-                        .expect("Qt inspector copy requested before installation"),
-                )
-            })
-        }),
-        InspectorAction::MoveArrayItem {
-            path,
-            index,
-            offset,
-        } => with_controller(|controller| controller.move_array_item(target, &path, index, offset)),
-        InspectorAction::RemoveArrayItem { path, index } => {
-            with_controller(|controller| controller.remove_array_item(target, &path, index))
-        }
-        InspectorAction::ResetAudioModifier { id, effect } => {
-            with_controller(|controller| controller.reset_audio_modifier(target, id, effect))
-        }
-        InspectorAction::SetAudioModifierEnabled { id, enabled } => {
-            with_controller(|controller| controller.set_audio_modifier_enabled(target, id, enabled))
-        }
-        InspectorAction::CopyAudioModifier { id } => with_controller(|controller| {
-            PROPERTY_CLIPBOARD.with_borrow(|clipboard| {
-                controller
-                    .copy_audio_modifier(
-                        target,
-                        id,
-                        clipboard
-                            .as_ref()
-                            .expect("Qt inspector copy requested before installation"),
-                    )
-                    .map(|name| confirmation = Some(format!("{name} copied")))
-            })
-        }),
-        InspectorAction::MoveAudioModifier { id, offset } => {
-            with_controller(|controller| controller.move_audio_modifier(target, id, offset))
-        }
-        InspectorAction::RemoveAudioModifier { id } => {
-            with_controller(|controller| controller.remove_audio_modifier(target, id))
-        }
-        InspectorAction::ResetVisualModifier { id, effect } => {
-            with_controller(|controller| controller.reset_visual_modifier(target, id, effect))
-        }
-        InspectorAction::SetVisualModifierEnabled { id, enabled } => {
-            with_controller(|controller| {
-                controller.set_visual_modifier_enabled(target, id, enabled)
-            })
-        }
-        InspectorAction::CopyVisualModifier { id } => with_controller(|controller| {
-            PROPERTY_CLIPBOARD.with_borrow(|clipboard| {
-                controller
-                    .copy_visual_modifier(
-                        target,
-                        id,
-                        clipboard
-                            .as_ref()
-                            .expect("Qt inspector copy requested before installation"),
-                    )
-                    .map(|name| confirmation = Some(format!("{name} copied")))
-            })
-        }),
-        InspectorAction::MoveVisualModifier { id, offset } => {
-            with_controller(|controller| controller.move_visual_modifier(target, id, offset))
-        }
-        InspectorAction::RemoveVisualModifier { id } => {
-            with_controller(|controller| controller.remove_visual_modifier(target, id))
-        }
-        InspectorAction::SetAlphaMask {
-            target: mask_target,
-            enabled,
-        } => {
-            let result = with_controller(|controller| {
-                controller.set_alpha_mask_enabled(target, mask_target, enabled)
-            });
-            if result.is_ok() {
-                focus_alpha_mask(target, mask_target, enabled);
-            }
-            result
-        }
-        InspectorAction::ToggleAudioCache { id } => toggle_audio_cache(target, id),
-        InspectorAction::ReloadAsset { asset, kind } => match kind {
-            ReloadKind::Blender => video::reload_blender(&asset),
-            ReloadKind::Manim => video::reload_manim(&asset),
-        },
-    };
-    result.map(|()| confirmation)
 }
 
 fn finish_live_edit() {

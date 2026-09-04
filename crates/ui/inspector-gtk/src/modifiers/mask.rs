@@ -72,11 +72,13 @@ pub fn add_rows(value: &MaskModifier, out: &gtk::Box, id: Uuid, context: &Inspec
         &mode_control,
         "mode",
         &value.mode,
-        id,
         context,
-        MASK_MODE_COMMIT,
-        mask_mode_value,
-        mask_mode_value_mut,
+        super::ModifierStepTarget {
+            modifier_id: id,
+            commit_name: MASK_MODE_COMMIT,
+            get: mask_mode_value,
+            get_mut: mask_mode_value_mut,
+        },
     ));
     assert_eq!(
         mode_control.values,

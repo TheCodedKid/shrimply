@@ -25,16 +25,26 @@ use super::{
     item::{DefaultInspectorItem, HeaderAction, HeaderToggle, InspectorListItem, flat},
 };
 
-fn step_row<T: TimelineStep>(
-    label: &str,
-    value: &TimelineValue<T>,
+struct ModifierStepTarget<T: TimelineStep> {
     modifier_id: Uuid,
-    context: &InspectorContext,
     commit_name: &'static str,
     get: fn(&ModifierEffect) -> Option<&TimelineValue<T>>,
     get_mut: fn(&mut ModifierEffect) -> Option<&mut TimelineValue<T>>,
+}
+
+fn step_row<T: TimelineStep>(
+    label: &str,
+    value: &TimelineValue<T>,
+    context: &InspectorContext,
+    target: ModifierStepTarget<T>,
 ) -> gtk::Widget {
     let timeline_id = value.id;
+    let ModifierStepTarget {
+        modifier_id,
+        commit_name,
+        get,
+        get_mut,
+    } = target;
     crate::timeline_value::step::step_control(
         label,
         value,
@@ -73,11 +83,8 @@ fn shared_step_row<T: TimelineStep>(
     control: &InspectorControl,
     field: &str,
     value: &TimelineValue<T>,
-    modifier_id: Uuid,
     context: &InspectorContext,
-    commit_name: &'static str,
-    get: fn(&ModifierEffect) -> Option<&TimelineValue<T>>,
-    get_mut: fn(&mut ModifierEffect) -> Option<&mut TimelineValue<T>>,
+    target: ModifierStepTarget<T>,
 ) -> gtk::Widget {
     assert_eq!(control.kind, ControlKind::LayeredSelector);
     assert!(
@@ -85,18 +92,10 @@ fn shared_step_row<T: TimelineStep>(
             .path
             .ends_with(&format!("/effect/effect/config/{field}")),
     );
-    assert_eq!(control.target_id, Some(modifier_id));
+    assert_eq!(control.target_id, Some(target.modifier_id));
     assert_eq!(control.timeline_id, Some(value.id));
-    assert_eq!(control.commit_name, commit_name);
-    step_row(
-        &control.label,
-        value,
-        modifier_id,
-        context,
-        commit_name,
-        get,
-        get_mut,
-    )
+    assert_eq!(control.commit_name, target.commit_name);
+    step_row(&control.label, value, context, target)
 }
 
 fn shared_scalar_row(

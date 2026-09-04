@@ -10,22 +10,24 @@ pub fn add_rows(value: &ErodeDilateModifier, out: &gtk::Box, id: Uuid, context: 
     out.append(&super::step_row(
         "Operation",
         &value.operation,
-        id,
         context,
-        "edit-erode-dilate-operation",
-        |modifier| match modifier {
-            ModifierEffect::Raster(effect) => match &**effect {
-                RasterModifierEffect::ErodeDilate(effect) => Some(&effect.operation),
+        super::ModifierStepTarget {
+            modifier_id: id,
+            commit_name: "edit-erode-dilate-operation",
+            get: |modifier| match modifier {
+                ModifierEffect::Raster(effect) => match &**effect {
+                    RasterModifierEffect::ErodeDilate(effect) => Some(&effect.operation),
+                    _ => None,
+                },
                 _ => None,
             },
-            _ => None,
-        },
-        |modifier| match modifier {
-            ModifierEffect::Raster(effect) => match &mut **effect {
-                RasterModifierEffect::ErodeDilate(effect) => Some(&mut effect.operation),
+            get_mut: |modifier| match modifier {
+                ModifierEffect::Raster(effect) => match &mut **effect {
+                    RasterModifierEffect::ErodeDilate(effect) => Some(&mut effect.operation),
+                    _ => None,
+                },
                 _ => None,
             },
-            _ => None,
         },
     ));
     out.append(&integer_scalar_row(

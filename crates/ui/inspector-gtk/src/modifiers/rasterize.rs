@@ -70,11 +70,13 @@ pub fn add_rows(value: &RasterizeModifier, out: &gtk::Box, id: Uuid, context: &I
     let sample_method_row = super::step_row(
         &sample_method.label,
         &value.sample_method,
-        id,
         context,
-        shrimply_inspector_core::visual_modifiers::RASTERIZE_SAMPLE_METHOD_COMMIT,
-        shrimply_inspector_core::visual_modifiers::rasterize_sample_method,
-        shrimply_inspector_core::visual_modifiers::rasterize_sample_method_mut,
+        super::ModifierStepTarget {
+            modifier_id: id,
+            commit_name: shrimply_inspector_core::visual_modifiers::RASTERIZE_SAMPLE_METHOD_COMMIT,
+            get: shrimply_inspector_core::visual_modifiers::rasterize_sample_method,
+            get_mut: shrimply_inspector_core::visual_modifiers::rasterize_sample_method_mut,
+        },
     );
     sample_method_row.set_sensitive(sample_method.sensitive);
     if sample_method.visible {

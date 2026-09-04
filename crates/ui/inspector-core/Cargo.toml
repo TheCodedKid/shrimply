@@ -14,13 +14,16 @@ serde.workspace = true
 serde_json.workspace = true
 shrimply-audio = { path = "../../audio/audio" }
 shrimply-audio-modifiers = { path = "../../audio/audio-modifiers" }
+shrimply-blender = { path = "../../blender/blender-bridge" }
 shrimply-3dgs = { path = "../../3d/3dgs" }
 shrimply-core = { path = "../../core" }
 shrimply-evaluation = { path = "../../evaluation" }
 shrimply-i18n-core = { path = "../i18n-core" }
 shrimply-keyframe-graph-ui = { path = "../../timeline/keyframe-graph-ui" }
+shrimply-manim-parser = { path = "../../manim/manim-parser" }
 shrimply-math-core = { path = "../../math/core" }
 shrimply-media-info = { path = "../../media-info" }
+shrimply-pdf = { path = "../../pdf" }
 shrimply-property-transfer = { path = "../../property-transfer" }
 shrimply-preview-core = { path = "../../preview/preview-core" }
 shrimply-project = { path = "../../project/project" }

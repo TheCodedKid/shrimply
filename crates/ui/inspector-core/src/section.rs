@@ -239,7 +239,7 @@ impl NumberMapping {
                     store_multiplier, 1.0,
                     "focal-length mapping cannot be scaled"
                 );
-                f64::from(shrimply_3dgs::vertical_fov_degrees(displayed))
+                shrimply_3dgs::vertical_fov_degrees(displayed)
             }
         }
     }
@@ -257,6 +257,17 @@ pub struct TextKeyframeCommits {
     pub paste: &'static str,
     pub interpolation: &'static str,
     pub text_interpolation: &'static str,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct KeyframeCommits {
+    pub toggle: &'static str,
+    pub edit: &'static str,
+    pub add: &'static str,
+    pub delete: &'static str,
+    pub move_keyframe: &'static str,
+    pub paste: &'static str,
+    pub interpolation: &'static str,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -297,6 +308,7 @@ pub struct InspectorControl {
     pub commit_immediately: bool,
     pub keyframe_commit_name: String,
     pub expression_commit_name: String,
+    pub keyframe_commits: Option<KeyframeCommits>,
     pub text_keyframe_commits: Option<TextKeyframeCommits>,
     pub timeline_id: Option<uuid::Uuid>,
     pub scalar_graph: Option<ScalarGraph>,
@@ -352,6 +364,7 @@ impl InspectorControl {
             commit_immediately: false,
             keyframe_commit_name: String::new(),
             expression_commit_name: String::new(),
+            keyframe_commits: None,
             text_keyframe_commits: None,
             timeline_id: None,
             scalar_graph: None,
@@ -405,6 +418,12 @@ impl InspectorControl {
     pub fn text_keyframe_commits(mut self, commits: TextKeyframeCommits) -> Self {
         self.keyframe_commit_name = commits.toggle.to_string();
         self.text_keyframe_commits = Some(commits);
+        self
+    }
+
+    pub fn keyframe_commits(mut self, commits: KeyframeCommits) -> Self {
+        self.keyframe_commit_name = commits.toggle.to_string();
+        self.keyframe_commits = Some(commits);
         self
     }
 

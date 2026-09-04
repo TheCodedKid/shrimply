@@ -20,26 +20,15 @@ pub(crate) enum InspectorAction {
     ResetVideo {
         reset: shrimply_inspector_core::VideoReset,
     },
+    ResetManim {
+        reset: shrimply_inspector_core::manim_parameters::ManimReset,
+    },
+    ResetManimParameters {
+        reset: shrimply_inspector_core::manim_parameters::ManimParametersReset,
+    },
     SetBoolean {
         path: String,
         value: bool,
-    },
-    SetOptional {
-        path: String,
-        value: Option<Value>,
-    },
-    CopyArrayItem {
-        path: String,
-        index: usize,
-    },
-    MoveArrayItem {
-        path: String,
-        index: usize,
-        offset: isize,
-    },
-    RemoveArrayItem {
-        path: String,
-        index: usize,
     },
     ResetAudioModifier {
         id: Uuid,
@@ -81,19 +70,10 @@ pub(crate) enum InspectorAction {
         target: shrimply_project::project::VisualAlphaMaskTarget,
         enabled: bool,
     },
-    ToggleAudioCache {
-        id: Uuid,
-    },
     ReloadAsset {
         asset: String,
-        kind: ReloadKind,
+        kind: shrimply_inspector_core::video::ReloadKind,
     },
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum ReloadKind {
-    Blender,
-    Manim,
 }
 
 pub(crate) type HeaderAction = SharedHeaderAction<InspectorAction>;

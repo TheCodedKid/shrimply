@@ -12,6 +12,8 @@ use crate::{
     InspectorRuntime, InspectorSection, InspectorTarget, LayeredState, NumberSpec, ScalarGraph,
 };
 
+pub mod blender;
+pub mod pdf;
 pub mod playback;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -25,6 +27,14 @@ pub struct VideoPresentation {
     pub playback: Vec<VideoCard>,
     pub stream: Option<VideoStreamPresentation>,
     pub source_metadata: crate::info::SourceMetadata,
+    pub blender: Option<BlenderSourcePresentation>,
+    pub manim: Option<crate::manim_parameters::ManimPresentation>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct BlenderSourcePresentation {
+    pub item: shrimply_project::project::BlenderItem,
+    pub asset: String,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -41,6 +51,31 @@ pub struct VideoCard {
     pub reset: Option<VideoReset>,
     pub alpha_mask: Option<crate::AlphaMaskPresentation>,
     pub preview_facet: Option<shrimply_preview_core::PreviewFacetKey>,
+    pub actions: Vec<crate::item::HeaderAction<VideoCardAction>>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum VideoCardAction {
+    ReloadAsset { asset: String, kind: ReloadKind },
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ReloadKind {
+    Blender,
+    Manim,
+}
+
+pub fn reload_asset(asset: &str, kind: ReloadKind) -> Result<(), String> {
+    let source = shrimply_project::project::Asset::from(std::path::Path::new(asset));
+    match kind {
+        ReloadKind::Blender => {
+            shrimply_blender::invalidate_metadata(source.path());
+            source
+                .mark_dirty()
+                .map_err(|error| format!("could not mark Blender source dirty: {error}"))
+        }
+        ReloadKind::Manim => crate::manim_parameters::reload_source(&source),
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -61,7 +96,16 @@ impl VideoCard {
             reset: None,
             alpha_mask: None,
             preview_facet: None,
+            actions: Vec::new(),
         }
+    }
+
+    pub(crate) fn actions(
+        mut self,
+        actions: impl IntoIterator<Item = crate::item::HeaderAction<VideoCardAction>>,
+    ) -> Self {
+        self.actions = actions.into_iter().collect();
+        self
     }
 
     pub(crate) fn preview_facet(mut self, facet: shrimply_preview_core::PreviewFacetKey) -> Self {
@@ -149,6 +193,15 @@ impl InspectorController {
         if reset.paint_palette {
             return self.reset_paint_palette(target);
         }
+        if let [(path, page)] = reset.values.as_slice()
+            && path == pdf::PAGE_PATH
+        {
+            let page = page
+                .as_u64()
+                .and_then(|page| u32::try_from(page).ok())
+                .ok_or_else(|| "PDF reset page must be an unsigned integer".to_string())?;
+            return self.set_pdf_page(target, page, reset.commit_name);
+        }
         let mut project = self.project.borrow_mut();
         if let Some((path, value)) = &reset.fraction {
             let item = project
@@ -216,6 +269,19 @@ impl InspectorController {
         commit_name: &str,
         commit_immediately: bool,
     ) -> Result<(), String> {
+        if path == pdf::PAGE_PATH {
+            let displayed = text
+                .parse::<f64>()
+                .map_err(|_| format!("invalid PDF page: {text}"))?;
+            if !displayed.is_finite() || displayed < 1.0 {
+                return Err("PDF page must be a positive integer".to_string());
+            }
+            return self.set_pdf_page(
+                target,
+                displayed.round().min(f64::from(u32::MAX)) as u32 - 1,
+                commit_name,
+            );
+        }
         if let Some(result) = self.set_camera_source_field(target, path, text) {
             return result;
         }
@@ -250,6 +316,30 @@ impl InspectorController {
                     video: true,
                     inspector: path == "/motion_blur/enabled",
                     ..player_state::ProjectChange::default()
+                },
+            );
+            return Ok(());
+        }
+        if let Some(changed) = blender::set_field(
+            project
+                .video_item_mut(address)
+                .ok_or_else(|| "video item is no longer available".to_string())?,
+            path,
+            text,
+        ) {
+            if !changed {
+                return Ok(());
+            }
+            if commit_immediately {
+                shrimply_project::project::commit_edit(&project, commit_name);
+            }
+            drop(project);
+            player_state::refresh_project(
+                &self.player_state,
+                player_state::ProjectChange {
+                    video: true,
+                    inspector: path == blender::SCENE_PATH,
+                    ..Default::default()
                 },
             );
             return Ok(());
@@ -641,6 +731,9 @@ pub fn presentation(
     if let VideoItemContent::Paint(paint) = &item.content {
         visual_items.extend(crate::paint::cards(paint, project.canvas_size, runtime));
     }
+    if matches!(item.content, VideoItemContent::Pdf(_)) {
+        visual_items.push(pdf::card(item));
+    }
 
     if !static_visual {
         playback_items.push(playback::speed(item));
@@ -718,6 +811,14 @@ pub fn presentation(
         } else {
             crate::info::SourceMetadata::None
         },
+        blender: match &item.content {
+            VideoItemContent::Blender(blender) => Some(BlenderSourcePresentation {
+                item: (**blender).clone(),
+                asset: item.file.path().to_string_lossy().into_owned(),
+            }),
+            _ => None,
+        },
+        manim: crate::manim_parameters::presentation(item),
     }
 }
 

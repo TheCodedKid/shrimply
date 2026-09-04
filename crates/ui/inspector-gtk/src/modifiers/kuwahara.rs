@@ -26,11 +26,13 @@ pub fn add_rows(
         &version,
         "version",
         &value.version,
-        modifier_id,
         context,
-        shrimply_inspector_core::visual_modifiers::KUWAHARA_VERSION_COMMIT,
-        shrimply_inspector_core::visual_modifiers::kuwahara_version,
-        shrimply_inspector_core::visual_modifiers::kuwahara_version_mut,
+        super::ModifierStepTarget {
+            modifier_id,
+            commit_name: shrimply_inspector_core::visual_modifiers::KUWAHARA_VERSION_COMMIT,
+            get: shrimply_inspector_core::visual_modifiers::kuwahara_version,
+            get_mut: shrimply_inspector_core::visual_modifiers::kuwahara_version_mut,
+        },
     ));
     out.append(&super::shared_scalar_row(
         &radius,

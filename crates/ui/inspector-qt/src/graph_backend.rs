@@ -179,6 +179,10 @@ impl InspectorBackend {
         let Some((target, control)) = self.control_target(category, item, control) else {
             return;
         };
+        if let Err(error) = super::ensure_control_timeline(&target, &control) {
+            self.as_mut().finish(Err(error));
+            return;
+        }
         if control.scalar_graph.is_none() {
             return;
         }
@@ -236,7 +240,12 @@ impl InspectorBackend {
             } else if control.kind == crate::section::ControlKind::LayeredSelector {
                 super::move_step_keyframes(&target, path, &moves, &control.keyframe_commit_name)?
             } else if control.kind == crate::section::ControlKind::LayeredVector2 {
-                super::move_vector2_keyframes(&target, path, &moves, &control.keyframe_commit_name)?
+                let commit_name = control
+                    .keyframe_commits
+                    .map_or(control.keyframe_commit_name.as_str(), |commits| {
+                        commits.move_keyframe
+                    });
+                super::move_vector2_keyframes(&target, path, &moves, commit_name)?
             } else if control.kind == crate::section::ControlKind::LayeredVector3 {
                 super::move_vector3_keyframes(&target, path, &moves, &control.keyframe_commit_name)?
             } else if control.kind == crate::section::ControlKind::LayeredColor {
@@ -296,6 +305,11 @@ impl InspectorBackend {
                             change,
                         )?;
                     } else {
+                        let commit_name = control
+                            .keyframe_commits
+                            .map_or(control.keyframe_commit_name.as_str(), |commits| {
+                                commits.move_keyframe
+                            });
                         super::move_scalar_keyframe(
                             &target,
                             path,
@@ -304,7 +318,7 @@ impl InspectorBackend {
                                 integer: control.integer || control.number_constraint.integer,
                                 ..control.number_constraint
                             },
-                            &control.keyframe_commit_name,
+                            commit_name,
                         )?;
                     }
                 }
@@ -366,12 +380,12 @@ impl InspectorBackend {
                         &control.keyframe_commit_name,
                     )?;
                 } else if control.kind == crate::section::ControlKind::LayeredVector2 {
-                    super::delete_vector2_keyframe(
-                        &target,
-                        path,
-                        time,
-                        &control.keyframe_commit_name,
-                    )?;
+                    let commit_name = control
+                        .keyframe_commits
+                        .map_or(control.keyframe_commit_name.as_str(), |commits| {
+                            commits.delete
+                        });
+                    super::delete_vector2_keyframe(&target, path, time, commit_name)?;
                 } else if control.kind == crate::section::ControlKind::LayeredVector3 {
                     super::delete_vector3_keyframe(
                         &target,
@@ -404,20 +418,13 @@ impl InspectorBackend {
                         timeline_id(&control)?,
                         time,
                     )?;
-                } else if path == "/transform/rotation_degrees" {
-                    super::delete_transform_scalar_keyframe(
-                        &target,
-                        path,
-                        time,
-                        &control.keyframe_commit_name,
-                    )?;
                 } else {
-                    super::delete_scalar_keyframe(
-                        &target,
-                        path,
-                        time,
-                        &control.keyframe_commit_name,
-                    )?;
+                    let commit_name = control
+                        .keyframe_commits
+                        .map_or(control.keyframe_commit_name.as_str(), |commits| {
+                            commits.delete
+                        });
+                    super::delete_scalar_keyframe(&target, path, time, commit_name)?;
                 }
             }
             Ok(())
@@ -457,12 +464,10 @@ impl InspectorBackend {
                         &control.keyframe_commit_name,
                     )
                 } else if control.kind == crate::section::ControlKind::LayeredVector2 {
-                    super::add_vector2_keyframe(
-                        &target,
-                        timeline_path(&control),
-                        time,
-                        &control.keyframe_commit_name,
-                    )
+                    let commit_name = control
+                        .keyframe_commits
+                        .map_or(control.keyframe_commit_name.as_str(), |commits| commits.add);
+                    super::add_vector2_keyframe(&target, timeline_path(&control), time, commit_name)
                 } else if control.kind == crate::section::ControlKind::LayeredVector3 {
                     super::add_vector3_keyframe(
                         &target,
@@ -497,12 +502,15 @@ impl InspectorBackend {
                     let (modifier_id, timeline_id) = modifier_ids(&control)?;
                     super::add_audio_modifier_keyframe(&target, modifier_id, timeline_id, time)
                 } else {
+                    let commit_name = control
+                        .keyframe_commits
+                        .map_or(control.keyframe_commit_name.as_str(), |commits| commits.add);
                     super::add_scalar_keyframe(
                         &target,
                         timeline_path(&control),
                         time,
                         control.number_constraint,
-                        &control.keyframe_commit_name,
+                        commit_name,
                     )
                 }
             });
@@ -604,11 +612,16 @@ impl InspectorBackend {
                         &control.keyframe_commit_name,
                     )
                 } else if control.kind == crate::section::ControlKind::LayeredVector2 {
+                    let commit_name = control
+                        .keyframe_commits
+                        .map_or(control.keyframe_commit_name.as_str(), |commits| {
+                            commits.paste
+                        });
                     super::paste_vector2_keyframes(
                         &target,
                         timeline_path(&control),
                         time,
-                        &control.keyframe_commit_name,
+                        commit_name,
                     )
                 } else if control.kind == crate::section::ControlKind::LayeredVector3 {
                     super::paste_vector3_keyframes(
@@ -644,12 +657,17 @@ impl InspectorBackend {
                     let (modifier_id, timeline_id) = modifier_ids(&control)?;
                     super::paste_audio_modifier_keyframes(&target, modifier_id, timeline_id, time)
                 } else {
+                    let commit_name = control
+                        .keyframe_commits
+                        .map_or(control.keyframe_commit_name.as_str(), |commits| {
+                            commits.paste
+                        });
                     super::paste_scalar_keyframes(
                         &target,
                         timeline_path(&control),
                         time,
                         control.number_constraint,
-                        &control.keyframe_commit_name,
+                        commit_name,
                     )
                 }
             })
@@ -688,12 +706,17 @@ impl InspectorBackend {
                     interpolation,
                 )
             } else if control.kind == crate::section::ControlKind::LayeredVector2 {
+                let commit_name = control
+                    .keyframe_commits
+                    .map_or(control.keyframe_commit_name.as_str(), |commits| {
+                        commits.interpolation
+                    });
                 super::set_vector2_interpolation(
                     &target,
                     timeline_path(&control),
                     owner_id,
                     interpolation,
-                    &control.keyframe_commit_name,
+                    commit_name,
                 )
             } else if control.kind == crate::section::ControlKind::LayeredVector3 {
                 super::set_vector3_interpolation(
@@ -739,12 +762,17 @@ impl InspectorBackend {
                     interpolation,
                 )
             } else {
+                let commit_name = control
+                    .keyframe_commits
+                    .map_or(control.keyframe_commit_name.as_str(), |commits| {
+                        commits.interpolation
+                    });
                 super::set_scalar_keyframe_interpolation(
                     &target,
                     timeline_path(&control),
                     owner_id,
                     interpolation,
-                    &control.keyframe_commit_name,
+                    commit_name,
                 )
             }
         })();

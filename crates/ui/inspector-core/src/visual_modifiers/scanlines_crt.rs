@@ -16,9 +16,13 @@ pub(super) fn presentation(
         "Spacing",
         &value.spacing,
         runtime,
-        1.0,
-        100.0,
-        "px",
+        NumberSpec {
+            minimum: 1.0,
+            maximum: 100.0,
+            drag_step: 0.01,
+            digits: 2,
+            unit: "px",
+        },
     ));
     section.add(unit_scalar(
         &base,
@@ -67,7 +71,20 @@ fn unit_scalar(
     value: &shrimply_core::timeline_value::TimelineValue<f32>,
     runtime: InspectorRuntime,
 ) -> InspectorControl {
-    scalar(base, field, label, value, runtime, 0.0, 1.0, "")
+    scalar(
+        base,
+        field,
+        label,
+        value,
+        runtime,
+        NumberSpec {
+            minimum: 0.0,
+            maximum: 1.0,
+            drag_step: 0.01,
+            digits: 2,
+            unit: "",
+        },
+    )
 }
 
 fn scalar(
@@ -76,22 +93,14 @@ fn scalar(
     label: &'static str,
     value: &shrimply_core::timeline_value::TimelineValue<f32>,
     runtime: InspectorRuntime,
-    minimum: f64,
-    maximum: f64,
-    unit: &'static str,
+    spec: NumberSpec,
 ) -> InspectorControl {
     super::modifier_scalar_control(
         format!("{base}/{field}"),
         label,
         value,
         runtime,
-        NumberSpec {
-            minimum,
-            maximum,
-            drag_step: 0.01,
-            digits: 2,
-            unit,
-        },
+        spec,
         false,
     )
 }

@@ -665,6 +665,7 @@ pub fn card(background: &Background, runtime: InspectorRuntime) -> VideoCard {
         reset: None,
         alpha_mask: None,
         preview_facet: None,
+        actions: Vec::new(),
     }
     .reset(
         GENERATOR_PATH,

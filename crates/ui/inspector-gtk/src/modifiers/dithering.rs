@@ -14,44 +14,48 @@ pub fn add_rows(value: &DitheringModifier, out: &gtk::Box, id: Uuid, context: &I
     out.append(&super::step_row(
         "Pattern",
         &value.pattern,
-        id,
         context,
-        "edit-dithering-pattern",
-        |modifier| match modifier {
-            ModifierEffect::Raster(effect) => match &**effect {
-                RasterModifierEffect::Dithering(effect) => Some(&effect.pattern),
+        super::ModifierStepTarget {
+            modifier_id: id,
+            commit_name: "edit-dithering-pattern",
+            get: |modifier| match modifier {
+                ModifierEffect::Raster(effect) => match &**effect {
+                    RasterModifierEffect::Dithering(effect) => Some(&effect.pattern),
+                    _ => None,
+                },
                 _ => None,
             },
-            _ => None,
-        },
-        |modifier| match modifier {
-            ModifierEffect::Raster(effect) => match &mut **effect {
-                RasterModifierEffect::Dithering(effect) => Some(&mut effect.pattern),
+            get_mut: |modifier| match modifier {
+                ModifierEffect::Raster(effect) => match &mut **effect {
+                    RasterModifierEffect::Dithering(effect) => Some(&mut effect.pattern),
+                    _ => None,
+                },
                 _ => None,
             },
-            _ => None,
         },
     ));
 
     out.append(&super::step_row(
         "Color mode",
         &value.color_mode,
-        id,
         context,
-        "edit-dithering-color-mode",
-        |modifier| match modifier {
-            ModifierEffect::Raster(effect) => match &**effect {
-                RasterModifierEffect::Dithering(effect) => Some(&effect.color_mode),
+        super::ModifierStepTarget {
+            modifier_id: id,
+            commit_name: "edit-dithering-color-mode",
+            get: |modifier| match modifier {
+                ModifierEffect::Raster(effect) => match &**effect {
+                    RasterModifierEffect::Dithering(effect) => Some(&effect.color_mode),
+                    _ => None,
+                },
                 _ => None,
             },
-            _ => None,
-        },
-        |modifier| match modifier {
-            ModifierEffect::Raster(effect) => match &mut **effect {
-                RasterModifierEffect::Dithering(effect) => Some(&mut effect.color_mode),
+            get_mut: |modifier| match modifier {
+                ModifierEffect::Raster(effect) => match &mut **effect {
+                    RasterModifierEffect::Dithering(effect) => Some(&mut effect.color_mode),
+                    _ => None,
+                },
                 _ => None,
             },
-            _ => None,
         },
     ));
 

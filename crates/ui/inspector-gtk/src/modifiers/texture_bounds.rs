@@ -41,11 +41,14 @@ pub fn add_rows(
         &address_mode,
         "address_mode",
         &value.address_mode,
-        modifier_id,
         context,
-        shrimply_inspector_core::visual_modifiers::TEXTURE_BOUNDS_ADDRESS_MODE_COMMIT,
-        shrimply_inspector_core::visual_modifiers::texture_bounds_address_mode,
-        shrimply_inspector_core::visual_modifiers::texture_bounds_address_mode_mut,
+        super::ModifierStepTarget {
+            modifier_id,
+            commit_name:
+                shrimply_inspector_core::visual_modifiers::TEXTURE_BOUNDS_ADDRESS_MODE_COMMIT,
+            get: shrimply_inspector_core::visual_modifiers::texture_bounds_address_mode,
+            get_mut: shrimply_inspector_core::visual_modifiers::texture_bounds_address_mode_mut,
+        },
     );
     row.set_sensitive(address_mode.sensitive);
     if address_mode.visible {
