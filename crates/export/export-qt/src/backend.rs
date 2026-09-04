@@ -265,7 +265,8 @@ impl qobject::ExportBackend {
         }
         let context = context();
         let project = context.project.borrow().clone();
-        let extension = video::extension_for_container(container_for(self.video_codec, self.container));
+        let extension =
+            video::extension_for_container(container_for(self.video_codec, self.container));
         let path = choose_path(
             &output::default_filename(&project, extension),
             "Export Video",
@@ -359,24 +360,42 @@ impl qobject::ExportBackend {
     pub fn cancel(mut self: Pin<&mut Self>) {
         if let Some(job) = self.as_ref().rust().job.as_ref() {
             job.cancelled.store(true, Ordering::Relaxed);
-            self.as_mut().set_status(shrimply_i18n_qt::text("Canceling"));
+            self.as_mut()
+                .set_status(shrimply_i18n_qt::text("Canceling"));
         }
     }
 
     pub fn poll(mut self: Pin<&mut Self>) {
-        let event = self
-            .as_ref()
-            .rust()
-            .job
-            .as_ref()
-            .map(|job| job.receiver.try_recv());
-        match event {
-            Some(Ok(JobEvent::VideoProgress(event))) => self.as_mut().show_progress(event),
-            Some(Ok(JobEvent::Finished(result))) => self.as_mut().finish(result),
-            Some(Err(TryRecvError::Disconnected)) => self.as_mut().finish(Err(
-                "The export worker stopped before reporting a result.".to_string(),
-            )),
-            None | Some(Err(TryRecvError::Empty)) => {}
+        let mut latest_progress = None;
+        let mut finished = None;
+        loop {
+            let event = {
+                let this = self.as_ref();
+                let Some(job) = this.rust().job.as_ref() else {
+                    return;
+                };
+                job.receiver.try_recv()
+            };
+            match event {
+                Ok(JobEvent::VideoProgress(event)) => latest_progress = Some(event),
+                Ok(JobEvent::Finished(result)) => {
+                    finished = Some(result);
+                    break;
+                }
+                Err(TryRecvError::Empty) => break,
+                Err(TryRecvError::Disconnected) => {
+                    finished = Some(Err(
+                        "The export worker stopped before reporting a result.".to_string()
+                    ));
+                    break;
+                }
+            }
+        }
+        if let Some(event) = latest_progress {
+            self.as_mut().show_progress(event);
+        }
+        if let Some(result) = finished {
+            self.as_mut().finish(result);
         }
     }
 
@@ -444,10 +463,7 @@ impl qobject::ExportBackend {
             bitrate_kbps: as_u32(self.bitrate_kbps, "video bitrate"),
             max_bitrate_kbps: as_u32(self.max_bitrate_kbps, "maximum video bitrate"),
             target_quality: as_u32(self.target_quality, "target quality"),
-            keyframe_interval_seconds: as_u32(
-                self.keyframe_interval_seconds,
-                "keyframe interval",
-            ),
+            keyframe_interval_seconds: as_u32(self.keyframe_interval_seconds, "keyframe interval"),
             preset: preset(self.preset),
             tuning: tuning(self.tuning),
             multipass: multipass(self.multipass),

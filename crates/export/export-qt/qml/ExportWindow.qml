@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import dev.shrimply.components
 import dev.shrimply.export
 
 Item {
@@ -89,29 +90,26 @@ Item {
                         title: exportBackend.translate("Video format")
                         Layout.fillWidth: true
 
-                        GridLayout {
+                        ColumnLayout {
                             anchors.fill: parent
-                            columns: 2
-                            columnSpacing: 24
-                            rowSpacing: 12
+                            spacing: 12
 
-                            Label { text: exportBackend.translate("Export format") }
-                            ComboBox {
-                                Layout.fillWidth: true
-                                model: ["H.264", "H.265", "GIF"]
-                                currentIndex: exportBackend.videoCodec
-                                onActivated: exportBackend.videoCodec = currentIndex
+                            ControlRow {
+                                label: exportBackend.translate("Export format")
+                                ComboBox {
+                                    model: ["H.264", "H.265", "GIF"]
+                                    currentIndex: exportBackend.videoCodec
+                                    onActivated: exportBackend.videoCodec = currentIndex
+                                }
                             }
-                            Label {
-                                text: exportBackend.translate("Container")
+                            ControlRow {
+                                label: exportBackend.translate("Container")
                                 visible: exportBackend.videoCodec !== 2
-                            }
-                            ComboBox {
-                                Layout.fillWidth: true
-                                visible: exportBackend.videoCodec !== 2
-                                model: ["MP4", "MKV"]
-                                currentIndex: exportBackend.container
-                                onActivated: exportBackend.container = currentIndex
+                                ComboBox {
+                                    model: ["MP4", "MKV"]
+                                    currentIndex: exportBackend.container
+                                    onActivated: exportBackend.container = currentIndex
+                                }
                             }
                         }
                     }
@@ -121,160 +119,155 @@ Item {
                         Layout.fillWidth: true
                         visible: exportBackend.videoCodec !== 2
 
-                        GridLayout {
+                        ColumnLayout {
                             anchors.fill: parent
-                            columns: 2
-                            columnSpacing: 24
-                            rowSpacing: 12
+                            spacing: 12
 
-                            Label { text: exportBackend.translate("Rate Control") }
-                            ComboBox {
-                                Layout.fillWidth: true
-                                model: [
-                                    exportBackend.translate("Constant QP"),
-                                    exportBackend.translate("Constant Bitrate"),
-                                    exportBackend.translate("Variable Bitrate"),
-                                    exportBackend.translate("Variable Bitrate with Target Quality"),
-                                    exportBackend.translate("Lossless")
-                                ]
-                                currentIndex: exportBackend.rateControl
-                                onActivated: exportBackend.rateControl = currentIndex
+                            ControlRow {
+                                label: exportBackend.translate("Rate Control")
+                                ComboBox {
+                                    model: [
+                                        exportBackend.translate("Constant QP"),
+                                        exportBackend.translate("Constant Bitrate"),
+                                        exportBackend.translate("Variable Bitrate"),
+                                        exportBackend.translate("Variable Bitrate with Target Quality"),
+                                        exportBackend.translate("Lossless")
+                                    ]
+                                    currentIndex: exportBackend.rateControl
+                                    onActivated: exportBackend.rateControl = currentIndex
+                                }
                             }
-                            Label {
-                                text: exportBackend.translate("Video Bitrate")
+                            ControlRow {
+                                label: exportBackend.translate("Video Bitrate")
                                 visible: exportBackend.rateControl >= 1 && exportBackend.rateControl <= 3
+                                NumberPicker {
+                                    minimum: 50
+                                    maximum: 250000
+                                    dragStep: 50
+                                    digits: 0
+                                    value: exportBackend.bitrateKbps
+                                    onEdited: function(value) { exportBackend.bitrateKbps = value }
+                                }
                             }
-                            SpinBox {
-                                Layout.fillWidth: true
-                                visible: exportBackend.rateControl >= 1 && exportBackend.rateControl <= 3
-                                from: 50
-                                to: 250000
-                                stepSize: 50
-                                editable: true
-                                value: exportBackend.bitrateKbps
-                                onValueModified: exportBackend.bitrateKbps = value
-                            }
-                            Label {
-                                text: exportBackend.translate("Max Video Bitrate")
+                            ControlRow {
+                                label: exportBackend.translate("Max Video Bitrate")
                                 visible: exportBackend.rateControl === 2 || exportBackend.rateControl === 3
+                                NumberPicker {
+                                    minimum: 50
+                                    maximum: 250000
+                                    dragStep: 50
+                                    digits: 0
+                                    value: exportBackend.maxBitrateKbps
+                                    onEdited: function(value) { exportBackend.maxBitrateKbps = value }
+                                }
                             }
-                            SpinBox {
-                                Layout.fillWidth: true
-                                visible: exportBackend.rateControl === 2 || exportBackend.rateControl === 3
-                                from: 50
-                                to: 250000
-                                stepSize: 50
-                                editable: true
-                                value: exportBackend.maxBitrateKbps
-                                onValueModified: exportBackend.maxBitrateKbps = value
-                            }
-                            Label {
-                                text: exportBackend.translate("Target Quality")
+                            ControlRow {
+                                label: exportBackend.translate("Target Quality")
                                 visible: exportBackend.rateControl === 3
+                                NumberPicker {
+                                    minimum: 1
+                                    maximum: 51
+                                    digits: 0
+                                    value: exportBackend.targetQuality
+                                    onEdited: function(value) { exportBackend.targetQuality = value }
+                                }
                             }
-                            SpinBox {
-                                Layout.fillWidth: true
-                                visible: exportBackend.rateControl === 3
-                                from: 1
-                                to: 51
-                                editable: true
-                                value: exportBackend.targetQuality
-                                onValueModified: exportBackend.targetQuality = value
-                            }
-                            Label {
-                                text: exportBackend.translate("Constant QP")
+                            ControlRow {
+                                label: exportBackend.translate("Constant QP")
                                 visible: exportBackend.rateControl === 0
+                                NumberPicker {
+                                    minimum: 0
+                                    maximum: 51
+                                    digits: 0
+                                    value: exportBackend.constantQp
+                                    onEdited: function(value) { exportBackend.constantQp = value }
+                                }
                             }
-                            SpinBox {
-                                Layout.fillWidth: true
-                                visible: exportBackend.rateControl === 0
-                                from: 0
-                                to: 51
-                                editable: true
-                                value: exportBackend.constantQp
-                                onValueModified: exportBackend.constantQp = value
+                            ControlRow {
+                                label: exportBackend.translate("Keyframe Interval")
+                                NumberPicker {
+                                    minimum: 0
+                                    maximum: 10
+                                    digits: 0
+                                    unitName: "s"
+                                    value: exportBackend.keyframeIntervalSeconds
+                                    onEdited: function(value) { exportBackend.keyframeIntervalSeconds = value }
+                                }
                             }
-                            Label { text: exportBackend.translate("Keyframe Interval") }
-                            SpinBox {
-                                Layout.fillWidth: true
-                                from: 0
-                                to: 10
-                                editable: true
-                                value: exportBackend.keyframeIntervalSeconds
-                                onValueModified: exportBackend.keyframeIntervalSeconds = value
+                            ControlRow {
+                                label: exportBackend.translate("Preset")
+                                ComboBox {
+                                    model: [
+                                        exportBackend.translate("P1: Fastest (Lowest Quality)"),
+                                        exportBackend.translate("P2: Faster (Lower Quality)"),
+                                        exportBackend.translate("P3: Fast (Low Quality)"),
+                                        exportBackend.translate("P4: Medium (Medium Quality)"),
+                                        exportBackend.translate("P5: Slow (Good Quality)"),
+                                        exportBackend.translate("P6: Slower (Better Quality)"),
+                                        exportBackend.translate("P7: Slowest (Best Quality)")
+                                    ]
+                                    currentIndex: exportBackend.preset
+                                    onActivated: exportBackend.preset = currentIndex
+                                }
                             }
-                            Label { text: exportBackend.translate("Preset") }
-                            ComboBox {
-                                Layout.fillWidth: true
-                                model: [
-                                    exportBackend.translate("P1: Fastest (Lowest Quality)"),
-                                    exportBackend.translate("P2: Faster (Lower Quality)"),
-                                    exportBackend.translate("P3: Fast (Low Quality)"),
-                                    exportBackend.translate("P4: Medium (Medium Quality)"),
-                                    exportBackend.translate("P5: Slow (Good Quality)"),
-                                    exportBackend.translate("P6: Slower (Better Quality)"),
-                                    exportBackend.translate("P7: Slowest (Best Quality)")
-                                ]
-                                currentIndex: exportBackend.preset
-                                onActivated: exportBackend.preset = currentIndex
-                            }
-                            Label {
-                                text: exportBackend.translate("Tuning")
+                            ControlRow {
+                                label: exportBackend.translate("Tuning")
                                 visible: exportBackend.rateControl !== 4
+                                ComboBox {
+                                    model: [
+                                        exportBackend.translate("Ultra High Quality"),
+                                        exportBackend.translate("High Quality"),
+                                        exportBackend.translate("Low Latency"),
+                                        exportBackend.translate("Ultra Low Latency")
+                                    ]
+                                    currentIndex: exportBackend.tuning
+                                    onActivated: exportBackend.tuning = currentIndex
+                                }
                             }
-                            ComboBox {
-                                Layout.fillWidth: true
-                                visible: exportBackend.rateControl !== 4
-                                model: [
-                                    exportBackend.translate("Ultra High Quality"),
-                                    exportBackend.translate("High Quality"),
-                                    exportBackend.translate("Low Latency"),
-                                    exportBackend.translate("Ultra Low Latency")
-                                ]
-                                currentIndex: exportBackend.tuning
-                                onActivated: exportBackend.tuning = currentIndex
+                            ControlRow {
+                                label: exportBackend.translate("Multi Pass")
+                                ComboBox {
+                                    model: [
+                                        exportBackend.translate("Single Pass"),
+                                        exportBackend.translate("Two Passes (Quarter Resolution)"),
+                                        exportBackend.translate("Two Passes (Full Resolution)")
+                                    ]
+                                    currentIndex: exportBackend.multipass
+                                    onActivated: exportBackend.multipass = currentIndex
+                                }
                             }
-                            Label { text: exportBackend.translate("Multi Pass") }
-                            ComboBox {
-                                Layout.fillWidth: true
-                                model: [
-                                    exportBackend.translate("Single Pass"),
-                                    exportBackend.translate("Two Passes (Quarter Resolution)"),
-                                    exportBackend.translate("Two Passes (Full Resolution)")
-                                ]
-                                currentIndex: exportBackend.multipass
-                                onActivated: exportBackend.multipass = currentIndex
+                            ControlRow {
+                                label: exportBackend.translate("Profile")
+                                ComboBox {
+                                    model: ["Main", "Main10"]
+                                    currentIndex: exportBackend.profile
+                                    onActivated: exportBackend.profile = currentIndex
+                                }
                             }
-                            Label { text: exportBackend.translate("Profile") }
-                            ComboBox {
-                                Layout.fillWidth: true
-                                model: ["Main", "Main10"]
-                                currentIndex: exportBackend.profile
-                                onActivated: exportBackend.profile = currentIndex
+                            SwitchRow {
+                                label: exportBackend.translate("Look-ahead")
+                                active: exportBackend.lookAhead
+                                onToggled: function(active) { exportBackend.lookAhead = active }
                             }
-                            Label { text: exportBackend.translate("Look-ahead") }
-                            Switch {
-                                checked: exportBackend.lookAhead
-                                onToggled: exportBackend.lookAhead = checked
+                            SwitchRow {
+                                label: exportBackend.translate("Adaptive Quantization")
+                                active: exportBackend.adaptiveQuantization
+                                onToggled: function(active) { exportBackend.adaptiveQuantization = active }
                             }
-                            Label { text: exportBackend.translate("Adaptive Quantization") }
-                            Switch {
-                                checked: exportBackend.adaptiveQuantization
-                                onToggled: exportBackend.adaptiveQuantization = checked
+                            ControlRow {
+                                label: exportBackend.translate("B Frames")
+                                NumberPicker {
+                                    minimum: 0
+                                    maximum: 16
+                                    digits: 0
+                                    value: exportBackend.bFrames
+                                    onEdited: function(value) { exportBackend.bFrames = value }
+                                }
                             }
-                            Label { text: exportBackend.translate("B Frames") }
-                            SpinBox {
-                                Layout.fillWidth: true
-                                from: 0
-                                to: 16
-                                editable: true
-                                value: exportBackend.bFrames
-                                onValueModified: exportBackend.bFrames = value
-                            }
-                            Label { text: exportBackend.translate("B Frame as Reference") }
-                            Switch {
-                                checked: exportBackend.bFrameAsReference
-                                onToggled: exportBackend.bFrameAsReference = checked
+                            SwitchRow {
+                                label: exportBackend.translate("B Frame as Reference")
+                                active: exportBackend.bFrameAsReference
+                                onToggled: function(active) { exportBackend.bFrameAsReference = active }
                             }
                         }
                     }
@@ -283,31 +276,28 @@ Item {
                         title: exportBackend.translate("Output")
                         Layout.fillWidth: true
 
-                        GridLayout {
+                        ColumnLayout {
                             anchors.fill: parent
-                            columns: 2
-                            columnSpacing: 24
-                            rowSpacing: 12
+                            spacing: 12
 
-                            Label { text: exportBackend.translate("Frame rate") }
-                            ComboBox {
-                                Layout.fillWidth: true
-                                model: exportBackend.frameRateLabels
-                                currentIndex: exportBackend.frameRateIndex
-                                onActivated: exportBackend.frameRateIndex = currentIndex
+                            ControlRow {
+                                label: exportBackend.translate("Frame rate")
+                                ComboBox {
+                                    model: exportBackend.frameRateLabels
+                                    currentIndex: exportBackend.frameRateIndex
+                                    onActivated: exportBackend.frameRateIndex = currentIndex
+                                }
                             }
-                            Label {
-                                text: exportBackend.translate("Background Alpha")
+                            ControlRow {
+                                label: exportBackend.translate("Background Alpha")
                                 visible: exportBackend.videoCodec === 2
-                            }
-                            SpinBox {
-                                Layout.fillWidth: true
-                                visible: exportBackend.videoCodec === 2
-                                from: 0
-                                to: 255
-                                editable: true
-                                value: exportBackend.backgroundAlpha
-                                onValueModified: exportBackend.backgroundAlpha = value
+                                NumberPicker {
+                                    minimum: 0
+                                    maximum: 255
+                                    digits: 0
+                                    value: exportBackend.backgroundAlpha
+                                    onEdited: function(value) { exportBackend.backgroundAlpha = value }
+                                }
                             }
                         }
                     }
@@ -317,35 +307,37 @@ Item {
                         Layout.fillWidth: true
                         visible: exportBackend.videoCodec !== 2
 
-                        GridLayout {
+                        ColumnLayout {
                             anchors.fill: parent
-                            columns: 2
-                            columnSpacing: 24
-                            rowSpacing: 12
+                            spacing: 12
 
-                            Label { text: exportBackend.translate("Audio Encoder") }
-                            ComboBox {
-                                Layout.fillWidth: true
-                                model: ["FDK AAC", "AAC", "Opus"]
-                                currentIndex: exportBackend.audioEncoder
-                                onActivated: exportBackend.audioEncoder = currentIndex
+                            ControlRow {
+                                label: exportBackend.translate("Audio Encoder")
+                                ComboBox {
+                                    model: ["FDK AAC", "AAC", "Opus"]
+                                    currentIndex: exportBackend.audioEncoder
+                                    onActivated: exportBackend.audioEncoder = currentIndex
+                                }
                             }
-                            Label { text: exportBackend.translate("Audio Sample Rate") }
-                            ComboBox {
-                                Layout.fillWidth: true
-                                model: ["44100", "48000", "96000"]
-                                currentIndex: exportBackend.audioSampleRate
-                                onActivated: exportBackend.audioSampleRate = currentIndex
+                            ControlRow {
+                                label: exportBackend.translate("Audio Sample Rate")
+                                ComboBox {
+                                    model: ["44100", "48000", "96000"]
+                                    currentIndex: exportBackend.audioSampleRate
+                                    onActivated: exportBackend.audioSampleRate = currentIndex
+                                }
                             }
-                            Label { text: exportBackend.translate("Audio Bitrate") }
-                            SpinBox {
-                                Layout.fillWidth: true
-                                from: 32
-                                to: 512
-                                stepSize: 8
-                                editable: true
-                                value: exportBackend.audioBitrateKbps
-                                onValueModified: exportBackend.audioBitrateKbps = value
+                            ControlRow {
+                                label: exportBackend.translate("Audio Bitrate")
+                                NumberPicker {
+                                    minimum: 32
+                                    maximum: 512
+                                    dragStep: 8
+                                    digits: 0
+                                    unitName: "kbps"
+                                    value: exportBackend.audioBitrateKbps
+                                    onEdited: function(value) { exportBackend.audioBitrateKbps = value }
+                                }
                             }
                         }
                     }

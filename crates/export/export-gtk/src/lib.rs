@@ -3,8 +3,8 @@ use shrimply_export_core::{json, output};
 use shrimply_gtk_components::tr;
 use shrimply_gtk_components::ui::I18nMenuExt;
 
-pub use shrimply_gtk_components::desktop_open;
 pub use shrimply_export_core::{caption, project, time_format};
+pub use shrimply_gtk_components::desktop_open;
 
 use shrimply_math_media as math;
 
@@ -722,14 +722,9 @@ fn start_video_export(
     let worker_cancelled = cancelled.clone();
     thread::spawn(move || {
         let progress_tx = tx.clone();
-        let result = video::export_project(
-            project,
-            settings,
-            worker_cancelled,
-            move |progress| {
-                let _ = progress_tx.send(VideoExportEvent::Progress(progress));
-            },
-        );
+        let result = video::export_project(project, settings, worker_cancelled, move |progress| {
+            let _ = progress_tx.send(VideoExportEvent::Progress(progress));
+        });
         let _ = tx.send(VideoExportEvent::Finished(result));
     });
 
