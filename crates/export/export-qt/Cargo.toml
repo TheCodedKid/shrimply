@@ -1,0 +1,20 @@
+[package]
+name = "shrimply-export-qt"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+cxx.workspace = true
+cxx-qt.workspace = true
+cxx-qt-lib = { workspace = true, features = ["qt_full"] }
+shrimply-cross-ui-core = { path = "../../ui/cross-ui-core" }
+shrimply-export-core = { path = "../export-core" }
+shrimply-i18n-qt = { path = "../../ui/i18n-qt" }
+shrimply-math-core = { path = "../../math/core" }
+shrimply-math-media = { path = "../../math/media" }
+shrimply-qt-components = { path = "../../ui/qt-components" }
+shrimply-qt-helpers = { path = "../../ui/qt-helpers" }
+shrimply-state = { path = "../../state" }
+
+[build-dependencies]
+cxx-qt-build = { workspace = true, features = ["link_qt_object_files"] }

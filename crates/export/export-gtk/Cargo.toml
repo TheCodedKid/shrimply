@@ -1,5 +1,5 @@
 [package]
-name = "shrimply-export-ui"
+name = "shrimply-export-gtk"
 version = "0.1.0"
 edition = "2024"
 
@@ -7,7 +7,7 @@ edition = "2024"
 adw.workspace = true
 glam.workspace = true
 gtk.workspace = true
-shrimply-export = { path = "../export" }
+shrimply-export-core = { path = "../export-core" }
 shrimply-math-core = { path = "../../math/core" }
 shrimply-math-media = { path = "../../math/media" }
 shrimply-project = { path = "../../project/project" }

@@ -181,6 +181,35 @@ pub fn export_project<F>(
     project: Project,
     settings: ExportSettings,
     cancelled: Arc<AtomicBool>,
+    progress: F,
+) -> Result<(), String>
+where
+    F: FnMut(ExportProgress),
+{
+    let path = settings.path.clone();
+    let output_opened = Arc::new(AtomicBool::new(false));
+    let result = export_project_inner(
+        project,
+        settings,
+        cancelled.clone(),
+        output_opened.clone(),
+        progress,
+    );
+    let result = if result.is_ok() && cancelled.load(Ordering::Relaxed) {
+        Err("Export cancelled".to_string())
+    } else {
+        result
+    };
+    if result.is_err() && output_opened.load(Ordering::Relaxed) {
+        let _ = std::fs::remove_file(path);
+    }
+    result
+}
+
+fn export_project_inner<F>(
+    project: Project,
+    settings: ExportSettings,
+    cancelled: Arc<AtomicBool>,
     output_opened: Arc<AtomicBool>,
     mut progress: F,
 ) -> Result<(), String>

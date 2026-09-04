@@ -23,7 +23,7 @@ shrimply-blender = { path = "../../blender/blender-bridge" }
 shrimply-asset = { path = "../../asset" }
 shrimply-cross-ui-core = { path = "../../ui/cross-ui-core" }
 shrimply-cross-ui-theme = { path = "../../ui/cross-ui-theme" }
-shrimply-export-ui = { path = "../../export/export-ui" }
+shrimply-export-gtk = { path = "../../export/export-gtk" }
 shrimply-inspector-gtk = { path = "../../ui/inspector-gtk" }
 shrimply-math-core = { path = "../../math/core" }
 shrimply-manim-parser = { path = "../../manim/manim-parser" }

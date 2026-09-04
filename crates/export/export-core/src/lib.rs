@@ -1,4 +1,6 @@
 pub mod audio;
+pub mod json;
+pub mod output;
 pub mod video;
 
 use shrimply_math_media as math;
@@ -44,4 +46,4 @@ fn ensure_output_is_not_an_asset(
     }
 }
 
-pub use shrimply_project::project;
+pub use shrimply_project::{caption, project, time_format};

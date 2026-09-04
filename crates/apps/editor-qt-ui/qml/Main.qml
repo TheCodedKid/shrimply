@@ -5,6 +5,7 @@ import QtQuick.Dialogs
 import QtQuick.Layouts
 import QtQml.Models
 import dev.shrimply.editor
+import dev.shrimply.export
 import dev.shrimply.inspector
 
 ApplicationWindow {
@@ -110,7 +111,24 @@ ApplicationWindow {
                 onTriggered: Qt.callLater(backend.showSaveAsDialog)
             }
             MenuSeparator {}
-            Action { text: backend.translate("Export…"); shortcut: "Ctrl+E" }
+            Menu {
+                title: backend.translate("Export")
+                enabled: !exportWindow.busy
+
+                Action {
+                    text: backend.translate("Export video")
+                    shortcut: "Ctrl+E"
+                    onTriggered: exportWindow.openVideo()
+                }
+                Action {
+                    text: backend.translate("Export captions (YTT)")
+                    onTriggered: exportWindow.openCaptions()
+                }
+                Action {
+                    text: backend.translate("Export JSON")
+                    onTriggered: exportWindow.exportJson()
+                }
+            }
             MenuSeparator {}
             Action { text: backend.translate("Quit"); shortcut: StandardKey.Quit; onTriggered: Qt.quit() }
         }
@@ -199,6 +217,11 @@ ApplicationWindow {
     AboutWindow {
         id: aboutWindow
         backend: backend
+        owner: window
+    }
+
+    ExportWindow {
+        id: exportWindow
         owner: window
     }
 

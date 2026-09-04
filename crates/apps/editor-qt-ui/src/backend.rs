@@ -824,6 +824,7 @@ impl qobject::EditorBackend {
                     panic!("could not initialize Qt GPU surfaces: {error}")
                 });
                 shrimply_inspector_qt::install(&session);
+                shrimply_export_qt::install(&session);
                 self.as_mut().rust_mut().get_mut().session = Some(Box::pin(session));
                 self.as_mut().set_ready(true);
                 self.as_mut().update_player_properties();

@@ -19,7 +19,7 @@ pub mod preferences {
 }
 
 pub mod export {
-    pub use shrimply_export::audio;
+    pub use shrimply_export_core::audio;
     pub use shrimply_gtk_components::export_feedback::show_export_finished_for_widget;
 }
 

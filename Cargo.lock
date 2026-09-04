@@ -5510,6 +5510,7 @@ dependencies = [
  "cxx-qt-lib",
  "ffmpeg-next",
  "shrimply-cross-ui-core",
+ "shrimply-export-qt",
  "shrimply-i18n-qt",
  "shrimply-inspector-qt",
  "shrimply-math-core",
@@ -5542,7 +5543,7 @@ dependencies = [
  "shrimply-blender",
  "shrimply-cross-ui-core",
  "shrimply-cross-ui-theme",
- "shrimply-export-ui",
+ "shrimply-export-gtk",
  "shrimply-gtk-components",
  "shrimply-inspector-gtk",
  "shrimply-kdenlive",
@@ -5593,7 +5594,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "shrimply-export"
+name = "shrimply-export-core"
 version = "0.1.0"
 dependencies = [
  "fastrand",
@@ -5613,19 +5614,37 @@ dependencies = [
 ]
 
 [[package]]
-name = "shrimply-export-ui"
+name = "shrimply-export-gtk"
 version = "0.1.0"
 dependencies = [
  "glam 0.33.5",
  "gtk4",
  "libadwaita",
- "shrimply-export",
+ "shrimply-export-core",
  "shrimply-gtk-components",
  "shrimply-math-core",
  "shrimply-math-media",
  "shrimply-project",
  "shrimply-state",
  "tracing",
+]
+
+[[package]]
+name = "shrimply-export-qt"
+version = "0.1.0"
+dependencies = [
+ "cxx",
+ "cxx-qt",
+ "cxx-qt-build",
+ "cxx-qt-lib",
+ "shrimply-cross-ui-core",
+ "shrimply-export-core",
+ "shrimply-i18n-qt",
+ "shrimply-math-core",
+ "shrimply-math-media",
+ "shrimply-qt-components",
+ "shrimply-qt-helpers",
+ "shrimply-state",
 ]
 
 [[package]]
@@ -6703,7 +6722,7 @@ dependencies = [
  "shrimply-core",
  "shrimply-cross-ui-theme",
  "shrimply-cross-ui-tl",
- "shrimply-export",
+ "shrimply-export-core",
  "shrimply-gtk-components",
  "shrimply-inspector-core",
  "shrimply-math-color",

@@ -1,9 +1,10 @@
-pub use shrimply_export::{audio, video};
+pub use shrimply_export_core::{audio, video};
+use shrimply_export_core::{json, output};
 use shrimply_gtk_components::tr;
 use shrimply_gtk_components::ui::I18nMenuExt;
 
 pub use shrimply_gtk_components::desktop_open;
-pub use shrimply_project::{caption, project, time_format};
+pub use shrimply_export_core::{caption, project, time_format};
 
 use shrimply_math_media as math;
 
@@ -13,14 +14,13 @@ use gtk::{gio, glib};
 use shrimply_math_core::Fraction;
 use shrimply_state::preferences;
 use std::cell::RefCell;
-use std::fs;
 use std::ops::Deref;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::TryRecvError;
 use std::thread;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant};
 
 pub fn build_export_button(
     window: &adw::ApplicationWindow,
@@ -130,7 +130,7 @@ fn open_ytt_dialog(
         let label = "Export YouTube Captions";
         let file_dialog = gtk::FileDialog::builder()
             .title(tr!(label).as_ref())
-            .initial_name(default_ytt_filename(&project.borrow()))
+            .initial_name(output::default_filename(&project.borrow(), "ytt"))
             .build();
         let parent_for_result = export_parent.clone();
         let toasts = toasts.clone();
@@ -143,7 +143,7 @@ fn open_ytt_dialog(
                 let Some(file) = result.ok() else {
                     return;
                 };
-                let Some(mut path) = file.path() else {
+                let Some(path) = file.path() else {
                     show_export_error(
                         &parent_for_result,
                         "Could not export captions",
@@ -151,13 +151,7 @@ fn open_ytt_dialog(
                     );
                     return;
                 };
-                if !path
-                    .extension()
-                    .and_then(|value| value.to_str())
-                    .is_some_and(|value| value.eq_ignore_ascii_case("ytt"))
-                {
-                    path.set_extension("ytt");
-                }
+                let path = output::ensure_extension(path, "ytt");
                 match ytt::export(&project.borrow(), &path, export_mode) {
                     Ok(paths) => {
                         if let Some(path) = paths.first() {
@@ -615,7 +609,7 @@ fn open_export_page(
                 let Some(file) = result.ok() else {
                     return;
                 };
-                let Some(mut path) = file.path() else {
+                let Some(path) = file.path() else {
                     show_export_error(
                         &parent_for_error,
                         "Could not export video",
@@ -624,13 +618,7 @@ fn open_export_page(
                     return;
                 };
                 let extension = video::extension_for_container(settings.container);
-                if !path
-                    .extension()
-                    .and_then(|extension| extension.to_str())
-                    .is_some_and(|value| value.eq_ignore_ascii_case(extension))
-                {
-                    path.set_extension(extension);
-                }
+                let path = output::ensure_extension(path, extension);
                 let mut settings = settings.clone();
                 settings.path = path;
                 start_video_export(
@@ -708,9 +696,7 @@ fn collect_export_video_settings(
 }
 
 fn default_video_filename(project: &project::Project, container: video::ExportContainer) -> String {
-    let json = default_json_filename(project);
-    let base = json.strip_suffix(".json").unwrap_or(&json);
-    format!("{base}.{}", video::extension_for_container(container))
+    output::default_filename(project, video::extension_for_container(container))
 }
 
 enum VideoExportEvent {
@@ -728,29 +714,22 @@ fn start_video_export(
     let (progress_dialog, state_label, progress_bar) = video_export_progress_dialog(parent);
     let (tx, rx) = std::sync::mpsc::channel();
     let cancelled = Arc::new(AtomicBool::new(false));
-    let output_opened = Arc::new(AtomicBool::new(false));
     progress_dialog.connect_closed({
         let cancelled = cancelled.clone();
         move |_| cancelled.store(true, Ordering::Relaxed)
     });
     let started = Instant::now();
     let worker_cancelled = cancelled.clone();
-    let worker_output_opened = output_opened.clone();
-    let worker_path = path.clone();
     thread::spawn(move || {
         let progress_tx = tx.clone();
         let result = video::export_project(
             project,
             settings,
-            worker_cancelled.clone(),
-            worker_output_opened.clone(),
+            worker_cancelled,
             move |progress| {
                 let _ = progress_tx.send(VideoExportEvent::Progress(progress));
             },
         );
-        if result.is_err() && worker_output_opened.load(Ordering::Relaxed) {
-            let _ = fs::remove_file(&worker_path);
-        }
         let _ = tx.send(VideoExportEvent::Finished(result));
     });
 
@@ -779,19 +758,14 @@ fn start_video_export(
 
         match finished {
             Some(Ok(())) => {
-                let was_cancelled = cancelled.load(Ordering::Relaxed);
                 progress_dialog.close();
-                if was_cancelled && output_opened.load(Ordering::Relaxed) {
-                    let _ = fs::remove_file(&path);
-                } else {
-                    let title = shrimply_gtk_components::i18n::text_args(
-                        "Video exported in %{duration}",
-                        &[("duration", time_format::human_duration(started.elapsed()))],
-                    );
-                    shrimply_gtk_components::export_feedback::show_export_finished_text(
-                        &toasts, &parent, &title, &path,
-                    );
-                }
+                let title = shrimply_gtk_components::i18n::text_args(
+                    "Video exported in %{duration}",
+                    &[("duration", time_format::human_duration(started.elapsed()))],
+                );
+                shrimply_gtk_components::export_feedback::show_export_finished_text(
+                    &toasts, &parent, &title, &path,
+                );
                 glib::ControlFlow::Break
             }
             Some(Err(error)) => {
@@ -955,7 +929,7 @@ fn open_project_json_dialog(
     toasts: &adw::ToastOverlay,
     project: Rc<RefCell<project::Project>>,
 ) {
-    let default_name = default_json_filename(&project.borrow());
+    let default_name = output::default_filename(&project.borrow(), "json");
     let label = "Export JSON";
     let dialog = gtk::FileDialog::builder()
         .title(tr!(label).as_ref())
@@ -973,7 +947,7 @@ fn open_project_json_dialog(
             let Some(file) = result.ok() else {
                 return;
             };
-            let mut path = match file.path() {
+            let path = match file.path() {
                 Some(path) => path,
                 None => {
                     show_export_error(
@@ -984,23 +958,12 @@ fn open_project_json_dialog(
                     return;
                 }
             };
-            if !path
-                .extension()
-                .and_then(|extension| extension.to_str())
-                .is_some_and(|extension| extension.eq_ignore_ascii_case("json"))
-            {
-                path.set_extension("json");
-            }
+            let path = output::ensure_extension(path, "json");
 
             let project = project.borrow().clone();
             let (sender, receiver) = std::sync::mpsc::channel();
             thread::spawn(move || {
-                let result = project::serialize_project_json(&path, &project)
-                    .map_err(|error| format!("Could not serialize project: {error}"))
-                    .and_then(|data| {
-                        fs::write(&path, data)
-                            .map_err(|error| format!("Could not save file: {error}"))
-                    });
+                let result = json::export(&project, &path);
                 let _ = sender.send((path, result));
             });
 
@@ -1058,110 +1021,4 @@ pub(crate) fn show_export_finished(
     path: &std::path::Path,
 ) {
     shrimply_gtk_components::export_feedback::show_export_finished(toasts, parent, title, path);
-}
-
-fn default_json_filename(project: &project::Project) -> String {
-    let mut base = strip_human_timestamp_suffix(project.name.trim());
-
-    if base.is_empty() {
-        base = fallback_project_name();
-    }
-
-    format!("{base}.json")
-}
-
-fn default_ytt_filename(project: &project::Project) -> String {
-    let mut base = strip_human_timestamp_suffix(project.name.trim());
-    if base.is_empty() {
-        base = fallback_project_name();
-    }
-    format!("{base}.ytt")
-}
-
-fn fallback_project_name() -> String {
-    let timestamp = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|value| value.as_secs())
-        .unwrap_or(0);
-    format!("project_{timestamp}")
-}
-
-fn strip_human_timestamp_suffix(name: &str) -> String {
-    let mut candidate = name.trim().to_string();
-    loop {
-        if let Some((prefix, suffix)) = candidate.rsplit_once('_')
-            && (is_time_hyphen(suffix)
-                || is_date_hyphen(suffix)
-                || is_compact_time(suffix)
-                || is_compact_date(suffix))
-        {
-            candidate = prefix.to_string();
-            continue;
-        }
-
-        let dashed = strip_dashed_timestamp_suffix(&candidate);
-        if dashed != candidate && !dashed.is_empty() {
-            candidate = dashed;
-            continue;
-        }
-
-        break;
-    }
-
-    if candidate.is_empty() {
-        "project".to_string()
-    } else {
-        candidate
-    }
-}
-
-fn strip_dashed_timestamp_suffix(name: &str) -> String {
-    let parts: Vec<&str> = name.split('-').collect();
-    if parts.len() >= 6 && is_datetime_hyphen_parts(&parts[parts.len() - 6..]) {
-        return parts[..parts.len() - 6].join("-");
-    }
-    if parts.len() >= 3 && is_date_hyphen_parts(&parts[parts.len() - 3..]) {
-        return parts[..parts.len() - 3].join("-");
-    }
-    name.to_string()
-}
-
-fn is_time_hyphen(part: &str) -> bool {
-    let segments: Vec<_> = part.split('-').collect();
-    segments.len() == 3 && is_part_lengths(&segments, [2, 2, 2]) && is_all_digits(&segments)
-}
-
-fn is_date_hyphen(part: &str) -> bool {
-    let segments: Vec<_> = part.split('-').collect();
-    segments.len() == 3 && is_part_lengths(&segments, [4, 2, 2]) && is_all_digits(&segments)
-}
-
-fn is_datetime_hyphen_parts(parts: &[&str]) -> bool {
-    parts.len() == 6
-        && is_part_lengths(&parts[0..3], [4, 2, 2])
-        && is_part_lengths(&parts[3..6], [2, 2, 2])
-        && is_all_digits(&parts[0..3])
-        && is_all_digits(&parts[3..6])
-}
-
-fn is_date_hyphen_parts(parts: &[&str]) -> bool {
-    is_part_lengths(parts, [4, 2, 2]) && is_all_digits(parts)
-}
-
-fn is_compact_time(part: &str) -> bool {
-    part.len() == 6 && part.bytes().all(|byte| byte.is_ascii_digit())
-}
-
-fn is_compact_date(part: &str) -> bool {
-    part.len() == 8 && part.bytes().all(|byte| byte.is_ascii_digit())
-}
-
-fn is_part_lengths(parts: &[&str], lens: [usize; 3]) -> bool {
-    parts.len() == lens.len() && parts.iter().zip(lens).all(|(part, len)| part.len() == len)
-}
-
-fn is_all_digits(segments: &[&str]) -> bool {
-    segments
-        .iter()
-        .all(|segment| !segment.is_empty() && segment.bytes().all(|byte| byte.is_ascii_digit()))
 }

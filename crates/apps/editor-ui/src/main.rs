@@ -1,4 +1,4 @@
-use shrimply_export_ui as export;
+use shrimply_export_gtk as export;
 use shrimply_gtk_components::tr;
 use shrimply_gtk_components::ui::I18nAlertDialogExt;
 use shrimply_gtk_components::ui::I18nFileFilterExt;
