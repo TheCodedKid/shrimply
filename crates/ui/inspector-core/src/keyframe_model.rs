@@ -1,21 +1,53 @@
-use std::{any::Any, rc::Rc};
+use std::{any::Any, cell::Ref, cell::RefCell, rc::Rc};
 
 use shrimply_core::timeline_value::{
     CurveEditPolicy, CurveKeyframeInsert, DiscreteEditPolicy, Interpolation, TimelineBase,
-    TimelineKeyframe, TimelineValue, TimelineValueType, edit_curve_value, edit_discrete_value,
+    TimelineCurveKeyframe, TimelineKeyframe, TimelineValue, TimelineValueType, edit_curve_value,
+    edit_discrete_value,
 };
-use shrimply_keyframe_graph_ui::{KeyframeGraph, KeyframePoint, RawSegment};
-use shrimply_project::project::Time;
+use shrimply_project::project::{ItemAddress, Project, Time};
 use shrimply_state::player_state::ProjectChange;
 use uuid::Uuid;
 
+use crate::keyframe_graph::{KeyframeGraph, KeyframePoint, RawSegment};
+
 pub const KEYFRAME_CLIPBOARD_MARKER: &str = "shrimply keyframes";
+
+pub fn graph_snapping(preferences: &shrimply_state::preferences::SharedPreferences) -> (bool, f64) {
+    let preferences = shrimply_state::preferences::snapshot(preferences);
+    (
+        preferences.timeline_magnet == "true",
+        f64::from(preferences.timeline_snap_radius_px),
+    )
+}
 
 #[derive(Clone)]
 pub struct KeyframeClipboard {
     values: Rc<dyn Any>,
     pub times: Vec<Time>,
     len: usize,
+}
+
+pub struct KeyframeClipboardCache(RefCell<Option<KeyframeClipboard>>);
+
+impl KeyframeClipboardCache {
+    pub const fn new() -> Self {
+        Self(RefCell::new(None))
+    }
+
+    pub fn replace(&self, clipboard: Option<KeyframeClipboard>) {
+        self.0.replace(clipboard);
+    }
+
+    pub fn borrow(&self) -> Ref<'_, Option<KeyframeClipboard>> {
+        self.0.borrow()
+    }
+}
+
+impl Default for KeyframeClipboardCache {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[derive(Clone)]
@@ -32,6 +64,186 @@ impl KeyframeClipboard {
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }
+}
+
+pub fn project_frame_step(project: &Project, item: Option<&ItemAddress>) -> Time {
+    item.and_then(|item| project.keyframe_step(item))
+        .filter(|step| *step > Time::ZERO)
+        .unwrap_or_else(|| project.frame_step())
+}
+
+pub fn canonical_keyframe_time(
+    project: &Project,
+    item: Option<&ItemAddress>,
+    time: Time,
+) -> Option<Time> {
+    let Some(item) = item else {
+        return Some(time.snapped(project.frame_step()));
+    };
+    project
+        .keyframe_timeline_time(item, time)
+        .and_then(|timeline_time| project.keyframe_time(item, timeline_time))
+}
+
+pub fn bounded_visible_area(
+    project: &Project,
+    item: Option<&ItemAddress>,
+    (start, end): (Time, Time),
+) -> (Time, Time) {
+    let duration = item
+        .and_then(|item| project.item(item))
+        .map(|item| {
+            let (start, end) = item.times();
+            end.saturating_sub(start).max(start.saturating_sub(end))
+        })
+        .unwrap_or(Time::ZERO);
+    (start, end.max(start.saturating_add(duration)))
+}
+
+pub fn normalize_clipboard_times(
+    project: &Project,
+    item: Option<&ItemAddress>,
+    clipboard: &mut KeyframeClipboard,
+) -> bool {
+    let timeline_times = clipboard
+        .times
+        .iter()
+        .map(|time| {
+            item.and_then(|item| project.keyframe_timeline_time(item, *time))
+                .unwrap_or(*time)
+                .snapped(project.frame_step())
+        })
+        .collect::<Vec<_>>();
+    let Some(origin) = timeline_times.first().copied() else {
+        return false;
+    };
+    clipboard.times = timeline_times
+        .into_iter()
+        .map(|time| Time {
+            seconds: time.seconds - origin.seconds,
+        })
+        .collect();
+    true
+}
+
+pub fn clipboard_paste_times(
+    project: &Project,
+    item: Option<&ItemAddress>,
+    clipboard: &KeyframeClipboard,
+    time: Time,
+) -> Option<Vec<Time>> {
+    let anchor = item
+        .and_then(|item| project.keyframe_timeline_time(item, time))
+        .unwrap_or(time)
+        .snapped(project.frame_step());
+    let times = clipboard
+        .times
+        .iter()
+        .filter_map(|offset| {
+            let timeline_time = Time {
+                seconds: anchor.seconds + offset.seconds,
+            };
+            item.map(|item| project.keyframe_time(item, timeline_time))
+                .unwrap_or(Some(timeline_time))
+        })
+        .collect::<Vec<_>>();
+    (times.len() == clipboard.len()).then_some(times)
+}
+
+pub fn exact_time(numerator: i64, denominator: i64) -> Result<Time, String> {
+    if denominator <= 0 {
+        return Err("keyframe graph time denominator must be positive".to_string());
+    }
+    Ok(Time::from_fraction(numerator, denominator))
+}
+
+pub fn parse_time(value: &str) -> Result<Time, String> {
+    let (numerator, denominator) = value
+        .split_once('/')
+        .ok_or_else(|| format!("keyframe graph time is not an exact fraction: {value}"))?;
+    exact_time(
+        numerator
+            .parse()
+            .map_err(|_| format!("keyframe graph time numerator is invalid: {value}"))?,
+        denominator
+            .parse()
+            .map_err(|_| format!("keyframe graph time denominator is invalid: {value}"))?,
+    )
+}
+
+pub fn parse_graph_value(value: &str) -> Result<f64, String> {
+    value
+        .parse::<f64>()
+        .map_err(|_| format!("keyframe graph value is invalid: {value}"))
+        .and_then(|value| {
+            value
+                .is_finite()
+                .then_some(value)
+                .ok_or_else(|| "keyframe graph value must be finite".to_string())
+        })
+}
+
+pub fn parse_owner_id(value: &str) -> Result<Uuid, String> {
+    Uuid::parse_str(value).map_err(|_| "keyframe owner ID is invalid".to_string())
+}
+
+pub fn interpolation(index: usize) -> Result<Interpolation, String> {
+    Interpolation::KEYFRAME
+        .get(index)
+        .copied()
+        .ok_or_else(|| "keyframe interpolation is invalid".to_string())
+}
+
+pub fn set_keyframes_enabled<T: TimelineValueType>(
+    value: &mut TimelineValue<T>,
+    time: Time,
+    current: T,
+    enabled: bool,
+) -> bool {
+    shrimply_core::timeline_value::set_keyframes_enabled(value, time, current, enabled)
+}
+
+pub fn set_expression_enabled<T: TimelineValueType>(
+    value: &mut TimelineValue<T>,
+    enabled: bool,
+    default_source: &str,
+) -> bool {
+    shrimply_core::timeline_value::set_expression_enabled(value, enabled, default_source)
+}
+
+pub fn set_json_keyframes_enabled(
+    timeline: &mut serde_json::Value,
+    time: Time,
+    current: serde_json::Value,
+    enabled: bool,
+) -> Result<bool, String> {
+    let base = timeline
+        .get_mut("base")
+        .and_then(serde_json::Value::as_object_mut)
+        .ok_or_else(|| "inspector timeline base is invalid".to_string())?;
+    let currently_enabled = base.contains_key("keyframes");
+    if currently_enabled == enabled {
+        return Ok(false);
+    }
+    *base = if enabled {
+        serde_json::json!({
+            "keyframes": [{
+                "id": Uuid::new_v4(),
+                "time": time,
+                "value": current,
+                "interpolation_to_next": Interpolation::default(),
+            }]
+        })
+        .as_object()
+        .expect("timeline keyframe base must be an object")
+        .clone()
+    } else {
+        serde_json::json!({ "const": current })
+            .as_object()
+            .expect("timeline constant base must be an object")
+            .clone()
+    };
+    Ok(true)
 }
 
 pub fn copy_keyframes<T: TimelineValueType>(
@@ -620,11 +832,14 @@ pub fn update_scalar_keyframe(
     true
 }
 
-pub fn set_scalar_interpolation(
-    value: &mut TimelineValue<f32>,
+pub fn set_interpolation<T>(
+    value: &mut TimelineValue<T>,
     owner_id: Uuid,
     interpolation: Interpolation,
-) -> bool {
+) -> bool
+where
+    T: TimelineValueType<Keyframe = TimelineCurveKeyframe<T>>,
+{
     let TimelineBase::Keyframes(keyframes) = &mut value.base else {
         return false;
     };
@@ -639,4 +854,12 @@ pub fn set_scalar_interpolation(
     }
     keyframe.interpolation_to_next = interpolation;
     true
+}
+
+pub fn set_scalar_interpolation(
+    value: &mut TimelineValue<f32>,
+    owner_id: Uuid,
+    interpolation: Interpolation,
+) -> bool {
+    set_interpolation(value, owner_id, interpolation)
 }

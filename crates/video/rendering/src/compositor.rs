@@ -3,7 +3,7 @@ use std::hash::{DefaultHasher, Hash, Hasher};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender, SyncSender};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, Weak};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -25,7 +25,7 @@ use shrimply_evaluation::{
 };
 use shrimply_math_core::Fraction;
 use shrimply_project::project::{
-    AlphaMaskShape, Color, LayerBlendMode, MAX_MOTION_BLUR_SAMPLES,
+    AlphaMaskShape, Color, ItemAddress, LayerBlendMode, MAX_MOTION_BLUR_SAMPLES,
     MAX_MOTION_BLUR_SHUTTER_ANGLE_DEGREES, MAX_MOTION_BLUR_SHUTTER_PHASE_DEGREES,
     MIN_MOTION_BLUR_SAMPLES, MIN_MOTION_BLUR_SHUTTER_ANGLE_DEGREES,
     MIN_MOTION_BLUR_SHUTTER_PHASE_DEGREES, Project, SequenceReference, TextureAddressMode, Time,
@@ -33,6 +33,7 @@ use shrimply_project::project::{
     VisualClipTransitionKind, VisualTransition, VisualTransitionKind, video_source_time_at,
 };
 use shrimply_project::timeline_search;
+use shrimply_video_modifiers::{ModifierEffect, RasterModifierEffect};
 use uuid::Uuid;
 
 macro_rules! abort_render_if_superseded {
@@ -128,6 +129,7 @@ type PendingProject = Arc<Mutex<Option<(Arc<Project>, u64, u64)>>>;
 #[derive(Clone)]
 pub struct VideoCommandSender {
     sender: Sender<WorkerCommand>,
+    _sam2_claim_waiter: Arc<crate::sam2_analysis::ClaimWaiter>,
     next_request_id: Arc<AtomicU64>,
     cancel_generation: Arc<AtomicU64>,
     last_render: Arc<Mutex<Option<CompositeAccuracy>>>,
@@ -254,6 +256,9 @@ impl VideoCommandSender {
                 WorkerCommand::ConfigureResources(config) => {
                     VideoCommand::ConfigureResources(config)
                 }
+                WorkerCommand::ScheduleSam2Analysis => {
+                    unreachable!("SAM2 scheduling is an internal compositor command")
+                }
                 WorkerCommand::Stop => VideoCommand::Stop,
             }))
         })
@@ -264,6 +269,7 @@ enum WorkerCommand {
     SetProject,
     SetPreviewExclusion(Option<Uuid>),
     ConfigureResources(RenderResourceConfig),
+    ScheduleSam2Analysis,
     Render {
         position: Time,
         accuracy: CompositeAccuracy,
@@ -601,6 +607,7 @@ impl RenderSessions {
 struct RenderCache {
     expressions: TransformExpressionCache,
     morphs: HashMap<MorphCacheKey, Rc<CachedMorph>>,
+    transparent_fill_keys: HashMap<(ItemAddress, Uuid, u64), String>,
 }
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
@@ -787,7 +794,7 @@ impl VideoExportRenderer {
         position: Time,
         background_alpha: u8,
     ) -> Result<CompositedVideoFrame, String> {
-        self.render_items_inner(project, position, background_alpha, None, None)
+        self.render_items_inner(project, position, background_alpha, None, None, false)
     }
 
     pub fn render_items(
@@ -800,21 +807,57 @@ impl VideoExportRenderer {
         if item_ids.is_empty() {
             return Err("no visual items were selected".to_string());
         }
-        self.render_items_inner(project, position, background_alpha, Some(item_ids), None)
+        self.render_items_inner(
+            project,
+            position,
+            background_alpha,
+            Some(item_ids),
+            None,
+            false,
+        )
     }
 
     pub(crate) fn render_cache_item(
         &mut self,
         project: &Project,
         position: Time,
-        item_id: Uuid,
+        address: &ItemAddress,
     ) -> Result<CompositedVideoFrame, String> {
+        self.render_cache_item_inner(project, position, address, false)
+    }
+
+    pub(crate) fn render_transparent_fill_input(
+        &mut self,
+        project: &Project,
+        position: Time,
+        address: &ItemAddress,
+    ) -> Result<CompositedVideoFrame, String> {
+        self.render_cache_item_inner(project, position, address, true)
+    }
+
+    fn render_cache_item_inner(
+        &mut self,
+        project: &Project,
+        position: Time,
+        address: &ItemAddress,
+        snap_cache_item: bool,
+    ) -> Result<CompositedVideoFrame, String> {
+        let ItemAddress::Video {
+            sequence_path,
+            item_id,
+            ..
+        } = address
+        else {
+            return Err("visual cache requires a video item address".to_string());
+        };
+        let root_item_id = sequence_path.first().unwrap_or(item_id);
         self.render_items_inner(
             project,
             position,
             0,
-            Some(std::slice::from_ref(&item_id)),
-            Some(item_id),
+            Some(std::slice::from_ref(root_item_id)),
+            Some(address),
+            snap_cache_item,
         )
     }
 
@@ -824,7 +867,8 @@ impl VideoExportRenderer {
         position: Time,
         background_alpha: u8,
         item_ids: Option<&[Uuid]>,
-        cache_item_id: Option<Uuid>,
+        cache_item: Option<&ItemAddress>,
+        snap_cache_item: bool,
     ) -> Result<CompositedVideoFrame, String> {
         let volume_revision = self.sessions.volume_revision;
         let audio_analysis = FrameAudioAnalysis {
@@ -849,7 +893,8 @@ impl VideoExportRenderer {
             },
             &audio_analysis,
             item_ids,
-            cache_item_id,
+            cache_item,
+            snap_cache_item,
             None,
             None,
         );
@@ -880,7 +925,8 @@ impl VideoExportRenderer {
                         },
                         &audio_analysis,
                         item_ids,
-                        cache_item_id,
+                        cache_item,
+                        snap_cache_item,
                         None,
                         None,
                     );
@@ -967,17 +1013,25 @@ pub fn spawn_worker_with_resources_and_observer(
     let latest_project_generation = Arc::new(AtomicU64::new(0));
     let pending_project = Arc::new(Mutex::new(None));
     let project_notification_pending = Arc::new(AtomicBool::new(false));
+    let sam2_claim_waiter = Arc::new(crate::sam2_analysis::ClaimWaiter::new({
+        let command_tx = command_tx.clone();
+        move || {
+            let _ = command_tx.send(WorkerCommand::ScheduleSam2Analysis);
+        }
+    }));
     let worker_cancel_generation = cancel_generation.clone();
     let worker_project_generation = latest_project_generation.clone();
     let worker_project = pending_project.clone();
     let worker_project_notification = project_notification_pending.clone();
     let worker_playback_observer = playback_observer.clone();
+    let worker_sam2_claim_waiter = Arc::downgrade(&sam2_claim_waiter);
     thread::spawn(move || {
         video_compositor_worker(
             project,
             resource_config,
             VideoWorkerChannels {
                 command_rx,
+                sam2_claim_waiter: worker_sam2_claim_waiter,
                 event_tx,
                 cancel_generation: worker_cancel_generation,
                 latest_project_generation: worker_project_generation,
@@ -990,6 +1044,7 @@ pub fn spawn_worker_with_resources_and_observer(
     (
         VideoCommandSender {
             sender: command_tx,
+            _sam2_claim_waiter: sam2_claim_waiter,
             next_request_id,
             cancel_generation,
             last_render,
@@ -1004,6 +1059,7 @@ pub fn spawn_worker_with_resources_and_observer(
 
 struct VideoWorkerChannels {
     command_rx: Receiver<WorkerCommand>,
+    sam2_claim_waiter: Weak<crate::sam2_analysis::ClaimWaiter>,
     event_tx: SyncSender<VideoEvent>,
     cancel_generation: Arc<AtomicU64>,
     latest_project_generation: Arc<AtomicU64>,
@@ -1019,6 +1075,7 @@ fn video_compositor_worker(
 ) {
     let VideoWorkerChannels {
         command_rx,
+        sam2_claim_waiter,
         event_tx,
         cancel_generation,
         latest_project_generation,
@@ -1053,13 +1110,26 @@ fn video_compositor_worker(
                     project_revision = next_revision;
                     project_generation = next_generation;
                     render_cache.morphs.clear();
+                    render_cache.transparent_fill_keys.clear();
                     let _measurement =
                         shrimply_benchmarking::measure("Video / Retain project sessions");
                     retain_project_sessions(&project, &mut sessions);
+                    schedule_sam2_analysis(
+                        &project,
+                        &mut sam2_analyses,
+                        &event_tx,
+                        &sam2_claim_waiter,
+                    );
                 }
             }
             WorkerCommand::SetPreviewExclusion(item_id) => preview_exclusion = item_id,
             WorkerCommand::ConfigureResources(config) => sessions.configure_resources(config),
+            WorkerCommand::ScheduleSam2Analysis => {
+                if let Some(waiter) = sam2_claim_waiter.upgrade() {
+                    waiter.consume_notification();
+                }
+                schedule_sam2_analysis(&project, &mut sam2_analyses, &event_tx, &sam2_claim_waiter);
+            }
             WorkerCommand::Render {
                 position,
                 accuracy,
@@ -1082,11 +1152,13 @@ fn video_compositor_worker(
                         &command_rx,
                         &pending_project,
                         &project_notification_pending,
+                        &sam2_claim_waiter,
                     )
                 };
                 let Some((position, accuracy, request_id, render_generation)) = coalesced else {
                     return;
                 };
+                schedule_sam2_analysis(&project, &mut sam2_analyses, &event_tx, &sam2_claim_waiter);
                 let render_project_generation = project_generation;
                 let decode_control =
                     DecodeControl::new(render_generation, cancel_generation.clone());
@@ -1123,10 +1195,6 @@ fn video_compositor_worker(
                 let Some(compositor) = compositor.as_mut() else {
                     continue;
                 };
-                if let Some(job) = sam2::pending_analysis(&project, &sam2_analyses) {
-                    sam2_analyses.insert(job.modifier_id, job.generation);
-                    sam2::spawn_analysis(project.clone(), job, event_tx.clone());
-                }
                 let render_started = Instant::now();
                 let _measurement = shrimply_benchmarking::measure("Video / Render request");
                 let audio_analysis = {
@@ -1147,6 +1215,7 @@ fn video_compositor_worker(
                     &audio_analysis,
                     None,
                     None,
+                    false,
                     preview_exclusion,
                     Some(&decode_control),
                 );
@@ -1176,6 +1245,7 @@ fn video_compositor_worker(
                                 &audio_analysis,
                                 None,
                                 None,
+                                false,
                                 preview_exclusion,
                                 Some(&decode_control),
                             );
@@ -1361,6 +1431,7 @@ fn coalesce_pending_commands(
     command_rx: &Receiver<WorkerCommand>,
     pending_project: &Mutex<Option<(Arc<Project>, u64, u64)>>,
     project_notification_pending: &AtomicBool,
+    sam2_claim_waiter: &Weak<crate::sam2_analysis::ClaimWaiter>,
 ) -> Option<(Time, CompositeAccuracy, u64, u64)> {
     while let Ok(next) = command_rx.try_recv() {
         match next {
@@ -1372,11 +1443,17 @@ fn coalesce_pending_commands(
                     *project_revision = next_revision;
                     *project_generation = next_generation;
                     render_cache.morphs.clear();
+                    render_cache.transparent_fill_keys.clear();
                     retain_project_sessions(project, sessions);
                 }
             }
             WorkerCommand::SetPreviewExclusion(item_id) => *preview_exclusion = item_id,
             WorkerCommand::ConfigureResources(config) => sessions.configure_resources(config),
+            WorkerCommand::ScheduleSam2Analysis => {
+                if let Some(waiter) = sam2_claim_waiter.upgrade() {
+                    waiter.consume_notification();
+                }
+            }
             WorkerCommand::Render {
                 position: next_position,
                 accuracy: next_accuracy,
@@ -1392,6 +1469,25 @@ fn coalesce_pending_commands(
         }
     }
     Some((position, accuracy, request_id, render_generation))
+}
+
+fn schedule_sam2_analysis(
+    project: &Project,
+    scheduled: &mut HashMap<Uuid, crate::sam2_analysis::RunId>,
+    event_tx: &SyncSender<VideoEvent>,
+    claim_waiter: &Weak<crate::sam2_analysis::ClaimWaiter>,
+) {
+    let Some(claim_waiter) = claim_waiter.upgrade() else {
+        return;
+    };
+    let Some(job) = sam2::pending_analysis(project, scheduled) else {
+        return;
+    };
+    let modifier_id = job.modifier_id;
+    let run_id = job.run_id;
+    if sam2::spawn_analysis(project, job, event_tx.clone(), &claim_waiter) {
+        scheduled.insert(modifier_id, run_id);
+    }
 }
 
 fn take_pending_project(
@@ -1617,6 +1713,7 @@ mod cancellation_tests {
         let cancel_generation = Arc::new(AtomicU64::new(0));
         let commands = VideoCommandSender {
             sender,
+            _sam2_claim_waiter: Arc::new(crate::sam2_analysis::ClaimWaiter::new(|| {})),
             next_request_id: Arc::new(AtomicU64::new(0)),
             cancel_generation: cancel_generation.clone(),
             last_render: Arc::new(Mutex::new(None)),

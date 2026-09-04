@@ -77,8 +77,8 @@ pub(crate) enum InspectorAction {
     RemoveVisualModifier {
         id: Uuid,
     },
-    SetVisualModifierAlphaMask {
-        id: Uuid,
+    SetAlphaMask {
+        target: shrimply_project::project::VisualAlphaMaskTarget,
         enabled: bool,
     },
     ToggleAudioCache {

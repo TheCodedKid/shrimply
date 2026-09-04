@@ -1,8 +1,5 @@
 use shrimply_core::modifier_model::ModifierModel;
-use shrimply_project::project::{
-    AlphaMaskShape, ItemAddress, Time, VideoItem, VisualAlphaMask, VisualAlphaMaskTarget,
-    VisualModifier,
-};
+use shrimply_project::project::{ItemAddress, Time, VideoItem, VisualModifier};
 use shrimply_state::player_state::{self, ProjectChange};
 use shrimply_video_modifiers::{
     ModifierEffect, RasterModifierEffect, VectorModifierEffect, VisualKind,
@@ -10,8 +7,9 @@ use shrimply_video_modifiers::{
 };
 
 use crate::{
-    ControlKind, InspectorControl, InspectorController, InspectorRuntime, InspectorSection,
-    InspectorTarget, LayeredState, NumberSpec,
+    AnalysisControlPresentation, ControlKind, InspectorControl, InspectorControlAction,
+    InspectorController, InspectorRuntime, InspectorSection, InspectorTarget, LayeredState,
+    NumberSpec, TextKeyframeCommits,
 };
 
 mod alpha_outline;
@@ -73,9 +71,49 @@ mod vignette;
 mod wave_ripple;
 mod zoom_blur;
 
+pub use crate::alpha_mask::AlphaMaskPresentation as VisualModifierAlphaMaskPresentation;
 pub use cache::visual_cache_status;
+pub use kuwahara::{
+    VERSION_COMMIT as KUWAHARA_VERSION_COMMIT, version as kuwahara_version,
+    version_mut as kuwahara_version_mut,
+};
+pub use mask::{
+    MODE_COMMIT as MASK_MODE_COMMIT, mode_value as mask_mode_value,
+    mode_value_mut as mask_mode_value_mut, set_mask_source, source_label as mask_source_label,
+};
 pub use opacity::OpacityModifierPresentation;
+pub use rasterize::{
+    SAMPLE_METHOD_COMMIT as RASTERIZE_SAMPLE_METHOD_COMMIT,
+    sample_method as rasterize_sample_method, sample_method_mut as rasterize_sample_method_mut,
+};
+pub use repeat::{
+    OFFSET_AXIS_COMMIT as REPEAT_OFFSET_AXIS_COMMIT, offset_axis as repeat_offset_axis,
+    offset_axis_mut as repeat_offset_axis_mut,
+};
+pub use sam2::{
+    ANALYZE_TOOLTIP as SAM2_ANALYZE_TOOLTIP, EDIT_COMMIT as SAM2_EDIT_COMMIT, sam2_analysis_control,
+};
+pub use sampling::{
+    METHOD_COMMIT as SAMPLING_METHOD_COMMIT, method as sampling_method,
+    method_mut as sampling_method_mut,
+};
+pub use texture_bounds::{
+    ADDRESS_MODE_COMMIT as TEXTURE_BOUNDS_ADDRESS_MODE_COMMIT,
+    address_mode as texture_bounds_address_mode,
+    address_mode_mut as texture_bounds_address_mode_mut,
+};
 pub use transform::TransformModifierPresentation;
+pub use transparent_fill::EDIT_COMMIT as TRANSPARENT_FILL_EDIT_COMMIT;
+
+const TEXT_3D_KEYFRAME_COMMITS: TextKeyframeCommits = TextKeyframeCommits {
+    toggle: "3d-text-keyframes",
+    add: "add-3d-text-keyframe",
+    delete: "delete-3d-text-keyframe",
+    move_keyframe: "move-3d-text-keyframe",
+    paste: "paste-3d-text-keyframes",
+    interpolation: "3d-text-interpolation",
+    text_interpolation: "3d-text-change-interpolation",
+};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VisualModifierChoice {
@@ -125,28 +163,39 @@ pub enum VisualModifierBodyPresentation {
     Halftone(InspectorSection),
     Hsv(InspectorSection),
     Invert(InspectorSection),
+    Kaleidoscope(InspectorSection),
+    Kuwahara(InspectorSection),
     LensDistortion(InspectorSection),
     LumaKey(InspectorSection),
+    Mask(InspectorSection),
     Mirror(InspectorSection),
+    Object3d(InspectorSection),
+    PointLight(InspectorSection),
     Opacity(Box<OpacityModifierPresentation>),
+    PathOffset(InspectorSection),
     PixelateMosaic(InspectorSection),
     Posterize(InspectorSection),
     RadialBlur(InspectorSection),
+    Rasterize(InspectorSection),
+    Sam2(InspectorSection),
+    Repeat(InspectorSection),
+    Sampling(InspectorSection),
+    ScanlinesCrt(InspectorSection),
+    Shape3d(InspectorSection),
+    ShakyPath(InspectorSection),
     Sharpen(InspectorSection),
+    SunLight(InspectorSection),
     TextMask(InspectorSection),
+    Text3d(InspectorSection),
+    TextureBounds(InspectorSection),
     Threshold(InspectorSection),
+    TransparentFill(InspectorSection),
     Transform(Box<TransformModifierPresentation>),
     Twirl(InspectorSection),
     Vectorize(InspectorSection),
     Vignette(InspectorSection),
     WaveRipple(InspectorSection),
     ZoomBlur(InspectorSection),
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct VisualModifierAlphaMaskPresentation {
-    pub active: bool,
-    pub section: InspectorSection,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -157,6 +206,8 @@ pub enum VisualModifierChainAction {
 }
 
 pub fn visual_modifier_presentations(
+    project: &shrimply_project::project::Project,
+    address: &ItemAddress,
     item: &VideoItem,
     runtime: InspectorRuntime,
 ) -> Vec<VisualModifierPresentation> {
@@ -197,26 +248,40 @@ pub fn visual_modifier_presentations(
                             opacity::presentation(value, index, runtime),
                         )))
                     }
-                    VectorModifierEffect::Hsv(value) => Some(
-                        VisualModifierBodyPresentation::Hsv(hsv::presentation(
-                            value, index, runtime,
-                        )),
-                    ),
+                    VectorModifierEffect::PathOffset(value) => {
+                        Some(VisualModifierBodyPresentation::PathOffset(
+                            path_offset::presentation(value, index, modifier.id, runtime),
+                        ))
+                    }
+                    VectorModifierEffect::Repeat(value) => {
+                        Some(VisualModifierBodyPresentation::Repeat(
+                            repeat::presentation(value, index, modifier.id, runtime),
+                        ))
+                    }
+                    VectorModifierEffect::ShakyPath(value) => {
+                        Some(VisualModifierBodyPresentation::ShakyPath(
+                            shaky_path::presentation(value, index, modifier.id, runtime),
+                        ))
+                    }
+                    VectorModifierEffect::Hsv(value) => Some(VisualModifierBodyPresentation::Hsv(
+                        hsv::presentation(value, index, runtime),
+                    )),
                     VectorModifierEffect::TextMask(value) => {
                         Some(VisualModifierBodyPresentation::TextMask(
                             text_mask::presentation(value, index, modifier.id, runtime),
                         ))
                     }
-                    _ => None,
                 },
-                ModifierEffect::Vectorize(value) => Some(
-                    VisualModifierBodyPresentation::Vectorize(vectorize::presentation(
-                        value,
-                        index,
-                        modifier.id,
-                        runtime,
-                    )),
-                ),
+                ModifierEffect::Vectorize(value) => {
+                    Some(VisualModifierBodyPresentation::Vectorize(
+                        vectorize::presentation(value, index, modifier.id, runtime),
+                    ))
+                }
+                ModifierEffect::Rasterize(value) => {
+                    Some(VisualModifierBodyPresentation::Rasterize(
+                        rasterize::presentation(value, index, modifier.id, runtime),
+                    ))
+                }
                 ModifierEffect::Raster(effect) => match &**effect {
                     RasterModifierEffect::AlphaOutline(value) => {
                         Some(VisualModifierBodyPresentation::AlphaOutline(
@@ -331,12 +396,22 @@ pub fn visual_modifier_presentations(
                     }
                     RasterModifierEffect::Halftone(value) => {
                         Some(VisualModifierBodyPresentation::Halftone(
-                            halftone::presentation(value, index, runtime),
+                            halftone::presentation(value, index, modifier.id, runtime),
                         ))
                     }
                     RasterModifierEffect::Invert(value) => {
                         Some(VisualModifierBodyPresentation::Invert(
                             invert::presentation(value, index, runtime),
+                        ))
+                    }
+                    RasterModifierEffect::Kaleidoscope(value) => {
+                        Some(VisualModifierBodyPresentation::Kaleidoscope(
+                            kaleidoscope::presentation(value, index, modifier.id, runtime),
+                        ))
+                    }
+                    RasterModifierEffect::Kuwahara(value) => {
+                        Some(VisualModifierBodyPresentation::Kuwahara(
+                            kuwahara::presentation(value, index, modifier.id, runtime),
                         ))
                     }
                     RasterModifierEffect::LensDistortion(value) => {
@@ -348,6 +423,16 @@ pub fn visual_modifier_presentations(
                         Some(VisualModifierBodyPresentation::LumaKey(
                             luma_key::presentation(value, index, modifier.id, runtime),
                         ))
+                    }
+                    RasterModifierEffect::Mask(value) => {
+                        Some(VisualModifierBodyPresentation::Mask(mask::presentation(
+                            project,
+                            address,
+                            value,
+                            index,
+                            modifier.id,
+                            runtime,
+                        )))
                     }
                     RasterModifierEffect::Mirror(value) => {
                         Some(VisualModifierBodyPresentation::Mirror(
@@ -379,14 +464,52 @@ pub fn visual_modifier_presentations(
                             radial_blur::presentation(value, index, runtime),
                         ))
                     }
+                    RasterModifierEffect::Sampling(value) => {
+                        Some(VisualModifierBodyPresentation::Sampling(
+                            sampling::presentation(value, index, modifier.id, runtime),
+                        ))
+                    }
+                    RasterModifierEffect::ScanlinesCrt(value) => {
+                        Some(VisualModifierBodyPresentation::ScanlinesCrt(
+                            scanlines_crt::presentation(value, index, modifier.id, runtime),
+                        ))
+                    }
                     RasterModifierEffect::Sharpen(value) => {
                         Some(VisualModifierBodyPresentation::Sharpen(
                             sharpen::presentation(value, index, runtime),
                         ))
                     }
+                    RasterModifierEffect::Sam2(value) => {
+                        Some(VisualModifierBodyPresentation::Sam2(sam2::presentation(
+                            value,
+                            index,
+                            modifier.id,
+                            runtime,
+                        )))
+                    }
                     RasterModifierEffect::Threshold(value) => {
                         Some(VisualModifierBodyPresentation::Threshold(
                             threshold::presentation(value, index, runtime),
+                        ))
+                    }
+                    RasterModifierEffect::TransparentFill(value) => {
+                        Some(VisualModifierBodyPresentation::TransparentFill(
+                            transparent_fill::presentation(
+                                value,
+                                index,
+                                modifier.id,
+                                shrimply_video::transparent_fill_analysis::status(
+                                    project,
+                                    address,
+                                    modifier.id,
+                                ),
+                                runtime,
+                            ),
+                        ))
+                    }
+                    RasterModifierEffect::TextureBounds(value) => {
+                        Some(VisualModifierBodyPresentation::TextureBounds(
+                            texture_bounds::presentation(value, index, modifier.id, runtime),
                         ))
                     }
                     RasterModifierEffect::Twirl(value) => {
@@ -409,27 +532,58 @@ pub fn visual_modifier_presentations(
                             zoom_blur::presentation(value, index, runtime),
                         ))
                     }
-                    _ => None,
                 },
                 ModifierEffect::Scene3d(effect) => match &**effect {
-                    Scene3dModifierEffect::Ground(value) => {
-                        Some(VisualModifierBodyPresentation::Ground(ground::presentation(
-                            value,
-                            index,
-                            modifier.id,
-                            runtime,
-                        )))
+                    Scene3dModifierEffect::Object(value) => {
+                        Some(VisualModifierBodyPresentation::Object3d(
+                            object_3d::presentation(value, index, modifier.id, runtime),
+                        ))
                     }
-                    _ => None,
+                    Scene3dModifierEffect::Ground(value) => {
+                        Some(VisualModifierBodyPresentation::Ground(
+                            ground::presentation(value, index, modifier.id, runtime),
+                        ))
+                    }
+                    Scene3dModifierEffect::PointLight(value) => {
+                        Some(VisualModifierBodyPresentation::PointLight(
+                            point_light::presentation(value, index, modifier.id, runtime),
+                        ))
+                    }
+                    Scene3dModifierEffect::Shape(value) => {
+                        Some(VisualModifierBodyPresentation::Shape3d(
+                            shape_3d::presentation(value, index, modifier.id, runtime),
+                        ))
+                    }
+                    Scene3dModifierEffect::Text(value) => {
+                        Some(VisualModifierBodyPresentation::Text3d(
+                            text_3d::presentation(value, index, modifier.id, runtime),
+                        ))
+                    }
+                    Scene3dModifierEffect::SunLight(value) => {
+                        Some(VisualModifierBodyPresentation::SunLight(
+                            sun_light::presentation(value, index, modifier.id, runtime),
+                        ))
+                    }
                 },
-                _ => None,
             },
             alpha_mask: matches!(
                 modifier.effect,
                 ModifierEffect::Raster(ref effect)
                     if !matches!(&**effect, RasterModifierEffect::Cache(_))
             )
-            .then(|| modifier_alpha_mask_presentation(index, modifier, runtime)),
+            .then(|| {
+                crate::alpha_mask::presentation(
+                    modifier.alpha_mask.as_ref(),
+                    &format!("/modifiers/{index}/alpha_mask"),
+                    Some(modifier.id),
+                    crate::alpha_mask::preview_focus(
+                        item.id,
+                        shrimply_project::project::VisualAlphaMaskTarget::Modifier(modifier.id),
+                        true,
+                    ),
+                    runtime,
+                )
+            }),
         })
         .collect()
 }
@@ -440,39 +594,115 @@ pub(crate) fn visual_modifier_color<'a>(
     timeline_id: uuid::Uuid,
 ) -> Option<&'a shrimply_core::timeline_value::TimelineValue<shrimply_core::Color<u8>>> {
     let (modifier, field) = visual_modifier_at_path(item, path)?;
-    let ModifierEffect::Raster(effect) = &modifier.effect else {
-        return None;
-    };
-    let timeline = match (&**effect, field) {
-        (RasterModifierEffect::AlphaOutline(value), "effect/effect/config/color") => &value.color,
-        (RasterModifierEffect::ChromaKey(value), "effect/effect/config/key_color") => {
-            &value.key_color
+    match &modifier.effect {
+        ModifierEffect::Scene3d(effect) => match &**effect {
+            Scene3dModifierEffect::Object(value) => object_3d::color(value, field, timeline_id),
+            Scene3dModifierEffect::PointLight(value) => {
+                point_light::color(value, field, timeline_id)
+            }
+            Scene3dModifierEffect::Shape(value) => shape_3d::color(value, field, timeline_id),
+            Scene3dModifierEffect::Text(value) => text_3d::color(value, field, timeline_id),
+            Scene3dModifierEffect::SunLight(value) => sun_light::color(value, field, timeline_id),
+            _ => None,
+        },
+        ModifierEffect::Raster(effect) => {
+            let timeline = match (&**effect, field) {
+                (RasterModifierEffect::AlphaOutline(value), "effect/effect/config/color") => {
+                    &value.color
+                }
+                (RasterModifierEffect::ChromaKey(value), "effect/effect/config/key_color") => {
+                    &value.key_color
+                }
+                (RasterModifierEffect::EdgeDetection(value), "effect/effect/config/edge_color") => {
+                    &value.edge_color
+                }
+                (
+                    RasterModifierEffect::EdgeDetection(value),
+                    "effect/effect/config/background_color",
+                ) => &value.background_color,
+                (
+                    RasterModifierEffect::ColorizeDuotone(value),
+                    "effect/effect/config/shadow_color",
+                ) => &value.shadow_color,
+                (
+                    RasterModifierEffect::ColorizeDuotone(value),
+                    "effect/effect/config/highlight_color",
+                ) => &value.highlight_color,
+                (RasterModifierEffect::DropShadow(value), "effect/effect/config/color") => {
+                    &value.color
+                }
+                (RasterModifierEffect::Dithering(value), field) => {
+                    return dithering::palette_color(value, field, timeline_id);
+                }
+                (RasterModifierEffect::Threshold(value), "effect/effect/config/low_color") => {
+                    &value.low_color
+                }
+                (RasterModifierEffect::Threshold(value), "effect/effect/config/high_color") => {
+                    &value.high_color
+                }
+                _ => return None,
+            };
+            (timeline.id == timeline_id).then_some(timeline)
         }
-        (RasterModifierEffect::EdgeDetection(value), "effect/effect/config/edge_color") => {
-            &value.edge_color
-        }
-        (RasterModifierEffect::EdgeDetection(value), "effect/effect/config/background_color") => {
-            &value.background_color
-        }
-        (RasterModifierEffect::ColorizeDuotone(value), "effect/effect/config/shadow_color") => {
-            &value.shadow_color
-        }
-        (RasterModifierEffect::ColorizeDuotone(value), "effect/effect/config/highlight_color") => {
-            &value.highlight_color
-        }
-        (RasterModifierEffect::DropShadow(value), "effect/effect/config/color") => &value.color,
-        (RasterModifierEffect::Dithering(value), field) => {
-            return dithering::palette_color(value, field, timeline_id);
-        }
-        (RasterModifierEffect::Threshold(value), "effect/effect/config/low_color") => {
-            &value.low_color
-        }
-        (RasterModifierEffect::Threshold(value), "effect/effect/config/high_color") => {
-            &value.high_color
-        }
-        _ => return None,
-    };
-    (timeline.id == timeline_id).then_some(timeline)
+        _ => None,
+    }
+}
+
+pub(crate) fn visual_modifier_color_by_id(
+    item: &VideoItem,
+    timeline_id: uuid::Uuid,
+) -> Option<&shrimply_core::timeline_value::TimelineValue<shrimply_core::Color<u8>>> {
+    item.modifiers
+        .iter()
+        .find_map(|modifier| match &modifier.effect {
+            ModifierEffect::Scene3d(effect) => match &**effect {
+                Scene3dModifierEffect::Object(value) => {
+                    Some(&value.material.base_color).filter(|value| value.id == timeline_id)
+                }
+                Scene3dModifierEffect::PointLight(value) => {
+                    Some(&value.color).filter(|value| value.id == timeline_id)
+                }
+                Scene3dModifierEffect::Shape(value) => {
+                    Some(&value.material.base_color).filter(|value| value.id == timeline_id)
+                }
+                Scene3dModifierEffect::Text(value) => {
+                    Some(&value.material.base_color).filter(|value| value.id == timeline_id)
+                }
+                Scene3dModifierEffect::SunLight(value) => {
+                    Some(&value.color).filter(|value| value.id == timeline_id)
+                }
+                _ => None,
+            },
+            ModifierEffect::Raster(effect) => match &**effect {
+                RasterModifierEffect::AlphaOutline(value) => {
+                    Some(&value.color).filter(|value| value.id == timeline_id)
+                }
+                RasterModifierEffect::ChromaKey(value) => {
+                    Some(&value.key_color).filter(|value| value.id == timeline_id)
+                }
+                RasterModifierEffect::ColorizeDuotone(value) => {
+                    [&value.shadow_color, &value.highlight_color]
+                        .into_iter()
+                        .find(|value| value.id == timeline_id)
+                }
+                RasterModifierEffect::Dithering(value) => {
+                    value.palette.iter().find(|value| value.id == timeline_id)
+                }
+                RasterModifierEffect::DropShadow(value) => {
+                    Some(&value.color).filter(|value| value.id == timeline_id)
+                }
+                RasterModifierEffect::EdgeDetection(value) => {
+                    [&value.edge_color, &value.background_color]
+                        .into_iter()
+                        .find(|value| value.id == timeline_id)
+                }
+                RasterModifierEffect::Threshold(value) => [&value.low_color, &value.high_color]
+                    .into_iter()
+                    .find(|value| value.id == timeline_id),
+                _ => None,
+            },
+            _ => None,
+        })
 }
 
 pub(crate) fn visual_modifier_number<'a>(
@@ -480,7 +710,30 @@ pub(crate) fn visual_modifier_number<'a>(
     path: &str,
     id: uuid::Uuid,
 ) -> Option<&'a shrimply_core::timeline_value::TimelineValue<f32>> {
-    visual_modifier_at_path(item, path)?.0.number(id)
+    let (modifier, field) = visual_modifier_at_path(item, path)?;
+    match &modifier.effect {
+        ModifierEffect::Vector(effect) => match &**effect {
+            VectorModifierEffect::PathOffset(value) => path_offset::number(value, field, id),
+            VectorModifierEffect::Repeat(value) => repeat::number(value, field, id),
+            VectorModifierEffect::ShakyPath(value) => shaky_path::number(value, field, id),
+            _ => modifier.number(id),
+        },
+        ModifierEffect::Raster(effect) => match &**effect {
+            RasterModifierEffect::ScanlinesCrt(value) => scanlines_crt::number(value, field, id),
+            RasterModifierEffect::TextureBounds(value) => texture_bounds::number(value, field, id),
+            RasterModifierEffect::TransparentFill(value) => {
+                transparent_fill::number(value, field, id)
+            }
+            _ => modifier.number(id),
+        },
+        ModifierEffect::Scene3d(effect) => match &**effect {
+            Scene3dModifierEffect::Shape(value) => shape_3d::number(value, field, id),
+            Scene3dModifierEffect::Text(value) => text_3d::number(value, field, id),
+            Scene3dModifierEffect::SunLight(value) => sun_light::number(value, field, id),
+            _ => modifier.number(id),
+        },
+        _ => modifier.number(id),
+    }
 }
 
 pub(crate) fn visual_modifier_matches(item: &VideoItem, path: &str, id: uuid::Uuid) -> bool {
@@ -492,7 +745,20 @@ pub(crate) fn visual_modifier_vector2<'a>(
     path: &str,
     id: uuid::Uuid,
 ) -> Option<&'a shrimply_core::timeline_value::TimelineValue<glam::Vec2>> {
-    visual_modifier_at_path(item, path)?.0.number2(id)
+    let (modifier, field) = visual_modifier_at_path(item, path)?;
+    match &modifier.effect {
+        ModifierEffect::Vector(effect) => match &**effect {
+            VectorModifierEffect::Repeat(value) => repeat::vector2(value, field, id),
+            _ => modifier.number2(id),
+        },
+        ModifierEffect::Raster(effect) => match &**effect {
+            RasterModifierEffect::TransparentFill(value) => {
+                transparent_fill::vector2(value, field, id)
+            }
+            _ => modifier.number2(id),
+        },
+        _ => modifier.number2(id),
+    }
 }
 
 pub(crate) fn visual_modifier_vector3<'a>(
@@ -500,7 +766,16 @@ pub(crate) fn visual_modifier_vector3<'a>(
     path: &str,
     id: uuid::Uuid,
 ) -> Option<&'a shrimply_core::timeline_value::TimelineValue<glam::Vec3>> {
-    visual_modifier_at_path(item, path)?.0.effect.number3(id)
+    let (modifier, field) = visual_modifier_at_path(item, path)?;
+    match &modifier.effect {
+        ModifierEffect::Scene3d(effect) => match &**effect {
+            Scene3dModifierEffect::Shape(value) => shape_3d::vector3(value, field, id),
+            Scene3dModifierEffect::Text(value) => text_3d::vector3(value, field, id),
+            Scene3dModifierEffect::SunLight(value) => sun_light::vector3(value, field, id),
+            _ => modifier.effect.number3(id),
+        },
+        _ => modifier.effect.number3(id),
+    }
 }
 
 pub(crate) fn set_visual_modifier_field(
@@ -508,7 +783,24 @@ pub(crate) fn set_visual_modifier_field(
     path: &str,
     text: &str,
 ) -> Option<Result<bool, String>> {
-    vectorize::set_field(item, path, text)
+    text_3d::set_field(item, path, text)
+        .or_else(|| shape_3d::set_field(item, path, text))
+        .or_else(|| vectorize::set_field(item, path, text))
+}
+
+pub(crate) fn visual_modifier_text<'a>(
+    item: &'a VideoItem,
+    path: &str,
+    id: uuid::Uuid,
+) -> Option<&'a shrimply_core::timeline_value::TimelineValue<String>> {
+    let (modifier, field) = visual_modifier_at_path(item, path)?;
+    let ModifierEffect::Scene3d(effect) = &modifier.effect else {
+        return None;
+    };
+    let Scene3dModifierEffect::Text(value) = &**effect else {
+        return None;
+    };
+    text_3d::text(value, field, id)
 }
 
 pub(crate) fn erode_dilate_operation<'a>(
@@ -545,6 +837,58 @@ pub(crate) fn halftone_mode<'a>(
     halftone::mode(item, path, id)
 }
 
+pub(crate) fn kuwahara_version_timeline<'a>(
+    item: &'a VideoItem,
+    path: &str,
+    id: uuid::Uuid,
+) -> Option<
+    &'a shrimply_core::timeline_value::TimelineValue<
+        shrimply_video_modifiers::kuwahara::KuwaharaVersion,
+    >,
+> {
+    kuwahara::version_at_path(item, path, id)
+}
+
+pub(crate) fn rasterize_sample_method_timeline<'a>(
+    item: &'a VideoItem,
+    path: &str,
+    id: uuid::Uuid,
+) -> Option<&'a shrimply_core::timeline_value::TimelineValue<shrimply_core::VideoSampleMethod>> {
+    rasterize::sample_method_at_path(item, path, id)
+}
+
+pub(crate) fn repeat_offset_axis_timeline<'a>(
+    item: &'a VideoItem,
+    path: &str,
+    id: uuid::Uuid,
+) -> Option<
+    &'a shrimply_core::timeline_value::TimelineValue<
+        shrimply_video_modifiers::repeat::RepeatOffsetAxis,
+    >,
+> {
+    repeat::offset_axis_at_path(item, path, id)
+}
+
+pub(crate) fn sampling_method_timeline<'a>(
+    item: &'a VideoItem,
+    path: &str,
+    id: uuid::Uuid,
+) -> Option<&'a shrimply_core::timeline_value::TimelineValue<shrimply_core::VideoSampleMethod>> {
+    sampling::method_at_path(item, path, id)
+}
+
+pub(crate) fn texture_bounds_address_mode_timeline<'a>(
+    item: &'a VideoItem,
+    path: &str,
+    id: uuid::Uuid,
+) -> Option<&'a shrimply_core::timeline_value::TimelineValue<shrimply_core::TextureAddressMode>> {
+    texture_bounds::address_mode_at_path(item, path, id)
+}
+
+pub(crate) fn is_sampling_method(item: &VideoItem, path: &str) -> bool {
+    sampling::is_method(item, path)
+}
+
 pub(crate) fn dithering_pattern<'a>(
     item: &'a VideoItem,
     path: &str,
@@ -567,6 +911,20 @@ pub(crate) fn dithering_color_mode<'a>(
     >,
 > {
     dithering::color_mode(item, path, id)
+}
+
+pub(crate) fn mask_mode<'a>(
+    item: &'a VideoItem,
+    path: &str,
+    id: uuid::Uuid,
+) -> Option<
+    &'a shrimply_core::timeline_value::TimelineValue<shrimply_video_modifiers::mask::MaskMode>,
+> {
+    mask::mode(item, path, id)
+}
+
+pub(crate) fn is_mask_mode(item: &VideoItem, path: &str) -> bool {
+    mask::is_mode(item, path)
 }
 
 pub(crate) fn visual_modifier_at_path<'a, 'b>(
@@ -593,151 +951,6 @@ pub fn default_visual_modifier_effect(effect: &ModifierEffect) -> ModifierEffect
     ModifierEffect::catalog()
         .find(|candidate| visual_modifier_key(candidate) == key)
         .expect("every visual modifier effect must have a catalog default")
-}
-
-fn modifier_alpha_mask_presentation(
-    index: usize,
-    modifier: &VisualModifier,
-    runtime: InspectorRuntime,
-) -> VisualModifierAlphaMaskPresentation {
-    let active = modifier
-        .alpha_mask
-        .as_ref()
-        .is_some_and(|mask| mask.enabled);
-    let mut section = InspectorSection::default();
-    if let Some(mask) = modifier.alpha_mask.as_ref().filter(|mask| mask.enabled) {
-        let base = format!("/modifiers/{index}/alpha_mask");
-        section.add(
-            InspectorControl::new(ControlKind::Selector, format!("{base}/shape"), "Shape")
-                .value(enum_text(mask.shape))
-                .choices(
-                    vec!["rectangle".into(), "ellipse".into(), "polygon".into()],
-                    vec!["Rectangle".into(), "Ellipse".into(), "Polygon".into()],
-                )
-                .immediate_commit("alpha-mask-shape"),
-        );
-        section.add(
-            InspectorControl::new(ControlKind::Boolean, format!("{base}/invert"), "Invert")
-                .value(mask.invert.to_string())
-                .immediate_commit("invert-alpha-mask"),
-        );
-        section.add(alpha_mask_vector(
-            format!("{base}/center"),
-            "Center",
-            &mask.center,
-            runtime,
-            NumberSpec {
-                drag_step: 0.01,
-                digits: 2,
-                unit: "x",
-                ..NumberSpec::default()
-            },
-        ));
-        section.add(alpha_mask_vector(
-            format!("{base}/size"),
-            "Size",
-            &mask.size,
-            runtime,
-            NumberSpec {
-                minimum: 0.0,
-                drag_step: 0.01,
-                digits: 2,
-                unit: "x",
-                ..NumberSpec::default()
-            },
-        ));
-        section.add(alpha_mask_scalar(
-            format!("{base}/rotation_degrees"),
-            "Rotation",
-            &mask.rotation_degrees,
-            runtime,
-            NumberSpec {
-                drag_step: 1.0,
-                digits: 1,
-                unit: "°",
-                ..NumberSpec::default()
-            },
-            1.0,
-            true,
-        ));
-        if mask.shape == AlphaMaskShape::Rectangle {
-            section.add(alpha_mask_scalar(
-                format!("{base}/rounding"),
-                "Roundness",
-                &mask.rounding,
-                runtime,
-                percent_spec(),
-                100.0,
-                false,
-            ));
-        }
-        section.add(alpha_mask_scalar(
-            format!("{base}/feather"),
-            "Feather",
-            &mask.feather,
-            runtime,
-            percent_spec(),
-            100.0,
-            false,
-        ));
-    }
-    VisualModifierAlphaMaskPresentation { active, section }
-}
-
-fn alpha_mask_vector(
-    path: String,
-    label: &'static str,
-    timeline: &shrimply_core::timeline_value::TimelineValue<glam::Vec2>,
-    runtime: InspectorRuntime,
-    number: NumberSpec,
-) -> InspectorControl {
-    let value = timeline.value_at(runtime.local_time.unwrap_or(Time::ZERO));
-    InspectorControl::new(ControlKind::LayeredVector2, path.clone(), label)
-        .components(vec![value.x.to_string(), value.y.to_string()])
-        .number(number)
-        .width_characters(7)
-        .prefixes(["X", "Y"])
-        .layered(path, LayeredState::from(timeline))
-        .graph(crate::transform::vector_speed_graph(timeline, runtime))
-        .live_commit("visual-alpha-mask-vector")
-}
-
-fn alpha_mask_scalar(
-    path: String,
-    label: &'static str,
-    timeline: &shrimply_core::timeline_value::TimelineValue<f32>,
-    runtime: InspectorRuntime,
-    number: NumberSpec,
-    display_multiplier: f64,
-    rotating: bool,
-) -> InspectorControl {
-    let value = f64::from(timeline.value_at(runtime.local_time.unwrap_or(Time::ZERO)));
-    let mut graph = crate::transform::scalar_graph(timeline, value as f32, runtime);
-    if display_multiplier != 1.0
-        && let Some(graph) = &mut graph
-    {
-        graph
-            .points
-            .iter_mut()
-            .for_each(|point| point.value *= display_multiplier);
-        graph.segments.iter_mut().for_each(|segment| {
-            segment.start_value *= display_multiplier;
-            segment.end_value *= display_multiplier;
-        });
-    }
-    let control = InspectorControl::new(ControlKind::LayeredNumber, path.clone(), label)
-        .value((value * display_multiplier).to_string())
-        .number(number)
-        .store_multiplier(display_multiplier.recip())
-        .width_characters(8)
-        .layered(path, LayeredState::from(timeline))
-        .graph(graph)
-        .live_commit("visual-alpha-mask-scalar");
-    if rotating {
-        control.rotating_icon("rotation.svg", 0.0)
-    } else {
-        control
-    }
 }
 
 pub(super) fn modifier_scalar_control(
@@ -834,7 +1047,10 @@ pub(super) fn modifier_color_control(
             value.a.to_string(),
         ])
         .layered(path, LayeredState::from(timeline))
-        .timeline(timeline.id, color_speed_graph(timeline, runtime))
+        .timeline(
+            timeline.id,
+            crate::timeline_color::speed_graph(timeline, runtime),
+        )
         .live_commit("visual-modifier-color")
 }
 
@@ -849,146 +1065,51 @@ pub(super) fn modifier_boolean_control(
         .immediate_commit(commit)
 }
 
+pub(super) fn modifier_analysis_control(
+    path: String,
+    status: AnalysisControlPresentation,
+    action: InspectorControlAction,
+) -> InspectorControl {
+    let mut control = InspectorControl::new(ControlKind::Analysis, path, "")
+        .value(status.label.clone())
+        .components(vec![
+            status.progress.to_string(),
+            u8::from(status.running).to_string(),
+            u8::from(status.cancelling).to_string(),
+            u8::from(status.suggested).to_string(),
+        ])
+        .sensitive(status.sensitive)
+        .tooltip(status.tooltip.as_str())
+        .busy(status.running || status.cancelling)
+        .action(action);
+    control.analysis = Some(status);
+    control
+}
+
 pub(super) fn modifier_text_control(
     path: String,
     label: impl Into<String>,
     timeline: &shrimply_core::timeline_value::TimelineValue<String>,
     runtime: InspectorRuntime,
 ) -> InspectorControl {
-    let value = timeline.value_at(runtime.local_time.unwrap_or(Time::ZERO));
+    let value = crate::timeline_text::value_at(timeline, runtime.local_time.unwrap_or(Time::ZERO));
     InspectorControl::new(ControlKind::LayeredText, path.clone(), label)
         .value(value)
         .layered(path, LayeredState::from(timeline))
-        .timeline(timeline.id, text_speed_graph(timeline, runtime))
+        .timeline(
+            timeline.id,
+            crate::timeline_text::speed_graph(timeline, runtime),
+        )
         .live_commit("edit-3d-text")
-}
-
-fn text_speed_graph(
-    timeline: &shrimply_core::timeline_value::TimelineValue<String>,
-    runtime: InspectorRuntime,
-) -> Option<crate::ScalarGraph> {
-    let shrimply_core::timeline_value::TimelineBase::Keyframes(keyframes) = &timeline.base else {
-        return None;
-    };
-    let points = keyframes
-        .iter()
-        .map(|keyframe| crate::GraphPoint {
-            time: keyframe.time,
-            value: 0.0,
-        })
-        .collect();
-    let segments = keyframes
-        .windows(2)
-        .filter_map(|pair| {
-            let seconds = pair[1].time.signed_sub(pair[0].time).as_secs_f64();
-            (seconds > f64::EPSILON).then(|| {
-                let speed = shrimply_core::timeline_value::text_edit_count(
-                    &pair[0].value,
-                    &pair[1].value,
-                    pair[0].text_interpolation_to_next,
-                ) as f64
-                    / seconds;
-                crate::GraphSegment {
-                    owner_id: pair[0].id,
-                    start: pair[0].time,
-                    end: pair[1].time,
-                    start_value: speed,
-                    end_value: speed,
-                    interpolation: shrimply_core::timeline_value::Interpolation::KEYFRAME
-                        .iter()
-                        .position(|candidate| *candidate == pair[0].interpolation_to_next)
-                        .expect("text interpolation must be available"),
-                }
-            })
-        })
-        .collect();
-    Some(crate::ScalarGraph {
-        points,
-        segments,
-        range: runtime.keyframe_range.unwrap_or((Time::ZERO, Time::ZERO)),
-        frame_step: runtime.frame_step,
-        playhead: runtime.keyframe_playhead.unwrap_or(Time::ZERO),
-    })
+        .timeline_commits(TEXT_3D_KEYFRAME_COMMITS.toggle, "3d-text-expression")
+        .text_keyframe_commits(TEXT_3D_KEYFRAME_COMMITS)
 }
 
 pub(crate) fn vector3_speed_graph(
     timeline: &shrimply_core::timeline_value::TimelineValue<glam::Vec3>,
     runtime: InspectorRuntime,
 ) -> Option<crate::ScalarGraph> {
-    speed_graph(timeline, runtime, |left, right| (*right - *left).length())
-}
-
-pub(crate) fn color_speed_graph(
-    timeline: &shrimply_core::timeline_value::TimelineValue<shrimply_core::Color<u8>>,
-    runtime: InspectorRuntime,
-) -> Option<crate::ScalarGraph> {
-    speed_graph(timeline, runtime, |left, right| {
-        left.oklaba_distance(*right)
-    })
-}
-
-fn speed_graph<T>(
-    timeline: &shrimply_core::timeline_value::TimelineValue<T>,
-    runtime: InspectorRuntime,
-    distance: impl Fn(&T, &T) -> f32,
-) -> Option<crate::ScalarGraph>
-where
-    T: shrimply_core::timeline_value::TimelineVector
-        + serde::Serialize
-        + serde::de::DeserializeOwned,
-{
-    let shrimply_core::timeline_value::TimelineBase::Keyframes(keyframes) = &timeline.base else {
-        return None;
-    };
-    let points = keyframes
-        .iter()
-        .map(|keyframe| crate::GraphPoint {
-            time: shrimply_core::timeline_value::TimelineKeyframe::time(keyframe),
-            value: 0.0,
-        })
-        .collect();
-    let segments = keyframes
-        .windows(2)
-        .filter_map(|pair| {
-            let start = shrimply_core::timeline_value::TimelineKeyframe::time(&pair[0]);
-            let end = shrimply_core::timeline_value::TimelineKeyframe::time(&pair[1]);
-            let seconds = end.signed_sub(start).as_secs_f64();
-            (seconds > f64::EPSILON).then(|| {
-                let speed = f64::from(distance(
-                    shrimply_core::timeline_value::TimelineKeyframe::value(&pair[0]),
-                    shrimply_core::timeline_value::TimelineKeyframe::value(&pair[1]),
-                )) / seconds;
-                crate::GraphSegment {
-                    owner_id: shrimply_core::timeline_value::TimelineKeyframe::id(&pair[0]),
-                    start,
-                    end,
-                    start_value: speed,
-                    end_value: speed,
-                    interpolation: shrimply_core::timeline_value::Interpolation::KEYFRAME
-                        .iter()
-                        .position(|candidate| *candidate == pair[0].interpolation_to_next)
-                        .expect("modifier interpolation must be available"),
-                }
-            })
-        })
-        .collect();
-    Some(crate::ScalarGraph {
-        points,
-        segments,
-        range: runtime.keyframe_range.unwrap_or((Time::ZERO, Time::ZERO)),
-        frame_step: runtime.frame_step,
-        playhead: runtime.keyframe_playhead.unwrap_or(Time::ZERO),
-    })
-}
-
-fn percent_spec() -> NumberSpec {
-    NumberSpec {
-        minimum: 0.0,
-        maximum: 100.0,
-        drag_step: 1.0,
-        digits: 1,
-        unit: "%",
-    }
+    crate::timeline_value::vector::scalar_speed_graph(timeline, runtime)
 }
 
 fn enum_text(value: impl serde::Serialize) -> String {
@@ -1028,42 +1149,291 @@ pub fn visual_modifier_catalog(item: &VideoItem) -> Vec<VisualModifierChoice> {
 }
 
 impl InspectorController {
-    pub fn set_visual_modifier_alpha_mask(
+    pub fn text_3d_presentation(
         &self,
         target: &InspectorTarget,
-        id: uuid::Uuid,
-        enabled: bool,
-    ) -> Result<(), String> {
-        let mut project = self.project.borrow_mut();
+        modifier_id: uuid::Uuid,
+    ) -> Result<InspectorSection, String> {
+        let project = self.project.borrow();
+        let runtime = crate::model::target_runtime(&project, &self.player_state, target);
         let item = project
-            .video_item_mut(video_address(target)?)
+            .video_item(video_address(target)?)
+            .ok_or_else(|| "3D text modifier item is no longer available".to_string())?;
+        let (index, modifier) = item
+            .modifiers
+            .iter()
+            .enumerate()
+            .find(|(_, modifier)| modifier.id == modifier_id)
+            .ok_or_else(|| "3D text modifier is no longer available".to_string())?;
+        let ModifierEffect::Scene3d(effect) = &modifier.effect else {
+            return Err("3D text modifier is no longer available".to_string());
+        };
+        let Scene3dModifierEffect::Text(value) = &**effect else {
+            return Err("3D text modifier is no longer available".to_string());
+        };
+        Ok(text_3d::presentation(value, index, modifier_id, runtime))
+    }
+
+    pub fn sun_light_presentation(
+        &self,
+        target: &InspectorTarget,
+        modifier_id: uuid::Uuid,
+    ) -> Result<InspectorSection, String> {
+        let project = self.project.borrow();
+        let runtime = crate::model::target_runtime(&project, &self.player_state, target);
+        let item = project
+            .video_item(video_address(target)?)
+            .ok_or_else(|| "Sun Light modifier item is no longer available".to_string())?;
+        let (index, modifier) = item
+            .modifiers
+            .iter()
+            .enumerate()
+            .find(|(_, modifier)| modifier.id == modifier_id)
+            .ok_or_else(|| "Sun Light modifier is no longer available".to_string())?;
+        let ModifierEffect::Scene3d(effect) = &modifier.effect else {
+            return Err("Sun Light modifier is no longer available".to_string());
+        };
+        let Scene3dModifierEffect::SunLight(value) = &**effect else {
+            return Err("Sun Light modifier is no longer available".to_string());
+        };
+        Ok(sun_light::presentation(value, index, modifier_id, runtime))
+    }
+
+    pub fn shape_3d_presentation(
+        &self,
+        target: &InspectorTarget,
+        modifier_id: uuid::Uuid,
+    ) -> Result<InspectorSection, String> {
+        let project = self.project.borrow();
+        let runtime = crate::model::target_runtime(&project, &self.player_state, target);
+        let item = project
+            .video_item(video_address(target)?)
             .ok_or_else(|| "visual modifier item is no longer available".to_string())?;
-        let target = VisualAlphaMaskTarget::Modifier(id);
-        if enabled {
-            if let Some(mask) = item.alpha_mask_mut(target) {
-                if mask.enabled {
-                    return Ok(());
-                }
-                mask.enabled = true;
-            } else if !item.set_alpha_mask(target, Some(VisualAlphaMask::default())) {
-                return Err("visual modifier is no longer available".to_string());
-            }
-        } else if item.alpha_mask(target).is_none() {
-            return Ok(());
-        } else if !item.set_alpha_mask(target, None) {
-            return Err("visual modifier is no longer available".to_string());
-        }
-        shrimply_project::project::commit_edit(
-            &project,
-            if enabled {
-                "add-alpha-mask"
-            } else {
-                "remove-alpha-mask"
-            },
-        );
-        drop(project);
-        refresh(&self.player_state);
-        Ok(())
+        let (index, modifier) = item
+            .modifiers
+            .iter()
+            .enumerate()
+            .find(|(_, modifier)| modifier.id == modifier_id)
+            .ok_or_else(|| "3D shape modifier is no longer available".to_string())?;
+        let ModifierEffect::Scene3d(effect) = &modifier.effect else {
+            return Err("3D shape modifier is no longer available".to_string());
+        };
+        let Scene3dModifierEffect::Shape(value) = &**effect else {
+            return Err("3D shape modifier is no longer available".to_string());
+        };
+        Ok(shape_3d::presentation(value, index, modifier_id, runtime))
+    }
+
+    pub fn repeat_presentation(
+        &self,
+        target: &InspectorTarget,
+        modifier_id: uuid::Uuid,
+    ) -> Result<InspectorSection, String> {
+        let project = self.project.borrow();
+        let runtime = crate::model::target_runtime(&project, &self.player_state, target);
+        let item = project
+            .video_item(video_address(target)?)
+            .ok_or_else(|| "visual modifier item is no longer available".to_string())?;
+        let (index, modifier) = item
+            .modifiers
+            .iter()
+            .enumerate()
+            .find(|(_, modifier)| modifier.id == modifier_id)
+            .ok_or_else(|| "Repeat modifier is no longer available".to_string())?;
+        let ModifierEffect::Vector(effect) = &modifier.effect else {
+            return Err("Repeat modifier is no longer available".to_string());
+        };
+        let VectorModifierEffect::Repeat(value) = &**effect else {
+            return Err("Repeat modifier is no longer available".to_string());
+        };
+        Ok(repeat::presentation(value, index, modifier_id, runtime))
+    }
+
+    pub fn sampling_presentation(
+        &self,
+        target: &InspectorTarget,
+        modifier_id: uuid::Uuid,
+    ) -> Result<InspectorSection, String> {
+        let project = self.project.borrow();
+        let runtime = crate::model::target_runtime(&project, &self.player_state, target);
+        let item = project
+            .video_item(video_address(target)?)
+            .ok_or_else(|| "visual modifier item is no longer available".to_string())?;
+        let (index, modifier) = item
+            .modifiers
+            .iter()
+            .enumerate()
+            .find(|(_, modifier)| modifier.id == modifier_id)
+            .ok_or_else(|| "Sampling modifier is no longer available".to_string())?;
+        let ModifierEffect::Raster(effect) = &modifier.effect else {
+            return Err("Sampling modifier is no longer available".to_string());
+        };
+        let RasterModifierEffect::Sampling(value) = &**effect else {
+            return Err("Sampling modifier is no longer available".to_string());
+        };
+        Ok(sampling::presentation(value, index, modifier_id, runtime))
+    }
+
+    pub fn texture_bounds_presentation(
+        &self,
+        target: &InspectorTarget,
+        modifier_id: uuid::Uuid,
+    ) -> Result<InspectorSection, String> {
+        let project = self.project.borrow();
+        let runtime = crate::model::target_runtime(&project, &self.player_state, target);
+        let item = project
+            .video_item(video_address(target)?)
+            .ok_or_else(|| "visual modifier item is no longer available".to_string())?;
+        let (index, modifier) = item
+            .modifiers
+            .iter()
+            .enumerate()
+            .find(|(_, modifier)| modifier.id == modifier_id)
+            .ok_or_else(|| "Texture bounds modifier is no longer available".to_string())?;
+        let ModifierEffect::Raster(effect) = &modifier.effect else {
+            return Err("Texture bounds modifier is no longer available".to_string());
+        };
+        let RasterModifierEffect::TextureBounds(value) = &**effect else {
+            return Err("Texture bounds modifier is no longer available".to_string());
+        };
+        Ok(texture_bounds::presentation(
+            value,
+            index,
+            modifier_id,
+            runtime,
+        ))
+    }
+
+    pub fn scanlines_crt_presentation(
+        &self,
+        target: &InspectorTarget,
+        modifier_id: uuid::Uuid,
+    ) -> Result<InspectorSection, String> {
+        let project = self.project.borrow();
+        let runtime = crate::model::target_runtime(&project, &self.player_state, target);
+        let item = project
+            .video_item(video_address(target)?)
+            .ok_or_else(|| "visual modifier item is no longer available".to_string())?;
+        let (index, modifier) = item
+            .modifiers
+            .iter()
+            .enumerate()
+            .find(|(_, modifier)| modifier.id == modifier_id)
+            .ok_or_else(|| "Scanlines/CRT modifier is no longer available".to_string())?;
+        let ModifierEffect::Raster(effect) = &modifier.effect else {
+            return Err("Scanlines/CRT modifier is no longer available".to_string());
+        };
+        let RasterModifierEffect::ScanlinesCrt(value) = &**effect else {
+            return Err("Scanlines/CRT modifier is no longer available".to_string());
+        };
+        Ok(scanlines_crt::presentation(
+            value,
+            index,
+            modifier_id,
+            runtime,
+        ))
+    }
+
+    pub fn path_offset_presentation(
+        &self,
+        target: &InspectorTarget,
+        modifier_id: uuid::Uuid,
+    ) -> Result<InspectorSection, String> {
+        let project = self.project.borrow();
+        let runtime = crate::model::target_runtime(&project, &self.player_state, target);
+        let item = project
+            .video_item(video_address(target)?)
+            .ok_or_else(|| "visual modifier item is no longer available".to_string())?;
+        let (index, modifier) = item
+            .modifiers
+            .iter()
+            .enumerate()
+            .find(|(_, modifier)| modifier.id == modifier_id)
+            .ok_or_else(|| "Path offset modifier is no longer available".to_string())?;
+        let ModifierEffect::Vector(effect) = &modifier.effect else {
+            return Err("Path offset modifier is no longer available".to_string());
+        };
+        let VectorModifierEffect::PathOffset(value) = &**effect else {
+            return Err("Path offset modifier is no longer available".to_string());
+        };
+        Ok(path_offset::presentation(
+            value,
+            index,
+            modifier_id,
+            runtime,
+        ))
+    }
+
+    pub fn shaky_path_presentation(
+        &self,
+        target: &InspectorTarget,
+        modifier_id: uuid::Uuid,
+    ) -> Result<InspectorSection, String> {
+        let project = self.project.borrow();
+        let runtime = crate::model::target_runtime(&project, &self.player_state, target);
+        let item = project
+            .video_item(video_address(target)?)
+            .ok_or_else(|| "Shaky path modifier item is no longer available".to_string())?;
+        let (index, modifier) = item
+            .modifiers
+            .iter()
+            .enumerate()
+            .find(|(_, modifier)| modifier.id == modifier_id)
+            .ok_or_else(|| "Shaky path modifier is no longer available".to_string())?;
+        let ModifierEffect::Vector(effect) = &modifier.effect else {
+            return Err("Shaky path modifier is no longer available".to_string());
+        };
+        let VectorModifierEffect::ShakyPath(value) = &**effect else {
+            return Err("Shaky path modifier is no longer available".to_string());
+        };
+        Ok(shaky_path::presentation(value, index, modifier_id, runtime))
+    }
+
+    pub fn rasterize_presentation(
+        &self,
+        target: &InspectorTarget,
+        modifier_id: uuid::Uuid,
+    ) -> Result<InspectorSection, String> {
+        let project = self.project.borrow();
+        let runtime = crate::model::target_runtime(&project, &self.player_state, target);
+        let item = project
+            .video_item(video_address(target)?)
+            .ok_or_else(|| "visual modifier item is no longer available".to_string())?;
+        let (index, modifier) = item
+            .modifiers
+            .iter()
+            .enumerate()
+            .find(|(_, modifier)| modifier.id == modifier_id)
+            .ok_or_else(|| "Rasterize modifier is no longer available".to_string())?;
+        let ModifierEffect::Rasterize(value) = &modifier.effect else {
+            return Err("Rasterize modifier is no longer available".to_string());
+        };
+        Ok(rasterize::presentation(value, index, modifier_id, runtime))
+    }
+
+    pub fn kuwahara_presentation(
+        &self,
+        target: &InspectorTarget,
+        modifier_id: uuid::Uuid,
+    ) -> Result<InspectorSection, String> {
+        let project = self.project.borrow();
+        let runtime = crate::model::target_runtime(&project, &self.player_state, target);
+        let item = project
+            .video_item(video_address(target)?)
+            .ok_or_else(|| "visual modifier item is no longer available".to_string())?;
+        let (index, modifier) = item
+            .modifiers
+            .iter()
+            .enumerate()
+            .find(|(_, modifier)| modifier.id == modifier_id)
+            .ok_or_else(|| "Kuwahara modifier is no longer available".to_string())?;
+        let ModifierEffect::Raster(effect) = &modifier.effect else {
+            return Err("Kuwahara modifier is no longer available".to_string());
+        };
+        let RasterModifierEffect::Kuwahara(value) = &**effect else {
+            return Err("Kuwahara modifier is no longer available".to_string());
+        };
+        Ok(kuwahara::presentation(value, index, modifier_id, runtime))
     }
 
     pub fn set_visual_modifier_enabled(
@@ -1100,6 +1470,15 @@ impl InspectorController {
     ) -> Result<(), String> {
         let effect = serde_json::from_value(effect)
             .map_err(|error| format!("invalid visual modifier: {error}"))?;
+        self.reset_visual_modifier_effect(target, id, effect)
+    }
+
+    pub fn reset_visual_modifier_effect(
+        &self,
+        target: &InspectorTarget,
+        id: uuid::Uuid,
+        effect: ModifierEffect,
+    ) -> Result<(), String> {
         let mut project = self.project.borrow_mut();
         let item = project
             .video_item_mut(video_address(target)?)
@@ -1200,8 +1579,9 @@ impl InspectorController {
         let item = project
             .video_item_mut(video_address(target)?)
             .ok_or_else(|| "visual modifier item is no longer available".to_string())?;
-        item.modifiers = edited_visual_modifier_chain(item, id, action)
+        let modifiers = edited_visual_modifier_chain(item, id, action)
             .ok_or_else(|| "visual modifier action would invalidate the chain".to_string())?;
+        item.modifiers = modifiers;
         shrimply_project::project::commit_edit(
             &project,
             if action == VisualModifierChainAction::Remove {

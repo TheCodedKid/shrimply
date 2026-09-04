@@ -5,11 +5,9 @@ use std::{
 
 use crate::InspectedItem as SelectedItem;
 use glam::Vec3;
-use shrimply_core::timeline_value::{
-    CurveEditPolicy, CurveKeyframeInsert, Interpolation, TimelineBase, TimelineValue,
-    TimelineValueType, TimelineVectorKeyframe, edit_curve_value, insert_curve_keyframe,
-    set_keyframes_enabled,
-};
+use shrimply_core::timeline_value::{Interpolation, TimelineBase, TimelineValue};
+use shrimply_inspector_core::gaussian_3d::{VECTOR_COMMIT, VECTOR_EXPRESSION_COMMIT};
+use shrimply_inspector_core::timeline_value::vector::vec3 as shared;
 use shrimply_project::project::{Project, Time};
 use uuid::Uuid;
 
@@ -22,14 +20,12 @@ use crate::{
     ui::{Number3Picker, NumberPickerHandle},
 };
 
-type SceneGet = for<'a> fn(&'a shrimply_scene_3d::ObjScene) -> &'a TimelineValue<Vec3>;
-type SceneGetMut = for<'a> fn(&'a mut shrimply_scene_3d::ObjScene) -> &'a mut TimelineValue<Vec3>;
 type ItemGet = for<'a> fn(&'a Project, SelectedItem) -> Option<&'a TimelineValue<Vec3>>;
 type ItemGetMut = for<'a> fn(&'a mut Project, SelectedItem) -> Option<&'a mut TimelineValue<Vec3>>;
 
 #[derive(Clone, Copy)]
 enum Vec3Access {
-    Scene3d { get: SceneGet, get_mut: SceneGetMut },
+    Scene3dScoped { value_id: Uuid },
     Item { get: ItemGet, get_mut: ItemGetMut },
     Modifier { id: Uuid, value_id: Uuid },
 }
@@ -37,6 +33,9 @@ enum Vec3Access {
 #[derive(Clone, Copy)]
 pub(crate) struct Vec3Target {
     access: Vec3Access,
+    timeline_id: Option<Uuid>,
+    commit_name: &'static str,
+    expression_commit_name: &'static str,
     minimum: Option<f64>,
     degrees: bool,
     lock: bool,
@@ -45,18 +44,24 @@ pub(crate) struct Vec3Target {
 pub(crate) struct Vec3TargetBuilder(Vec3Target);
 
 impl Vec3Target {
-    pub(crate) fn builder(get: SceneGet, get_mut: SceneGetMut) -> Vec3TargetBuilder {
+    pub(crate) fn item_builder(get: ItemGet, get_mut: ItemGetMut) -> Vec3TargetBuilder {
         Vec3TargetBuilder(Self {
-            access: Vec3Access::Scene3d { get, get_mut },
+            access: Vec3Access::Item { get, get_mut },
+            timeline_id: None,
+            commit_name: VECTOR_COMMIT,
+            expression_commit_name: VECTOR_EXPRESSION_COMMIT,
             minimum: None,
             degrees: false,
             lock: false,
         })
     }
 
-    pub(crate) fn item_builder(get: ItemGet, get_mut: ItemGetMut) -> Vec3TargetBuilder {
+    pub(crate) fn scene_builder(value_id: Uuid) -> Vec3TargetBuilder {
         Vec3TargetBuilder(Self {
-            access: Vec3Access::Item { get, get_mut },
+            access: Vec3Access::Scene3dScoped { value_id },
+            timeline_id: Some(value_id),
+            commit_name: VECTOR_COMMIT,
+            expression_commit_name: VECTOR_EXPRESSION_COMMIT,
             minimum: None,
             degrees: false,
             lock: false,
@@ -66,6 +71,9 @@ impl Vec3Target {
     pub(crate) fn modifier_builder(id: Uuid, value_id: Uuid) -> Vec3TargetBuilder {
         Vec3TargetBuilder(Self {
             access: Vec3Access::Modifier { id, value_id },
+            timeline_id: Some(value_id),
+            commit_name: VECTOR_COMMIT,
+            expression_commit_name: VECTOR_EXPRESSION_COMMIT,
             minimum: None,
             degrees: false,
             lock: false,
@@ -73,8 +81,9 @@ impl Vec3Target {
     }
 
     fn value(self, project: &Project, key: SelectedItem) -> Option<&TimelineValue<Vec3>> {
-        match self.access {
-            Vec3Access::Scene3d { get, .. } => selected_scene(project, key.clone()).map(get),
+        let value = match self.access {
+            Vec3Access::Scene3dScoped { value_id } => selected_scene(project, key.clone())
+                .and_then(|scene| shrimply_inspector_core::scene_3d::vector3(scene, value_id)),
             Vec3Access::Item { get, .. } => get(project, key.clone()),
             Vec3Access::Modifier { id, value_id } => crate::modifiers::number3(
                 &project
@@ -85,7 +94,14 @@ impl Vec3Target {
                     .effect,
                 value_id,
             ),
+        }?;
+        if self
+            .timeline_id
+            .is_some_and(|timeline_id| value.id != timeline_id)
+        {
+            return None;
         }
+        Some(value)
     }
 
     fn value_mut(
@@ -93,10 +109,10 @@ impl Vec3Target {
         project: &mut Project,
         key: SelectedItem,
     ) -> Option<&mut TimelineValue<Vec3>> {
-        match self.access {
-            Vec3Access::Scene3d { get_mut, .. } => {
-                selected_scene_mut(project, key.clone()).map(get_mut)
-            }
+        let timeline_id = self.timeline_id;
+        let value = match self.access {
+            Vec3Access::Scene3dScoped { value_id } => selected_scene_mut(project, key.clone())
+                .and_then(|scene| shrimply_inspector_core::scene_3d::vector3_mut(scene, value_id)),
             Vec3Access::Item { get_mut, .. } => get_mut(project, key.clone()),
             Vec3Access::Modifier { id, value_id } => crate::modifiers::number3_mut(
                 &mut project
@@ -107,7 +123,30 @@ impl Vec3Target {
                     .effect,
                 value_id,
             ),
+        }?;
+        if timeline_id.is_some_and(|timeline_id| value.id != timeline_id) {
+            return None;
         }
+        Some(value)
+    }
+
+    pub(crate) fn presentation(
+        mut self,
+        control: &shrimply_inspector_core::InspectorControl,
+        commit_name: &'static str,
+        expression_commit_name: &'static str,
+    ) -> Self {
+        assert_eq!(control.commit_name, commit_name);
+        assert_eq!(control.keyframe_commit_name, commit_name);
+        assert_eq!(control.expression_commit_name, expression_commit_name);
+        self.timeline_id = Some(
+            control
+                .timeline_id
+                .expect("shared Vec3 presentation must identify its timeline"),
+        );
+        self.commit_name = commit_name;
+        self.expression_commit_name = expression_commit_name;
+        self
     }
 }
 
@@ -149,7 +188,7 @@ pub(crate) fn control(
         );
     };
     let time = local_time(context, key.clone()).unwrap_or(Time::ZERO);
-    let current = value.value_at(time);
+    let current = shared::value_at(value, time);
     let mut sections = LayeredSections::default();
     if matches!(value.base, TimelineBase::Keyframes(_)) {
         let built = keyframe_editor::build(
@@ -234,7 +273,7 @@ fn picker(value: Vec3, context: &InspectorContext, target: Vec3Target) -> gtk::W
     let Some(key) = context.selected_item.clone() else {
         return picker.build_with_handles().widget;
     };
-    for axis in 0..3 {
+    for axis in 0..shared::COMPONENT_COUNT {
         let project = context.project.clone();
         let player = context.player_state.clone();
         let update_key = key.clone();
@@ -244,7 +283,7 @@ fn picker(value: Vec3, context: &InspectorContext, target: Vec3Target) -> gtk::W
         let project = context.project.clone();
         let player = context.player_state.clone();
         picker = picker.on_commit(axis, move |_| {
-            shrimply_project::project::commit_edit(&project.borrow(), "edit-scene-3d-vec3");
+            shrimply_project::project::commit_edit(&project.borrow(), target.commit_name);
             player_state::refresh_project(
                 &player,
                 ProjectChange {
@@ -282,12 +321,14 @@ fn update_component(
     let Some(value) = target.value_mut(&mut project, key.clone()) else {
         return;
     };
-    let mut current = value.value_at(evaluation_time);
-    current[axis] = next as f32;
-    if target.minimum.is_some() {
-        current = current.max(Vec3::splat(target.minimum.unwrap_or_default() as f32));
-    }
-    if set_value(value, keyframe_time, current) {
+    if shared::set_component(
+        value,
+        evaluation_time,
+        keyframe_time,
+        axis,
+        next,
+        target.minimum,
+    ) {
         drop(project);
         player_state::refresh_project(
             player,
@@ -326,7 +367,7 @@ fn connect_display(
             };
             let Some(value) = target
                 .value(&project, key.clone())
-                .map(|value| value.value_at(time))
+                .map(|value| shared::value_at(value, time))
             else {
                 return;
             };
@@ -358,11 +399,10 @@ fn toggle_keyframes(
     let Some(value) = target.value_mut(&mut project, key.clone()) else {
         return false;
     };
-    let current = value.value_at(evaluation_time);
-    if !set_keyframes_enabled(value, keyframe_time, current, enabled) {
+    if !shared::set_keyframes_enabled(value, evaluation_time, keyframe_time, enabled) {
         return false;
     }
-    commit_refresh(project, player, true);
+    commit_refresh(project, player, true, target.commit_name);
     true
 }
 
@@ -377,10 +417,9 @@ fn toggle_expression(
     let Some(value) = target.value_mut(&mut project, key.clone()) else {
         return false;
     };
-    let changed =
-        shrimply_core::timeline_value::set_expression_enabled(value, enabled, "[x, y, z]");
+    let changed = shared::set_expression_enabled(value, enabled);
     if changed {
-        commit_refresh(project, player, true);
+        commit_refresh(project, player, true, target.expression_commit_name);
     }
     changed
 }
@@ -406,19 +445,15 @@ fn expression_editor(
                 crate::rhai_editor::ExpressionValue::Vec3,
                 move |source| {
                     let mut project = project.borrow_mut();
-                    let Some(expression) = target
-                        .value_mut(&mut project, editor_key.clone())
-                        .and_then(|value| value.expression.as_mut())
-                    else {
+                    let Some(value) = target.value_mut(&mut project, editor_key.clone()) else {
                         return;
                     };
-                    if expression.source == source {
+                    if !shared::set_expression_source(value, source) {
                         return;
                     }
-                    expression.source = source;
                     shrimply_project::project::commit_coalesced_edit(
                         &project,
-                        "edit-scene-3d-vec3-expression",
+                        target.expression_commit_name,
                     );
                     drop(project);
                     player_state::refresh_project(
@@ -436,10 +471,7 @@ fn expression_editor(
             let value = target.value(project, output_key.clone())?;
             let outcome = evaluate_expression(project, &output_key, position, audio, cache, value)?;
             Some(ExpressionOutput {
-                value: format!(
-                    "X {:.2}  Y {:.2}  Z {:.2}",
-                    outcome.value.x, outcome.value.y, outcome.value.z,
-                ),
+                value: shared::format_value(outcome.value, ["X", "Y", "Z"], 2, ""),
                 error: outcome.error,
             })
         },
@@ -471,7 +503,7 @@ fn actions(
                 Rc::new(move |times| {
                     target
                         .value(&project.borrow(), key.clone())
-                        .and_then(|value| keyframe_model::copy_keyframes(value, times))
+                        .and_then(|value| shared::copy_keyframes(value, times))
                 })
             },
             paste: {
@@ -481,8 +513,8 @@ fn actions(
                 Rc::new(move |clipboard, time| {
                     let mut project = project.borrow_mut();
                     let value = target.value_mut(&mut project, key.clone())?;
-                    let times = keyframe_model::paste_keyframes(value, clipboard, time)?;
-                    commit_refresh(project, &player, true);
+                    let times = shared::paste_keyframes(value, clipboard, time)?;
+                    commit_refresh(project, &player, true, target.commit_name);
                     Some(times)
                 })
             },
@@ -512,7 +544,7 @@ fn mutation(
     player: &SharedPlayerState,
     key: SelectedItem,
     target: Vec3Target,
-    mutate: fn(&mut TimelineValue<Vec3>, Time, Time),
+    mutate: fn(&mut TimelineValue<Vec3>, Time, Time) -> bool,
 ) -> Rc<dyn Fn(Time)> {
     let project = project.clone();
     let player = player.clone();
@@ -523,42 +555,16 @@ fn mutation(
             return;
         };
         mutate(value, time, frame_step);
-        commit_refresh(project, &player, true);
+        commit_refresh(project, &player, true, target.commit_name);
     })
 }
 
-fn add_key(value: &mut TimelineValue<Vec3>, time: Time, _: Time) {
-    let current = value.value_at(time);
-    if let TimelineBase::Keyframes(keyframes) = &mut value.base {
-        if let Some(keyframe) = keyframes
-            .iter_mut()
-            .find(|keyframe| keyframe.time.approx_eq(time))
-        {
-            keyframe.time = time;
-            keyframes.sort_by_key(|keyframe| keyframe.time);
-        } else {
-            insert_curve_keyframe(
-                keyframes,
-                Vec3::keyframe(time, current),
-                CurveKeyframeInsert::InheritPreviousInterpolation,
-            );
-        }
-    }
+fn add_key(value: &mut TimelineValue<Vec3>, time: Time, _: Time) -> bool {
+    shared::add_keyframe(value, time)
 }
 
-fn delete_key(value: &mut TimelineValue<Vec3>, time: Time, frame_step: Time) {
-    let constant = if let TimelineBase::Keyframes(keyframes) = &mut value.base {
-        keyframes
-            .iter()
-            .position(|keyframe| keyframe_model::same_frame(keyframe.time, time, frame_step))
-            .map(|index| keyframes.remove(index).value)
-            .filter(|_| keyframes.is_empty())
-    } else {
-        None
-    };
-    if let Some(constant) = constant {
-        value.base = TimelineBase::Const(constant);
-    }
+fn delete_key(value: &mut TimelineValue<Vec3>, time: Time, frame_step: Time) -> bool {
+    shared::delete_keyframe(value, time, frame_step)
 }
 
 fn update_point(
@@ -570,21 +576,13 @@ fn update_point(
     time: Time,
 ) {
     let mut project = project.borrow_mut();
-    let Some(keyframes) = target
-        .value_mut(&mut project, key.clone())
-        .and_then(keyframes_mut)
-    else {
+    let Some(value) = target.value_mut(&mut project, key.clone()) else {
         return;
     };
-    let Some(index) = keyframes.iter().position(|value| value.time.approx_eq(old)) else {
+    if !shared::move_keyframes(value, &[(old, time)]) {
         return;
-    };
-    let mut keyframe = keyframes.remove(index);
-    keyframes.retain(|other| !other.time.approx_eq(time));
-    keyframe.time = time;
-    keyframes.push(keyframe);
-    keyframes.sort_by_key(|value| value.time);
-    shrimply_project::project::commit_coalesced_edit(&project, "edit-scene-3d-vec3");
+    }
+    shrimply_project::project::commit_coalesced_edit(&project, target.commit_name);
     drop(project);
     player_state::refresh_project(
         player,
@@ -604,20 +602,13 @@ fn set_interpolation(
     interpolation: Interpolation,
 ) {
     let mut project = project.borrow_mut();
-    let Some(keyframes) = target
-        .value_mut(&mut project, key.clone())
-        .and_then(keyframes_mut)
-    else {
+    let Some(value) = target.value_mut(&mut project, key.clone()) else {
         return;
     };
-    let Some(keyframe) = keyframes.iter_mut().find(|value| value.id == owner_id) else {
-        return;
-    };
-    if keyframe.interpolation_to_next == interpolation {
+    if !shared::set_interpolation(value, owner_id, interpolation) {
         return;
     }
-    keyframe.interpolation_to_next = interpolation;
-    shrimply_project::project::commit_edit(&project, "edit-scene-3d-vec3");
+    shrimply_project::project::commit_edit(&project, target.commit_name);
     drop(project);
     player_state::refresh_project(
         player,
@@ -626,28 +617,6 @@ fn set_interpolation(
             ..Default::default()
         }),
     );
-}
-
-fn keyframes_mut(
-    value: &mut TimelineValue<Vec3>,
-) -> Option<&mut Vec<TimelineVectorKeyframe<Vec3>>> {
-    match &mut value.base {
-        TimelineBase::Keyframes(keyframes) => Some(keyframes),
-        TimelineBase::Const(_) => None,
-    }
-}
-
-fn set_value(value: &mut TimelineValue<Vec3>, time: Time, next: Vec3) -> bool {
-    edit_curve_value(
-        value,
-        time,
-        next,
-        |current, next| current.abs_diff_eq(*next, 0.000_001),
-        CurveEditPolicy {
-            unchanged_keyframe_is_noop: false,
-            insert: CurveKeyframeInsert::InheritPreviousInterpolation,
-        },
-    )
 }
 
 fn local_time(context: &InspectorContext, key: SelectedItem) -> Option<Time> {
@@ -681,8 +650,13 @@ fn selected_scene_mut(
     Some(scene)
 }
 
-fn commit_refresh(project: RefMut<'_, Project>, player: &SharedPlayerState, inspector: bool) {
-    shrimply_project::project::commit_edit(&project, "edit-scene-3d-vec3");
+fn commit_refresh(
+    project: RefMut<'_, Project>,
+    player: &SharedPlayerState,
+    inspector: bool,
+    commit_name: &str,
+) {
+    shrimply_project::project::commit_edit(&project, commit_name);
     drop(project);
     player_state::refresh_project(
         player,

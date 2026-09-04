@@ -6,17 +6,11 @@ use crate::backend::qobject::InspectorBackend;
 use crate::section::InspectorControl;
 
 pub(crate) fn has_transform_controls(section: &crate::section::InspectorSection) -> bool {
-    section.controls.iter().any(|control| {
-        matches!(
-            control.kind,
-            crate::section::ControlKind::LayeredNumber
-                | crate::section::ControlKind::LayeredVector2
-        ) && is_transform_path(&control.path)
-    })
+    shrimply_inspector_core::keyframe_graph::has_transform_controls(section)
 }
 
 pub(crate) fn is_transform_path(path: &str) -> bool {
-    path.starts_with("/transform/") || path.contains("/effect/effect/config/transform/")
+    shrimply_inspector_core::keyframe_graph::is_transform_path(path)
 }
 
 pub(crate) fn update_transform_graphs(
@@ -29,24 +23,16 @@ pub(crate) fn update_transform_graphs(
                 crate::item::InspectorListItem::Item(item) => &mut item.section,
                 crate::item::InspectorListItem::Flat(section) => section,
             };
-            for control in &mut section.controls {
-                if matches!(
-                    control.kind,
-                    crate::section::ControlKind::LayeredNumber
-                        | crate::section::ControlKind::LayeredVector2
-                ) && let Some(graph) = live.graph(&control.path)
-                {
-                    control.scalar_graph = Some(graph.clone());
-                }
-            }
+            shrimply_inspector_core::keyframe_graph::update_transform_graphs(section, live);
         }
     }
 }
 
-pub(crate) fn update_visual_modifier_graphs(
+pub(crate) fn update_control_graphs(
     document: &mut crate::list::InspectorDocument,
     target: &shrimply_inspector_core::InspectorTarget,
 ) {
+    let mut vector_source = None;
     for category in &mut document.categories {
         for item in &mut category.items {
             let section = match item {
@@ -54,59 +40,26 @@ pub(crate) fn update_visual_modifier_graphs(
                 crate::item::InspectorListItem::Flat(section) => section,
             };
             for control in &mut section.controls {
-                if !control.path.starts_with("/modifiers/") {
+                if control.scalar_graph.is_none() {
                     continue;
                 }
-                let graph = match control.kind {
-                    crate::section::ControlKind::LayeredNumber => control.timeline_id.map_or_else(
-                        || Err("visual modifier number has no timeline ID".to_string()),
-                        |timeline_id| {
-                            super::visual_modifier_number_graph(target, &control.path, timeline_id)
-                        },
-                    ),
-                    crate::section::ControlKind::LayeredVector2 => control.timeline_id.map_or_else(
-                        || Err("visual modifier vector has no timeline ID".to_string()),
-                        |timeline_id| {
-                            super::visual_modifier_vector2_graph(target, &control.path, timeline_id)
-                        },
-                    ),
-                    crate::section::ControlKind::LayeredVector3 => control.timeline_id.map_or_else(
-                        || Err("visual modifier vector has no timeline ID".to_string()),
-                        |timeline_id| {
-                            super::visual_modifier_vector3_graph(target, &control.path, timeline_id)
-                        },
-                    ),
-                    crate::section::ControlKind::LayeredColor => control.timeline_id.map_or_else(
-                        || Err("visual modifier color has no timeline ID".to_string()),
-                        |timeline_id| {
-                            super::visual_modifier_color_graph(target, &control.path, timeline_id)
-                        },
-                    ),
-                    crate::section::ControlKind::LayeredSelector
-                        if control.path.ends_with("/effect/effect/config/operation") =>
-                    {
-                        control.timeline_id.map_or_else(
-                            || Err("visual modifier selector has no timeline ID".to_string()),
-                            |timeline_id| {
-                                super::erode_dilate_operation_graph(
-                                    target,
-                                    &control.path,
-                                    timeline_id,
-                                )
-                            },
-                        )
-                    }
-                    crate::section::ControlKind::LayeredSelector
-                        if control.path.ends_with("/effect/effect/config/mode") =>
-                    {
-                        control.timeline_id.map_or_else(
-                            || Err("visual modifier selector has no timeline ID".to_string()),
-                            |timeline_id| {
-                                super::halftone_mode_graph(target, &control.path, timeline_id)
-                            },
-                        )
-                    }
-                    _ => continue,
+                let graph = if matches!(
+                    control.kind,
+                    crate::section::ControlKind::LayeredVector2
+                        | crate::section::ControlKind::LayeredVector3
+                ) {
+                    let Ok((value, runtime)) = vector_source
+                        .get_or_insert_with(|| super::control_graph_source(target))
+                        .as_ref()
+                    else {
+                        continue;
+                    };
+                    shrimply_inspector_core::keyframe_graph::vector_control_graph(
+                        value, *runtime, control,
+                    )
+                    .expect("layered vector control must have a vector graph result")
+                } else {
+                    super::control_graph(target, control)
                 };
                 if let Ok(graph) = graph {
                     control.scalar_graph = graph;
@@ -149,16 +102,9 @@ impl InspectorBackend {
     }
 
     pub fn control_graph_segments(&self, category: i32, item: i32, control: i32) -> QStringList {
-        let speed = self
-            .control(category, item, control)
-            .is_some_and(|control| {
-                matches!(
-                    control.kind,
-                    crate::section::ControlKind::LayeredVector2
-                        | crate::section::ControlKind::LayeredVector3
-                        | crate::section::ControlKind::LayeredColor
-                )
-            });
+        let speed = self.control(category, item, control).and_then(|control| {
+            shrimply_inspector_core::InspectorGraphKind::for_control(control.kind)
+        }) == Some(shrimply_inspector_core::InspectorGraphKind::Speed);
         self.control(category, item, control)
             .and_then(|control| control.scalar_graph.as_ref())
             .map(|graph| {
@@ -236,19 +182,16 @@ impl InspectorBackend {
         if control.scalar_graph.is_none() {
             return;
         }
-        let result = exact_time(numerator, denominator).and_then(|time| {
-            if matches!(
-                control.kind,
-                crate::section::ControlKind::LayeredBoolean
-                    | crate::section::ControlKind::LayeredSelector
-            ) {
-                super::seek_discrete_keyframe(&target, time)
-            } else if control.audio_modifier {
-                super::seek_audio_modifier_keyframe(&target, time)
-            } else {
-                super::seek_scalar_keyframe(&target, time)
-            }
-        });
+        let result = shrimply_inspector_core::keyframe_model::exact_time(numerator, denominator)
+            .and_then(|time| {
+                if shrimply_inspector_core::InspectorGraphKind::uses_discrete_seek(control.kind) {
+                    super::seek_discrete_keyframe(&target, time)
+                } else if control.audio_modifier {
+                    super::seek_audio_modifier_keyframe(&target, time)
+                } else {
+                    super::seek_scalar_keyframe(&target, time)
+                }
+            });
         self.as_mut().finish(result);
     }
 
@@ -281,39 +224,71 @@ impl InspectorBackend {
                 .zip(times.iter())
                 .map(|(old_time, time)| {
                     Ok((
-                        parse_time(&old_time.to_string())?,
-                        parse_time(&time.to_string())?,
+                        shrimply_inspector_core::keyframe_model::parse_time(&old_time.to_string())?,
+                        shrimply_inspector_core::keyframe_model::parse_time(&time.to_string())?,
                     ))
                 })
                 .collect::<Result<Vec<_>, String>>()?;
-            let canonical_times = if control.kind == crate::section::ControlKind::LayeredBoolean {
+            let canonical_times = if control.kind == crate::section::ControlKind::LayeredDrawing {
+                super::move_paint_drawing_keyframes(&target, timeline_id(&control)?, &moves)?
+            } else if control.kind == crate::section::ControlKind::LayeredBoolean {
                 super::move_bool_keyframes(&target, path, &moves)?
             } else if control.kind == crate::section::ControlKind::LayeredSelector {
-                super::move_step_keyframes(&target, path, &moves)?
+                super::move_step_keyframes(&target, path, &moves, &control.keyframe_commit_name)?
             } else if control.kind == crate::section::ControlKind::LayeredVector2 {
-                super::move_vector2_keyframes(&target, path, &moves)?
+                super::move_vector2_keyframes(&target, path, &moves, &control.keyframe_commit_name)?
             } else if control.kind == crate::section::ControlKind::LayeredVector3 {
-                super::move_vector3_keyframes(&target, path, &moves)?
+                super::move_vector3_keyframes(&target, path, &moves, &control.keyframe_commit_name)?
             } else if control.kind == crate::section::ControlKind::LayeredColor {
-                super::move_color_keyframes(&target, path, timeline_id(&control)?, &moves)?
+                super::move_color_keyframes(
+                    &target,
+                    path,
+                    timeline_id(&control)?,
+                    &moves,
+                    &control.keyframe_commit_name,
+                )?
+            } else if control.kind == crate::section::ControlKind::LayeredText {
+                super::move_text_keyframes(
+                    &target,
+                    path,
+                    timeline_id(&control)?,
+                    &moves,
+                    text_keyframe_commits(&control)?,
+                )?
             } else {
                 let modifier = control
                     .audio_modifier
                     .then(|| modifier_ids(&control))
                     .transpose()?;
+                let background_integer = background_integer(&control);
                 for (&(old_time, time), value) in moves.iter().zip(values.iter()) {
-                    let displayed_value = parse_graph_value(&value.to_string())?;
-                    let change = shrimply_inspector_core::AudioModifierKeyframeMove {
-                        old_time,
-                        time,
-                        displayed_value: if control.integer {
+                    let displayed_value =
+                        shrimply_inspector_core::keyframe_model::parse_graph_value(
+                            &value.to_string(),
+                        )?;
+                    let stored_value = if background_integer || modifier.is_some() {
+                        control.store_number(if control.integer {
                             displayed_value.round()
                         } else {
                             displayed_value
-                        },
-                        store_multiplier: control.store_multiplier,
+                        })
+                    } else {
+                        control.map_number_for_storage(displayed_value)
                     };
-                    if let Some((modifier_id, timeline_id)) = modifier {
+                    let change = shrimply_inspector_core::AudioModifierKeyframeMove {
+                        old_time,
+                        time,
+                        displayed_value: stored_value,
+                        store_multiplier: 1.0,
+                    };
+                    if background_integer {
+                        super::move_background_integer_keyframe(
+                            &target,
+                            path,
+                            timeline_id(&control)?,
+                            change,
+                        )?;
+                    } else if let Some((modifier_id, timeline_id)) = modifier {
                         super::move_audio_modifier_keyframe(
                             &target,
                             modifier_id,
@@ -321,7 +296,16 @@ impl InspectorBackend {
                             change,
                         )?;
                     } else {
-                        super::move_scalar_keyframe(&target, path, change)?;
+                        super::move_scalar_keyframe(
+                            &target,
+                            path,
+                            change,
+                            shrimply_inspector_core::NumberConstraint {
+                                integer: control.integer || control.number_constraint.integer,
+                                ..control.number_constraint
+                            },
+                            &control.keyframe_commit_name,
+                        )?;
                     }
                 }
                 moves.iter().map(|&(_, time)| time).collect()
@@ -332,7 +316,12 @@ impl InspectorBackend {
                 .collect())
         })();
         match result {
-            Ok(times) => times,
+            Ok(times) => {
+                if timeline_path(&control).starts_with("/content/") {
+                    super::mark_dirty();
+                }
+                times
+            }
             Err(error) => {
                 self.as_mut().finish(Err(error));
                 QStringList::default()
@@ -364,23 +353,71 @@ impl InspectorBackend {
                 .then(|| modifier_ids(&control))
                 .transpose()?;
             for time in times.iter() {
-                let time = parse_time(&time.to_string())?;
-                if control.kind == crate::section::ControlKind::LayeredBoolean {
+                let time = shrimply_inspector_core::keyframe_model::parse_time(&time.to_string())?;
+                if control.kind == crate::section::ControlKind::LayeredDrawing {
+                    super::delete_paint_drawing_keyframe(&target, timeline_id(&control)?, time)?;
+                } else if control.kind == crate::section::ControlKind::LayeredBoolean {
                     super::delete_bool_keyframe(&target, path, time)?;
                 } else if control.kind == crate::section::ControlKind::LayeredSelector {
-                    super::delete_step_keyframe(&target, path, time)?;
+                    super::delete_step_keyframe(
+                        &target,
+                        path,
+                        time,
+                        &control.keyframe_commit_name,
+                    )?;
                 } else if control.kind == crate::section::ControlKind::LayeredVector2 {
-                    super::delete_vector2_keyframe(&target, path, time)?;
+                    super::delete_vector2_keyframe(
+                        &target,
+                        path,
+                        time,
+                        &control.keyframe_commit_name,
+                    )?;
                 } else if control.kind == crate::section::ControlKind::LayeredVector3 {
-                    super::delete_vector3_keyframe(&target, path, time)?;
+                    super::delete_vector3_keyframe(
+                        &target,
+                        path,
+                        time,
+                        &control.keyframe_commit_name,
+                    )?;
                 } else if control.kind == crate::section::ControlKind::LayeredColor {
-                    super::delete_color_keyframe(&target, path, timeline_id(&control)?, time)?;
+                    super::delete_color_keyframe(
+                        &target,
+                        path,
+                        timeline_id(&control)?,
+                        time,
+                        &control.keyframe_commit_name,
+                    )?;
+                } else if control.kind == crate::section::ControlKind::LayeredText {
+                    super::delete_text_keyframe(
+                        &target,
+                        path,
+                        timeline_id(&control)?,
+                        time,
+                        text_keyframe_commits(&control)?,
+                    )?;
                 } else if let Some((modifier_id, timeline_id)) = modifier {
                     super::delete_audio_modifier_keyframe(&target, modifier_id, timeline_id, time)?;
+                } else if background_integer(&control) {
+                    super::delete_background_integer_keyframe(
+                        &target,
+                        path,
+                        timeline_id(&control)?,
+                        time,
+                    )?;
                 } else if path == "/transform/rotation_degrees" {
-                    super::delete_transform_scalar_keyframe(&target, path, time)?;
+                    super::delete_transform_scalar_keyframe(
+                        &target,
+                        path,
+                        time,
+                        &control.keyframe_commit_name,
+                    )?;
                 } else {
-                    super::delete_scalar_keyframe(&target, path, time)?;
+                    super::delete_scalar_keyframe(
+                        &target,
+                        path,
+                        time,
+                        &control.keyframe_commit_name,
+                    )?;
                 }
             }
             Ok(())
@@ -403,32 +440,72 @@ impl InspectorBackend {
             self.as_mut().finish(Err(error));
             return;
         }
-        let result = exact_time(numerator, denominator).and_then(|time| {
-            if control.scalar_graph.is_none() {
-                return Err("control has no keyframe graph".to_string());
-            }
-            if control.kind == crate::section::ControlKind::LayeredBoolean {
-                super::add_bool_keyframe(&target, timeline_path(&control), time)
-            } else if control.kind == crate::section::ControlKind::LayeredSelector {
-                super::add_step_keyframe(&target, timeline_path(&control), time)
-            } else if control.kind == crate::section::ControlKind::LayeredVector2 {
-                super::add_vector2_keyframe(&target, timeline_path(&control), time)
-            } else if control.kind == crate::section::ControlKind::LayeredVector3 {
-                super::add_vector3_keyframe(&target, timeline_path(&control), time)
-            } else if control.kind == crate::section::ControlKind::LayeredColor {
-                super::add_color_keyframe(
-                    &target,
-                    timeline_path(&control),
-                    timeline_id(&control)?,
-                    time,
-                )
-            } else if control.audio_modifier {
-                let (modifier_id, timeline_id) = modifier_ids(&control)?;
-                super::add_audio_modifier_keyframe(&target, modifier_id, timeline_id, time)
-            } else {
-                super::add_scalar_keyframe(&target, timeline_path(&control), time)
-            }
-        });
+        let result = shrimply_inspector_core::keyframe_model::exact_time(numerator, denominator)
+            .and_then(|time| {
+                if control.scalar_graph.is_none() {
+                    return Err("control has no keyframe graph".to_string());
+                }
+                if control.kind == crate::section::ControlKind::LayeredDrawing {
+                    super::add_paint_drawing_keyframe(&target, timeline_id(&control)?, time)
+                } else if control.kind == crate::section::ControlKind::LayeredBoolean {
+                    super::add_bool_keyframe(&target, timeline_path(&control), time)
+                } else if control.kind == crate::section::ControlKind::LayeredSelector {
+                    super::add_step_keyframe(
+                        &target,
+                        timeline_path(&control),
+                        time,
+                        &control.keyframe_commit_name,
+                    )
+                } else if control.kind == crate::section::ControlKind::LayeredVector2 {
+                    super::add_vector2_keyframe(
+                        &target,
+                        timeline_path(&control),
+                        time,
+                        &control.keyframe_commit_name,
+                    )
+                } else if control.kind == crate::section::ControlKind::LayeredVector3 {
+                    super::add_vector3_keyframe(
+                        &target,
+                        timeline_path(&control),
+                        time,
+                        &control.keyframe_commit_name,
+                    )
+                } else if control.kind == crate::section::ControlKind::LayeredColor {
+                    super::add_color_keyframe(
+                        &target,
+                        timeline_path(&control),
+                        timeline_id(&control)?,
+                        time,
+                        &control.keyframe_commit_name,
+                    )
+                } else if control.kind == crate::section::ControlKind::LayeredText {
+                    super::add_text_keyframe(
+                        &target,
+                        timeline_path(&control),
+                        timeline_id(&control)?,
+                        time,
+                        text_keyframe_commits(&control)?,
+                    )
+                } else if background_integer(&control) {
+                    super::add_background_integer_keyframe(
+                        &target,
+                        timeline_path(&control),
+                        timeline_id(&control)?,
+                        time,
+                    )
+                } else if control.audio_modifier {
+                    let (modifier_id, timeline_id) = modifier_ids(&control)?;
+                    super::add_audio_modifier_keyframe(&target, modifier_id, timeline_id, time)
+                } else {
+                    super::add_scalar_keyframe(
+                        &target,
+                        timeline_path(&control),
+                        time,
+                        control.number_constraint,
+                        &control.keyframe_commit_name,
+                    )
+                }
+            });
         self.as_mut().finish(result);
     }
 
@@ -451,7 +528,9 @@ impl InspectorBackend {
                 if control.scalar_graph.is_none() {
                     return Err("control has no keyframe graph".to_string());
                 }
-                if control.kind == crate::section::ControlKind::LayeredBoolean {
+                if control.kind == crate::section::ControlKind::LayeredDrawing {
+                    super::copy_paint_drawing_keyframes(&target, timeline_id(&control)?, &times)
+                } else if control.kind == crate::section::ControlKind::LayeredBoolean {
                     super::copy_bool_keyframes(&target, timeline_path(&control), &times)
                 } else if control.kind == crate::section::ControlKind::LayeredSelector {
                     super::copy_step_keyframes(&target, timeline_path(&control), &times)
@@ -461,6 +540,20 @@ impl InspectorBackend {
                     super::copy_vector3_keyframes(&target, timeline_path(&control), &times)
                 } else if control.kind == crate::section::ControlKind::LayeredColor {
                     super::copy_color_keyframes(
+                        &target,
+                        timeline_path(&control),
+                        timeline_id(&control)?,
+                        &times,
+                    )
+                } else if control.kind == crate::section::ControlKind::LayeredText {
+                    super::copy_text_keyframes(
+                        &target,
+                        timeline_path(&control),
+                        timeline_id(&control)?,
+                        &times,
+                    )
+                } else if background_integer(&control) {
+                    super::copy_background_integer_keyframes(
                         &target,
                         timeline_path(&control),
                         timeline_id(&control)?,
@@ -494,21 +587,54 @@ impl InspectorBackend {
             self.as_mut().finish(Err(error));
             return;
         }
-        let result = exact_time(numerator, denominator)
+        let result = shrimply_inspector_core::keyframe_model::exact_time(numerator, denominator)
             .and_then(|time| {
                 if control.scalar_graph.is_none() {
                     return Err("control has no keyframe graph".to_string());
                 }
-                if control.kind == crate::section::ControlKind::LayeredBoolean {
+                if control.kind == crate::section::ControlKind::LayeredDrawing {
+                    super::paste_paint_drawing_keyframes(&target, timeline_id(&control)?, time)
+                } else if control.kind == crate::section::ControlKind::LayeredBoolean {
                     super::paste_bool_keyframes(&target, timeline_path(&control), time)
                 } else if control.kind == crate::section::ControlKind::LayeredSelector {
-                    super::paste_step_keyframes(&target, timeline_path(&control), time)
+                    super::paste_step_keyframes(
+                        &target,
+                        timeline_path(&control),
+                        time,
+                        &control.keyframe_commit_name,
+                    )
                 } else if control.kind == crate::section::ControlKind::LayeredVector2 {
-                    super::paste_vector2_keyframes(&target, timeline_path(&control), time)
+                    super::paste_vector2_keyframes(
+                        &target,
+                        timeline_path(&control),
+                        time,
+                        &control.keyframe_commit_name,
+                    )
                 } else if control.kind == crate::section::ControlKind::LayeredVector3 {
-                    super::paste_vector3_keyframes(&target, timeline_path(&control), time)
+                    super::paste_vector3_keyframes(
+                        &target,
+                        timeline_path(&control),
+                        time,
+                        &control.keyframe_commit_name,
+                    )
                 } else if control.kind == crate::section::ControlKind::LayeredColor {
                     super::paste_color_keyframes(
+                        &target,
+                        timeline_path(&control),
+                        timeline_id(&control)?,
+                        time,
+                        &control.keyframe_commit_name,
+                    )
+                } else if control.kind == crate::section::ControlKind::LayeredText {
+                    super::paste_text_keyframes(
+                        &target,
+                        timeline_path(&control),
+                        timeline_id(&control)?,
+                        time,
+                        text_keyframe_commits(&control)?,
+                    )
+                } else if background_integer(&control) {
+                    super::paste_background_integer_keyframes(
                         &target,
                         timeline_path(&control),
                         timeline_id(&control)?,
@@ -518,7 +644,13 @@ impl InspectorBackend {
                     let (modifier_id, timeline_id) = modifier_ids(&control)?;
                     super::paste_audio_modifier_keyframes(&target, modifier_id, timeline_id, time)
                 } else {
-                    super::paste_scalar_keyframes(&target, timeline_path(&control), time)
+                    super::paste_scalar_keyframes(
+                        &target,
+                        timeline_path(&control),
+                        time,
+                        control.number_constraint,
+                        &control.keyframe_commit_name,
+                    )
                 }
             })
             .map(|count| confirmation(count, "pasted"));
@@ -544,16 +676,24 @@ impl InspectorBackend {
             if control.scalar_graph.is_none() {
                 return Err("control has no keyframe graph".to_string());
             }
-            let owner_id = uuid::Uuid::parse_str(&owner_id.to_string())
-                .map_err(|_| "keyframe owner ID is invalid".to_string())?;
+            let owner_id =
+                shrimply_inspector_core::keyframe_model::parse_owner_id(&owner_id.to_string())?;
             let interpolation = usize::try_from(interpolation)
                 .map_err(|_| "keyframe interpolation is invalid".to_string())?;
-            if control.kind == crate::section::ControlKind::LayeredVector2 {
+            if control.kind == crate::section::ControlKind::LayeredDrawing {
+                super::set_paint_drawing_interpolation(
+                    &target,
+                    timeline_id(&control)?,
+                    owner_id,
+                    interpolation,
+                )
+            } else if control.kind == crate::section::ControlKind::LayeredVector2 {
                 super::set_vector2_interpolation(
                     &target,
                     timeline_path(&control),
                     owner_id,
                     interpolation,
+                    &control.keyframe_commit_name,
                 )
             } else if control.kind == crate::section::ControlKind::LayeredVector3 {
                 super::set_vector3_interpolation(
@@ -561,9 +701,28 @@ impl InspectorBackend {
                     timeline_path(&control),
                     owner_id,
                     interpolation,
+                    &control.keyframe_commit_name,
                 )
             } else if control.kind == crate::section::ControlKind::LayeredColor {
                 super::set_color_interpolation(
+                    &target,
+                    timeline_path(&control),
+                    timeline_id(&control)?,
+                    owner_id,
+                    interpolation,
+                    &control.keyframe_commit_name,
+                )
+            } else if control.kind == crate::section::ControlKind::LayeredText {
+                super::set_text_keyframe_interpolation(
+                    &target,
+                    timeline_path(&control),
+                    timeline_id(&control)?,
+                    owner_id,
+                    interpolation,
+                    text_keyframe_commits(&control)?.interpolation,
+                )
+            } else if background_integer(&control) {
+                super::set_background_integer_interpolation(
                     &target,
                     timeline_path(&control),
                     timeline_id(&control)?,
@@ -585,8 +744,94 @@ impl InspectorBackend {
                     timeline_path(&control),
                     owner_id,
                     interpolation,
+                    &control.keyframe_commit_name,
                 )
             }
+        })();
+        self.as_mut().finish(result);
+    }
+
+    pub fn text_interpolation_labels(&self) -> QStringList {
+        shrimply_core::timeline_value::TextInterpolation::ALL
+            .into_iter()
+            .map(|interpolation| shrimply_i18n_qt::text(interpolation.label()))
+            .collect()
+    }
+
+    pub fn text_interpolation_tooltips(&self) -> QStringList {
+        shrimply_core::timeline_value::TextInterpolation::ALL
+            .into_iter()
+            .map(|interpolation| shrimply_i18n_qt::text(interpolation.tooltip()))
+            .collect()
+    }
+
+    pub fn control_graph_text_interpolation(
+        &self,
+        category: i32,
+        item: i32,
+        control: i32,
+        owner_id: &QString,
+    ) -> i32 {
+        let Some((target, control)) = self.control_target(category, item, control) else {
+            return -1;
+        };
+        if control.kind != crate::section::ControlKind::LayeredText {
+            return -1;
+        }
+        if super::ensure_control_timeline(&target, &control).is_err() {
+            return -1;
+        }
+        let Some(timeline_id) = control.timeline_id else {
+            return -1;
+        };
+        let Ok(owner_id) =
+            shrimply_inspector_core::keyframe_model::parse_owner_id(&owner_id.to_string())
+        else {
+            return -1;
+        };
+        super::text_keyframe_text_interpolation(
+            &target,
+            timeline_path(&control),
+            timeline_id,
+            owner_id,
+        )
+        .ok()
+        .and_then(|index| i32::try_from(index).ok())
+        .unwrap_or(-1)
+    }
+
+    pub fn set_control_graph_text_interpolation(
+        mut self: Pin<&mut Self>,
+        category: i32,
+        item: i32,
+        control: i32,
+        owner_id: &QString,
+        interpolation: i32,
+    ) {
+        let Some((target, control)) = self.control_target(category, item, control) else {
+            return;
+        };
+        if let Err(error) = super::ensure_control_timeline(&target, &control) {
+            self.as_mut().finish(Err(error));
+            return;
+        }
+        let result = (|| {
+            if control.kind != crate::section::ControlKind::LayeredText {
+                return Err("control is not a text keyframe graph".to_string());
+            }
+            let timeline_id = timeline_id(&control)?;
+            let owner_id =
+                shrimply_inspector_core::keyframe_model::parse_owner_id(&owner_id.to_string())?;
+            let interpolation = usize::try_from(interpolation)
+                .map_err(|_| "text interpolation is invalid".to_string())?;
+            super::set_text_keyframe_text_interpolation(
+                &target,
+                timeline_path(&control),
+                timeline_id,
+                owner_id,
+                interpolation,
+                text_keyframe_commits(&control)?.text_interpolation,
+            )
         })();
         self.as_mut().finish(result);
     }
@@ -598,6 +843,19 @@ impl InspectorBackend {
 
 fn timeline_path(control: &InspectorControl) -> &str {
     control.timeline_path.as_deref().unwrap_or(&control.path)
+}
+
+fn text_keyframe_commits(
+    control: &InspectorControl,
+) -> Result<shrimply_inspector_core::TextKeyframeCommits, String> {
+    control
+        .text_keyframe_commits
+        .ok_or_else(|| "text control has no keyframe commit policy".to_string())
+}
+
+pub(crate) fn background_integer(control: &InspectorControl) -> bool {
+    let path = timeline_path(control);
+    control.integer && (path == "/content/star_points" || path.starts_with("/content/generator/"))
 }
 
 fn time_parts(time: shrimply_project::project::Time) -> [i64; 2] {
@@ -620,47 +878,11 @@ fn timeline_id(control: &InspectorControl) -> Result<uuid::Uuid, String> {
         .ok_or_else(|| "keyframe timeline ID is unavailable".to_string())
 }
 
-fn exact_time(numerator: i64, denominator: i64) -> Result<shrimply_project::project::Time, String> {
-    if denominator <= 0 {
-        return Err("keyframe graph time denominator must be positive".to_string());
-    }
-    Ok(shrimply_project::project::Time::from_fraction(
-        numerator,
-        denominator,
-    ))
-}
-
-fn parse_time(value: &str) -> Result<shrimply_project::project::Time, String> {
-    let (numerator, denominator) = value
-        .split_once('/')
-        .ok_or_else(|| format!("keyframe graph time is not an exact fraction: {value}"))?;
-    exact_time(
-        numerator
-            .parse()
-            .map_err(|_| format!("keyframe graph time numerator is invalid: {value}"))?,
-        denominator
-            .parse()
-            .map_err(|_| format!("keyframe graph time denominator is invalid: {value}"))?,
-    )
-}
-
 fn parse_times(values: &QStringList) -> Result<Vec<shrimply_project::project::Time>, String> {
     values
         .iter()
-        .map(|value| parse_time(&value.to_string()))
+        .map(|value| shrimply_inspector_core::keyframe_model::parse_time(&value.to_string()))
         .collect()
-}
-
-fn parse_graph_value(value: &str) -> Result<f64, String> {
-    value
-        .parse::<f64>()
-        .map_err(|_| format!("keyframe graph value is invalid: {value}"))
-        .and_then(|value| {
-            value
-                .is_finite()
-                .then_some(value)
-                .ok_or_else(|| "keyframe graph value must be finite".to_string())
-        })
 }
 
 fn confirmation(count: usize, action: &str) -> Option<String> {

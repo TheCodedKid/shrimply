@@ -8,6 +8,7 @@ ColumnLayout {
     property alias expression: row.expression
     property alias keyframeAvailable: row.keyframeAvailable
     property alias expressionAvailable: row.expressionAvailable
+    property alias trailing: row.trailing
     default property alias editor: row.editor
     property alias keyframeContent: keyframeSection.content
     property alias expressionContent: expressionSection.content

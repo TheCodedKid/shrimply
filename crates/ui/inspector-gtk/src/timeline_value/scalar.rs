@@ -5,7 +5,6 @@ use uuid::Uuid;
 use crate::InspectedItem as SelectedItem;
 use crate::player_state::{self, ProjectChange, SharedPlayerState};
 use crate::timeline_value::*;
-use crate::transform_eval;
 use crate::ui::{NumberPicker, NumberPickerHandle};
 use shrimply_project::project::VisualAlphaMaskTarget;
 use shrimply_project::project::{Project, Time};
@@ -17,16 +16,17 @@ use crate::{InspectorContext, keyframe_model};
 pub(crate) type ScalarGet = for<'a> fn(&'a Project, SelectedItem) -> Option<&'a TimelineValue<f32>>;
 pub(crate) type ScalarGetMut =
     for<'a> fn(&'a mut Project, SelectedItem) -> Option<&'a mut TimelineValue<f32>>;
-pub(crate) type SceneScalarGet =
-    for<'a> fn(&'a shrimply_scene_3d::ObjScene) -> &'a TimelineValue<f32>;
-pub(crate) type SceneScalarGetMut =
-    for<'a> fn(&'a mut shrimply_scene_3d::ObjScene) -> &'a mut TimelineValue<f32>;
 
 #[derive(Clone, Copy)]
 pub(crate) enum ScalarAccess {
     Item {
         get: ScalarGet,
         get_mut: ScalarGetMut,
+    },
+    ItemScoped {
+        get: ScalarGet,
+        get_mut: ScalarGetMut,
+        value_id: Uuid,
     },
     ItemWithMutation {
         get: ScalarGet,
@@ -47,9 +47,8 @@ pub(crate) enum ScalarAccess {
     PaintPalette {
         value_id: Uuid,
     },
-    Scene3d {
-        get: SceneScalarGet,
-        get_mut: SceneScalarGetMut,
+    Scene3dScoped {
+        value_id: Uuid,
     },
 }
 
@@ -58,6 +57,9 @@ impl ScalarAccess {
         match self {
             Self::Item { get, .. } | Self::ItemWithMutation { get, .. } => {
                 get(project, key.clone())
+            }
+            Self::ItemScoped { get, value_id, .. } => {
+                get(project, key.clone()).filter(|value| value.id == value_id)
             }
             Self::Modifier { id, value_id } => crate::modifiers::number(
                 project
@@ -92,7 +94,8 @@ impl ScalarAccess {
                         .find(|value| value.id == value_id)
                 })
             }
-            Self::Scene3d { get, .. } => scene_3d(project, key.clone()).map(get),
+            Self::Scene3dScoped { value_id } => scene_3d(project, key.clone())
+                .and_then(|scene| shrimply_inspector_core::scene_3d::number(scene, value_id)),
         }
     }
     fn get_mut(self, project: &mut Project, key: SelectedItem) -> Option<&mut TimelineValue<f32>> {
@@ -100,6 +103,9 @@ impl ScalarAccess {
             Self::Item { get_mut, .. } | Self::ItemWithMutation { get_mut, .. } => {
                 get_mut(project, key.clone())
             }
+            Self::ItemScoped {
+                get_mut, value_id, ..
+            } => get_mut(project, key.clone()).filter(|value| value.id == value_id),
             Self::Modifier { id, value_id } => crate::modifiers::number_mut(
                 project
                     .video_item_mut(&key)?
@@ -133,7 +139,8 @@ impl ScalarAccess {
                         .find(|value| value.id == value_id)
                 })
             }
-            Self::Scene3d { get_mut, .. } => scene_3d_mut(project, key.clone()).map(get_mut),
+            Self::Scene3dScoped { value_id } => scene_3d_mut(project, key.clone())
+                .and_then(|scene| shrimply_inspector_core::scene_3d::number_mut(scene, value_id)),
         }
     }
 
@@ -175,6 +182,8 @@ pub(crate) struct ScalarTarget {
     pub(crate) commit_name: &'static str,
 }
 
+pub(crate) use shrimply_inspector_core::timeline_value::scalar::ScalarConstraint as ScalarClamp;
+
 #[derive(Clone, Copy)]
 pub(crate) struct ScalarSpec {
     pub(crate) drag_step: f64,
@@ -187,7 +196,7 @@ pub(crate) struct ScalarSpec {
     pub(crate) rotating_icon: Option<(&'static str, f64)>,
     pub(crate) display: fn(f32) -> f64,
     pub(crate) store: fn(f64) -> f32,
-    pub(crate) clamp: fn(f32) -> f32,
+    pub(crate) clamp: ScalarClamp,
 }
 
 pub(crate) fn scalar_control(
@@ -208,7 +217,7 @@ pub(crate) fn scalar_control(
         );
     };
     let local_time = current_local_time(context, target, key.clone()).unwrap_or(Time::ZERO);
-    let display = (spec.display)(current_base_value(value, local_time));
+    let display = (spec.display)(value.value_at(local_time));
     let keyframes_enabled = matches!(value.base, TimelineBase::Keyframes(_));
     let expression_enabled = value
         .expression
@@ -245,7 +254,7 @@ pub(crate) fn scalar_control(
                 let project = project.borrow();
                 let value = target.access.get(&project, graph_key.clone())?;
                 let static_value = (target.local_time)(&project, graph_key.clone(), position)
-                    .map(|time| (spec.display)(current_base_value(value, time)))
+                    .map(|time| (spec.display)(value.value_at(time)))
                     .unwrap_or_else(|| (spec.display)(value.fallback()));
                 Some(keyframe_model::scalar_graph(
                     value,
@@ -280,6 +289,7 @@ pub(crate) fn scalar_control(
                 &keyframe_player_state,
                 keyframe_key.clone(),
                 target,
+                spec,
                 enabled,
             ) {
                 keyframe_refresh();
@@ -416,7 +426,7 @@ fn connect_scalar_display(
                 let Some(value) = target.access.get(&project, key.clone()) else {
                     return;
                 };
-                current_base_value(value, local_time)
+                value.value_at(local_time)
             };
             handle.set_f64((spec.display)(value));
         },
@@ -548,6 +558,9 @@ fn keyframe_actions(
                 let mut project = paste_project.borrow_mut();
                 let value = target.access.get_mut(&mut project, paste_key.clone())?;
                 let times = keyframe_model::paste_keyframes(value, clipboard, time)?;
+                shrimply_inspector_core::timeline_value::scalar::constrain_keyframes(
+                    value, &times, spec.clamp,
+                );
                 target.access.mark_mutated(&mut project, paste_key.clone());
                 shrimply_project::project::commit_edit(&project, target.commit_name);
                 drop(project);
@@ -583,11 +596,16 @@ fn update_scalar_live(
     let Some(keyframe_time) = project.keyframe_time(&key, position) else {
         return;
     };
-    let next = (spec.clamp)((spec.store)(value));
     let Some(number) = target.access.get_mut(&mut project, key.clone()) else {
         return;
     };
-    if !keyframe_model::set_scalar_value(number, keyframe_time, next) {
+    if !shrimply_inspector_core::timeline_value::scalar::set_displayed_value(
+        number,
+        keyframe_time,
+        value,
+        spec.store,
+        spec.clamp,
+    ) {
         return;
     }
     target.access.mark_mutated(&mut project, key);
@@ -602,6 +620,7 @@ fn set_keyframes_enabled(
     player_state: &SharedPlayerState,
     key: SelectedItem,
     target: ScalarTarget,
+    spec: ScalarSpec,
     enabled: bool,
 ) -> bool {
     let position = player_state::snapshot(player_state).position;
@@ -615,12 +634,12 @@ fn set_keyframes_enabled(
     let Some(number) = target.access.get_mut(&mut project, key.clone()) else {
         return false;
     };
-    let current = current_base_value(number, evaluation_time);
-    if !shrimply_core::timeline_value::set_keyframes_enabled(
+    if !shrimply_inspector_core::timeline_value::scalar::set_keyframes_enabled(
         number,
+        evaluation_time,
         keyframe_time,
-        current,
         enabled,
+        spec.clamp,
     ) {
         return false;
     }
@@ -642,7 +661,11 @@ fn set_expression_enabled(
     let Some(number) = target.access.get_mut(&mut project, key.clone()) else {
         return false;
     };
-    let changed = shrimply_core::timeline_value::set_expression_enabled(number, enabled, "value");
+    let changed = keyframe_model::set_expression_enabled(
+        number,
+        enabled,
+        shrimply_inspector_core::timeline_value::SCALAR_EXPRESSION_DEFAULT,
+    );
     if !changed {
         return false;
     }
@@ -664,13 +687,9 @@ fn update_expression_source(
     let Some(number) = target.access.get_mut(&mut project, key.clone()) else {
         return;
     };
-    let Some(expression) = &mut number.expression else {
-        return;
-    };
-    if expression.source == source {
+    if !shrimply_inspector_core::timeline_value::scalar::set_expression_source(number, source) {
         return;
     }
-    expression.source = source;
     target.access.mark_mutated(&mut project, key);
     shrimply_project::project::commit_coalesced_edit(&project, target.commit_name);
     drop(project);
@@ -684,14 +703,14 @@ fn add_keyframe_at_time(
     player_state: &SharedPlayerState,
     key: SelectedItem,
     target: ScalarTarget,
-    _spec: ScalarSpec,
+    spec: ScalarSpec,
     time: Time,
 ) -> bool {
     let mut project = project.borrow_mut();
     let Some(number) = target.access.get_mut(&mut project, key.clone()) else {
         return false;
     };
-    if !keyframe_model::add_scalar_keyframe(number, time) {
+    if !shrimply_inspector_core::timeline_value::scalar::add_keyframe(number, time, spec.clamp) {
         return false;
     }
     target.access.mark_mutated(&mut project, key);
@@ -735,8 +754,9 @@ fn update_keyframe_point(
     let Some(number) = target.access.get_mut(&mut project, key.clone()) else {
         return false;
     };
-    let next = (spec.clamp)((spec.store)(value));
-    if !keyframe_model::update_scalar_keyframe(number, old_time, time, next) {
+    if !shrimply_inspector_core::timeline_value::scalar::move_displayed_keyframe(
+        number, old_time, time, value, spec.store, spec.clamp,
+    ) {
         return false;
     }
     target.access.mark_mutated(&mut project, key);
@@ -776,13 +796,4 @@ fn current_local_time(
     let project = context.project.borrow();
     let position = player_state::snapshot(&context.player_state).position;
     (target.local_time)(&project, key.clone(), position)
-}
-
-fn current_base_value(value: &TimelineValue<f32>, local_time: Time) -> f32 {
-    match &value.base {
-        TimelineBase::Const(value) => *value,
-        TimelineBase::Keyframes(keyframes) => {
-            transform_eval::scalar_keyframes_value(keyframes, local_time)
-        }
-    }
 }

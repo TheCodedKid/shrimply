@@ -78,21 +78,30 @@ private:
 class CodeHighlighter : public QObject {
     Q_OBJECT
     Q_PROPERTY(QQuickTextDocument *document READ document WRITE setDocument NOTIFY documentChanged)
+    Q_PROPERTY(int diagnosticLine READ diagnosticLine WRITE setDiagnosticLine NOTIFY diagnosticChanged)
+    Q_PROPERTY(int diagnosticColumn READ diagnosticColumn WRITE setDiagnosticColumn NOTIFY diagnosticChanged)
 
 public:
     explicit CodeHighlighter(QObject *parent = nullptr);
     ~CodeHighlighter() override;
     QQuickTextDocument *document() const;
     void setDocument(QQuickTextDocument *document);
+    int diagnosticLine() const;
+    void setDiagnosticLine(int line);
+    int diagnosticColumn() const;
+    void setDiagnosticColumn(int column);
 
 signals:
     void documentChanged();
+    void diagnosticChanged();
 
 private:
     void rebuild();
 
     QPointer<QQuickTextDocument> document_;
     std::unique_ptr<CodeSyntaxHighlighter> highlighter_;
+    int diagnostic_line_ = -1;
+    int diagnostic_column_ = -1;
 };
 
 } // namespace shrimply

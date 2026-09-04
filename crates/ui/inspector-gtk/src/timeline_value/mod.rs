@@ -2,13 +2,11 @@ use std::{cell::RefCell, rc::Rc};
 
 use gtk::prelude::*;
 use shrimply_component_core::layered::LayeredPropertyController;
-use shrimply_evaluation::{
-    ExpressionOutcome, FrameAudioAnalysis, TransformExpressionCache, VisualEvaluation,
-};
+use shrimply_evaluation::{FrameAudioAnalysis, TransformExpressionCache};
 use shrimply_gtk_components::ui::InspectorLayeredProperty;
 use shrimply_project::project::{Project, Time};
 
-use crate::{InspectedItem, InspectorContext, player_state};
+use crate::{InspectorContext, player_state};
 
 pub(crate) mod boolean;
 pub(crate) mod color;
@@ -18,6 +16,7 @@ pub(crate) mod text;
 pub(crate) mod vector;
 
 pub(crate) use shrimply_core::timeline_value::*;
+pub(crate) use shrimply_inspector_core::timeline_value::evaluate_visual_expression as evaluate_expression;
 
 #[derive(Default)]
 pub(crate) struct LayeredSections {
@@ -111,10 +110,7 @@ fn layered_property<T: TimelineValueType>(
         .clone()
 }
 
-pub(crate) struct ExpressionOutput {
-    pub(crate) value: String,
-    pub(crate) error: Option<String>,
-}
+pub(crate) type ExpressionOutput = shrimply_inspector_core::InspectorExpressionOutput<String>;
 
 pub(crate) fn expression_section(
     context: &InspectorContext,
@@ -192,22 +188,4 @@ pub(crate) fn expression_section(
         },
     );
     section.upcast()
-}
-
-pub(crate) fn evaluate_expression<T: TimelineExpressionValue>(
-    project: &Project,
-    key: &InspectedItem,
-    position: Time,
-    audio: &FrameAudioAnalysis,
-    cache: &mut TransformExpressionCache,
-    value: &TimelineValue<T>,
-) -> Option<ExpressionOutcome<T>> {
-    let position = crate::video::visual_sequence_time(project, key, position)?;
-    let item = project.video_item(key)?;
-    let evaluation = VisualEvaluation::for_item_with_audio(project, item, position, audio);
-    Some(shrimply_evaluation::resolve_with_error(
-        value,
-        &evaluation,
-        cache,
-    ))
 }

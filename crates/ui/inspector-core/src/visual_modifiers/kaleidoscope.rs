@@ -5,6 +5,7 @@ use crate::{InspectorRuntime, InspectorSection, NumberSpec};
 pub(super) fn presentation(
     value: &KaleidoscopeModifier,
     index: usize,
+    modifier_id: uuid::Uuid,
     runtime: InspectorRuntime,
 ) -> InspectorSection {
     let base = format!("/modifiers/{index}/effect/effect/config");
@@ -23,20 +24,23 @@ pub(super) fn presentation(
         },
         false,
     ));
-    section.add(super::modifier_scalar_control(
-        format!("{base}/segments"),
-        "Segments",
-        &value.segments,
-        runtime,
-        NumberSpec {
-            minimum: 2.0,
-            maximum: 64.0,
-            drag_step: 1.0,
-            digits: 0,
-            ..NumberSpec::default()
-        },
-        false,
-    ));
+    section.add(
+        super::modifier_scalar_control(
+            format!("{base}/segments"),
+            "Segments",
+            &value.segments,
+            runtime,
+            NumberSpec {
+                minimum: 2.0,
+                maximum: 64.0,
+                drag_step: 1.0,
+                digits: 0,
+                ..NumberSpec::default()
+            },
+            false,
+        )
+        .integer(),
+    );
     section.add(super::modifier_scalar_control(
         format!("{base}/rotation_degrees"),
         "Rotation",
@@ -49,5 +53,6 @@ pub(super) fn presentation(
         },
         true,
     ));
+    section.set_target(modifier_id);
     section
 }

@@ -218,6 +218,9 @@ pub mod qobject {
         #[cxx_name = "setInterpolation"]
         fn set_interpolation(self: Pin<&mut FrameGraphItem>, index: i32) -> bool;
         #[qinvokable]
+        #[cxx_name = "setTextInterpolation"]
+        fn set_text_interpolation(self: Pin<&mut FrameGraphItem>, index: i32) -> bool;
+        #[qinvokable]
         #[cxx_name = "interpolationLabel"]
         fn interpolation_label(self: &FrameGraphItem, index: i32) -> QString;
 
@@ -291,6 +294,14 @@ pub mod qobject {
             owner_id: QString,
             x: f64,
             y: f64,
+        );
+        #[qsignal]
+        #[cxx_name = "textInterpolationChanged"]
+        fn text_interpolation_changed(
+            self: Pin<&mut FrameGraphItem>,
+            component: i32,
+            owner_id: QString,
+            index: i32,
         );
         #[qsignal]
         #[cxx_name = "interpolationRequested"]
@@ -400,13 +411,19 @@ impl qobject::FrameGraphItem {
                             owner_id,
                             interpolation,
                             ..
-                        } => Some((*owner_id, *interpolation)),
+                        } => Some((*owner_id, Some(*interpolation))),
+                        FrameGraphAction::TextInterpolationRequested { owner_id, .. } => {
+                            Some((*owner_id, None))
+                        }
                         _ => None,
                     });
             if let Some((owner_id, _)) = selected {
                 model.context_owner = Some(owner_id);
             }
-            (actions, selected.map(|(_, interpolation)| interpolation))
+            (
+                actions,
+                selected.and_then(|(_, interpolation)| interpolation),
+            )
         };
         self.as_mut().finish(actions);
         selected.map_or(-1, interpolation_index)
@@ -773,6 +790,25 @@ impl qobject::FrameGraphItem {
             index,
         );
         self.as_mut().request_update();
+        true
+    }
+
+    pub fn set_text_interpolation(mut self: Pin<&mut Self>, index: i32) -> bool {
+        if index < 0 {
+            return false;
+        }
+        let owner_id = {
+            let mut model = self.rust().lock();
+            let Some(owner_id) = model.context_owner.take() else {
+                return false;
+            };
+            (model.state.active_component(), owner_id)
+        };
+        self.as_mut().text_interpolation_changed(
+            component_index(owner_id.0),
+            QString::from(owner_id.1.to_string()),
+            index,
+        );
         true
     }
 

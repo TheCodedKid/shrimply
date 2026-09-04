@@ -9,6 +9,7 @@ Menu {
     id: root
     property var labels: []
     property var searchTerms: labels
+    property var tooltips: []
     property int selectedIndex: -1
     property bool searchEnabled: true
     property string placeholderText: ComponentTranslations.text("Search")
@@ -108,6 +109,11 @@ Menu {
                     : ""
                 icon.color: palette.buttonText
                 highlighted: root.navigationActive && choices.currentIndex === index
+                ToolTip.visible: hovered
+                    && sourceIndex < root.tooltips.length
+                    && root.tooltips[sourceIndex].length > 0
+                ToolTip.text: sourceIndex < root.tooltips.length
+                    ? root.tooltips[sourceIndex] : ""
                 onHoveredChanged: if (hovered) {
                     root.navigationActive = true
                     choices.currentIndex = index

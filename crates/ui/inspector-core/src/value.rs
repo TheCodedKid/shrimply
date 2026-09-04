@@ -2,7 +2,7 @@ use serde_json::Value;
 use shrimply_project::project::{ItemAddress, VideoStabilizationMethod};
 
 use crate::InspectorTarget;
-use crate::model::{EditKind, InspectorController, duration_path};
+use crate::model::{EditKind, InspectorCommit, InspectorController, default_commit, duration_path};
 
 impl InspectorController {
     pub fn set_field(
@@ -114,6 +114,23 @@ impl InspectorController {
             replacement,
             EditKind::Live,
             crate::refresh::audio_scalar_graph_change(target),
+        )
+    }
+
+    pub(crate) fn set_live_keyframe_graph_value_with_commit(
+        &self,
+        target: &InspectorTarget,
+        path: &str,
+        replacement: Value,
+        commit: InspectorCommit<'_>,
+    ) -> Result<(), String> {
+        self.replace_value_with_commit(
+            target,
+            EditKind::Live,
+            path,
+            replacement,
+            crate::refresh::audio_scalar_graph_change(target),
+            commit,
         )
     }
 
@@ -256,6 +273,22 @@ impl InspectorController {
         shrimply_project::project::finish_coalesced_edit();
     }
 
+    pub fn finish_live_inspector_edit(&self, target: &InspectorTarget) -> Result<(), String> {
+        let project = self.project.borrow();
+        crate::model::target_value(&project, target)
+            .ok_or_else(|| "inspector target is no longer available".to_string())?;
+        drop(project);
+        shrimply_project::project::finish_coalesced_edit();
+        shrimply_state::player_state::refresh_project(
+            &self.player_state,
+            shrimply_state::player_state::ProjectChange {
+                inspector: true,
+                ..Default::default()
+            },
+        );
+        Ok(())
+    }
+
     fn replace_value(
         &self,
         target: &InspectorTarget,
@@ -264,11 +297,31 @@ impl InspectorController {
         kind: EditKind,
         refresh: Option<shrimply_state::player_state::ProjectChange>,
     ) -> Result<(), String> {
-        self.edit_value_if_changed_with_refresh(
+        self.replace_value_with_commit(
+            target,
+            kind,
+            path,
+            replacement,
+            refresh,
+            default_commit(kind),
+        )
+    }
+
+    pub(crate) fn replace_value_with_commit(
+        &self,
+        target: &InspectorTarget,
+        kind: EditKind,
+        path: &str,
+        replacement: Value,
+        refresh: Option<shrimply_state::player_state::ProjectChange>,
+        commit: InspectorCommit<'_>,
+    ) -> Result<(), String> {
+        self.edit_value_if_changed_with_refresh_and_commit(
             target,
             kind,
             duration_path(path),
             refresh,
+            commit,
             |value| {
                 let current = match path {
                     "" => value,

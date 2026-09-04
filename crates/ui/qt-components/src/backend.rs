@@ -336,6 +336,9 @@ pub mod qobject {
         #[qinvokable]
         fn refresh(self: Pin<&mut LivePerformanceBackend>);
         #[qinvokable]
+        #[cxx_name = "refreshInterval"]
+        fn refresh_interval(self: &LivePerformanceBackend) -> i32;
+        #[qinvokable]
         fn clear(self: Pin<&mut LivePerformanceBackend>);
         #[qinvokable]
         #[cxx_name = "reportJson"]
@@ -385,10 +388,7 @@ pub mod qobject {
         fn select_layered_component(self: Pin<&mut LayeredPropertyBackend>, component: i32);
         #[qinvokable]
         #[cxx_name = "selectTripleComponent"]
-        fn select_layered_triple_component(
-            self: Pin<&mut LayeredPropertyBackend>,
-            component: i32,
-        );
+        fn select_layered_triple_component(self: Pin<&mut LayeredPropertyBackend>, component: i32);
 
         #[qsignal]
         #[cxx_name = "baseEdited"]
@@ -1227,6 +1227,7 @@ impl cxx_qt::Initialize for qobject::ProjectSettingsBackend {
 pub struct LivePerformanceBackendRust {
     titles: QStringList,
     subtitles: QStringList,
+    rows: shrimply_component_core::performance::PerformanceRows,
 }
 
 #[derive(Default)]
@@ -1310,12 +1311,7 @@ impl qobject::LayeredPropertyBackend {
         }
     }
 
-    pub fn configure_layered_triple(
-        mut self: Pin<&mut Self>,
-        first: f64,
-        second: f64,
-        third: f64,
-    ) {
+    pub fn configure_layered_triple(mut self: Pin<&mut Self>, first: f64, second: f64, third: f64) {
         self.as_mut().rust_mut().triple = [first, second, third];
     }
 
@@ -1339,18 +1335,28 @@ impl cxx_qt::Initialize for qobject::LivePerformanceBackend {
 }
 
 impl qobject::LivePerformanceBackend {
+    pub fn refresh_interval(&self) -> i32 {
+        i32::try_from(shrimply_component_core::performance::REFRESH_INTERVAL.as_millis())
+            .expect("live performance refresh interval must fit i32")
+    }
+
     pub fn refresh(mut self: Pin<&mut Self>) {
-        let rows = shrimply_component_core::performance::rows();
-        self.as_mut().set_titles(
-            rows.iter()
-                .map(|row| QString::from(&row.title))
-                .collect::<QStringList>(),
-        );
-        self.as_mut().set_subtitles(
-            rows.iter()
-                .map(|row| QString::from(&row.subtitle))
-                .collect::<QStringList>(),
-        );
+        if !self.as_mut().rust_mut().rows.refresh() {
+            return;
+        }
+        let (titles, subtitles) = {
+            let rows = self.rust().rows.rows();
+            (
+                rows.iter()
+                    .map(|row| QString::from(&row.title))
+                    .collect::<QStringList>(),
+                rows.iter()
+                    .map(|row| QString::from(&row.subtitle))
+                    .collect::<QStringList>(),
+            )
+        };
+        self.as_mut().set_titles(titles);
+        self.as_mut().set_subtitles(subtitles);
     }
 
     pub fn clear(self: Pin<&mut Self>) {

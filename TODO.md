@@ -14,10 +14,6 @@ backends in the pipeline, and pass the required fresh reviews.
 - Use exact fractions for time, native Qt controls, cards, and vector locks.
 - Do not complete the port until two fresh sequential integration reviews pass.
 
-## Current file gate
-
-- [ ] Finish and obtain fresh acceptance for the active modifier ports.
-
 ## Qt files not yet accepted
 
 - [ ] `video.rs`
@@ -26,30 +22,6 @@ backends in the pipeline, and pass the required fresh reviews.
 
 ## Top-level and shared source ports remaining
 
-- [ ] `alpha_mask.rs`
-- [ ] `audio_cache.rs`
-- [ ] `background.rs`
-- [ ] `benchmarking.rs`
-- [ ] `camera_source.rs`
-- [ ] `font_selector.rs`
-- [ ] `gaussian_3d.rs`
-- [ ] `generated/common.rs`
-- [ ] `generated/mod.rs`
-- [ ] `generated/shape.rs`
-- [ ] `generated/text.rs`
-- [ ] `keyframe_editor.rs` parity/extraction gate
-- [ ] `keyframe_graph.rs` parity/extraction gate
-- [ ] `paint.rs`
-- [ ] `rhai_editor/mod.rs`
-- [ ] `scene_3d.rs`
-- [ ] `timeline_value/color.rs`
-- [ ] `timeline_value/mod.rs`
-- [ ] `timeline_value/scalar.rs`
-- [ ] `timeline_value/step.rs`
-- [ ] `timeline_value/text.rs`
-- [ ] `timeline_value/vector/mod.rs`
-- [ ] `timeline_value/vector/vec2.rs`
-- [ ] `timeline_value/vector/vec3.rs`
 - [ ] `transform/expressions.rs`
 - [ ] `transform/keyframes.rs`
 - [ ] `transform/mod.rs`
@@ -57,28 +29,6 @@ backends in the pipeline, and pass the required fresh reviews.
 - [ ] `video/manim_parameters.rs`
 - [ ] `video/pdf.rs`
 - [ ] `video/playback.rs`
-
-## Visual modifier ports remaining
-
-- [ ] `modifiers/dithering.rs`
-- [ ] `modifiers/halftone.rs`
-- [ ] `modifiers/kaleidoscope.rs`
-- [ ] `modifiers/kuwahara.rs`
-- [ ] `modifiers/mask.rs`
-- [ ] `modifiers/object_3d.rs`
-- [ ] `modifiers/path_offset.rs`
-- [ ] `modifiers/point_light.rs`
-- [ ] `modifiers/rasterize.rs`
-- [ ] `modifiers/repeat.rs`
-- [ ] `modifiers/sam2.rs`
-- [ ] `modifiers/sampling.rs`
-- [ ] `modifiers/scanlines_crt.rs`
-- [ ] `modifiers/shaky_path.rs`
-- [ ] `modifiers/shape_3d.rs`
-- [ ] `modifiers/sun_light.rs`
-- [ ] `modifiers/text_3d.rs`
-- [ ] `modifiers/texture_bounds.rs`
-- [ ] `modifiers/transparent_fill.rs`
 
 ## Cross-cutting parity remaining
 

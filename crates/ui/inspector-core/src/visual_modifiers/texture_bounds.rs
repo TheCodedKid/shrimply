@@ -1,9 +1,16 @@
+use shrimply_core::{TextureAddressMode, timeline_value::TimelineValue};
+use shrimply_video_modifiers::{
+    ModifierEffect, RasterModifierEffect, texture_bounds::TextureBoundsModifier,
+};
+
 use crate::{InspectorRuntime, InspectorSection, NumberSpec};
-use shrimply_video_modifiers::texture_bounds::TextureBoundsModifier;
+
+pub const ADDRESS_MODE_COMMIT: &str = "edit-texture-addressing";
 
 pub(super) fn presentation(
     value: &TextureBoundsModifier,
     index: usize,
+    modifier_id: uuid::Uuid,
     runtime: InspectorRuntime,
 ) -> InspectorSection {
     let base = format!("/modifiers/{index}/effect/effect/config");
@@ -35,7 +42,57 @@ pub(super) fn presentation(
             &value.address_mode,
             runtime,
         )
-        .immediate_commit("edit-texture-addressing"),
+        .immediate_commit(ADDRESS_MODE_COMMIT),
     );
+    section.set_target(modifier_id);
     section
+}
+
+pub fn address_mode(effect: &ModifierEffect) -> Option<&TimelineValue<TextureAddressMode>> {
+    let ModifierEffect::Raster(effect) = effect else {
+        return None;
+    };
+    let RasterModifierEffect::TextureBounds(value) = &**effect else {
+        return None;
+    };
+    Some(&value.address_mode)
+}
+
+pub fn address_mode_mut(
+    effect: &mut ModifierEffect,
+) -> Option<&mut TimelineValue<TextureAddressMode>> {
+    let ModifierEffect::Raster(effect) = effect else {
+        return None;
+    };
+    let RasterModifierEffect::TextureBounds(value) = &mut **effect else {
+        return None;
+    };
+    Some(&mut value.address_mode)
+}
+
+pub(super) fn address_mode_at_path<'a>(
+    item: &'a shrimply_project::project::VideoItem,
+    path: &str,
+    timeline_id: uuid::Uuid,
+) -> Option<&'a TimelineValue<TextureAddressMode>> {
+    let (modifier, field) = super::visual_modifier_at_path(item, path)?;
+    if field != "effect/effect/config/address_mode" {
+        return None;
+    }
+    address_mode(&modifier.effect).filter(|timeline| timeline.id == timeline_id)
+}
+
+pub(super) fn number<'a>(
+    value: &'a TextureBoundsModifier,
+    field: &str,
+    timeline_id: uuid::Uuid,
+) -> Option<&'a TimelineValue<f32>> {
+    let timeline = match field {
+        "effect/effect/config/edges/top" => &value.edges.top,
+        "effect/effect/config/edges/right" => &value.edges.right,
+        "effect/effect/config/edges/bottom" => &value.edges.bottom,
+        "effect/effect/config/edges/left" => &value.edges.left,
+        _ => return None,
+    };
+    (timeline.id == timeline_id).then_some(timeline)
 }

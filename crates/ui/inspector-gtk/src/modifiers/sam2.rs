@@ -1,67 +1,145 @@
-use shrimply_gtk_components::tr;
-use shrimply_gtk_components::ui::I18nWidgetExt;
 use std::{cell::Cell, rc::Rc, time::Duration};
 
-use gtk::glib;
-use gtk::prelude::*;
-use shrimply_gtk_components::ui::{ProgressButton, ProgressButtonState, enum_dropdown, switch_row};
-use shrimply_project::project::Project;
-use shrimply_video_modifiers::{ModifierEffect, RasterModifierEffect, sam2::Sam2Modifier};
+use gtk::{glib, prelude::*};
+use shrimply_gtk_components::{
+    tr,
+    ui::{
+        I18nWidgetExt, ProgressButton, ProgressButtonState, control_row, enum_dropdown, switch_row,
+    },
+};
+use shrimply_inspector_core::{
+    AnalysisControlPresentation, AnalysisTooltip, ControlKind, ControlRowRole,
+    InspectorControlAction, InspectorTarget, visual_modifiers::sam2_analysis_control,
+};
+use shrimply_video_modifiers::sam2::{Sam2Model, Sam2Modifier, Sam2PointLabel};
 use uuid::Uuid;
 
-use super::{ScalarOptions, scalar_row};
-use crate::{
-    InspectorContext,
-    player_state::{self, ProjectChange},
-    ui::control_row,
-};
-
-const ANALYZE_TOOLTIP: &str =
-    "Precompute compact CPU mask frames so normal playback does not run SAM2";
+use crate::InspectorContext;
 
 pub fn add_rows(value: &Sam2Modifier, out: &gtk::Box, id: Uuid, context: &InspectorContext) {
-    let prompt_signature = value.prompt_signature();
-    let project = context.project.clone();
-    let player = context.player_state.clone();
-    let key = context.selected_item.clone();
-    let model = enum_dropdown(value.model, move |model| {
-        update(&project, key.as_ref(), id, |sam2| sam2.model = model);
-        refresh(&player);
-    });
-    out.append(&control_row("Model", &model));
+    let key = context
+        .selected_item
+        .clone()
+        .expect("SAM2 inspector must have a selected item");
+    let target = InspectorTarget::Item(key);
+    let section = context
+        .inspector_core
+        .sam2_presentation(&target, id)
+        .expect("live SAM2 modifier must have a shared presentation");
+    let mut controls = section.controls.into_iter();
 
-    out.append(&scalar_row(
-        "Threshold",
+    let model_control = controls.next().expect("SAM2 model control is missing");
+    assert_eq!(model_control.kind, ControlKind::Selector);
+    assert_eq!(
+        model_control.action,
+        Some(InspectorControlAction::SetSam2Model { modifier_id: id })
+    );
+    assert!(model_control.path.ends_with("/effect/effect/config/model"));
+    assert_eq!(model_control.target_id, Some(id));
+    assert_eq!(
+        model_control.value,
+        match value.model {
+            Sam2Model::Tiny => "tiny",
+            Sam2Model::Small => "small",
+            Sam2Model::BasePlus => "base_plus",
+            Sam2Model::Large => "large",
+        }
+    );
+    assert_eq!(
+        model_control.values,
+        ["tiny", "small", "base_plus", "large"]
+    );
+    assert_eq!(model_control.labels, ["Tiny", "Small", "Base+", "Large"]);
+    let model = enum_dropdown(value.model, {
+        let controller = context.inspector_core.clone();
+        let target = target.clone();
+        move |model| {
+            if let Err(error) = controller.set_sam2_model(&target, id, model) {
+                tracing::error!(%error, "Could not update GTK SAM2 model");
+            }
+        }
+    });
+    out.append(&control_row(&model_control.label, &model));
+
+    let threshold = controls.next().expect("SAM2 threshold control is missing");
+    out.append(&super::shared_scalar_row(
+        &threshold,
+        "threshold",
         &value.threshold,
         id,
-        ScalarOptions {
-            minimum: Some(-8.0),
-            maximum: Some(8.0),
-            unit: None,
-            rotating: false,
-        },
         context,
     ));
-    out.append(&scalar_row(
-        "Edge softness",
+    let softness = controls.next().expect("SAM2 softness control is missing");
+    out.append(&super::shared_scalar_row(
+        &softness,
+        "softness",
         &value.softness,
         id,
-        ScalarOptions {
-            minimum: Some(0.0),
-            maximum: Some(8.0),
-            unit: None,
-            rotating: false,
-        },
         context,
     ));
 
-    for (index, point) in value.points.iter().enumerate() {
+    for point in &value.points {
+        let position_control = controls
+            .next()
+            .expect("SAM2 point position control is missing");
+        assert_eq!(position_control.kind, ControlKind::LayeredVector2);
+        assert_eq!(position_control.target_id, Some(id));
+        assert_eq!(position_control.timeline_id, Some(point.position.id));
+        assert_eq!(position_control.row_group, Some(point.id));
+        assert_eq!(position_control.row_role, ControlRowRole::Primary);
+        assert_eq!(
+            position_control.action,
+            Some(InspectorControlAction::SetSam2PointPosition {
+                modifier_id: id,
+                point_id: point.id,
+            })
+        );
+        assert_eq!(position_control.number.minimum, 0.0);
+        assert_eq!(position_control.number.maximum, 1.0);
+        assert_eq!(position_control.number.unit, "x");
+        assert_eq!(position_control.commit_name, "visual-modifier-vector");
+
+        let point_type_control = controls.next().expect("SAM2 point type control is missing");
+        assert_eq!(point_type_control.kind, ControlKind::Selector);
+        assert_eq!(point_type_control.target_id, Some(id));
+        assert_eq!(point_type_control.row_group, Some(point.id));
+        assert_eq!(point_type_control.row_role, ControlRowRole::Auxiliary);
+        assert_eq!(
+            point_type_control.value,
+            match point.label {
+                Sam2PointLabel::Foreground => "foreground",
+                Sam2PointLabel::Background => "background",
+            }
+        );
+        assert_eq!(point_type_control.values, ["foreground", "background"]);
+        assert_eq!(point_type_control.labels, ["Foreground", "Background"]);
+        assert_eq!(
+            point_type_control.action,
+            Some(InspectorControlAction::SetSam2PointLabel {
+                modifier_id: id,
+                point_id: point.id,
+            })
+        );
+
+        let remove_control = controls
+            .next()
+            .expect("SAM2 point removal control is missing");
+        assert_eq!(remove_control.kind, ControlKind::Action);
+        assert_eq!(remove_control.target_id, Some(id));
+        assert_eq!(remove_control.row_group, Some(point.id));
+        assert_eq!(remove_control.row_role, ControlRowRole::TrailingAction);
+        assert_eq!(remove_control.prefix_icon, "user-trash-symbolic");
+        assert_eq!(
+            remove_control.action,
+            Some(InspectorControlAction::RemoveSam2Point {
+                modifier_id: id,
+                point_id: point.id,
+            })
+        );
+
         let row = gtk::Box::new(gtk::Orientation::Horizontal, 6);
         let position = super::vec_row(
-            &shrimply_gtk_components::i18n::text_args(
-                "Point %{number}",
-                &[("number", (index + 1).to_string())],
-            ),
+            &position_control.label,
             &point.position,
             id,
             true,
@@ -70,96 +148,94 @@ pub fn add_rows(value: &Sam2Modifier, out: &gtk::Box, id: Uuid, context: &Inspec
         );
         position.set_hexpand(true);
         row.append(&position);
-        let project = context.project.clone();
-        let player = context.player_state.clone();
-        let key = context.selected_item.clone();
-        let point_id = point.id;
-        let point_type = enum_dropdown(point.label, move |label| {
-            update(&project, key.as_ref(), id, |sam2| {
-                if let Some(point) = sam2.points.iter_mut().find(|point| point.id == point_id) {
-                    point.label = label;
+        let point_type = enum_dropdown(point.label, {
+            let controller = context.inspector_core.clone();
+            let target = target.clone();
+            let point_id = point.id;
+            move |label| {
+                if let Err(error) = controller.set_sam2_point_label(&target, id, point_id, label) {
+                    tracing::error!(%error, "Could not update GTK SAM2 point type");
                 }
-            });
-            refresh(&player);
+            }
         });
-        point_type.set_tooltip_i18n("Point type");
+        point_type.set_tooltip_i18n(&point_type_control.label);
         row.append(&point_type);
         let remove = gtk::Button::builder()
-            .icon_name("user-trash-symbolic")
-            .tooltip_text(tr!("Remove point").as_ref())
+            .icon_name(&remove_control.prefix_icon)
+            .tooltip_text(tr!(&remove_control.tooltip).as_ref())
             .css_classes(["flat"])
             .build();
-        let project = context.project.clone();
-        let player = context.player_state.clone();
-        let key = context.selected_item.clone();
-        let point_id = point.id;
-        remove.connect_clicked(move |_| {
-            update(&project, key.as_ref(), id, |sam2| {
-                sam2.points.retain(|point| point.id != point_id);
-                if sam2.points.is_empty() && sam2.box_prompt.is_none() {
-                    sam2.seed_position = None;
+        remove.connect_clicked({
+            let controller = context.inspector_core.clone();
+            let target = target.clone();
+            let point_id = point.id;
+            move |_| {
+                if let Err(error) = controller.remove_sam2_point(&target, id, point_id) {
+                    tracing::error!(%error, "Could not remove GTK SAM2 point");
                 }
-            });
-            refresh(&player);
+            }
         });
         row.append(&remove);
         out.append(&row);
     }
 
-    if value.box_prompt.is_some() {
+    if let Some(box_prompt) = value.box_prompt {
+        let remove_control = controls
+            .next()
+            .expect("SAM2 box removal control is missing");
+        assert_eq!(remove_control.kind, ControlKind::Action);
+        assert_eq!(remove_control.target_id, Some(id));
+        assert_eq!(remove_control.prefix_icon, "user-trash-symbolic");
+        assert_eq!(
+            remove_control.action,
+            Some(InspectorControlAction::RemoveSam2Box {
+                modifier_id: id,
+                box_id: box_prompt.id,
+            })
+        );
         let remove = gtk::Button::builder()
-            .icon_name("user-trash-symbolic")
-            .tooltip_text(tr!("Remove box").as_ref())
+            .icon_name(&remove_control.prefix_icon)
+            .tooltip_text(tr!(&remove_control.tooltip).as_ref())
             .css_classes(["flat"])
             .build();
-        let project = context.project.clone();
-        let player = context.player_state.clone();
-        let key = context.selected_item.clone();
-        remove.connect_clicked(move |_| {
-            update(&project, key.as_ref(), id, |sam2| {
-                sam2.box_prompt = None;
-                if sam2.points.is_empty() {
-                    sam2.seed_position = None;
+        remove.connect_clicked({
+            let controller = context.inspector_core.clone();
+            let target = target.clone();
+            move |_| {
+                if let Err(error) = controller.remove_sam2_box(&target, id, box_prompt.id) {
+                    tracing::error!(%error, "Could not remove GTK SAM2 box");
                 }
-            });
-            refresh(&player);
+            }
         });
-        out.append(&control_row("Box", &remove));
+        out.append(&control_row(&remove_control.label, &remove));
     }
 
+    let analysis_control = controls.next().expect("SAM2 analysis control is missing");
+    assert_eq!(analysis_control.kind, ControlKind::Analysis);
+    assert_eq!(analysis_control.target_id, Some(id));
+    let (generation, prompt_signature, can_analyze) = match analysis_control.action {
+        Some(InspectorControlAction::ToggleSam2Analysis {
+            modifier_id,
+            generation,
+            prompt_signature,
+            can_analyze,
+        }) => {
+            assert_eq!(modifier_id, id);
+            (generation, prompt_signature, can_analyze)
+        }
+        _ => panic!("SAM2 analysis control must have its shared action"),
+    };
     let analyze = ProgressButton::new("Analyze");
-    let can_analyze = !value.points.is_empty() || value.box_prompt.is_some();
     analyze.widget().set_halign(gtk::Align::End);
-    analyze.widget().set_sensitive(can_analyze);
-    analyze.widget().set_tooltip_i18n(ANALYZE_TOOLTIP);
     analyze.widget().connect_clicked({
-        let project = context.project.clone();
-        let player = context.player_state.clone();
-        let key = context.selected_item.clone();
-        let current_generation = value.analysis_generation;
-        let next_generation = current_generation.wrapping_add(1).max(1);
+        let controller = context.inspector_core.clone();
+        let target = target.clone();
         let preferences = context.preferences.clone();
         move |_| {
-            if shrimply_video::sam2_analysis::cancel(id, current_generation) {
-                refresh(&player);
-                return;
+            let server_url = shrimply_state::preferences::snapshot(&preferences).compute_server_url;
+            if let Err(error) = controller.toggle_sam2_analysis(&target, id, server_url) {
+                tracing::error!(%error, "Could not toggle GTK SAM2 analysis");
             }
-            shrimply_video::sam2_analysis::start(
-                id,
-                next_generation,
-                shrimply_video::sam2_analysis::Status::Running {
-                    message: "Sending request…".to_string(),
-                    completed_frames: 0,
-                    total_frames: 0,
-                    prompt_signature,
-                    server_url: shrimply_state::preferences::snapshot(&preferences)
-                        .compute_server_url,
-                },
-            );
-            update(&project, key.as_ref(), id, |sam2| {
-                sam2.analysis_generation = next_generation;
-            });
-            refresh(&player);
         }
     });
     let hovered = Rc::new(Cell::new(false));
@@ -167,52 +243,42 @@ pub fn add_rows(value: &Sam2Modifier, out: &gtk::Box, id: Uuid, context: &Inspec
     motion.connect_enter({
         let analyze = analyze.clone();
         let hovered = hovered.clone();
-        let generation = value.analysis_generation;
         move |_, _, _| {
             hovered.set(true);
             update_analysis_status(
                 &analyze,
-                analysis_status(id, generation, prompt_signature).0.as_ref(),
+                &sam2_analysis_control(id, generation, prompt_signature, can_analyze),
                 true,
-                can_analyze,
             );
         }
     });
     motion.connect_leave({
         let analyze = analyze.clone();
         let hovered = hovered.clone();
-        let generation = value.analysis_generation;
         move |_| {
             hovered.set(false);
             update_analysis_status(
                 &analyze,
-                analysis_status(id, generation, prompt_signature).0.as_ref(),
+                &sam2_analysis_control(id, generation, prompt_signature, can_analyze),
                 false,
-                can_analyze,
             );
         }
     });
     analyze.widget().add_controller(motion);
-    let analysis = analysis_status(id, value.analysis_generation, prompt_signature).0;
-    update_analysis_status(&analyze, analysis.as_ref(), hovered.get(), can_analyze);
-    let generation = value.analysis_generation;
+    update_analysis_status(
+        &analyze,
+        &sam2_analysis_control(id, generation, prompt_signature, can_analyze),
+        false,
+    );
     if generation > 0 {
         let analyze = analyze.clone();
         glib::timeout_add_local(Duration::from_millis(50), move || {
             if analyze.widget().parent().is_none() {
                 return glib::ControlFlow::Break;
             }
-            let (analysis, stale) = analysis_status(id, generation, prompt_signature);
-            let finished = stale
-                || matches!(
-                    analysis.as_ref(),
-                    Some(
-                        shrimply_video::sam2_analysis::Status::Complete { .. }
-                            | shrimply_video::sam2_analysis::Status::Failed(_)
-                            | shrimply_video::sam2_analysis::Status::Cancelled
-                    )
-                );
-            update_analysis_status(&analyze, analysis.as_ref(), hovered.get(), can_analyze);
+            let analysis = sam2_analysis_control(id, generation, prompt_signature, can_analyze);
+            let finished = !analysis.running && !analysis.cancelling;
+            update_analysis_status(&analyze, &analysis, hovered.get());
             if finished {
                 glib::ControlFlow::Break
             } else {
@@ -222,149 +288,57 @@ pub fn add_rows(value: &Sam2Modifier, out: &gtk::Box, id: Uuid, context: &Inspec
     }
     out.append(analyze.widget());
 
-    out.append(&switch_row("Invert", None, value.invert, {
-        let project = context.project.clone();
-        let player = context.player_state.clone();
-        let key = context.selected_item.clone();
+    let invert_control = controls.next().expect("SAM2 invert control is missing");
+    assert_eq!(invert_control.kind, ControlKind::Boolean);
+    assert_eq!(invert_control.target_id, Some(id));
+    assert_eq!(invert_control.value, value.invert.to_string());
+    assert_eq!(
+        invert_control.commit_name,
+        shrimply_inspector_core::visual_modifiers::SAM2_EDIT_COMMIT
+    );
+    out.append(&switch_row(&invert_control.label, None, value.invert, {
+        let controller = context.inspector_core.clone();
         move |invert| {
-            update(&project, key.as_ref(), id, |sam2| sam2.invert = invert);
-            refresh(&player);
+            if let Err(error) = controller.set_sam2_inverted(&target, id, invert) {
+                tracing::error!(%error, "Could not update GTK SAM2 inversion");
+            }
         }
     }));
+    assert!(
+        controls.next().is_none(),
+        "SAM2 presentation has extra controls"
+    );
 }
 
 fn update_analysis_status(
     button: &ProgressButton,
-    status: Option<&shrimply_video::sam2_analysis::Status>,
+    status: &AnalysisControlPresentation,
     hovered: bool,
-    can_analyze: bool,
 ) {
     button.widget().remove_css_class("destructive-action");
     button.widget().remove_css_class("suggested-action");
-    button.widget().set_tooltip_i18n(ANALYZE_TOOLTIP);
-    match status {
-        Some(shrimply_video::sam2_analysis::Status::Running {
-            message,
-            completed_frames,
-            total_frames,
-            ..
-        }) => {
-            button.widget().set_sensitive(true);
-            if hovered {
-                button.set_label("Cancel");
-            } else {
-                button.set_label(message);
-            }
-            if hovered {
-                button.widget().add_css_class("destructive-action");
-            }
-            if *total_frames == 0 {
-                button.set_state(ProgressButtonState::Indeterminate);
-            } else {
-                button.set_state(ProgressButtonState::Progress(
-                    *completed_frames as f64 / *total_frames as f64,
-                ));
-            }
-        }
-        Some(shrimply_video::sam2_analysis::Status::Complete { .. }) => {
-            button.set_label("Reanalyze");
-            button.widget().set_sensitive(can_analyze);
-            button.set_state(ProgressButtonState::Idle);
-        }
-        Some(shrimply_video::sam2_analysis::Status::Failed(error)) => {
-            if error == "Compute server connection failed" {
-                button.widget().set_label(error);
-            } else {
-                button.set_label("Analyze");
-            }
-            button.widget().set_sensitive(can_analyze);
-            button.widget().add_css_class("suggested-action");
-            button.widget().set_tooltip_text(Some(error));
-            button.set_state(ProgressButtonState::Idle);
-        }
-        Some(shrimply_video::sam2_analysis::Status::Cancelling) => {
-            button.set_label("Cancelling…");
-            button.widget().set_sensitive(false);
-            button.set_state(ProgressButtonState::Indeterminate);
-        }
-        Some(shrimply_video::sam2_analysis::Status::Cancelled) => {
-            button.set_label("Cancelled");
-            button.widget().set_sensitive(can_analyze);
-            button.widget().add_css_class("suggested-action");
-            button.set_state(ProgressButtonState::Idle);
-        }
-        None => {
-            button.set_label("Analyze");
-            button.widget().set_sensitive(can_analyze);
-            button.widget().add_css_class("suggested-action");
-            button.set_state(ProgressButtonState::Idle);
-        }
+    match &status.tooltip {
+        AnalysisTooltip::MessageKey(message) => button.widget().set_tooltip_i18n(message),
+        AnalysisTooltip::RawError(error) => button.widget().set_tooltip_text(Some(error.as_str())),
     }
-}
-
-fn analysis_status(
-    modifier_id: Uuid,
-    generation: u64,
-    prompt_signature: u64,
-) -> (Option<shrimply_video::sam2_analysis::Status>, bool) {
-    let status = shrimply_video::sam2_analysis::get(modifier_id, generation);
-    let stale = matches!(
-        status.as_ref(),
-        Some(
-            shrimply_video::sam2_analysis::Status::Running {
-                prompt_signature: stored,
-                ..
-            } | shrimply_video::sam2_analysis::Status::Complete {
-                prompt_signature: stored,
-            }
-        ) if *stored != prompt_signature
-    );
-    if stale {
-        shrimply_video::sam2_analysis::cancel(modifier_id, generation);
-        (None, true)
+    button.widget().set_sensitive(status.sensitive);
+    button.set_label(if hovered && status.running {
+        "Cancel"
     } else {
-        (status, false)
+        &status.label
+    });
+    if hovered && status.running {
+        button.widget().add_css_class("destructive-action");
+    } else if status.suggested {
+        button.widget().add_css_class("suggested-action");
     }
-}
-
-fn update(
-    project: &std::rc::Rc<std::cell::RefCell<Project>>,
-    key: Option<&shrimply_project::project::ItemAddress>,
-    id: Uuid,
-    action: impl FnOnce(&mut Sam2Modifier),
-) {
-    let Some(key) = key else {
-        return;
-    };
-    let mut project = project.borrow_mut();
-    let Some(item) = project.video_item_mut(key) else {
-        return;
-    };
-    let Some(sam2) = item
-        .modifiers
-        .iter_mut()
-        .find(|modifier| modifier.id == id)
-        .and_then(|modifier| match &mut modifier.effect {
-            ModifierEffect::Raster(effect) => match &mut **effect {
-                RasterModifierEffect::Sam2(sam2) => Some(sam2),
-                _ => None,
-            },
-            _ => None,
-        })
-    else {
-        return;
-    };
-    action(sam2);
-    shrimply_project::project::commit_edit(&project, "edit-sam2-prompts");
-}
-
-fn refresh(player: &crate::player_state::SharedPlayerState) {
-    player_state::refresh_project(
-        player,
-        ProjectChange {
-            video: true,
-            inspector: true,
-            ..Default::default()
-        },
-    );
+    button.set_state(if status.running || status.cancelling {
+        if status.progress < 0.0 {
+            ProgressButtonState::Indeterminate
+        } else {
+            ProgressButtonState::Progress(status.progress)
+        }
+    } else {
+        ProgressButtonState::Idle
+    });
 }

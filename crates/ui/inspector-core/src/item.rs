@@ -58,6 +58,21 @@ pub struct PreviewFocusTarget {
     facet: PreviewFacetKey,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ControlPreviewFocus {
+    pub card_key: String,
+    pub target: PreviewFocusTarget,
+}
+
+impl ControlPreviewFocus {
+    pub fn new(card_key: impl Into<String>, target: PreviewFocusTarget) -> Self {
+        Self {
+            card_key: card_key.into(),
+            target,
+        }
+    }
+}
+
 impl PreviewFocusTarget {
     pub const fn facet(facet: PreviewFacetKey) -> Self {
         Self {

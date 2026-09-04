@@ -88,13 +88,13 @@ pub(super) fn presentation(
             });
             section.add(control);
         }
-        let mut add =
-            InspectorControl::new(ControlKind::Action, format!("{base}/palette/add"), "")
-                .value("Add color")
-                .action(InspectorControlAction::AddDitheringPaletteColor { modifier_id });
+        let mut add = InspectorControl::new(ControlKind::Action, format!("{base}/palette/add"), "")
+            .value("Add color")
+            .action(InspectorControlAction::AddDitheringPaletteColor { modifier_id });
         add.prefix_icon = "list-add-symbolic".to_string();
         section.add(add);
     }
+    section.set_target(modifier_id);
     section
 }
 
@@ -102,9 +102,7 @@ pub(super) fn pattern<'a>(
     item: &'a shrimply_project::project::VideoItem,
     path: &str,
     timeline_id: uuid::Uuid,
-) -> Option<
-    &'a TimelineValue<shrimply_video_modifiers::dithering::DitheringPattern>,
-> {
+) -> Option<&'a TimelineValue<shrimply_video_modifiers::dithering::DitheringPattern>> {
     let value = modifier(item, path, "effect/effect/config/pattern")?;
     (value.pattern.id == timeline_id).then_some(&value.pattern)
 }
@@ -134,7 +132,7 @@ pub(super) fn palette_color<'a>(
 }
 
 impl InspectorController {
-    pub(crate) fn add_dithering_palette_color(
+    pub fn add_dithering_palette_color(
         &self,
         target: &InspectorTarget,
         modifier_id: uuid::Uuid,
@@ -149,7 +147,7 @@ impl InspectorController {
         Ok(())
     }
 
-    pub(crate) fn remove_dithering_palette_color(
+    pub fn remove_dithering_palette_color(
         &self,
         target: &InspectorTarget,
         modifier_id: uuid::Uuid,

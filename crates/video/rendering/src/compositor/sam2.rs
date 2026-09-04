@@ -6,7 +6,7 @@ use super::*;
 pub(super) struct AnalysisJob {
     item_id: Uuid,
     pub(super) modifier_id: Uuid,
-    pub(super) generation: u64,
+    pub(super) run_id: crate::sam2_analysis::RunId,
     prompt_signature: u64,
     cache_key: String,
     server_url: String,
@@ -18,7 +18,7 @@ pub(super) struct AnalysisJob {
 
 pub(super) fn pending_analysis(
     project: &Project,
-    completed: &HashMap<Uuid, u64>,
+    scheduled: &HashMap<Uuid, crate::sam2_analysis::RunId>,
 ) -> Option<AnalysisJob> {
     project
         .video_tracks
@@ -40,16 +40,20 @@ pub(super) fn pending_analysis(
                     else {
                         return None;
                     };
-                    let server_url =
-                        crate::sam2_analysis::server_url(modifier.id, sam2.analysis_generation)?;
+                    let prompt_signature = sam2.prompt_signature();
+                    let (run_id, server_url) = crate::sam2_analysis::active_run(
+                        modifier.id,
+                        sam2.analysis_generation,
+                        prompt_signature,
+                    )?;
                     (sam2.analysis_generation > 0
-                        && completed.get(&modifier.id).copied() != Some(sam2.analysis_generation)
+                        && scheduled.get(&modifier.id).copied() != Some(run_id)
                         && (!sam2.points.is_empty() || sam2.box_prompt.is_some()))
                     .then_some(AnalysisJob {
                         item_id: item.id,
                         modifier_id: modifier.id,
-                        generation: sam2.analysis_generation,
-                        prompt_signature: sam2.prompt_signature(),
+                        run_id,
+                        prompt_signature,
                         cache_key: crate::modifiers::sam2::cache_key(
                             project,
                             item,
@@ -69,7 +73,7 @@ pub(super) fn pending_analysis(
 }
 
 fn analysis_is_current(job: &AnalysisJob) -> bool {
-    crate::sam2_analysis::is_current(job.modifier_id, job.generation)
+    crate::sam2_analysis::is_current(job.modifier_id, job.run_id)
 }
 
 fn update_progress(
@@ -80,7 +84,7 @@ fn update_progress(
 ) -> bool {
     crate::sam2_analysis::update(
         job.modifier_id,
-        job.generation,
+        job.run_id,
         crate::sam2_analysis::Status::Running {
             message: message.to_string(),
             completed_frames,
@@ -198,16 +202,12 @@ fn analyze_clip(
     let mut server_error = None;
     let mut result_frames = None;
     let cancellation = shrimply_server_client::CancellationToken::new(&job.server_url)?;
-    if !crate::sam2_analysis::set_cancellation(
-        job.modifier_id,
-        job.generation,
-        cancellation.clone(),
-    ) {
+    if !crate::sam2_analysis::set_cancellation(job.modifier_id, job.run_id, cancellation.clone()) {
         return Ok(false);
     }
     if !crate::sam2_analysis::update(
         job.modifier_id,
-        job.generation,
+        job.run_id,
         crate::sam2_analysis::Status::Running {
             message: "Sending request…".to_string(),
             completed_frames: total_frames,
@@ -231,7 +231,7 @@ fn analyze_clip(
                 shrimply_server_client::Sam2Event::Queued { position } => {
                     crate::sam2_analysis::update(
                         job.modifier_id,
-                        job.generation,
+                        job.run_id,
                         crate::sam2_analysis::Status::Running {
                             message: shrimply_server_client::queued_status(position),
                             completed_frames: total_frames,
@@ -330,6 +330,7 @@ fn analyze_frame(
         &audio_analysis,
         Some(std::slice::from_ref(&job.item_id)),
         None,
+        false,
         None,
         None,
     );
@@ -350,10 +351,17 @@ fn analyze_frame(
     Ok(())
 }
 
-pub(super) fn spawn_analysis(project: Project, job: AnalysisJob, event_tx: SyncSender<VideoEvent>) {
-    let Some(claim) = crate::sam2_analysis::claim(job.modifier_id, job.generation) else {
-        return;
+pub(super) fn spawn_analysis(
+    project: &Project,
+    job: AnalysisJob,
+    event_tx: SyncSender<VideoEvent>,
+    claim_waiter: &crate::sam2_analysis::ClaimWaiter,
+) -> bool {
+    let Some(claim) = crate::sam2_analysis::try_claim(job.modifier_id, job.run_id, claim_waiter)
+    else {
+        return false;
     };
+    let project = project.clone();
     thread::Builder::new()
         .name(format!("sam2-analysis-{}", job.modifier_id))
         .spawn(move || {
@@ -365,7 +373,7 @@ pub(super) fn spawn_analysis(project: Project, job: AnalysisJob, event_tx: SyncS
             if mask_cache.analysis_complete(&job.cache_key) {
                 crate::sam2_analysis::update(
                     job.modifier_id,
-                    job.generation,
+                    job.run_id,
                     crate::sam2_analysis::Status::Complete {
                         prompt_signature: job.prompt_signature,
                     },
@@ -391,13 +399,15 @@ pub(super) fn spawn_analysis(project: Project, job: AnalysisJob, event_tx: SyncS
             match result {
                 Ok(true) => {
                     mask_cache.complete_analysis(&job.cache_key);
-                    crate::sam2_analysis::update(
+                    if !crate::sam2_analysis::update(
                         job.modifier_id,
-                        job.generation,
+                        job.run_id,
                         crate::sam2_analysis::Status::Complete {
                             prompt_signature: job.prompt_signature,
                         },
-                    );
+                    ) {
+                        mask_cache.abort_analysis(&job.cache_key);
+                    }
                 }
                 Ok(false) => mask_cache.abort_analysis(&job.cache_key),
                 Err(error) => {
@@ -410,14 +420,15 @@ pub(super) fn spawn_analysis(project: Project, job: AnalysisJob, event_tx: SyncS
                     };
                     if crate::sam2_analysis::update(
                         job.modifier_id,
-                        job.generation,
+                        job.run_id,
                         crate::sam2_analysis::Status::Failed(display_error),
                     ) {
                         let _ = event_tx.try_send(VideoEvent::Error(error));
                     }
                 }
             }
-            crate::sam2_analysis::clear_cancellation(job.modifier_id, job.generation);
+            crate::sam2_analysis::clear_cancellation(job.modifier_id, job.run_id);
         })
         .expect("spawn SAM2 analysis worker");
+    true
 }

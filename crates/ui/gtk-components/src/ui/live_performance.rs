@@ -1,13 +1,10 @@
 use std::{
     cell::{Cell, RefCell},
     rc::Rc,
-    time::Duration,
 };
 
 use adw::prelude::*;
 use gtk::glib;
-
-const REFRESH_INTERVAL: Duration = Duration::from_millis(500);
 
 thread_local! {
     static CSS_INSTALLED: Cell<bool> = const { Cell::new(false) };
@@ -15,17 +12,17 @@ thread_local! {
 
 pub fn live_performance() -> gtk::Widget {
     let status = adw::ExpanderRow::builder()
-        .title("Live Performance")
+        .title(crate::tr!("Live Performance").as_ref())
         .build();
     let clear = gtk::Button::builder()
         .icon_name("edit-clear-symbolic")
-        .tooltip_text("Clear")
+        .tooltip_text(crate::tr!("Clear").as_ref())
         .valign(gtk::Align::Center)
         .css_classes(["flat", "live-performance-action"])
         .build();
     let copy = gtk::Button::builder()
         .icon_name("edit-copy-symbolic")
-        .tooltip_text("Copy JSON")
+        .tooltip_text(crate::tr!("Copy JSON").as_ref())
         .valign(gtk::Align::Center)
         .css_classes(["flat", "live-performance-action"])
         .build();
@@ -37,14 +34,18 @@ pub fn live_performance() -> gtk::Widget {
     content.add_css_class("card");
     content.append(&status);
     let rows = Rc::new(RefCell::new(Vec::<adw::ActionRow>::new()));
+    let performance = Rc::new(RefCell::new(
+        shrimply_component_core::performance::PerformanceRows::default(),
+    ));
 
     clear.connect_clicked({
         let status = status.clone();
         let rows = rows.clone();
+        let performance = performance.clone();
         move |_| {
             shrimply_component_core::performance::clear();
             if status.is_expanded() {
-                refresh(&status, &rows);
+                refresh(&status, &rows, &performance);
             }
         }
     });
@@ -54,28 +55,40 @@ pub fn live_performance() -> gtk::Widget {
             .clipboard()
             .set_text(&shrimply_component_core::performance::report_json());
     });
+    let refresh_source = Rc::new(RefCell::new(None::<glib::SourceId>));
     status.connect_expanded_notify({
         let rows = rows.clone();
+        let performance = performance.clone();
+        let refresh_source = refresh_source.clone();
         move |status| {
+            if let Some(source) = refresh_source.borrow_mut().take() {
+                source.remove();
+            }
             if status.is_expanded() {
-                refresh(status, &rows);
+                refresh(status, &rows, &performance);
+                let status = status.downgrade();
+                let rows = rows.clone();
+                let performance = performance.clone();
+                *refresh_source.borrow_mut() = Some(glib::timeout_add_local(
+                    shrimply_component_core::performance::REFRESH_INTERVAL,
+                    move || {
+                        let Some(status) = status.upgrade() else {
+                            return glib::ControlFlow::Break;
+                        };
+                        if !status.is_expanded() {
+                            return glib::ControlFlow::Break;
+                        }
+                        refresh(&status, &rows, &performance);
+                        glib::ControlFlow::Continue
+                    },
+                ));
             } else {
                 for row in rows.take() {
                     status.remove(&row);
                 }
+                *performance.borrow_mut() = Default::default();
             }
         }
-    });
-    let status_weak = status.downgrade();
-    let status_timer = status.clone();
-    glib::timeout_add_local(REFRESH_INTERVAL, move || {
-        if status_weak.upgrade().is_none() {
-            return glib::ControlFlow::Break;
-        }
-        if status_timer.is_expanded() {
-            refresh(&status_timer, &rows);
-        }
-        glib::ControlFlow::Continue
     });
     content.upcast()
 }
@@ -102,11 +115,22 @@ fn install_css(display: &gtk::gdk::Display) {
     });
 }
 
-fn refresh(status: &adw::ExpanderRow, rows: &RefCell<Vec<adw::ActionRow>>) {
+fn refresh(
+    status: &adw::ExpanderRow,
+    rows: &RefCell<Vec<adw::ActionRow>>,
+    performance: &RefCell<shrimply_component_core::performance::PerformanceRows>,
+) {
+    let entries = {
+        let mut performance = performance.borrow_mut();
+        if !performance.refresh() {
+            return;
+        }
+        performance.rows().to_vec()
+    };
     for row in rows.take() {
         status.remove(&row);
     }
-    let next_rows = shrimply_component_core::performance::rows()
+    let next_rows = entries
         .into_iter()
         .map(|entry| {
             let row = adw::ActionRow::builder()

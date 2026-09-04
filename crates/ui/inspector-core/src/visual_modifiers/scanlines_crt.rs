@@ -5,6 +5,7 @@ use crate::{InspectorControl, InspectorRuntime, InspectorSection, NumberSpec};
 pub(super) fn presentation(
     value: &ScanlinesCrtModifier,
     index: usize,
+    modifier_id: uuid::Uuid,
     runtime: InspectorRuntime,
 ) -> InspectorSection {
     let base = format!("/modifiers/{index}/effect/effect/config");
@@ -40,7 +41,23 @@ pub(super) fn presentation(
         &value.mask_strength,
         runtime,
     ));
+    section.set_target(modifier_id);
     section
+}
+
+pub(super) fn number<'a>(
+    value: &'a ScanlinesCrtModifier,
+    field: &str,
+    timeline_id: uuid::Uuid,
+) -> Option<&'a shrimply_core::timeline_value::TimelineValue<f32>> {
+    let timeline = match field {
+        "effect/effect/config/spacing" => &value.spacing,
+        "effect/effect/config/intensity" => &value.intensity,
+        "effect/effect/config/curvature" => &value.curvature,
+        "effect/effect/config/mask_strength" => &value.mask_strength,
+        _ => return None,
+    };
+    (timeline.id == timeline_id).then_some(timeline)
 }
 
 fn unit_scalar(

@@ -5,6 +5,7 @@ use crate::{InspectorRuntime, InspectorSection, NumberSpec};
 pub(super) fn presentation(
     value: &PointLightModifier,
     index: usize,
+    modifier_id: uuid::Uuid,
     runtime: InspectorRuntime,
 ) -> InspectorSection {
     let base = format!("/modifiers/{index}/effect/effect/config");
@@ -46,5 +47,14 @@ pub(super) fn presentation(
             false,
         ));
     }
+    section.set_target(modifier_id);
     section
+}
+
+pub(super) fn color<'a>(
+    value: &'a PointLightModifier,
+    field: &str,
+    timeline_id: uuid::Uuid,
+) -> Option<&'a shrimply_core::timeline_value::TimelineValue<shrimply_core::Color<u8>>> {
+    (field == "effect/effect/config/color" && value.color.id == timeline_id).then_some(&value.color)
 }

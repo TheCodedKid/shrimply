@@ -7,7 +7,6 @@ use glam::Vec2;
 use crate::InspectedItem as SelectedItem;
 use crate::player_state::{self, ProjectChange, SharedPlayerState};
 use crate::timeline_value::*;
-use crate::transform_eval;
 use crate::ui::Number2Picker;
 use crate::{
     InspectorContext, keyframe_model,
@@ -30,9 +29,15 @@ pub(crate) enum VecAccess {
         get: VecGet,
         get_mut: VecGetMut,
     },
+    ItemScoped {
+        get: VecGet,
+        get_mut: VecGetMut,
+        value_id: Uuid,
+    },
     ItemWithMutation {
         get: VecGet,
         get_mut: VecGetMut,
+        value_id: Uuid,
         mutated: fn(&mut Project, SelectedItem),
     },
     Modifier {
@@ -50,7 +55,11 @@ pub(crate) enum VecAccess {
 impl VecAccess {
     fn get(self, p: &Project, k: SelectedItem) -> Option<&TimelineValue<glam::Vec2>> {
         match self {
-            Self::Item { get, .. } | Self::ItemWithMutation { get, .. } => get(p, k.clone()),
+            Self::Item { get, .. } => get(p, k.clone()),
+            Self::ItemScoped { get, value_id, .. }
+            | Self::ItemWithMutation { get, value_id, .. } => {
+                get(p, k.clone()).filter(|value| value.id == value_id)
+            }
             Self::Modifier { id, value_id } => crate::modifiers::number2(
                 p.video_item(&k)?.modifiers.iter().find(|m| m.id == id)?,
                 value_id,
@@ -70,9 +79,13 @@ impl VecAccess {
     }
     fn get_mut(self, p: &mut Project, k: SelectedItem) -> Option<&mut TimelineValue<glam::Vec2>> {
         match self {
-            Self::Item { get_mut, .. } | Self::ItemWithMutation { get_mut, .. } => {
-                get_mut(p, k.clone())
+            Self::Item { get_mut, .. } => get_mut(p, k.clone()),
+            Self::ItemScoped {
+                get_mut, value_id, ..
             }
+            | Self::ItemWithMutation {
+                get_mut, value_id, ..
+            } => get_mut(p, k.clone()).filter(|value| value.id == value_id),
             Self::Modifier { id, value_id } => crate::modifiers::number2_mut(
                 p.video_item_mut(&k)?
                     .modifiers
@@ -157,7 +170,8 @@ pub(crate) fn vec_control_with_lock(
         let project = context.project.borrow();
         (target.local_time)(&project, key.clone(), position).unwrap_or(Time::ZERO)
     };
-    let current = base_value(value, local_time);
+    let current =
+        shrimply_inspector_core::timeline_value::vector::vec2::value_at(value, local_time);
     let layers = shrimply_inspector_core::LayeredState::from(value);
     let mut sections = LayeredSections::default();
     if layers.keyframes {
@@ -326,13 +340,13 @@ fn update_component(
     let Some(value) = target.access.get_mut(&mut project, key.clone()) else {
         return;
     };
-    let mut vec = base_value(value, evaluation_time);
-    if component == 0 {
-        vec.x = next as f32;
-    } else {
-        vec.y = next as f32;
-    }
-    if !set_value(value, keyframe_time, vec) {
+    if !shrimply_inspector_core::timeline_value::vector::vec2::set_component(
+        value,
+        evaluation_time,
+        keyframe_time,
+        component,
+        next,
+    ) {
         return;
     }
     target.access.mark_mutated(&mut project, key);
@@ -358,9 +372,12 @@ fn set_keyframes_enabled(
     let Some(value) = target.access.get_mut(&mut project, key.clone()) else {
         return false;
     };
-    let current = base_value(value, evaluation_time);
-    if !shrimply_core::timeline_value::set_keyframes_enabled(value, keyframe_time, current, enabled)
-    {
+    if !shrimply_inspector_core::timeline_value::vector::vec2::set_keyframes_enabled(
+        value,
+        evaluation_time,
+        keyframe_time,
+        enabled,
+    ) {
         return false;
     }
     target.access.mark_mutated(&mut project, key);
@@ -381,7 +398,9 @@ fn set_expression_enabled(
     let Some(value) = target.access.get_mut(&mut project, key.clone()) else {
         return false;
     };
-    let changed = shrimply_core::timeline_value::set_expression_enabled(value, enabled, "[x, y]");
+    let changed = shrimply_inspector_core::timeline_value::vector::vec2::set_expression_enabled(
+        value, enabled,
+    );
     if !changed {
         return false;
     }
@@ -452,12 +471,18 @@ fn keyframe_actions(
                 target
                     .access
                     .get(&copy_project.borrow(), copy_key.clone())
-                    .and_then(|value| keyframe_model::copy_keyframes(value, times))
+                    .and_then(|value| {
+                        shrimply_inspector_core::timeline_value::vector::vec2::copy_keyframes(
+                            value, times,
+                        )
+                    })
             }),
             paste: Rc::new(move |clipboard, time| {
                 let mut project = paste_project.borrow_mut();
                 let value = target.access.get_mut(&mut project, paste_key.clone())?;
-                let times = keyframe_model::paste_keyframes(value, clipboard, time)?;
+                let times = shrimply_inspector_core::timeline_value::vector::vec2::paste_keyframes(
+                    value, clipboard, time,
+                )?;
                 target.access.mark_mutated(&mut project, paste_key.clone());
                 shrimply_project::project::commit_edit(&project, target.commit_name);
                 drop(project);
@@ -491,25 +516,8 @@ fn add_keyframe_at_time(
     let Some(value) = target.access.get_mut(&mut project, key.clone()) else {
         return false;
     };
-    let next = base_value(value, time);
-    let TimelineBase::Keyframes(keyframes) = &mut value.base else {
+    if !shrimply_inspector_core::timeline_value::vector::vec2::add_keyframe(value, time) {
         return false;
-    };
-    if let Some(keyframe) = keyframes
-        .iter_mut()
-        .find(|keyframe| keyframe.time.approx_eq(time))
-    {
-        if keyframe.time == time {
-            return false;
-        }
-        keyframe.time = time;
-        keyframes.sort_by_key(|keyframe| keyframe.time);
-    } else {
-        insert_curve_keyframe(
-            keyframes,
-            Vec2::keyframe(time, next),
-            CurveKeyframeInsert::InheritPreviousInterpolation,
-        );
     }
     target.access.mark_mutated(&mut project, key);
     shrimply_project::project::commit_edit(&project, target.commit_name);
@@ -529,18 +537,8 @@ fn delete_keyframe_at_time(
     let Some(value) = target.access.get_mut(&mut project, key.clone()) else {
         return false;
     };
-    let TimelineBase::Keyframes(keyframes) = &mut value.base else {
+    if !shrimply_inspector_core::timeline_value::vector::vec2::delete_keyframe(value, time) {
         return false;
-    };
-    let Some(index) = keyframes
-        .iter()
-        .position(|keyframe| keyframe.time.approx_eq(time))
-    else {
-        return false;
-    };
-    keyframes.remove(index);
-    if keyframes.is_empty() {
-        value.base = TimelineBase::Const(Vec2::ZERO);
     }
     target.access.mark_mutated(&mut project, key);
     shrimply_project::project::commit_edit(&project, target.commit_name);
@@ -559,20 +557,15 @@ fn update_keyframe_point(
     _value: f64,
 ) -> bool {
     let mut project = project.borrow_mut();
-    let Some(keyframes) = keyframes_mut(&mut project, key.clone(), target) else {
+    let Some(value) = target.access.get_mut(&mut project, key.clone()) else {
         return false;
     };
-    let Some(index) = keyframes
-        .iter()
-        .position(|keyframe| keyframe.time.approx_eq(old_time))
-    else {
+    if !shrimply_inspector_core::timeline_value::vector::vec2::move_keyframes(
+        value,
+        &[(old_time, time)],
+    ) {
         return false;
-    };
-    let mut keyframe = keyframes.remove(index);
-    keyframes.retain(|other| !other.time.approx_eq(time));
-    keyframe.time = time;
-    keyframes.push(keyframe);
-    keyframes.sort_by_key(|keyframe| keyframe.time);
+    }
     target.access.mark_mutated(&mut project, key);
     shrimply_project::project::commit_coalesced_edit(&project, target.commit_name);
     drop(project);
@@ -591,43 +584,21 @@ fn set_keyframe_interpolation(
     interpolation: Interpolation,
 ) -> bool {
     let mut project = project.borrow_mut();
-    let Some(keyframes) = keyframes_mut(&mut project, key.clone(), target) else {
+    let Some(value) = target.access.get_mut(&mut project, key.clone()) else {
         return false;
     };
-    let Some(keyframe) = keyframes
-        .iter_mut()
-        .find(|keyframe| keyframe.id == owner_id)
-    else {
-        return false;
-    };
-    if keyframe.interpolation_to_next == interpolation {
+    if !shrimply_inspector_core::timeline_value::vector::vec2::set_interpolation(
+        value,
+        owner_id,
+        interpolation,
+    ) {
         return false;
     }
-    keyframe.interpolation_to_next = interpolation;
     target.access.mark_mutated(&mut project, key);
     shrimply_project::project::commit_edit(&project, target.commit_name);
     drop(project);
     player_state::refresh_project(player_state, keyframe_model::live_refresh(target.refresh));
     true
-}
-
-fn keyframes_mut(
-    project: &mut Project,
-    key: SelectedItem,
-    target: VecTarget,
-) -> Option<&mut Vec<TimelineVectorKeyframe<glam::Vec2>>> {
-    let value = target.access.get_mut(project, key.clone())?;
-    match &mut value.base {
-        TimelineBase::Keyframes(keyframes) => Some(keyframes),
-        TimelineBase::Const(_) => None,
-    }
-}
-
-fn base_value(value: &TimelineValue<glam::Vec2>, time: Time) -> Vec2 {
-    match &value.base {
-        TimelineBase::Const(value) => *value,
-        TimelineBase::Keyframes(keyframes) => transform_eval::vec2_keyframes_value(keyframes, time),
-    }
 }
 
 fn expression_editor(
@@ -670,15 +641,11 @@ fn expression_editor(
             let value = target.access.get(project, output_key.clone())?;
             let outcome = evaluate_expression(project, &output_key, position, audio, cache, value)?;
             Some(ExpressionOutput {
-                value: format!(
-                    "{} {:.*}{}  {} {:.*}{}",
+                value: shrimply_inspector_core::timeline_value::vector::vec2::format_value(
+                    outcome.value,
                     spec.first_prefix,
-                    spec.digits,
-                    outcome.value.x,
-                    spec.unit_name,
                     spec.second_prefix,
                     spec.digits,
-                    outcome.value.y,
                     spec.unit_name,
                 ),
                 error: outcome.error,
@@ -698,30 +665,14 @@ fn update_expression_source(
     let Some(value) = target.access.get_mut(&mut project, key.clone()) else {
         return;
     };
-    let Some(expression) = &mut value.expression else {
-        return;
-    };
-    if expression.source == source {
+    if !shrimply_inspector_core::timeline_value::vector::vec2::set_expression_source(value, source)
+    {
         return;
     }
-    expression.source = source;
     target.access.mark_mutated(&mut project, key);
     shrimply_project::project::commit_coalesced_edit(&project, target.commit_name);
     drop(project);
     let mut refresh = target.refresh;
     refresh.inspector = false;
     player_state::refresh_project(player_state, refresh);
-}
-
-fn set_value(value: &mut TimelineValue<glam::Vec2>, local_time: Time, next: Vec2) -> bool {
-    edit_curve_value(
-        value,
-        local_time,
-        next,
-        |current, next| (*current - *next).length_squared() <= 0.000_001,
-        CurveEditPolicy {
-            unchanged_keyframe_is_noop: false,
-            insert: CurveKeyframeInsert::InheritPreviousInterpolation,
-        },
-    )
 }

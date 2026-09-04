@@ -6,6 +6,13 @@ use std::time::{Duration, Instant};
 use glam::Vec2;
 use gtk::prelude::*;
 use shrimply_component_core::layered::{LayeredEdit, LayeredPropertyController};
+use shrimply_inspector_core::{
+    ControlKind, InspectorControl, NumberSpec,
+    transform::{
+        RESET_TRANSFORM_COMMIT, ScalarField, TRANSFORM_CARD_TITLE, TRANSFORM_KEYFRAME_COMMIT,
+        TRANSFORM_KEYFRAMES_COMMIT, TRANSFORM_LIVE_COMMIT, TransformField, Vec2Field,
+    },
+};
 
 use crate::InspectedItem as SelectedItem;
 use crate::player_state::{self, ProjectChange, SharedPlayerState};
@@ -14,11 +21,11 @@ use crate::transform_eval::{self, FrameAudioAnalysis, TransformExpressionCache};
 use crate::ui::{
     FrameGraph, InspectorGraphProperty, Number2Picker, NumberPicker, NumberPickerHandle,
 };
-use shrimply_project::project::{Project, ResolvedTransform, Time, Transform, VideoItem};
+use shrimply_project::project::{Project, ResolvedTransform, Time, Transform};
 
 use super::{
     Inspectable, InspectorContext,
-    keyframe_editor::{self, KeyframeGraph, KeyframePoint, RawSegment, SpeedSegment},
+    keyframe_editor::{self, KeyframeGraph},
     section::InspectorSection,
 };
 
@@ -31,118 +38,159 @@ mod expressions;
 mod keyframes;
 
 use expressions::{scalar_expression_editor, set_expression_enabled, vec2_expression_editor};
-use keyframes::{scalar_keyframe_body_editor, stored_vec2_value, vec2_keyframe_body_editor};
+use keyframes::{scalar_keyframe_body_editor, vec2_keyframe_body_editor};
 
 const SLOW_TRANSFORM_LOG_THRESHOLD: Duration = Duration::from_millis(25);
 
-#[derive(Clone, Copy)]
-pub(super) enum TransformTarget {
-    Item,
-    PaintStroke,
+pub(super) fn controls(transform: &Transform, context: &InspectorContext) -> Vec<gtk::Widget> {
+    transform.controls(context)
 }
 
-pub(super) fn controls(
+pub(super) fn paint_stroke_controls(
     transform: &Transform,
+    controls: &[InspectorControl],
     context: &InspectorContext,
-    target: TransformTarget,
 ) -> Vec<gtk::Widget> {
-    match target {
-        TransformTarget::Item => transform.controls(context),
-        TransformTarget::PaintStroke => paint_stroke_controls(transform, context),
-    }
-}
-
-fn paint_stroke_controls(transform: &Transform, context: &InspectorContext) -> Vec<gtk::Widget> {
     let section = InspectorSection::controls();
-    section.add_wide_control(&vec_control(
-        "Position",
-        &transform.position,
-        context,
-        paint_vec_target(paint_position, paint_position_mut),
-        paint_vec_spec("px", 1.0, 0, None),
-    ));
-    section.add_wide_control(&vec_control(
-        "Anchor",
-        &transform.anchor,
-        context,
-        paint_vec_target(paint_anchor, paint_anchor_mut),
-        paint_vec_spec("px", 1.0, 0, None),
-    ));
-    section.add_wide_control(&vec_control_with_lock(
-        "Scale",
-        &transform.scale,
-        context,
-        paint_vec_target(paint_scale, paint_scale_mut),
-        paint_vec_spec("x", 0.01, 2, Some(0.0)),
-        true,
-    ));
-    section.add_wide_control(&scalar_control(
-        "Rotation",
-        &transform.rotation_degrees,
-        context,
-        ScalarTarget {
-            access: ScalarAccess::ItemWithMutation {
-                get: paint_rotation,
-                get_mut: paint_rotation_mut,
-                mutated: crate::paint::bump_revision_for_key,
-            },
-            scope_id: Some(transform.rotation_degrees.id),
-            local_time: crate::video::visual_local_time,
-            duration: crate::video::visual_duration,
-            refresh: paint_refresh(),
-            commit_name: "paint-stroke-transform",
-        },
-        ScalarSpec {
-            drag_step: 0.1,
-            digits: 1,
-            integer: false,
-            width_chars: 9,
-            minimum: None,
-            maximum: None,
-            unit_name: Some("°"),
-            rotating_icon: Some(("arrow3-up-symbolic", 0.0)),
-            display: f64::from,
-            store: |value| value as f32,
-            clamp: |value| value,
-        },
-    ));
+    for control in controls {
+        match control.kind {
+            ControlKind::LayeredVector2 => {
+                let (timeline, get, get_mut) = match control.timeline_id {
+                    Some(id) if id == transform.position.id => (
+                        &transform.position,
+                        paint_position as PaintVecGet,
+                        paint_position_mut as PaintVecGetMut,
+                    ),
+                    Some(id) if id == transform.anchor.id => (
+                        &transform.anchor,
+                        paint_anchor as PaintVecGet,
+                        paint_anchor_mut as PaintVecGetMut,
+                    ),
+                    Some(id) if id == transform.scale.id => (
+                        &transform.scale,
+                        paint_scale as PaintVecGet,
+                        paint_scale_mut as PaintVecGetMut,
+                    ),
+                    _ => panic!("shared paint stroke transform vector changed"),
+                };
+                let native = if control.lock {
+                    vec_control_with_lock(
+                        &control.label,
+                        timeline,
+                        context,
+                        paint_vec_target(timeline.id, get, get_mut, paint_commit_name(control)),
+                        paint_vec_spec(control),
+                        true,
+                    )
+                } else {
+                    vec_control(
+                        &control.label,
+                        timeline,
+                        context,
+                        paint_vec_target(timeline.id, get, get_mut, paint_commit_name(control)),
+                        paint_vec_spec(control),
+                    )
+                };
+                section.add_wide_control(&native);
+            }
+            ControlKind::LayeredNumber => {
+                assert_eq!(control.timeline_id, Some(transform.rotation_degrees.id));
+                section.add_wide_control(&scalar_control(
+                    &control.label,
+                    &transform.rotation_degrees,
+                    context,
+                    ScalarTarget {
+                        access: ScalarAccess::ItemWithMutation {
+                            get: paint_rotation,
+                            get_mut: paint_rotation_mut,
+                            mutated: crate::paint::bump_revision_for_key,
+                        },
+                        scope_id: Some(transform.rotation_degrees.id),
+                        local_time: crate::video::visual_local_time,
+                        duration: crate::video::visual_duration,
+                        refresh: paint_refresh(),
+                        commit_name: paint_commit_name(control),
+                    },
+                    paint_scalar_spec(control),
+                ));
+            }
+            kind => panic!("unsupported shared paint stroke transform control: {kind:?}"),
+        }
+    }
     vec![section.into_widget()]
 }
 
+type PaintVecGet = for<'a> fn(&'a Project, SelectedItem) -> Option<&'a TimelineValue<glam::Vec2>>;
+type PaintVecGetMut =
+    for<'a> fn(&'a mut Project, SelectedItem) -> Option<&'a mut TimelineValue<glam::Vec2>>;
+
 fn paint_vec_target(
-    get: for<'a> fn(&'a Project, SelectedItem) -> Option<&'a TimelineValue<Vec2>>,
-    get_mut: for<'a> fn(&'a mut Project, SelectedItem) -> Option<&'a mut TimelineValue<Vec2>>,
+    timeline_id: uuid::Uuid,
+    get: PaintVecGet,
+    get_mut: PaintVecGetMut,
+    commit_name: &'static str,
 ) -> VecTarget {
     VecTarget {
         access: VecAccess::ItemWithMutation {
             get,
             get_mut,
+            value_id: timeline_id,
             mutated: crate::paint::bump_revision_for_key,
         },
-        scope_id: None,
+        scope_id: Some(timeline_id),
         local_time: crate::video::visual_local_time,
         duration: crate::video::visual_duration,
         refresh: paint_refresh(),
-        commit_name: "paint-stroke-transform",
+        commit_name,
     }
 }
 
-fn paint_vec_spec(
-    unit_name: &'static str,
-    drag_step: f64,
-    digits: usize,
-    minimum: Option<f64>,
-) -> VecSpec {
+fn paint_vec_spec(control: &InspectorControl) -> VecSpec {
+    let defaults = NumberSpec::default();
+    assert_eq!(control.prefixes, ["X", "Y"]);
     VecSpec {
         first_prefix: "X",
         second_prefix: "Y",
-        drag_step,
-        digits,
-        width_chars: 7,
-        minimum,
-        maximum: None,
-        unit_name,
+        drag_step: control.number.drag_step,
+        digits: usize::try_from(control.number.digits)
+            .expect("paint transform vector digits must be nonnegative"),
+        width_chars: control.width_characters,
+        minimum: (control.number.minimum != defaults.minimum).then_some(control.number.minimum),
+        maximum: (control.number.maximum != defaults.maximum).then_some(control.number.maximum),
+        unit_name: control.number.unit,
     }
+}
+
+fn paint_scalar_spec(control: &InspectorControl) -> ScalarSpec {
+    let defaults = NumberSpec::default();
+    ScalarSpec {
+        drag_step: control.number.drag_step,
+        digits: usize::try_from(control.number.digits)
+            .expect("paint transform scalar digits must be nonnegative"),
+        integer: control.integer,
+        width_chars: control.width_characters,
+        minimum: (control.number.minimum != defaults.minimum).then_some(control.number.minimum),
+        maximum: (control.number.maximum != defaults.maximum).then_some(control.number.maximum),
+        unit_name: (!control.number.unit.is_empty()).then_some(control.number.unit),
+        rotating_icon: control.prefix_icon_rotates.then_some((
+            match control.prefix_icon.as_str() {
+                "arrow3-up-symbolic" => "arrow3-up-symbolic",
+                icon => panic!("unsupported shared paint rotating icon: {icon}"),
+            },
+            control.prefix_icon_rotation_offset_degrees,
+        )),
+        display: f64::from,
+        store: |value| value as f32,
+        clamp: crate::timeline_value::scalar::ScalarClamp::Function(|value| value),
+    }
+}
+
+fn paint_commit_name(control: &InspectorControl) -> &'static str {
+    let expected = shrimply_inspector_core::paint::STROKE_TRANSFORM_COMMIT;
+    assert_eq!(control.commit_name, expected);
+    assert_eq!(control.keyframe_commit_name, expected);
+    assert_eq!(control.expression_commit_name, expected);
+    expected
 }
 
 fn paint_refresh() -> ProjectChange {
@@ -222,7 +270,7 @@ fn paint_rotation_mut(project: &mut Project, key: SelectedItem) -> Option<&mut T
 
 impl Inspectable for Transform {
     fn title(&self) -> &'static str {
-        "Transform"
+        TRANSFORM_CARD_TITLE
     }
 
     fn default_action(&self, context: &InspectorContext) -> Option<Box<dyn Fn() + 'static>> {
@@ -237,7 +285,7 @@ impl Inspectable for Transform {
                 return;
             };
             item.transform = item.natural_transform(canvas_size);
-            shrimply_project::project::commit_edit(&project, "reset-transform");
+            shrimply_project::project::commit_edit(&project, RESET_TRANSFORM_COMMIT);
             drop(project);
             player_state::refresh_project(
                 &player_state,
@@ -256,71 +304,21 @@ impl Inspectable for Transform {
             return;
         };
         let display = display_transform(context, key.clone()).unwrap_or_else(|| self.fallback());
-        add_vec2_meta_control(
-            section,
-            "Position",
-            context,
-            key.clone(),
-            Vec2Field::Position,
-            display,
-        );
-        add_vec2_meta_control(
-            section,
-            "Anchor",
-            context,
-            key.clone(),
-            Vec2Field::Anchor,
-            display,
-        );
-        add_vec2_meta_control(
-            section,
-            "Scale",
-            context,
-            key.clone(),
-            Vec2Field::Scale,
-            display,
-        );
-        add_vec2_meta_control(
-            section,
-            "Shear",
-            context,
-            key.clone(),
-            Vec2Field::Shear,
-            display,
-        );
-        add_scalar_meta_control(
-            section,
-            "Rotation",
-            context,
-            key.clone(),
-            ScalarField::RotationDegrees,
-            display,
-        );
+        for field in TransformField::ALL {
+            match field {
+                TransformField::Vec2(field) => {
+                    add_vec2_meta_control(section, context, key.clone(), field, display)
+                }
+                TransformField::Scalar(field) => {
+                    add_scalar_meta_control(section, context, key.clone(), field, display)
+                }
+            }
+        }
     }
-}
-
-#[derive(Clone, Copy, Debug)]
-enum Vec2Field {
-    Position,
-    Anchor,
-    Scale,
-    Shear,
-}
-
-#[derive(Clone, Copy, Debug)]
-enum ScalarField {
-    RotationDegrees,
-}
-
-#[derive(Clone, Copy, Debug)]
-enum TransformField {
-    Vec2(Vec2Field),
-    Scalar(ScalarField),
 }
 
 fn add_vec2_meta_control(
     section: &InspectorSection,
-    label: &str,
     context: &InspectorContext,
     key: SelectedItem,
     field: Vec2Field,
@@ -328,8 +326,16 @@ fn add_vec2_meta_control(
 ) {
     let current = current_vec2(context, key.clone(), field)
         .unwrap_or_else(|| TimelineValue::<glam::Vec2>::new_const(Vec2::ZERO));
-    let keyframes_enabled = vec2_keyframes_enabled(&current);
-    let expression_enabled = expression_enabled(&current.expression);
+    let keyframes_enabled = matches!(current.base, TimelineBase::Keyframes(_));
+    let expression_enabled = {
+        let project = context.project.borrow();
+        project.video_item(&key).is_some_and(|item| {
+            shrimply_inspector_core::transform::expressions::enabled(
+                &item.transform,
+                TransformField::Vec2(field),
+            )
+        })
+    };
     let base_display = base_display_transform(context, key.clone()).unwrap_or(display);
     let controller = LayeredPropertyController::default();
     controller.set_keyframes(keyframes_enabled);
@@ -338,6 +344,7 @@ fn add_vec2_meta_control(
         context,
         key.clone(),
         field,
+        current.id,
         base_display,
         controller.clone(),
     );
@@ -354,7 +361,7 @@ fn add_vec2_meta_control(
         context,
         key.clone(),
         LayeredControlInput {
-            label,
+            label: field.label(),
             editor,
             field: TransformField::Vec2(field),
             keyframe_section,
@@ -366,7 +373,6 @@ fn add_vec2_meta_control(
 
 fn add_scalar_meta_control(
     section: &InspectorSection,
-    label: &str,
     context: &InspectorContext,
     key: SelectedItem,
     field: ScalarField,
@@ -374,8 +380,16 @@ fn add_scalar_meta_control(
 ) {
     let current = current_scalar(context, key.clone(), field)
         .unwrap_or_else(|| TimelineValue::<f32>::new_const(0.0));
-    let keyframes_enabled = scalar_keyframes_enabled(&current);
-    let expression_enabled = expression_enabled(&current.expression);
+    let keyframes_enabled = matches!(current.base, TimelineBase::Keyframes(_));
+    let expression_enabled = {
+        let project = context.project.borrow();
+        project.video_item(&key).is_some_and(|item| {
+            shrimply_inspector_core::transform::expressions::enabled(
+                &item.transform,
+                TransformField::Scalar(field),
+            )
+        })
+    };
     let base_display = base_display_transform(context, key.clone()).unwrap_or(display);
     let controller = LayeredPropertyController::default();
     controller.set_keyframes(keyframes_enabled);
@@ -384,6 +398,7 @@ fn add_scalar_meta_control(
         context,
         key.clone(),
         field,
+        current.id,
         base_display,
         controller.clone(),
     );
@@ -400,7 +415,7 @@ fn add_scalar_meta_control(
         context,
         key.clone(),
         LayeredControlInput {
-            label,
+            label: field.label(),
             editor,
             field: TransformField::Scalar(field),
             keyframe_section,
@@ -432,10 +447,8 @@ fn layered_control(
         expression_section,
         controller,
     } = input;
-    let keyframe_project = context.project.clone();
-    let keyframe_player_state = context.player_state.clone();
-    let expression_project = context.project.clone();
-    let expression_player_state = context.player_state.clone();
+    let keyframe_context = context.clone();
+    let expression_context = context.clone();
     let keyframe_key = key.clone();
     let expression_key = key;
     let property = InspectorGraphProperty::with_expression(
@@ -447,25 +460,13 @@ fn layered_control(
     );
     property.connect_keyframes_changed(move |enabled| {
         assert!(
-            set_keyframes_enabled(
-                &keyframe_project,
-                &keyframe_player_state,
-                keyframe_key.clone(),
-                field,
-                enabled,
-            ),
+            set_keyframes_enabled(&keyframe_context, keyframe_key.clone(), field, enabled),
             "transform keyframe mode could not be updated",
         );
     });
     property.connect_expression_changed(move |enabled| {
         assert!(
-            set_expression_enabled(
-                &expression_project,
-                &expression_player_state,
-                expression_key.clone(),
-                field,
-                enabled,
-            ),
+            set_expression_enabled(&expression_context, expression_key.clone(), field, enabled),
             "transform expression mode could not be updated",
         );
     });
@@ -476,33 +477,28 @@ fn vec2_dynamic_editor(
     context: &InspectorContext,
     key: SelectedItem,
     field: Vec2Field,
+    timeline_id: uuid::Uuid,
     display: ResolvedTransform,
     controller: LayeredPropertyController,
 ) -> gtk::Widget {
-    let value = display_vec2_value(display, field);
+    let value = field.value(display);
+    let number = field.number();
+    let prefixes = field.prefixes();
     let mut picker = Number2Picker::builder(value.x as f64, value.y as f64)
-        .first_prefix("X")
-        .second_prefix("Y")
-        .drag_step(if matches!(field, Vec2Field::Scale | Vec2Field::Shear) {
-            0.01
-        } else {
-            1.0
-        })
-        .digits(if matches!(field, Vec2Field::Scale | Vec2Field::Shear) {
-            2
-        } else {
-            0
-        })
-        .unit_name(vec2_unit_name(field))
-        .width_chars(7);
-    if matches!(field, Vec2Field::Scale) {
-        picker = picker.minimum(0.0).enable_lock();
+        .first_prefix(prefixes[0])
+        .second_prefix(prefixes[1])
+        .drag_step(number.drag_step)
+        .digits(
+            usize::try_from(number.digits).expect("transform vector digits must be nonnegative"),
+        )
+        .unit_name(number.unit)
+        .width_chars(field.width_characters());
+    if field.lock() {
+        picker = picker.minimum(number.minimum).enable_lock();
     }
 
-    let first_project = context.project.clone();
-    let first_player_state = context.player_state.clone();
-    let second_project = context.project.clone();
-    let second_player_state = context.player_state.clone();
+    let first_inspector_core = context.inspector_core.clone();
+    let second_inspector_core = context.inspector_core.clone();
     let first_commit_project = context.project.clone();
     let second_commit_project = context.project.clone();
     let first_commit_player = context.player_state.clone();
@@ -516,10 +512,10 @@ fn vec2_dynamic_editor(
     let parts = picker
         .on_first_change(move |next| {
             update_vec2_dynamic(
-                &first_project,
-                &first_player_state,
+                &first_inspector_core,
                 first_key.clone(),
                 field,
+                timeline_id,
                 0,
                 next,
                 &first_controller,
@@ -527,10 +523,10 @@ fn vec2_dynamic_editor(
         })
         .on_second_change(move |next| {
             update_vec2_dynamic(
-                &second_project,
-                &second_player_state,
+                &second_inspector_core,
                 second_key.clone(),
                 field,
+                timeline_id,
                 1,
                 next,
                 &second_controller,
@@ -568,18 +564,21 @@ fn scalar_dynamic_editor(
     context: &InspectorContext,
     key: SelectedItem,
     field: ScalarField,
+    timeline_id: uuid::Uuid,
     display: ResolvedTransform,
     controller: LayeredPropertyController,
 ) -> gtk::Widget {
-    let picker = NumberPicker::builder(display_scalar_value(display, field))
-        .drag_step(scalar_drag_step(field))
-        .digits(scalar_digits(field))
-        .width_chars(9)
-        .unit_name(scalar_unit_name(field))
+    let number = field.number();
+    let picker = NumberPicker::builder(field.value(display))
+        .drag_step(number.drag_step)
+        .digits(
+            usize::try_from(number.digits).expect("transform scalar digits must be nonnegative"),
+        )
+        .width_chars(field.width_characters())
+        .unit_name(number.unit)
         .rotating_prefix_icon_name("arrow3-up-symbolic");
 
-    let project = context.project.clone();
-    let player_state = context.player_state.clone();
+    let inspector_core = context.inspector_core.clone();
     let commit_project = context.project.clone();
     let commit_player = context.player_state.clone();
     let update_controller = controller.clone();
@@ -588,10 +587,10 @@ fn scalar_dynamic_editor(
     let parts = picker
         .on_change(move |next| {
             update_scalar_dynamic(
-                &project,
-                &player_state,
+                &inspector_core,
                 update_key.clone(),
                 field,
+                timeline_id,
                 next,
                 &update_controller,
             );
@@ -613,39 +612,32 @@ fn scalar_dynamic_editor(
 }
 
 fn update_vec2_dynamic(
-    project: &Rc<RefCell<Project>>,
-    player_state: &SharedPlayerState,
+    inspector_core: &shrimply_inspector_core::InspectorController,
     key: SelectedItem,
     field: Vec2Field,
+    timeline_id: uuid::Uuid,
     component: usize,
     value: f64,
     controller: &LayeredPropertyController,
 ) {
-    match controller.edit_component_value::<f64, 2>(component, value) {
-        LayeredEdit::Base(value) => {
-            update_vec2_const(project, player_state, key, field, component, value)
-        }
-        LayeredEdit::Keyframe(value) => {
-            keyframes::update_vec2_keyframe(project, player_state, key, field, component, value)
-        }
-    }
+    let value = match controller.edit_component_value::<f64, 2>(component, value) {
+        LayeredEdit::Base(value) | LayeredEdit::Keyframe(value) => value,
+    };
+    keyframes::update_vec2_keyframe(inspector_core, key, field, timeline_id, component, value);
 }
 
 fn update_scalar_dynamic(
-    project: &Rc<RefCell<Project>>,
-    player_state: &SharedPlayerState,
+    inspector_core: &shrimply_inspector_core::InspectorController,
     key: SelectedItem,
     field: ScalarField,
+    timeline_id: uuid::Uuid,
     value: f64,
     controller: &LayeredPropertyController,
 ) {
-    let value = stored_scalar_value(field, value);
-    match controller.edit(value) {
-        LayeredEdit::Base(value) => update_scalar_const(project, player_state, key, field, value),
-        LayeredEdit::Keyframe(value) => {
-            keyframes::update_scalar_keyframe(project, player_state, key, field, value)
-        }
-    }
+    let value = match controller.edit(value) {
+        LayeredEdit::Base(value) | LayeredEdit::Keyframe(value) => value,
+    };
+    keyframes::update_scalar_keyframe(inspector_core, key, field, timeline_id, value);
 }
 
 fn commit_dynamic_transform(
@@ -655,158 +647,39 @@ fn commit_dynamic_transform(
 ) {
     match controller.edit(()) {
         LayeredEdit::Base(()) => {
-            shrimply_project::project::commit_edit(&project.borrow(), "video-transform");
+            shrimply_project::project::commit_edit(&project.borrow(), TRANSFORM_LIVE_COMMIT);
         }
         LayeredEdit::Keyframe(()) => {
-            shrimply_project::project::commit_edit(&project.borrow(), "video-transform-keyframe");
+            shrimply_project::project::commit_edit(&project.borrow(), TRANSFORM_KEYFRAME_COMMIT);
             refresh_video(player_state);
         }
     }
 }
 
-fn update_vec2_const(
-    project: &Rc<RefCell<Project>>,
-    player_state: &SharedPlayerState,
-    key: SelectedItem,
-    field: Vec2Field,
-    component: usize,
-    value: f64,
-) {
-    let started = Instant::now();
-    let mut project = project.borrow_mut();
-    let Some(transform) = selected_transform_mut(&mut project, key.clone()) else {
-        return;
-    };
-    let mut next = vec2_field(transform, field).fallback();
-    let display_value = value;
-    let value = stored_vec2_component(field, value) as f32;
-    if component == 0 {
-        next.x = value;
-    } else {
-        next.y = value;
-    }
-    if matches!(field, Vec2Field::Scale) {
-        next = next.max(Vec2::ZERO);
-    }
-    vec2_field_mut(transform, field).base = TimelineBase::Const(next);
-    drop(project);
-    let refresh_started = Instant::now();
-    refresh_video(player_state);
-    let refresh_elapsed = refresh_started.elapsed();
-    let elapsed = started.elapsed();
-    if refresh_elapsed >= SLOW_TRANSFORM_LOG_THRESHOLD || elapsed >= SLOW_TRANSFORM_LOG_THRESHOLD {
-        tracing::debug!(
-            "transform: update_vec2_const field={field:?} component={component} display_value={display_value:.6} stored_value={value:.6} refresh_elapsed_us={} total_elapsed_us={}",
-            refresh_elapsed.as_micros(),
-            elapsed.as_micros(),
-        );
-    }
-}
-
-fn update_scalar_const(
-    project: &Rc<RefCell<Project>>,
-    player_state: &SharedPlayerState,
-    key: SelectedItem,
-    field: ScalarField,
-    value: f64,
-) {
-    let started = Instant::now();
-    let mut project = project.borrow_mut();
-    let Some(transform) = selected_transform_mut(&mut project, key.clone()) else {
-        return;
-    };
-    let stored_value = clamp_scalar_value(field, value);
-    scalar_field_mut(transform, field).base = TimelineBase::Const(stored_value as f32);
-    drop(project);
-    let refresh_started = Instant::now();
-    refresh_video(player_state);
-    let refresh_elapsed = refresh_started.elapsed();
-    let elapsed = started.elapsed();
-    if refresh_elapsed >= SLOW_TRANSFORM_LOG_THRESHOLD || elapsed >= SLOW_TRANSFORM_LOG_THRESHOLD {
-        tracing::debug!(
-            "transform: update_scalar_const field={field:?} display_value={value:.6} stored_value={stored_value:.6} refresh_elapsed_us={} total_elapsed_us={}",
-            refresh_elapsed.as_micros(),
-            elapsed.as_micros(),
-        );
-    }
-}
-
 fn set_keyframes_enabled(
-    project: &Rc<RefCell<Project>>,
-    player_state: &SharedPlayerState,
+    context: &InspectorContext,
     key: SelectedItem,
     field: TransformField,
     enabled: bool,
 ) -> bool {
-    let position = player_state::snapshot(player_state).position;
-    let (current, local_time) = {
-        let project_ref = project.borrow();
-        let Some(sequence_position) =
-            crate::video::visual_sequence_time(&project_ref, &key, position)
-        else {
-            return false;
-        };
-        let Some(item) = project_ref.video_item(&key) else {
-            return false;
-        };
-        if field_keyframes_enabled(&item.transform, field) == enabled {
-            return false;
-        }
-        let current =
-            transform_eval::resolve_item_base_transform(&project_ref, item, sequence_position);
-        let Some(local_time) = project_ref.keyframe_time(&key, position) else {
-            return false;
-        };
-        (current, local_time)
-    };
-    let mut project_ref = project.borrow_mut();
-    let Some(item) = project_ref.video_item_mut(&key) else {
-        return false;
-    };
-
+    let target = shrimply_inspector_core::InspectorTarget::Item(key);
+    let commit = shrimply_inspector_core::InspectorCommit::Immediate(TRANSFORM_KEYFRAMES_COMMIT);
     match field {
-        TransformField::Vec2(field) => {
-            let mut current = stored_vec2_value(field, display_vec2_value(current, field));
-            if matches!(field, Vec2Field::Scale) {
-                current = current.max(Vec2::ZERO);
-            }
-            vec2_field_mut(&mut item.transform, field).base = if enabled {
-                TimelineBase::Keyframes(vec![TimelineVectorKeyframe::<glam::Vec2> {
-                    id: uuid::Uuid::new_v4(),
-                    time: local_time,
-                    value: current,
-                    interpolation_to_next: Default::default(),
-                }])
-            } else {
-                TimelineBase::Const(current)
-            };
-        }
-        TransformField::Scalar(field) => {
-            let current =
-                stored_display_scalar_value(field, display_scalar_value(current, field)) as f32;
-            scalar_field_mut(&mut item.transform, field).base = if enabled {
-                TimelineBase::Keyframes(vec![TimelineScalarKeyframe::<f32> {
-                    id: uuid::Uuid::new_v4(),
-                    time: local_time,
-                    value: current,
-                    interpolation_to_next: Default::default(),
-                }])
-            } else {
-                TimelineBase::Const(current)
-            };
-        }
+        TransformField::Vec2(field) => context.inspector_core.set_vector2_keyframes_enabled(
+            &target,
+            field.path(),
+            enabled,
+            commit,
+        ),
+        TransformField::Scalar(field) => context.inspector_core.set_scalar_keyframes_enabled(
+            &target,
+            field.path(),
+            enabled,
+            shrimply_inspector_core::NumberConstraint::default(),
+            commit,
+        ),
     }
-    shrimply_project::project::commit_edit(&project_ref, "video-transform-keyframes");
-    drop(project_ref);
-    player_state::refresh_project(
-        player_state,
-        ProjectChange {
-            video: true,
-            live_preview: true,
-            ..ProjectChange::default()
-        },
-    );
-    true
+    .is_ok()
 }
 
 fn display_transform(context: &InspectorContext, key: SelectedItem) -> Option<ResolvedTransform> {
@@ -856,64 +729,6 @@ fn base_transform_at(
     Some(transform_eval::resolve_item_base_transform(
         project, item, position,
     ))
-}
-
-fn vec2_expression_result_at(
-    project: &Project,
-    key: SelectedItem,
-    field: Vec2Field,
-    position: Time,
-    audio_analysis: &FrameAudioAnalysis,
-    cache: &Rc<RefCell<TransformExpressionCache>>,
-) -> Option<Result<Vec2, String>> {
-    let position = crate::video::visual_sequence_time(project, &key, position)?;
-    let item = project.video_item(&key)?;
-    let value = vec2_field(&item.transform, field);
-    let expression = value.expression.as_ref()?;
-    if !expression.enabled || expression.source.trim().is_empty() {
-        return None;
-    }
-    let eval = transform_eval::TransformEvaluation::for_item_with_audio(
-        project,
-        item,
-        position,
-        audio_analysis,
-    );
-    let base = transform_eval::resolve_base(value, &eval);
-    Some(
-        cache
-            .borrow_mut()
-            .eval_timeline_value_result(&eval, value.id, &expression.source, &base),
-    )
-}
-
-fn scalar_expression_result_at(
-    project: &Project,
-    key: SelectedItem,
-    field: ScalarField,
-    position: Time,
-    audio_analysis: &FrameAudioAnalysis,
-    cache: &Rc<RefCell<TransformExpressionCache>>,
-) -> Option<Result<f32, String>> {
-    let position = crate::video::visual_sequence_time(project, &key, position)?;
-    let item = project.video_item(&key)?;
-    let value = scalar_field(&item.transform, field);
-    let expression = value.expression.as_ref()?;
-    if !expression.enabled || expression.source.trim().is_empty() {
-        return None;
-    }
-    let eval = transform_eval::TransformEvaluation::for_item_with_audio(
-        project,
-        item,
-        position,
-        audio_analysis,
-    );
-    let base = transform_eval::resolve_base(value, &eval);
-    Some(
-        cache
-            .borrow_mut()
-            .eval_timeline_value_result(&eval, value.id, &expression.source, &base),
-    )
 }
 
 fn selected_item_label(key: SelectedItem) -> String {
@@ -1096,9 +911,9 @@ fn update_vec2_base_display(
             return;
         };
         let eval = transform_eval::TransformEvaluation::for_item(&project, item, position);
-        transform_eval::resolve_base(vec2_field(&item.transform, field), &eval)
+        transform_eval::resolve_base(field.timeline(&item.transform), &eval)
     };
-    let value = display_vec2_raw_value(field, value);
+    let value = value;
     if !value.x.is_finite() || !value.y.is_finite() {
         tracing::debug!(
             "transform: skip vec2 base display key={} field={field:?} position={} reason=non-finite x={} y={}",
@@ -1162,9 +977,9 @@ fn update_scalar_base_display(
             return;
         };
         let eval = transform_eval::TransformEvaluation::for_item(&project, item, position);
-        transform_eval::resolve_base(scalar_field(&item.transform, field), &eval)
+        transform_eval::resolve_base(field.timeline(&item.transform), &eval)
     };
-    let value = display_scalar_raw_value(field, value);
+    let value = f64::from(value);
     if !value.is_finite() {
         tracing::debug!(
             "transform: skip scalar base display key={} field={field:?} position={} reason=non-finite value={}",
@@ -1198,20 +1013,13 @@ fn vec2_expression_output(
     field: Vec2Field,
     controller: LayeredPropertyController,
 ) -> gtk::Widget {
-    let project = context.project.clone();
-    let player_state = context.player_state.clone();
-    let volume = context.volume.clone();
-    let cache = Rc::new(RefCell::new(TransformExpressionCache::default()));
+    let timeline_id = current_vec2(context, key.clone(), field)
+        .expect("transform expression timeline must remain available")
+        .id;
+    let inspector = context.inspector_core.clone();
+    let target = shrimply_inspector_core::InspectorTarget::Item(key);
     expression_output(context, controller, move |label| {
-        update_vec2_expression_output(
-            &project,
-            &player_state,
-            &volume,
-            key.clone(),
-            field,
-            label,
-            &cache,
-        )
+        update_vec2_expression_output(&inspector, &target, timeline_id, field, label)
     })
 }
 
@@ -1221,20 +1029,13 @@ fn scalar_expression_output(
     field: ScalarField,
     controller: LayeredPropertyController,
 ) -> gtk::Widget {
-    let project = context.project.clone();
-    let player_state = context.player_state.clone();
-    let volume = context.volume.clone();
-    let cache = Rc::new(RefCell::new(TransformExpressionCache::default()));
+    let timeline_id = current_scalar(context, key.clone(), field)
+        .expect("transform expression timeline must remain available")
+        .id;
+    let inspector = context.inspector_core.clone();
+    let target = shrimply_inspector_core::InspectorTarget::Item(key);
     expression_output(context, controller, move |label| {
-        update_scalar_expression_output(
-            &project,
-            &player_state,
-            &volume,
-            key.clone(),
-            field,
-            label,
-            &cache,
-        )
+        update_scalar_expression_output(&inspector, &target, timeline_id, field, label)
     })
 }
 
@@ -1302,40 +1103,31 @@ fn expression_output_value_label() -> gtk::Label {
 }
 
 fn update_vec2_expression_output(
-    project: &Rc<RefCell<Project>>,
-    player_state: &SharedPlayerState,
-    volume: &Rc<RefCell<shrimply_audio::streaming::FrameAudioSampler>>,
-    key: SelectedItem,
+    inspector: &shrimply_inspector_core::InspectorController,
+    target: &shrimply_inspector_core::InspectorTarget,
+    timeline_id: uuid::Uuid,
     field: Vec2Field,
     label: &gtk::Label,
-    cache: &Rc<RefCell<TransformExpressionCache>>,
 ) {
     let started = Instant::now();
-    let snapshot = player_state::snapshot(player_state);
-    let position = snapshot.position;
-    let volume_mixer = volume
-        .borrow_mut()
-        .sample(&project.borrow(), position, snapshot.revision);
-    let outcome = match vec2_expression_result_at(
-        &project.borrow(),
-        key.clone(),
-        field,
-        position,
-        &volume_mixer,
-        cache,
-    ) {
-        Some(Ok(value)) => {
+    let outcome = match inspector.transform_vec2_expression_output(target, field, timeline_id) {
+        Ok(Some(output)) if output.error.is_none() => {
             set_expression_output_value(
                 label,
-                &format_vec2_output(field, display_vec2_raw_value(field, value)),
+                &shrimply_inspector_core::transform::expressions::format_vec2(field, output.value),
             );
             "ok".to_string()
         }
-        Some(Err(error)) => {
+        Ok(Some(output)) => {
+            let error = output.error.expect("checked transform expression error");
             set_expression_output_error(label, &error);
             format!("error: {}", expression_error_summary(&error))
         }
-        None => "none".to_string(),
+        Ok(None) => "none".to_string(),
+        Err(error) => {
+            set_expression_output_error(label, &error);
+            format!("error: {}", expression_error_summary(&error))
+        }
     };
     let elapsed = started.elapsed();
     if (outcome != "ok" && outcome != "none") || elapsed >= SLOW_TRANSFORM_LOG_THRESHOLD {
@@ -1347,40 +1139,34 @@ fn update_vec2_expression_output(
 }
 
 fn update_scalar_expression_output(
-    project: &Rc<RefCell<Project>>,
-    player_state: &SharedPlayerState,
-    volume: &Rc<RefCell<shrimply_audio::streaming::FrameAudioSampler>>,
-    key: SelectedItem,
+    inspector: &shrimply_inspector_core::InspectorController,
+    target: &shrimply_inspector_core::InspectorTarget,
+    timeline_id: uuid::Uuid,
     field: ScalarField,
     label: &gtk::Label,
-    cache: &Rc<RefCell<TransformExpressionCache>>,
 ) {
     let started = Instant::now();
-    let snapshot = player_state::snapshot(player_state);
-    let position = snapshot.position;
-    let volume_mixer = volume
-        .borrow_mut()
-        .sample(&project.borrow(), position, snapshot.revision);
-    let outcome = match scalar_expression_result_at(
-        &project.borrow(),
-        key.clone(),
-        field,
-        position,
-        &volume_mixer,
-        cache,
-    ) {
-        Some(Ok(value)) => {
+    let outcome = match inspector.transform_scalar_expression_output(target, field, timeline_id) {
+        Ok(Some(output)) if output.error.is_none() => {
             set_expression_output_value(
                 label,
-                &format_scalar_output(field, display_scalar_raw_value(field, value)),
+                &shrimply_inspector_core::transform::expressions::format_scalar(
+                    field,
+                    output.value,
+                ),
             );
             "ok".to_string()
         }
-        Some(Err(error)) => {
+        Ok(Some(output)) => {
+            let error = output.error.expect("checked transform expression error");
             set_expression_output_error(label, &error);
             format!("error: {}", expression_error_summary(&error))
         }
-        None => "none".to_string(),
+        Ok(None) => "none".to_string(),
+        Err(error) => {
+            set_expression_output_error(label, &error);
+            format!("error: {}", expression_error_summary(&error))
+        }
     };
     let elapsed = started.elapsed();
     if (outcome != "ok" && outcome != "none") || elapsed >= SLOW_TRANSFORM_LOG_THRESHOLD {
@@ -1419,30 +1205,6 @@ fn transform_display_refresh_event(event: player_state::PlayerEvent) -> bool {
     }
 }
 
-fn format_vec2_output(field: Vec2Field, value: Vec2) -> String {
-    let unit = vec2_unit_name(field);
-    let x = format_display_number(value.x as f64, 0);
-    let y = format_display_number(value.y as f64, 0);
-    format!("X {x}{unit}  Y {y}{unit}")
-}
-
-fn format_scalar_output(field: ScalarField, value: f64) -> String {
-    format!(
-        "{}{}",
-        format_display_number(value, scalar_digits(field)),
-        scalar_unit_name(field)
-    )
-}
-
-fn format_display_number(value: f64, digits: usize) -> String {
-    let value = if value.abs() < 10.0_f64.powi(-(digits as i32)) / 2.0 {
-        0.0
-    } else {
-        value
-    };
-    format!("{value:.digits$}")
-}
-
 fn current_vec2(
     context: &InspectorContext,
     key: SelectedItem,
@@ -1450,7 +1212,7 @@ fn current_vec2(
 ) -> Option<TimelineValue<glam::Vec2>> {
     let project = context.project.borrow();
     let transform = &project.video_item(&key)?.transform;
-    Some(vec2_field(transform, field).clone())
+    Some(field.timeline(transform).clone())
 }
 
 fn current_scalar(
@@ -1460,181 +1222,7 @@ fn current_scalar(
 ) -> Option<TimelineValue<f32>> {
     let project = context.project.borrow();
     let transform = &project.video_item(&key)?.transform;
-    Some(scalar_field(transform, field).clone())
-}
-
-fn selected_transform_mut(project: &mut Project, key: SelectedItem) -> Option<&mut Transform> {
-    project.video_item_mut(&key).map(|item| &mut item.transform)
-}
-
-fn vec2_field(transform: &Transform, field: Vec2Field) -> &TimelineValue<glam::Vec2> {
-    match field {
-        Vec2Field::Position => &transform.position,
-        Vec2Field::Anchor => &transform.anchor,
-        Vec2Field::Scale => &transform.scale,
-        Vec2Field::Shear => &transform.shear,
-    }
-}
-
-fn vec2_field_mut(transform: &mut Transform, field: Vec2Field) -> &mut TimelineValue<glam::Vec2> {
-    match field {
-        Vec2Field::Position => &mut transform.position,
-        Vec2Field::Anchor => &mut transform.anchor,
-        Vec2Field::Scale => &mut transform.scale,
-        Vec2Field::Shear => &mut transform.shear,
-    }
-}
-
-fn scalar_field(transform: &Transform, field: ScalarField) -> &TimelineValue<f32> {
-    match field {
-        ScalarField::RotationDegrees => &transform.rotation_degrees,
-    }
-}
-
-fn scalar_field_mut(transform: &mut Transform, field: ScalarField) -> &mut TimelineValue<f32> {
-    match field {
-        ScalarField::RotationDegrees => &mut transform.rotation_degrees,
-    }
-}
-
-fn vec2_keyframes_enabled(value: &TimelineValue<glam::Vec2>) -> bool {
-    matches!(value.base, TimelineBase::Keyframes(_))
-}
-
-fn scalar_keyframes_enabled(value: &TimelineValue<f32>) -> bool {
-    matches!(value.base, TimelineBase::Keyframes(_))
-}
-
-fn field_keyframes_enabled(transform: &Transform, field: TransformField) -> bool {
-    match field {
-        TransformField::Vec2(field) => vec2_keyframes_enabled(vec2_field(transform, field)),
-        TransformField::Scalar(field) => scalar_keyframes_enabled(scalar_field(transform, field)),
-    }
-}
-
-fn expression_enabled<T>(expression: &Option<T>) -> bool
-where
-    T: ExpressionState,
-{
-    expression.as_ref().is_some_and(ExpressionState::enabled)
-}
-
-trait ExpressionState {
-    fn enabled(&self) -> bool;
-}
-
-impl ExpressionState for TimelineExpression {
-    fn enabled(&self) -> bool {
-        self.enabled
-    }
-}
-
-fn vec2_keyframes_mut(
-    transform: &mut Transform,
-    field: Vec2Field,
-) -> Option<&mut Vec<TimelineVectorKeyframe<glam::Vec2>>> {
-    match &mut vec2_field_mut(transform, field).base {
-        TimelineBase::Keyframes(keyframes) => Some(keyframes),
-        TimelineBase::Const(_) => None,
-    }
-}
-
-fn scalar_keyframes_mut(
-    transform: &mut Transform,
-    field: ScalarField,
-) -> Option<&mut Vec<TimelineScalarKeyframe<f32>>> {
-    match &mut scalar_field_mut(transform, field).base {
-        TimelineBase::Keyframes(keyframes) => Some(keyframes),
-        TimelineBase::Const(_) => None,
-    }
-}
-
-fn display_vec2_value(transform: ResolvedTransform, field: Vec2Field) -> Vec2 {
-    let value = match field {
-        Vec2Field::Position => transform.position,
-        Vec2Field::Anchor => transform.anchor,
-        Vec2Field::Scale => transform.scale,
-        Vec2Field::Shear => transform.shear,
-    };
-    display_vec2_raw_value(field, value)
-}
-
-fn display_vec2_raw_value(field: Vec2Field, value: Vec2) -> Vec2 {
-    match field {
-        Vec2Field::Position | Vec2Field::Anchor | Vec2Field::Scale | Vec2Field::Shear => value,
-    }
-}
-
-fn display_scalar_value(transform: ResolvedTransform, field: ScalarField) -> f64 {
-    let value = match field {
-        ScalarField::RotationDegrees => transform.rotation_degrees,
-    } as f64;
-    display_scalar_raw_value(field, value as f32)
-}
-
-fn display_scalar_raw_value(field: ScalarField, value: f32) -> f64 {
-    display_scalar_keyframe_value(field, value)
-}
-
-fn display_scalar_keyframe_value(field: ScalarField, value: f32) -> f64 {
-    let value = value as f64;
-    match field {
-        ScalarField::RotationDegrees => value,
-    }
-}
-
-fn stored_vec2_component(field: Vec2Field, value: f64) -> f64 {
-    match field {
-        Vec2Field::Position | Vec2Field::Anchor | Vec2Field::Scale | Vec2Field::Shear => value,
-    }
-}
-
-fn stored_scalar_value(field: ScalarField, value: f64) -> f64 {
-    match field {
-        ScalarField::RotationDegrees => value,
-    }
-}
-
-fn stored_display_scalar_value(field: ScalarField, value: f64) -> f64 {
-    clamp_scalar_value(field, stored_scalar_value(field, value))
-}
-
-fn clamp_scalar_value(field: ScalarField, value: f64) -> f64 {
-    match field {
-        ScalarField::RotationDegrees => value,
-    }
-}
-
-fn vec2_unit_name(field: Vec2Field) -> &'static str {
-    match field {
-        Vec2Field::Position | Vec2Field::Anchor => "px",
-        Vec2Field::Scale => "x",
-        Vec2Field::Shear => "",
-    }
-}
-
-fn scalar_unit_name(field: ScalarField) -> &'static str {
-    match field {
-        ScalarField::RotationDegrees => "°",
-    }
-}
-
-fn scalar_drag_step(field: ScalarField) -> f64 {
-    match field {
-        ScalarField::RotationDegrees => 0.1,
-    }
-}
-
-fn scalar_digits(field: ScalarField) -> usize {
-    match field {
-        ScalarField::RotationDegrees => 1,
-    }
-}
-
-fn clamp_scalar_keyframe_value(field: ScalarField, value: f64) -> f64 {
-    match field {
-        ScalarField::RotationDegrees => value,
-    }
+    Some(field.timeline(transform).clone())
 }
 
 fn refresh_video(player_state: &SharedPlayerState) {

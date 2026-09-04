@@ -74,14 +74,25 @@ impl ColorPickerBuilder {
     }
 
     pub fn build(self) -> gtk::Widget {
-        let title = crate::i18n::text(&self.title).into_owned();
-        let color = Rc::new(Cell::new(self.color));
+        self.build_with_handle().widget
+    }
+
+    pub fn build_with_handle(self) -> ColorPickerParts {
+        let ColorPickerBuilder {
+            color: initial,
+            title,
+            with_alpha,
+            hexpand,
+            on_change,
+        } = self;
+        let title = crate::i18n::text(&title).into_owned();
+        let color = Rc::new(Cell::new(initial));
         let sample = color_sample(color.clone(), 22, 22);
-        let hex = gtk::Label::new(Some(&color_hex(self.color, self.with_alpha)));
+        let hex = gtk::Label::new(Some(&color_hex(initial, with_alpha)));
         let row = gtk::Box::new(gtk::Orientation::Horizontal, 8);
         row.append(&sample);
         row.append(&hex);
-        let narrow_width = if self.with_alpha { 104 } else { 88 };
+        let narrow_width = if with_alpha { 104 } else { 88 };
         let adaptive = adw::BreakpointBin::builder()
             .child(&row)
             .width_request(narrow_width)
@@ -96,13 +107,11 @@ impl ColorPickerBuilder {
         let button = gtk::Button::builder()
             .child(&adaptive)
             .tooltip_text(&title)
-            .hexpand(self.hexpand)
+            .hexpand(hexpand)
             .valign(gtk::Align::Center)
             .build();
-        let callback: Rc<dyn Fn(Color<u8>)> = self
-            .on_change
-            .map_or_else(|| Rc::new(|_| {}) as Rc<dyn Fn(Color<u8>)>, Rc::from);
-        let with_alpha = self.with_alpha;
+        let callback: Rc<dyn Fn(Color<u8>)> =
+            on_change.map_or_else(|| Rc::new(|_| {}) as Rc<dyn Fn(Color<u8>)>, Rc::from);
         button.connect_clicked({
             let color = color.clone();
             let sample = sample.clone();
@@ -119,7 +128,67 @@ impl ColorPickerBuilder {
                 );
             }
         });
-        button.upcast()
+        ColorPickerParts {
+            widget: button.upcast(),
+            handle: ColorPickerHandle {
+                color,
+                sample,
+                hex,
+                with_alpha,
+            },
+        }
+    }
+}
+
+pub struct ColorPickerParts {
+    pub widget: gtk::Widget,
+    pub handle: ColorPickerHandle,
+}
+
+#[derive(Clone)]
+pub struct ColorPickerHandle {
+    color: Rc<Cell<Color<u8>>>,
+    sample: gtk::DrawingArea,
+    hex: gtk::Label,
+    with_alpha: bool,
+}
+
+#[derive(Clone)]
+pub struct WeakColorPickerHandle {
+    color: Rc<Cell<Color<u8>>>,
+    sample: glib::WeakRef<gtk::DrawingArea>,
+    hex: glib::WeakRef<gtk::Label>,
+    with_alpha: bool,
+}
+
+impl ColorPickerHandle {
+    pub fn downgrade(&self) -> WeakColorPickerHandle {
+        WeakColorPickerHandle {
+            color: self.color.clone(),
+            sample: self.sample.downgrade(),
+            hex: self.hex.downgrade(),
+            with_alpha: self.with_alpha,
+        }
+    }
+}
+
+impl WeakColorPickerHandle {
+    pub fn set_color(&self, mut color: Color<u8>) -> bool {
+        if !self.with_alpha {
+            color.a = u8::MAX;
+        }
+        if self.color.replace(color) == color {
+            return self.sample.upgrade().is_some() && self.hex.upgrade().is_some();
+        }
+        let Some(sample) = self.sample.upgrade() else {
+            return false;
+        };
+        let Some(hex) = self.hex.upgrade() else {
+            return false;
+        };
+        hex.set_text(&color_hex(color, self.with_alpha));
+        sample.queue_draw();
+        true
     }
 }
 

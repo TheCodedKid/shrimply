@@ -23,6 +23,11 @@ const MAX_TYPEFACE_CACHE_ENTRIES: usize = 128;
 const MAX_PREVIEW_WORKERS: usize = 2;
 const GOOGLE_LOOKUP_DELAY: Duration = Duration::from_millis(500);
 
+thread_local! {
+    static FONT_BROWSER: Rc<RefCell<shrimply_inspector_core::font_selector::Browser>> =
+        Rc::new(RefCell::new(shrimply_inspector_core::font_selector::Browser::default()));
+}
+
 pub(crate) fn font_selector(
     selected_family: &str,
     selected_google: bool,
@@ -82,10 +87,7 @@ pub(crate) fn project_font_selector(
 ) -> gtk::Widget {
     let selected_google = matches!(selected, ProjectFontFamily::GoogleFonts { .. });
     font_selector(selected.name(), selected_google, move |choice| {
-        on_change(match choice.source {
-            FontSource::Local => ProjectFontFamily::Local { name: choice.name },
-            FontSource::Google => ProjectFontFamily::GoogleFonts { name: choice.name },
-        });
+        on_change(font_cache::project_family(&choice));
     })
 }
 
@@ -95,20 +97,8 @@ pub(crate) fn font_selector_list(
 ) -> gtk::Widget {
     let list = gtk::Box::new(gtk::Orientation::Vertical, 2);
     list.set_hexpand(true);
-    let selected_families = selected_families
-        .iter()
-        .filter_map(|family| {
-            let name = family.name().trim();
-            (!name.is_empty()).then(|| match family {
-                ProjectFontFamily::Local { .. } => ProjectFontFamily::Local {
-                    name: name.to_string(),
-                },
-                ProjectFontFamily::GoogleFonts { .. } => ProjectFontFamily::GoogleFonts {
-                    name: name.to_string(),
-                },
-            })
-        })
-        .collect::<Vec<_>>();
+    let selected_families =
+        shrimply_inspector_core::font_selector::normalized_families(selected_families);
     let on_change = Rc::new(on_change);
 
     if selected_families.is_empty() {
@@ -128,12 +118,13 @@ pub(crate) fn font_selector_list(
             let selected_families = selected_families.clone();
             let on_change = on_change.clone();
             move |choice| {
-                let mut next = selected_families.clone();
-                next[index] = match choice.source {
-                    FontSource::Local => ProjectFontFamily::Local { name: choice.name },
-                    FontSource::Google => ProjectFontFamily::GoogleFonts { name: choice.name },
-                };
-                on_change(next);
+                if let Some(next) = shrimply_inspector_core::font_selector::replace_family(
+                    &selected_families,
+                    index,
+                    font_cache::project_family(&choice),
+                ) {
+                    on_change(next);
+                }
             }
         }));
         row.append(&font_order_button(
@@ -144,9 +135,13 @@ pub(crate) fn font_selector_list(
                 let selected_families = selected_families.clone();
                 let on_change = on_change.clone();
                 move || {
-                    let mut next = selected_families.clone();
-                    next.swap(index, index - 1);
-                    on_change(next);
+                    if let Some(next) = shrimply_inspector_core::font_selector::move_family(
+                        &selected_families,
+                        index,
+                        -1,
+                    ) {
+                        on_change(next);
+                    }
                 }
             },
         ));
@@ -158,9 +153,13 @@ pub(crate) fn font_selector_list(
                 let selected_families = selected_families.clone();
                 let on_change = on_change.clone();
                 move || {
-                    let mut next = selected_families.clone();
-                    next.swap(index, index + 1);
-                    on_change(next);
+                    if let Some(next) = shrimply_inspector_core::font_selector::move_family(
+                        &selected_families,
+                        index,
+                        1,
+                    ) {
+                        on_change(next);
+                    }
                 }
             },
         ));
@@ -168,9 +167,11 @@ pub(crate) fn font_selector_list(
             let selected_families = selected_families.clone();
             let on_change = on_change.clone();
             move || {
-                let mut next = selected_families.clone();
-                next.remove(index);
-                on_change(next);
+                if let Some(next) =
+                    shrimply_inspector_core::font_selector::remove_family(&selected_families, index)
+                {
+                    on_change(next);
+                }
             }
         }));
         list.append(&row);
@@ -191,15 +192,12 @@ pub(crate) fn font_selector_list(
                 button,
                 None,
                 Rc::new(move |choice| {
-                    if contains_family(&selected_families, &choice.name) {
-                        return;
+                    if let Some(next) = shrimply_inspector_core::font_selector::append_family(
+                        &selected_families,
+                        font_cache::project_family(&choice),
+                    ) {
+                        on_change(next);
                     }
-                    let mut next = selected_families.clone();
-                    next.push(match choice.source {
-                        FontSource::Local => ProjectFontFamily::Local { name: choice.name },
-                        FontSource::Google => ProjectFontFamily::GoogleFonts { name: choice.name },
-                    });
-                    on_change(next);
                 }),
             );
         }
@@ -221,10 +219,8 @@ struct FontBrowserState {
     search: gtk::SearchEntry,
     status: gtk::Label,
     area: gtk::GLArea,
-    all_families: Rc<RefCell<Vec<FontFamily>>>,
+    browser: Rc<RefCell<shrimply_inspector_core::font_selector::Browser>>,
     visible_families: Rc<RefCell<Vec<FontFamily>>>,
-    lookup: Rc<RefCell<Option<GoogleFamily>>>,
-    search_generation: Rc<Cell<u64>>,
     selected: Option<(String, bool)>,
     on_change: Rc<dyn Fn(FontFamily)>,
     scroll: Rc<Cell<f32>>,
@@ -287,15 +283,15 @@ fn show_font_dialog(
         .min(MAX_PREVIEW_WORKERS);
     let remote_families = Arc::new(Mutex::new(HashMap::new()));
     let loader_remote_families = remote_families.clone();
+    let browser = FONT_BROWSER.with(Clone::clone);
+    browser.borrow_mut().set_query("");
     let state = FontBrowserState {
         dialog: dialog.clone(),
         search: search.clone(),
         status,
         area: area.clone(),
-        all_families: Rc::new(RefCell::new(Vec::new())),
+        browser,
         visible_families: Rc::new(RefCell::new(Vec::new())),
-        lookup: Rc::new(RefCell::new(None)),
-        search_generation: Rc::new(Cell::new(0)),
         selected,
         on_change,
         scroll: Rc::new(Cell::new(0.0)),
@@ -326,73 +322,18 @@ fn show_font_dialog(
     });
     search.connect_activate({
         let state = state.clone();
-        move |_| state.begin_lookup(true)
+        move |_| state.lookup_now()
     });
+    state.browser.borrow_mut().open();
     state.rebuild();
     dialog.present(Some(parent.upcast_ref::<gtk::Widget>()));
     search.grab_focus();
-    show_status(&state.status, "Loading installed fonts…");
-    let (sender, receiver) = async_channel::bounded(1);
-    thread::spawn(move || {
-        let mut families = crate::skia_font::family_names()
-            .into_iter()
-            .map(|name| FontFamily {
-                name,
-                source: FontSource::Local,
-                revision: 0,
-            })
-            .collect::<Vec<_>>();
-        let cache_error = match font_cache::cached_google_families() {
-            Ok(mut cached) => {
-                families.append(&mut cached);
-                None
-            }
-            Err(error) => Some(error),
-        };
-        families.sort_by(|left, right| {
-            left.name
-                .to_lowercase()
-                .cmp(&right.name.to_lowercase())
-                .then_with(|| source_order(&left.source).cmp(&source_order(&right.source)))
-        });
-        let _ = sender.send_blocking((families, cache_error));
-    });
-    glib::spawn_future_local(async move {
-        let Ok((families, cache_error)) = receiver.recv().await else {
-            return;
-        };
-        state.all_families.replace(families);
-        if let Some(error) = cache_error {
-            show_status(&state.status, &error);
-        } else {
-            state.status.set_visible(false);
-        }
-        state.rebuild();
-    });
+    state.update_status();
 }
 
 impl FontBrowserState {
     fn rebuild(&self) {
-        let query = normalized_search(&self.search.text());
-        let mut visible = self
-            .all_families
-            .borrow()
-            .iter()
-            .filter(|family| query.is_empty() || family.name.to_lowercase().contains(&query))
-            .cloned()
-            .collect::<Vec<_>>();
-        if let Some(lookup) = self.lookup.borrow().as_ref()
-            && !visible.iter().any(|family| {
-                family.source == FontSource::Google
-                    && family.name.eq_ignore_ascii_case(&lookup.name)
-            })
-        {
-            visible.push(FontFamily {
-                name: lookup.name.clone(),
-                source: FontSource::Google,
-                revision: -1,
-            });
-        }
+        let visible = self.browser.borrow().visible().to_vec();
         self.scroll.set(0.0);
         self.hovered.set(None);
         self.pressed.set(None);
@@ -405,62 +346,27 @@ impl FontBrowserState {
     }
 
     fn search_changed(&self) {
-        self.lookup.borrow_mut().take();
-        self.search_generation.set(self.search_generation.get() + 1);
-        self.status.set_visible(false);
+        let generation = self
+            .browser
+            .borrow_mut()
+            .set_query(self.search.text().to_string());
         self.rebuild();
-        self.begin_lookup(false);
+        self.update_status();
+        let state = self.clone();
+        glib::timeout_add_local_once(GOOGLE_LOOKUP_DELAY, move || {
+            state.browser.borrow_mut().begin_lookup(generation);
+            state.update_status();
+        });
     }
 
-    fn begin_lookup(&self, immediate: bool) {
-        let generation = self.search_generation.get() + 1;
-        self.search_generation.set(generation);
-        let state = self.clone();
-        let run = move || {
-            if state.search_generation.get() != generation || state.search.text().trim().is_empty()
-            {
-                return;
-            }
-            let query = state.search.text().to_string();
-            if state.all_families.borrow().iter().any(|family| {
-                family.source == FontSource::Google
-                    && font_cache::normalize_google_query(&query)
-                        .is_ok_and(|query| family.name.eq_ignore_ascii_case(&query))
-            }) {
-                return;
-            }
-            show_status(&state.status, "Searching Google Fonts…");
-            let (sender, receiver) = async_channel::bounded(1);
-            thread::spawn(move || {
-                let _ = sender.send_blocking(font_cache::lookup_google_family(&query));
-            });
-            glib::spawn_future_local(async move {
-                let Ok(result) = receiver.recv().await else {
-                    return;
-                };
-                if state.search_generation.get() != generation {
-                    return;
-                }
-                match result {
-                    Ok(family) => {
-                        state
-                            .remote_families
-                            .lock()
-                            .unwrap_or_else(|_| panic!("remote font registry lock died"))
-                            .insert(family.name.to_lowercase(), family.clone());
-                        state.lookup.replace(Some(family));
-                        state.status.set_visible(false);
-                    }
-                    Err(error) => show_status(&state.status, &error),
-                }
-                state.rebuild();
-            });
-        };
-        if immediate {
-            run();
-        } else {
-            glib::timeout_add_local_once(GOOGLE_LOOKUP_DELAY, run);
-        }
+    fn lookup_now(&self) {
+        let generation = self
+            .browser
+            .borrow_mut()
+            .set_query(self.search.text().to_string());
+        self.rebuild();
+        self.browser.borrow_mut().begin_lookup(generation);
+        self.update_status();
     }
 
     fn activate(&self, position: usize) {
@@ -472,50 +378,11 @@ impl FontBrowserState {
             self.dialog.close();
             return;
         }
-        show_status(
-            &self.status,
-            if family.revision < 0 {
-                "Downloading font family…"
-            } else {
-                "Loading cached font…"
-            },
-        );
-        let metadata = self.lookup.borrow().clone();
-        let family_name = family.name.clone();
-        let revision = family.revision;
-        let (sender, receiver) = async_channel::bounded(1);
-        thread::spawn(move || {
-            let result = if revision < 0 {
-                metadata
-                    .filter(|metadata| metadata.name.eq_ignore_ascii_case(&family_name))
-                    .ok_or_else(|| "Google font metadata is no longer available".to_string())
-                    .and_then(|metadata| {
-                        let cached = font_cache::download_google_family(&metadata)?;
-                        let materialized = font_cache::materialize_family(&cached.name)?;
-                        Ok((cached, materialized))
-                    })
-            } else {
-                font_cache::materialize_family(&family_name)
-                    .map(|materialized| (family, materialized))
-            };
-            let _ = sender.send_blocking(result);
-        });
-        let state = self.clone();
-        glib::spawn_future_local(async move {
-            let Ok(result) = receiver.recv().await else {
-                return;
-            };
-            match result.and_then(|(family, materialized)| {
-                font_cache::activate_family(materialized)?;
-                Ok(family)
-            }) {
-                Ok(family) => {
-                    (state.on_change)(family);
-                    state.dialog.close();
-                }
-                Err(error) => show_status(&state.status, &error),
-            }
-        });
+        if let Err(error) = self.browser.borrow_mut().activate(family) {
+            show_status(&self.status, &error);
+        } else {
+            self.update_status();
+        }
     }
 
     fn update_hover(&self, x: f64, y: f64) {
@@ -539,6 +406,37 @@ impl FontBrowserState {
         self.area.set_cursor_from_name(next.map(|_| "pointer"));
         self.needs_animation.set(true);
         self.area.queue_render();
+    }
+
+    fn poll(&self) {
+        let poll = self.browser.borrow_mut().poll();
+        if poll.visible_changed {
+            if let Some(family) = self.browser.borrow().lookup() {
+                self.remote_families
+                    .lock()
+                    .unwrap_or_else(|_| panic!("remote font registry lock died"))
+                    .insert(family.name.to_lowercase(), family.clone());
+            }
+            self.rebuild();
+        } else if poll.changed {
+            self.area.queue_render();
+        }
+        self.update_status();
+        for result in poll.activations {
+            match result {
+                Ok(family) => {
+                    (self.on_change)(family);
+                    self.dialog.close();
+                }
+                Err(error) => show_status(&self.status, &error),
+            }
+        }
+    }
+
+    fn update_status(&self) {
+        let browser = self.browser.borrow();
+        self.status.set_label(browser.status());
+        self.status.set_visible(!browser.status().is_empty());
     }
 }
 
@@ -664,6 +562,7 @@ fn connect_canvas(state: &FontBrowserState) {
     state.area.add_tick_callback({
         let state = state.clone();
         move |area, _| {
+            state.poll();
             let mut scroll = f64::from(state.scroll.get());
             let scrolling = state
                 .scrollbar
@@ -910,25 +809,6 @@ fn font_scrollbar(
 fn show_status(label: &gtk::Label, message: &str) {
     label.set_label(message);
     label.set_visible(true);
-}
-
-fn source_order(source: &FontSource) -> u8 {
-    match source {
-        FontSource::Local => 0,
-        FontSource::Google => 1,
-    }
-}
-
-fn normalized_search(value: &str) -> String {
-    font_cache::normalize_google_query(value)
-        .unwrap_or_else(|_| value.trim().replace('+', " "))
-        .to_lowercase()
-}
-
-fn contains_family(families: &[ProjectFontFamily], candidate: &str) -> bool {
-    families
-        .iter()
-        .any(|family| family.name().eq_ignore_ascii_case(candidate))
 }
 
 fn font_order_button(

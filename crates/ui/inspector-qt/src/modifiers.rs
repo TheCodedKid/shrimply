@@ -33,17 +33,34 @@ mod ground;
 mod halftone;
 mod hsv;
 mod invert;
+mod kaleidoscope;
+mod kuwahara;
 mod lens_distortion;
 mod luma_key;
+mod mask;
 mod mirror;
+mod object_3d;
 mod opacity;
+mod path_offset;
 mod pixelate_mosaic;
+mod point_light;
 mod posterize;
 mod radial_blur;
+mod rasterize;
+mod repeat;
+mod sam2;
+mod sampling;
+mod scanlines_crt;
+mod shaky_path;
+mod shape_3d;
 mod sharpen;
+mod sun_light;
+mod text_3d;
 mod text_mask;
+mod texture_bounds;
 mod threshold;
 mod transform;
+mod transparent_fill;
 mod twirl;
 mod vectorize;
 mod vignette;
@@ -137,20 +154,38 @@ fn item(modifier: &VisualModifierPresentation) -> InspectorListItem {
             shrimply_inspector_core::VisualModifierBodyPresentation::Invert(value) => {
                 invert::section(value)
             }
+            shrimply_inspector_core::VisualModifierBodyPresentation::Kaleidoscope(value) => {
+                kaleidoscope::section(value)
+            }
+            shrimply_inspector_core::VisualModifierBodyPresentation::Kuwahara(value) => {
+                kuwahara::section(value)
+            }
             shrimply_inspector_core::VisualModifierBodyPresentation::LensDistortion(value) => {
                 lens_distortion::section(value)
             }
             shrimply_inspector_core::VisualModifierBodyPresentation::LumaKey(value) => {
                 luma_key::section(value)
             }
+            shrimply_inspector_core::VisualModifierBodyPresentation::Mask(value) => {
+                mask::section(value)
+            }
             shrimply_inspector_core::VisualModifierBodyPresentation::Mirror(value) => {
                 mirror::section(value)
+            }
+            shrimply_inspector_core::VisualModifierBodyPresentation::Object3d(value) => {
+                object_3d::section(value)
             }
             shrimply_inspector_core::VisualModifierBodyPresentation::Opacity(value) => {
                 opacity::section(value)
             }
+            shrimply_inspector_core::VisualModifierBodyPresentation::PathOffset(value) => {
+                path_offset::section(value)
+            }
             shrimply_inspector_core::VisualModifierBodyPresentation::PixelateMosaic(value) => {
                 pixelate_mosaic::section(value)
+            }
+            shrimply_inspector_core::VisualModifierBodyPresentation::PointLight(value) => {
+                point_light::section(value)
             }
             shrimply_inspector_core::VisualModifierBodyPresentation::Posterize(value) => {
                 posterize::section(value)
@@ -158,14 +193,47 @@ fn item(modifier: &VisualModifierPresentation) -> InspectorListItem {
             shrimply_inspector_core::VisualModifierBodyPresentation::RadialBlur(value) => {
                 radial_blur::section(value)
             }
+            shrimply_inspector_core::VisualModifierBodyPresentation::Rasterize(value) => {
+                rasterize::section(value)
+            }
+            shrimply_inspector_core::VisualModifierBodyPresentation::Sam2(value) => {
+                sam2::section(value)
+            }
+            shrimply_inspector_core::VisualModifierBodyPresentation::Repeat(value) => {
+                repeat::section(value)
+            }
+            shrimply_inspector_core::VisualModifierBodyPresentation::Sampling(value) => {
+                sampling::section(value)
+            }
+            shrimply_inspector_core::VisualModifierBodyPresentation::ScanlinesCrt(value) => {
+                scanlines_crt::section(value)
+            }
+            shrimply_inspector_core::VisualModifierBodyPresentation::Shape3d(value) => {
+                shape_3d::section(value)
+            }
+            shrimply_inspector_core::VisualModifierBodyPresentation::ShakyPath(value) => {
+                shaky_path::section(value)
+            }
             shrimply_inspector_core::VisualModifierBodyPresentation::Sharpen(value) => {
                 sharpen::section(value)
+            }
+            shrimply_inspector_core::VisualModifierBodyPresentation::SunLight(value) => {
+                sun_light::section(value)
             }
             shrimply_inspector_core::VisualModifierBodyPresentation::TextMask(value) => {
                 text_mask::section(value)
             }
+            shrimply_inspector_core::VisualModifierBodyPresentation::Text3d(value) => {
+                text_3d::section(value)
+            }
+            shrimply_inspector_core::VisualModifierBodyPresentation::TextureBounds(value) => {
+                texture_bounds::section(value)
+            }
             shrimply_inspector_core::VisualModifierBodyPresentation::Threshold(value) => {
                 threshold::section(value)
+            }
+            shrimply_inspector_core::VisualModifierBodyPresentation::TransparentFill(value) => {
+                transparent_fill::section(value)
             }
             shrimply_inspector_core::VisualModifierBodyPresentation::Transform(value) => {
                 transform::section(value)
@@ -240,8 +308,8 @@ fn item(modifier: &VisualModifierPresentation) -> InspectorListItem {
             icon: "select-symbolic",
             active: mask.active,
             tooltip: "Mask",
-            activate: InspectorAction::SetVisualModifierAlphaMask {
-                id,
+            activate: InspectorAction::SetAlphaMask {
+                target: shrimply_project::project::VisualAlphaMaskTarget::Modifier(id),
                 enabled: !mask.active,
             },
         });

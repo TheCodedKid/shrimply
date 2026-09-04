@@ -5,24 +5,37 @@ pub(super) fn scalar_expression_editor(
     key: SelectedItem,
     field: ScalarField,
 ) -> gtk::Widget {
-    expression_editor(
-        current_scalar(context, key.clone(), field)
-            .and_then(|value| value.expression_source().map(str::to_string)),
-        crate::rhai_editor::ExpressionValue::Scalar,
-        {
-            let project = context.project.clone();
-            let player_state = context.player_state.clone();
-            move |source| {
-                update_expression_source(
-                    &project,
-                    &player_state,
-                    key.clone(),
+    let (source, timeline_id) = {
+        let project = context.project.borrow();
+        let transform = &project
+            .video_item(&key)
+            .expect("transform expression item must remain available")
+            .transform;
+        (
+            shrimply_inspector_core::transform::expressions::source(
+                transform,
+                TransformField::Scalar(field),
+            )
+            .map(str::to_string),
+            field.timeline(transform).id,
+        )
+    };
+    expression_editor(source, crate::rhai_editor::ExpressionValue::Scalar, {
+        let controller = context.inspector_core.clone();
+        move |source| {
+            controller
+                .set_transform_expression_source(
+                    &shrimply_inspector_core::InspectorTarget::Item(key.clone()),
                     TransformField::Scalar(field),
+                    timeline_id,
                     source,
+                    shrimply_inspector_core::InspectorCommit::Coalesced(
+                        shrimply_inspector_core::transform::expressions::SOURCE_COMMIT,
+                    ),
                 )
-            }
-        },
-    )
+                .expect("transform expression source could not be updated")
+        }
+    })
 }
 
 pub(super) fn vec2_expression_editor(
@@ -30,24 +43,37 @@ pub(super) fn vec2_expression_editor(
     key: SelectedItem,
     field: Vec2Field,
 ) -> gtk::Widget {
-    expression_editor(
-        current_vec2(context, key.clone(), field)
-            .and_then(|value| value.expression_source().map(str::to_string)),
-        crate::rhai_editor::ExpressionValue::Vec2,
-        {
-            let project = context.project.clone();
-            let player_state = context.player_state.clone();
-            move |source| {
-                update_expression_source(
-                    &project,
-                    &player_state,
-                    key.clone(),
+    let (source, timeline_id) = {
+        let project = context.project.borrow();
+        let transform = &project
+            .video_item(&key)
+            .expect("transform expression item must remain available")
+            .transform;
+        (
+            shrimply_inspector_core::transform::expressions::source(
+                transform,
+                TransformField::Vec2(field),
+            )
+            .map(str::to_string),
+            field.timeline(transform).id,
+        )
+    };
+    expression_editor(source, crate::rhai_editor::ExpressionValue::Vec2, {
+        let controller = context.inspector_core.clone();
+        move |source| {
+            controller
+                .set_transform_expression_source(
+                    &shrimply_inspector_core::InspectorTarget::Item(key.clone()),
                     TransformField::Vec2(field),
+                    timeline_id,
                     source,
+                    shrimply_inspector_core::InspectorCommit::Coalesced(
+                        shrimply_inspector_core::transform::expressions::SOURCE_COMMIT,
+                    ),
                 )
-            }
-        },
-    )
+                .expect("transform expression source could not be updated")
+        }
+    })
 }
 
 fn expression_editor(
@@ -56,126 +82,46 @@ fn expression_editor(
     update: impl Fn(String) + 'static,
 ) -> gtk::Widget {
     source.get_or_insert_with(|| match value {
-        crate::rhai_editor::ExpressionValue::Scalar => "value".to_string(),
-        crate::rhai_editor::ExpressionValue::Vec2 => "[x, y]".to_string(),
+        crate::rhai_editor::ExpressionValue::Scalar => {
+            shrimply_inspector_core::timeline_value::SCALAR_EXPRESSION_DEFAULT.to_string()
+        }
+        crate::rhai_editor::ExpressionValue::Vec2 => {
+            shrimply_inspector_core::timeline_value::VECTOR2_EXPRESSION_DEFAULT.to_string()
+        }
         _ => unreachable!("transform expression editor received an unsupported value type"),
     });
     crate::rhai_editor::editor(source, value, update)
 }
 
 pub(super) fn set_expression_enabled(
-    project: &Rc<RefCell<Project>>,
-    player_state: &SharedPlayerState,
+    context: &InspectorContext,
     key: SelectedItem,
     field: TransformField,
     enabled: bool,
 ) -> bool {
-    let mut project = project.borrow_mut();
-    let Some(transform) = selected_transform_mut(&mut project, key.clone()) else {
-        return false;
-    };
-    let changed = match field {
-        TransformField::Vec2(field) => {
-            let value = vec2_field_mut(transform, field);
-            match &mut value.expression {
-                Some(expression) => {
-                    if expression.enabled == enabled {
-                        false
-                    } else {
-                        expression.enabled = enabled;
-                        true
-                    }
-                }
-                None if enabled => {
-                    value.expression = Some(TimelineExpression {
-                        id: uuid::Uuid::new_v4(),
-                        enabled: true,
-                        source: vec2_expression_default(field),
-                    });
-                    true
-                }
-                None => false,
-            }
+    let timeline_id = {
+        let project = context.project.borrow();
+        let Some(transform) = project.video_item(&key).map(|item| &item.transform) else {
+            return false;
+        };
+        if shrimply_inspector_core::transform::expressions::enabled(transform, field) == enabled {
+            return false;
         }
-        TransformField::Scalar(field) => {
-            let value = scalar_field_mut(transform, field);
-            match &mut value.expression {
-                Some(expression) => {
-                    if expression.enabled == enabled {
-                        false
-                    } else {
-                        expression.enabled = enabled;
-                        true
-                    }
-                }
-                None if enabled => {
-                    value.expression = Some(TimelineExpression {
-                        id: uuid::Uuid::new_v4(),
-                        enabled: true,
-                        source: scalar_expression_default(field),
-                    });
-                    true
-                }
-                None => false,
-            }
+        match field {
+            TransformField::Vec2(field) => field.timeline(transform).id,
+            TransformField::Scalar(field) => field.timeline(transform).id,
         }
     };
-    if !changed {
-        return false;
-    }
-    shrimply_project::project::commit_edit(&project, "video-transform-expression");
-    drop(project);
-    player_state::refresh_project(
-        player_state,
-        ProjectChange {
-            video: true,
-            live_preview: true,
-            ..ProjectChange::default()
-        },
-    );
-    true
-}
-
-fn update_expression_source(
-    project: &Rc<RefCell<Project>>,
-    player_state: &SharedPlayerState,
-    key: SelectedItem,
-    field: TransformField,
-    source: String,
-) {
-    let mut project = project.borrow_mut();
-    let Some(transform) = selected_transform_mut(&mut project, key.clone()) else {
-        return;
-    };
-    match field {
-        TransformField::Vec2(field) => {
-            let Some(expression) = &mut vec2_field_mut(transform, field).expression else {
-                return;
-            };
-            if expression.source == source {
-                return;
-            }
-            expression.source = source;
-        }
-        TransformField::Scalar(field) => {
-            let Some(expression) = &mut scalar_field_mut(transform, field).expression else {
-                return;
-            };
-            if expression.source == source {
-                return;
-            }
-            expression.source = source;
-        }
-    }
-    shrimply_project::project::commit_coalesced_edit(&project, "transform-expression");
-    drop(project);
-    refresh_video(player_state);
-}
-
-fn scalar_expression_default(_field: ScalarField) -> String {
-    "value".to_string()
-}
-
-fn vec2_expression_default(_field: Vec2Field) -> String {
-    "[x, y]".to_string()
+    context
+        .inspector_core
+        .set_transform_expression_enabled(
+            &shrimply_inspector_core::InspectorTarget::Item(key),
+            field,
+            timeline_id,
+            enabled,
+            shrimply_inspector_core::InspectorCommit::Immediate(
+                shrimply_inspector_core::transform::expressions::TOGGLE_COMMIT,
+            ),
+        )
+        .is_ok()
 }

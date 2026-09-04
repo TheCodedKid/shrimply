@@ -1,601 +1,350 @@
 use gtk::prelude::*;
-use shrimply_core::{
-    FontFamily, FontVariation, TextDirection, TextFontStyle, TextHorizontalAlign, VerticalAlign,
+use shrimply_core::modifier_model::ModifierModel;
+use shrimply_gtk_components::{
+    tr,
+    ui::{MultilineTextInput, StringChoice, labeled_string_selector},
 };
-use shrimply_gtk_components::ui::MultilineTextInput;
-use shrimply_project::project::Project;
-use shrimply_scene_3d::{MAX_IOR, MIN_IOR, MIN_ROUGHNESS, NormalMode};
-use shrimply_video_modifiers::{
-    ModifierEffect,
-    scene_3d::{Scene3dModifierEffect, Text3dModifier},
+use shrimply_inspector_core::{
+    ControlKind, InspectorCommit, InspectorControl, InspectorTarget, NumberSpec, TimelineModeChange,
 };
+use shrimply_video_modifiers::scene_3d::Text3dModifier;
 use uuid::Uuid;
 
-use crate::{
-    InspectorContext,
-    font_selector::font_selector_list,
-    player_state::{self, ProjectChange},
-    selector::{enum_selector, selector},
-    timeline_value::{LayeredSections, layered_wide_control},
-};
+use crate::{InspectorContext, font_selector::font_selector_list};
 
 use super::{ScalarOptions, color_row, integer_scalar_row, scalar_row, vec3_row, vec3_scale_row};
 
 pub fn add_rows(value: &Text3dModifier, out: &gtk::Box, id: Uuid, context: &InspectorContext) {
-    out.append(&text_row(value, id, context));
-    out.append(&crate::ui::control_row(
-        "Fonts",
-        &font_families(value, id, context),
-    ));
-    out.append(&font_style(value.font_style, id, context));
-    for control in font_variations(value, id, context) {
-        out.append(&control);
+    let target = InspectorTarget::Item(
+        context
+            .selected_item
+            .clone()
+            .expect("3D text inspector must have a selected item"),
+    );
+    let section = context
+        .inspector_core
+        .text_3d_presentation(&target, id)
+        .expect("3D text modifier must still be available");
+    for control in section
+        .controls
+        .into_iter()
+        .filter(|control| control.visible)
+    {
+        assert_eq!(control.target_id, Some(id), "3D text control changed");
+        let widget = match control.kind {
+            ControlKind::LayeredText => text_row(value, id, &target, &control, context),
+            ControlKind::FontFamilies => fonts_row(value, id, &target, &control, context),
+            ControlKind::Selector => selector_row(id, &target, control, context),
+            ControlKind::Number => variation_row(id, &target, &control, context),
+            ControlKind::LayeredNumber => number_row(value, id, &control, context),
+            ControlKind::LayeredVector3 => vector_row(value, id, &control, context),
+            ControlKind::LayeredColor => color_control(value, id, &control, context),
+            kind => panic!("unsupported shared 3D text control: {kind:?}"),
+        };
+        out.append(&widget);
     }
-    out.append(&number_row(
-        "Font weight",
-        &value.font_weight,
-        id,
-        Some(1.0),
-        Some(1000.0),
-        None,
-        context,
-    ));
-    out.append(&number_row(
-        "Font size",
-        &value.font_size,
-        id,
-        Some(0.001),
-        None,
-        None,
-        context,
-    ));
-    out.append(&horizontal_align(value.h_align, id, context));
-    out.append(&vertical_align(value.v_align, id, context));
-    out.append(&direction(value.direction, id, context));
-    out.append(&number_row(
-        "Depth",
-        &value.depth,
-        id,
-        Some(0.001),
-        None,
-        None,
-        context,
-    ));
-    out.append(&number_row(
-        "Roundness",
-        &value.roundness,
-        id,
-        Some(0.0),
-        None,
-        None,
-        context,
-    ));
-    out.append(&integer_scalar_row(
-        "Smoothness",
-        &value.smoothness,
-        id,
-        ScalarOptions {
-            minimum: Some(shrimply_text_3d::MIN_SMOOTHNESS.into()),
-            maximum: Some(shrimply_text_3d::MAX_SMOOTHNESS.into()),
-            unit: None,
-            rotating: false,
-        },
-        context,
-    ));
-
-    for (label, timeline, degrees) in [
-        ("Position", &value.transform.position, false),
-        ("Anchor", &value.transform.anchor, false),
-        ("Rotation", &value.transform.rotation_degrees, true),
-    ] {
-        out.append(&vec3_row(label, timeline, id, degrees, context));
-    }
-    out.append(&vec3_scale_row(
-        "Scale",
-        &value.transform.scale,
-        id,
-        context,
-    ));
-    out.append(&color_row(
-        "Base color",
-        &value.material.base_color,
-        id,
-        context,
-    ));
-    for (label, timeline, minimum, maximum) in [
-        ("Metallic", &value.material.metallic, Some(0.0), Some(1.0)),
-        (
-            "Roughness",
-            &value.material.roughness,
-            Some(MIN_ROUGHNESS as f64),
-            Some(1.0),
-        ),
-        (
-            "Subsurface",
-            &value.material.subsurface,
-            Some(0.0),
-            Some(1.0),
-        ),
-        ("Clearcoat", &value.material.clearcoat, Some(0.0), Some(1.0)),
-        ("Sheen", &value.material.sheen, Some(0.0), Some(1.0)),
-        (
-            "Transmission",
-            &value.material.transmission,
-            Some(0.0),
-            Some(1.0),
-        ),
-        (
-            "Index of refraction",
-            &value.material.ior,
-            Some(MIN_IOR as f64),
-            Some(MAX_IOR as f64),
-        ),
-    ] {
-        out.append(&number_row(
-            label, timeline, id, minimum, maximum, None, context,
-        ));
-    }
-    out.append(&normal_mode(value.material.normal_mode, id, context));
 }
 
-fn text_row(value: &Text3dModifier, id: Uuid, context: &InspectorContext) -> gtk::Widget {
-    let Some(key) = context.selected_item.clone() else {
-        let input = MultilineTextInput::builder(value.text.fallback())
-            .min_content_height(86)
-            .build();
-        return layered_wide_control(
-            "Text",
-            &value.text,
-            input.widget().clone(),
-            LayeredSections::default(),
-            |_| {},
-            |_| {},
-        );
-    };
-    let position = player_state::snapshot(&context.player_state).position;
-    let time = crate::video::visual_local_time(&context.project.borrow(), key, position)
-        .unwrap_or_default();
-    let edit_context = context.detached();
-    let commit_project = context.project.clone();
-    let input = MultilineTextInput::builder(value.text.value_at(time))
+fn text_row(
+    value: &Text3dModifier,
+    id: Uuid,
+    target: &InspectorTarget,
+    control: &InspectorControl,
+    context: &InspectorContext,
+) -> gtk::Widget {
+    let timeline_id = control.timeline_id.expect("3D text timeline ID is missing");
+    assert_eq!(timeline_id, value.text.id);
+    let path = control.path.clone();
+    let edit_target = target.clone();
+    let edit_controller = context.inspector_core.clone();
+    let commit_target = target.clone();
+    let commit_path = control.path.clone();
+    let commit = control.commit_name.clone();
+    let commit_controller = context.inspector_core.clone();
+    let input = MultilineTextInput::builder(&control.value)
         .min_content_height(86)
-        .on_change(move |next| update_text_value(&edit_context, id, next))
+        .on_change(move |next| {
+            match edit_controller
+                .ensure_visual_modifier(&edit_target, &path, id)
+                .and_then(|()| {
+                    edit_controller.set_text_value(
+                        &edit_target,
+                        &path,
+                        timeline_id,
+                        next,
+                        InspectorCommit::Deferred,
+                    )
+                }) {
+                Ok(()) => true,
+                Err(error) => {
+                    tracing::error!(%error, "Could not update GTK 3D text");
+                    false
+                }
+            }
+        })
         .on_commit(move || {
-            shrimply_project::project::commit_edit(&commit_project.borrow(), "edit-3d-text");
+            if let Err(error) = commit_controller
+                .ensure_visual_modifier(&commit_target, &commit_path, id)
+                .and_then(|()| {
+                    commit_controller.ensure_visual_modifier_text(
+                        &commit_target,
+                        &commit_path,
+                        timeline_id,
+                    )
+                })
+                .and_then(|()| commit_controller.commit_video_field(&commit_target, &commit))
+            {
+                tracing::error!(%error, "Could not commit GTK 3D text");
+            }
         })
         .build();
-    let mut sections = LayeredSections::default();
-    if value
-        .text
-        .expression
-        .as_ref()
-        .is_some_and(|expression| expression.enabled)
-    {
-        let source = value.text.expression_source().map(str::to_string);
-        let expression_context = context.detached();
+    let mut sections = crate::timeline_value::LayeredSections::default();
+    if control.layered.expression {
+        let expression_target = target.clone();
+        let expression_path = control.path.clone();
+        let expression_controller = context.inspector_core.clone();
+        let expression_commit = control.expression_commit_name.clone();
         sections.push_expression(crate::rhai_editor::editor(
-            source,
+            Some(control.layered.expression_source.clone()),
             crate::rhai_editor::ExpressionValue::Text,
-            move |source| update_text_expression(&expression_context, id, source),
+            move |source| {
+                if let Err(error) = expression_controller
+                    .ensure_visual_modifier(&expression_target, &expression_path, id)
+                    .and_then(|()| {
+                        expression_controller.ensure_visual_modifier_text(
+                            &expression_target,
+                            &expression_path,
+                            timeline_id,
+                        )
+                    })
+                    .and_then(|()| {
+                        expression_controller.set_expression_source_with_commit(
+                            &expression_target,
+                            &expression_path,
+                            &source,
+                            InspectorCommit::Coalesced(&expression_commit),
+                        )
+                    })
+                {
+                    tracing::error!(%error, "Could not update GTK 3D text expression");
+                }
+            },
         ));
     }
-    let keyframe_context = context.detached();
-    let expression_context = context.detached();
-    let refresh = context.refresh.clone();
-    let expression_refresh = context.refresh.clone();
-    layered_wide_control(
-        "Text",
+    let keyframe_target = target.clone();
+    let keyframe_path = control.path.clone();
+    let keyframe_controller = context.inspector_core.clone();
+    let keyframe_commit = control.keyframe_commit_name.clone();
+    let expression_target = target.clone();
+    let expression_path = control.path.clone();
+    let expression_controller = context.inspector_core.clone();
+    let expression_commit = control.expression_commit_name.clone();
+    let current = control.value.clone();
+    crate::timeline_value::layered_wide_control(
+        &control.label,
         &value.text,
         input.widget().clone(),
         sections,
         move |enabled| {
-            if toggle_text_keyframes(&keyframe_context, id, enabled) {
-                refresh();
+            if let Err(error) = keyframe_controller
+                .ensure_visual_modifier(&keyframe_target, &keyframe_path, id)
+                .and_then(|()| {
+                    keyframe_controller.ensure_visual_modifier_text(
+                        &keyframe_target,
+                        &keyframe_path,
+                        timeline_id,
+                    )
+                })
+                .and_then(|()| {
+                    keyframe_controller.set_text_keyframes_enabled(
+                        &keyframe_target,
+                        &keyframe_path,
+                        timeline_id,
+                        enabled,
+                        InspectorCommit::Immediate(&keyframe_commit),
+                    )
+                })
+            {
+                tracing::error!(%error, "Could not toggle GTK 3D text keyframes");
             }
         },
         move |enabled| {
-            if toggle_text_expression(&expression_context, id, enabled) {
-                expression_refresh();
+            if let Err(error) = expression_controller
+                .ensure_visual_modifier(&expression_target, &expression_path, id)
+                .and_then(|()| {
+                    expression_controller.ensure_visual_modifier_text(
+                        &expression_target,
+                        &expression_path,
+                        timeline_id,
+                    )
+                })
+                .and_then(|()| {
+                    expression_controller.set_timeline_mode_with_commit(
+                        &expression_target,
+                        &expression_path,
+                        TimelineModeChange {
+                            keyframes: false,
+                            enabled,
+                            current: serde_json::Value::String(current.clone()),
+                            default_expression: "value",
+                        },
+                        InspectorCommit::Immediate(&expression_commit),
+                    )
+                })
+            {
+                tracing::error!(%error, "Could not toggle GTK 3D text expression");
             }
         },
     )
 }
 
-fn font_families(value: &Text3dModifier, id: Uuid, context: &InspectorContext) -> gtk::Widget {
-    let context = context.detached();
-    font_selector_list(&value.font_families, move |families| {
-        update_text(&context, id, "edit-3d-text-font", move |text| {
-            text.font_families = families
-        })
-    })
-}
-
-fn font_style(value: TextFontStyle, id: Uuid, context: &InspectorContext) -> gtk::Widget {
-    let context = context.detached();
-    selector(
-        "Style",
-        value,
-        [
-            (TextFontStyle::Normal, "Normal"),
-            (TextFontStyle::Italic, "Italic"),
-            (TextFontStyle::Oblique, "Oblique"),
-        ],
-        move |value| {
-            update_text(&context, id, "edit-3d-text-style", move |text| {
-                text.font_style = value
-            })
-        },
-    )
-}
-
-fn font_variations(
+fn fonts_row(
     value: &Text3dModifier,
     id: Uuid,
-    context: &InspectorContext,
-) -> Vec<gtk::Widget> {
-    let Some(family) = value.font_families.first() else {
-        return Vec::new();
-    };
-    let capabilities = match family {
-        FontFamily::GoogleFonts { name } => {
-            crate::font_cache::cached_capabilities(name).unwrap_or_default()
-        }
-        FontFamily::Local { name } => crate::font_cache::local_capabilities(name),
-    };
-    capabilities
-        .axes
-        .into_iter()
-        .filter(|axis| !matches!(axis.tag.as_str(), "wght" | "ital"))
-        .map(|axis| {
-            let row = gtk::Box::new(gtk::Orientation::Horizontal, 8);
-            row.append(
-                &gtk::Label::builder()
-                    .label(&axis.tag)
-                    .halign(gtk::Align::Start)
-                    .hexpand(true)
-                    .tooltip_text(shrimply_gtk_components::i18n::text_args(
-                        "%{axis} variation axis",
-                        &[("axis", axis.tag.clone())],
-                    ))
-                    .build(),
-            );
-            let step = ((axis.maximum - axis.minimum).abs() / 100.0).max(0.01);
-            let spin =
-                gtk::SpinButton::with_range(axis.minimum.into(), axis.maximum.into(), step.into());
-            spin.set_digits(2);
-            spin.set_width_chars(8);
-            spin.set_value(
-                value
-                    .font_variations
-                    .iter()
-                    .find(|value| value.axis == axis.tag)
-                    .map_or(axis.default, |value| value.value)
-                    .into(),
-            );
-            let context = context.detached();
-            spin.connect_value_changed(move |spin| {
-                let value = spin.value() as f32;
-                let tag = axis.tag.clone();
-                update_text(&context, id, "edit-3d-text-variation", move |text| {
-                    if let Some(variation) = text
-                        .font_variations
-                        .iter_mut()
-                        .find(|variation| variation.axis == tag)
-                    {
-                        variation.value = value;
-                    } else {
-                        text.font_variations
-                            .push(FontVariation { axis: tag, value });
-                    }
-                });
-            });
-            row.append(&spin);
-            row.upcast()
-        })
-        .collect()
-}
-
-fn horizontal_align(
-    value: TextHorizontalAlign,
-    id: Uuid,
+    target: &InspectorTarget,
+    control: &InspectorControl,
     context: &InspectorContext,
 ) -> gtk::Widget {
-    let context = context.detached();
-    selector(
-        "Horizontal alignment",
-        value,
-        [
-            (TextHorizontalAlign::Left, "Left"),
-            (TextHorizontalAlign::Center, "Center"),
-            (TextHorizontalAlign::Right, "Right"),
-            (TextHorizontalAlign::Fill, "Fill"),
-        ],
-        move |value| {
-            update_text(&context, id, "edit-3d-text-align", move |text| {
-                text.h_align = value
-            })
-        },
+    let controller = context.inspector_core.clone();
+    let target = target.clone();
+    let path = control.path.clone();
+    let commit = control.commit_name.clone();
+    crate::ui::control_row(
+        &control.label,
+        &font_selector_list(&value.font_families, move |families| {
+            let serialized =
+                serde_json::to_string(&families).expect("font families must serialize");
+            if let Err(error) = controller
+                .ensure_visual_modifier(&target, &path, id)
+                .and_then(|()| {
+                    controller.set_video_field(&target, &path, &serialized, &commit, true)
+                })
+            {
+                tracing::error!(%error, "Could not update GTK 3D text fonts");
+            }
+        }),
     )
 }
 
-fn vertical_align(value: VerticalAlign, id: Uuid, context: &InspectorContext) -> gtk::Widget {
-    let context = context.detached();
-    selector(
-        "Vertical alignment",
-        value,
-        [
-            (VerticalAlign::Top, "Top"),
-            (VerticalAlign::Middle, "Middle"),
-            (VerticalAlign::Bottom, "Bottom"),
-        ],
-        move |value| {
-            update_text(&context, id, "edit-3d-text-align", move |text| {
-                text.v_align = value
-            })
-        },
-    )
-}
-
-fn direction(value: TextDirection, id: Uuid, context: &InspectorContext) -> gtk::Widget {
-    let context = context.detached();
-    selector(
-        "Direction",
-        value,
-        [
-            (TextDirection::Horizontal, "Horizontal"),
-            (TextDirection::Vertical, "Vertical"),
-        ],
-        move |value| {
-            update_text(&context, id, "edit-3d-text-direction", move |text| {
-                text.direction = value
-            })
-        },
-    )
-}
-
-fn normal_mode(value: NormalMode, id: Uuid, context: &InspectorContext) -> gtk::Widget {
-    let context = context.detached();
-    enum_selector("Normals", value, move |value| {
-        update_text(&context, id, "edit-3d-text-normals", move |text| {
-            text.material.normal_mode = value
+fn selector_row(
+    id: Uuid,
+    target: &InspectorTarget,
+    control: InspectorControl,
+    context: &InspectorContext,
+) -> gtk::Widget {
+    let choices = control
+        .values
+        .iter()
+        .cloned()
+        .zip(&control.labels)
+        .map(|(value, label)| StringChoice {
+            value,
+            label: tr!(label).into_owned(),
         })
+        .collect();
+    let controller = context.inspector_core.clone();
+    let target = target.clone();
+    let path = control.path.clone();
+    let commit = control.commit_name.clone();
+    labeled_string_selector(&control.label, &control.value, choices, move |value| {
+        if let Err(error) = controller
+            .ensure_visual_modifier(&target, &path, id)
+            .and_then(|()| controller.set_video_field(&target, &path, &value, &commit, true))
+        {
+            tracing::error!(%error, "Could not update GTK 3D text selector");
+        }
     })
+    .widget()
+    .clone()
+}
+
+fn variation_row(
+    id: Uuid,
+    target: &InspectorTarget,
+    control: &InspectorControl,
+    context: &InspectorContext,
+) -> gtk::Widget {
+    let spin = gtk::SpinButton::with_range(
+        control.number.minimum,
+        control.number.maximum,
+        control.number.drag_step,
+    );
+    spin.set_digits(u32::try_from(control.number.digits).expect("digits must be non-negative"));
+    spin.set_width_chars(control.width_characters);
+    spin.set_value(
+        control
+            .value
+            .parse()
+            .expect("shared font variation must be numeric"),
+    );
+    let controller = context.inspector_core.clone();
+    let target = target.clone();
+    let path = control.path.clone();
+    let commit = control.commit_name.clone();
+    spin.connect_value_changed(move |spin| {
+        if let Err(error) = controller
+            .ensure_visual_modifier(&target, &path, id)
+            .and_then(|()| {
+                controller.set_video_field(&target, &path, &spin.value().to_string(), &commit, true)
+            })
+        {
+            tracing::error!(%error, "Could not update GTK 3D text variation");
+        }
+    });
+    crate::ui::control_row(&control.label, &spin)
 }
 
 fn number_row(
-    label: &str,
-    value: &shrimply_core::timeline_value::TimelineValue<f32>,
+    value: &Text3dModifier,
     id: Uuid,
-    minimum: Option<f64>,
-    maximum: Option<f64>,
-    unit: Option<&'static str>,
+    control: &InspectorControl,
     context: &InspectorContext,
 ) -> gtk::Widget {
-    scalar_row(
-        label,
-        value,
-        id,
-        ScalarOptions {
-            minimum,
-            maximum,
-            unit,
-            rotating: false,
-        },
-        context,
-    )
-}
-
-fn update_text_value(context: &InspectorContext, id: Uuid, next: String) -> bool {
-    let Some(key) = context.selected_item.clone() else {
-        return false;
+    let timeline = value
+        .number(control.timeline_id.expect("3D text number ID is missing"))
+        .expect("3D text number changed");
+    let defaults = NumberSpec::default();
+    let options = ScalarOptions {
+        minimum: (control.number.minimum != defaults.minimum).then_some(control.number.minimum),
+        maximum: (control.number.maximum != defaults.maximum).then_some(control.number.maximum),
+        unit: (!control.number.unit.is_empty()).then_some(control.number.unit),
+        rotating: false,
     };
-    let position = player_state::snapshot(&context.player_state).position;
-    let mut project = context.project.borrow_mut();
-    let Some(time) = project.keyframe_time(&key, position) else {
-        return false;
-    };
-    let Some(text) = text_mut(&mut project, key, id) else {
-        return false;
-    };
-    let changed = match &mut text.text.base {
-        shrimply_core::timeline_value::TimelineBase::Const(value) if *value != next => {
-            *value = next;
-            true
-        }
-        shrimply_core::timeline_value::TimelineBase::Keyframes(keyframes) => {
-            if let Some(keyframe) = keyframes
-                .iter_mut()
-                .find(|keyframe| keyframe.time.approx_eq(time))
-            {
-                if keyframe.time == time && keyframe.value == next {
-                    false
-                } else {
-                    keyframe.time = time;
-                    keyframe.value = next;
-                    keyframes.sort_by_key(|keyframe| keyframe.time);
-                    true
-                }
-            } else {
-                keyframes.push(shrimply_core::timeline_value::TimelineTextKeyframe {
-                    id: Uuid::new_v4(),
-                    time,
-                    value: next,
-                    text_interpolation_to_next: Default::default(),
-                    interpolation_to_next: Default::default(),
-                });
-                keyframes.sort_by_key(|keyframe| keyframe.time);
-                true
-            }
-        }
-        shrimply_core::timeline_value::TimelineBase::Const(_) => false,
-    };
-    drop(project);
-    if changed {
-        player_state::refresh_project(
-            &context.player_state,
-            ProjectChange {
-                video: true,
-                ..Default::default()
-            },
-        );
+    if control.integer {
+        integer_scalar_row(&control.label, timeline, id, options, context)
+    } else {
+        scalar_row(&control.label, timeline, id, options, context)
     }
-    changed
 }
 
-fn toggle_text_keyframes(context: &InspectorContext, id: Uuid, enabled: bool) -> bool {
-    let Some(key) = context.selected_item.clone() else {
-        return false;
-    };
-    let position = player_state::snapshot(&context.player_state).position;
-    let mut project = context.project.borrow_mut();
-    let Some(evaluation_time) = crate::video::visual_local_time(&project, key.clone(), position)
-    else {
-        return false;
-    };
-    let Some(keyframe_time) = project.keyframe_time(&key, position) else {
-        return false;
-    };
-    let Some(text) = text_mut(&mut project, key, id) else {
-        return false;
-    };
-    let current = text.text.value_at(evaluation_time);
-    match (&mut text.text.base, enabled) {
-        (shrimply_core::timeline_value::TimelineBase::Const(_), false)
-        | (shrimply_core::timeline_value::TimelineBase::Keyframes(_), true) => return false,
-        (base @ shrimply_core::timeline_value::TimelineBase::Const(_), true) => {
-            *base = shrimply_core::timeline_value::TimelineBase::Keyframes(vec![
-                shrimply_core::timeline_value::TimelineTextKeyframe {
-                    id: Uuid::new_v4(),
-                    time: keyframe_time,
-                    value: current,
-                    text_interpolation_to_next: Default::default(),
-                    interpolation_to_next: Default::default(),
-                },
-            ]);
-        }
-        (base @ shrimply_core::timeline_value::TimelineBase::Keyframes(_), false) => {
-            *base = shrimply_core::timeline_value::TimelineBase::Const(current);
-        }
-    }
-    shrimply_project::project::commit_edit(&project, "3d-text-keyframes");
-    drop(project);
-    player_state::refresh_project(
-        &context.player_state,
-        ProjectChange {
-            video: true,
-            inspector: true,
-            ..Default::default()
-        },
-    );
-    true
-}
-
-fn toggle_text_expression(context: &InspectorContext, id: Uuid, enabled: bool) -> bool {
-    let Some(key) = context.selected_item.clone() else {
-        return false;
-    };
-    let mut project = context.project.borrow_mut();
-    let Some(text) = text_mut(&mut project, key, id) else {
-        return false;
-    };
-    let changed = match &mut text.text.expression {
-        Some(expression) if expression.enabled != enabled => {
-            expression.enabled = enabled;
-            true
-        }
-        Some(_) => false,
-        None if enabled => {
-            text.text.expression = Some(shrimply_core::timeline_value::TimelineExpression {
-                id: Uuid::new_v4(),
-                enabled: true,
-                source: "value".to_string(),
-            });
-            true
-        }
-        None => false,
-    };
-    if !changed {
-        return false;
-    }
-    shrimply_project::project::commit_edit(&project, "3d-text-expression");
-    drop(project);
-    player_state::refresh_project(
-        &context.player_state,
-        ProjectChange {
-            video: true,
-            inspector: true,
-            ..Default::default()
-        },
-    );
-    true
-}
-
-fn update_text_expression(context: &InspectorContext, id: Uuid, source: String) {
-    let Some(key) = context.selected_item.clone() else {
-        return;
-    };
-    let mut project = context.project.borrow_mut();
-    let Some(expression) =
-        text_mut(&mut project, key, id).and_then(|text| text.text.expression.as_mut())
-    else {
-        return;
-    };
-    if expression.source == source {
-        return;
-    }
-    expression.source = source;
-    shrimply_project::project::commit_coalesced_edit(&project, "3d-text-expression");
-    drop(project);
-    player_state::refresh_project(
-        &context.player_state,
-        ProjectChange {
-            video: true,
-            ..Default::default()
-        },
-    );
-}
-
-fn update_text(
+fn vector_row(
+    value: &Text3dModifier,
+    id: Uuid,
+    control: &InspectorControl,
     context: &InspectorContext,
-    id: Uuid,
-    commit: &str,
-    update: impl FnOnce(&mut Text3dModifier),
-) {
-    let Some(key) = context.selected_item.clone() else {
-        return;
-    };
-    let mut project = context.project.borrow_mut();
-    let Some(text) = text_mut(&mut project, key, id) else {
-        return;
-    };
-    update(text);
-    shrimply_project::project::commit_edit(&project, commit);
-    drop(project);
-    player_state::refresh_project(
-        &context.player_state,
-        ProjectChange {
-            video: true,
-            inspector: true,
-            ..Default::default()
-        },
-    );
+) -> gtk::Widget {
+    let timeline = value
+        .number3(control.timeline_id.expect("3D text vector ID is missing"))
+        .expect("3D text vector changed");
+    if control.lock {
+        vec3_scale_row(&control.label, timeline, id, context)
+    } else {
+        vec3_row(
+            &control.label,
+            timeline,
+            id,
+            control.number.unit == "°",
+            context,
+        )
+    }
 }
 
-fn text_mut(
-    project: &mut Project,
-    key: crate::InspectedItem,
+fn color_control(
+    value: &Text3dModifier,
     id: Uuid,
-) -> Option<&mut Text3dModifier> {
-    project
-        .video_item_mut(&key)?
-        .modifiers
-        .iter_mut()
-        .find(|modifier| modifier.id == id)
-        .and_then(|modifier| match &mut modifier.effect {
-            ModifierEffect::Scene3d(effect) => match &mut **effect {
-                Scene3dModifierEffect::Text(text) => Some(&mut **text),
-                _ => None,
-            },
-            _ => None,
-        })
+    control: &InspectorControl,
+    context: &InspectorContext,
+) -> gtk::Widget {
+    assert_eq!(control.timeline_id, Some(value.material.base_color.id));
+    color_row(&control.label, &value.material.base_color, id, context)
 }

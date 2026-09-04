@@ -39,6 +39,8 @@ pub struct VideoCard {
     pub title: &'static str,
     pub section: InspectorSection,
     pub reset: Option<VideoReset>,
+    pub alpha_mask: Option<crate::AlphaMaskPresentation>,
+    pub preview_facet: Option<shrimply_preview_core::PreviewFacetKey>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -47,16 +49,24 @@ pub struct VideoReset {
     pub fraction: Option<(String, shrimply_math_core::Fraction)>,
     pub commit_name: &'static str,
     pub cancel_stabilization: bool,
+    pub paint_palette: bool,
 }
 
 impl VideoCard {
-    fn new(key: &'static str, title: &'static str, section: InspectorSection) -> Self {
+    pub(crate) fn new(key: &'static str, title: &'static str, section: InspectorSection) -> Self {
         Self {
             key,
             title,
             section,
             reset: None,
+            alpha_mask: None,
+            preview_facet: None,
         }
+    }
+
+    pub(crate) fn preview_facet(mut self, facet: shrimply_preview_core::PreviewFacetKey) -> Self {
+        self.preview_facet = Some(facet);
+        self
     }
 
     pub(crate) fn reset(
@@ -70,6 +80,7 @@ impl VideoCard {
             fraction: None,
             commit_name,
             cancel_stabilization: false,
+            paint_palette: false,
         });
         self
     }
@@ -85,11 +96,12 @@ impl VideoCard {
             fraction: Some((path.into(), value)),
             commit_name,
             cancel_stabilization: false,
+            paint_palette: false,
         });
         self
     }
 
-    fn reset_fields(
+    pub(crate) fn reset_fields(
         mut self,
         values: impl IntoIterator<Item = (impl Into<String>, Value)>,
         commit_name: &'static str,
@@ -102,6 +114,7 @@ impl VideoCard {
             fraction: None,
             commit_name,
             cancel_stabilization: false,
+            paint_palette: false,
         });
         self
     }
@@ -111,6 +124,14 @@ impl VideoCard {
             .as_mut()
             .expect("video card must have a reset before adding reset behavior")
             .cancel_stabilization = true;
+        self
+    }
+
+    pub(crate) fn paint_palette_reset(mut self) -> Self {
+        self.reset
+            .as_mut()
+            .expect("paint palette card must have a reset")
+            .paint_palette = true;
         self
     }
 }
@@ -124,6 +145,9 @@ impl InspectorController {
         };
         if reset.commit_name.is_empty() {
             return Err("video reset has no commit name".to_string());
+        }
+        if reset.paint_palette {
+            return self.reset_paint_palette(target);
         }
         let mut project = self.project.borrow_mut();
         if let Some((path, value)) = &reset.fraction {
@@ -164,6 +188,9 @@ impl InspectorController {
         if !changed {
             return Ok(());
         }
+        if matches!(item.content, VideoItemContent::Paint(_)) {
+            crate::paint::bump_serialized_revision(&mut value)?;
+        }
         if reset.cancel_stabilization {
             shrimply_video::video_stabilization::cancel(
                 project
@@ -189,6 +216,9 @@ impl InspectorController {
         commit_name: &str,
         commit_immediately: bool,
     ) -> Result<(), String> {
+        if let Some(result) = self.set_camera_source_field(target, path, text) {
+            return result;
+        }
         if path == "/stabilization_method" {
             return self.set_video_stabilization_method(target, text);
         }
@@ -224,6 +254,30 @@ impl InspectorController {
             );
             return Ok(());
         }
+        if let Some(changed) = crate::background::set_kind(
+            project
+                .video_item_mut(address)
+                .ok_or_else(|| "video item is no longer available".to_string())?,
+            path,
+            text,
+        ) {
+            if !changed? {
+                return Ok(());
+            }
+            if commit_immediately {
+                shrimply_project::project::commit_edit(&project, commit_name);
+            }
+            drop(project);
+            player_state::refresh_project(
+                &self.player_state,
+                player_state::ProjectChange {
+                    video: true,
+                    inspector: true,
+                    ..player_state::ProjectChange::default()
+                },
+            );
+            return Ok(());
+        }
         if let Some(changed) = crate::visual_modifiers::set_visual_modifier_field(
             project
                 .video_item_mut(address)
@@ -248,6 +302,30 @@ impl InspectorController {
             );
             return Ok(());
         }
+        if let Some(changed) = crate::generated::set_field(
+            project
+                .video_item_mut(address)
+                .ok_or_else(|| "video item is no longer available".to_string())?,
+            path,
+            text,
+        ) {
+            if !changed? {
+                return Ok(());
+            }
+            if commit_immediately {
+                shrimply_project::project::commit_edit(&project, commit_name);
+            }
+            drop(project);
+            player_state::refresh_project(
+                &self.player_state,
+                player_state::ProjectChange {
+                    video: true,
+                    inspector: true,
+                    ..player_state::ProjectChange::default()
+                },
+            );
+            return Ok(());
+        }
         let mut value = crate::model::target_value(&project, target)
             .ok_or_else(|| "video item is no longer available".to_string())?
             .1;
@@ -259,6 +337,12 @@ impl InspectorController {
             return Ok(());
         }
         *current = replacement;
+        if project
+            .video_item(address)
+            .is_some_and(|item| matches!(item.content, VideoItemContent::Paint(_)))
+        {
+            crate::paint::bump_serialized_revision(&mut value)?;
+        }
         crate::model::replace_target(&mut project, target, value)?;
         if stabilization_setting(path) {
             let InspectorTarget::Item(address) = target else {
@@ -279,7 +363,22 @@ impl InspectorController {
             &self.player_state,
             player_state::ProjectChange {
                 video: true,
-                inspector: path == "/motion_blur/enabled",
+                inspector: matches!(
+                    path,
+                    "/motion_blur/enabled"
+                        | crate::scene_3d::CAMERA_PROJECTION_PATH
+                        | crate::scene_3d::CAMERA_BACKGROUND_ENABLED_PATH
+                        | crate::scene_3d::CAMERA_BACKGROUND_ADDRESS_PATH
+                        | crate::scene_3d::SHADING_PATH
+                        | crate::scene_3d::OUTLINE_MODE_PATH
+                        | crate::scene_3d::OUTLINE_METHOD_PATH
+                        | crate::scene_3d::TEXTURE_FILTER_PATH
+                        | crate::scene_3d::SHADOW_KIND_PATH
+                        | crate::scene_3d::PATH_TRACING_PATH
+                        | crate::scene_3d::LIGHT_SAMPLING_PATH
+                        | crate::scene_3d::OPTIX_DENOISING_PATH
+                        | crate::scene_3d::ENVIRONMENT_SOURCE_PATH
+                ),
                 ..player_state::ProjectChange::default()
             },
         );
@@ -405,6 +504,21 @@ impl InspectorController {
                     shrimply_video::video_stabilization::rebuild(item, source_position);
                 }
             }
+            InspectorControlAction::ClearMaskSource { modifier_id } => {
+                self.clear_mask_source(target, modifier_id)?;
+            }
+            InspectorControlAction::SelectObject3dModel { .. } => {
+                return Err("3D model selection requires a native file picker".to_string());
+            }
+            InspectorControlAction::ClearObject3dModel { modifier_id } => {
+                self.clear_object_3d_model(target, modifier_id)?;
+            }
+            InspectorControlAction::SelectScene3dEnvironment => {
+                return Err("scene environment selection requires a native file picker".to_string());
+            }
+            InspectorControlAction::ClearScene3dEnvironment => {
+                self.clear_scene_3d_environment(target)?;
+            }
             InspectorControlAction::AddDitheringPaletteColor { modifier_id } => {
                 self.add_dithering_palette_color(target, modifier_id)?;
             }
@@ -413,6 +527,52 @@ impl InspectorController {
                 color_id,
             } => {
                 self.remove_dithering_palette_color(target, modifier_id, color_id)?;
+            }
+            InspectorControlAction::AddPaintPaletteColor => {
+                self.add_paint_palette_color(target)?;
+            }
+            InspectorControlAction::RemovePaintPaletteColor { color_id } => {
+                self.remove_paint_palette_color(target, color_id)?;
+            }
+            InspectorControlAction::SelectPaintTexture { .. } => {
+                return Err("paint texture selection requires a native file picker".to_string());
+            }
+            InspectorControlAction::ClearPaintTexture { color_id } => {
+                self.clear_paint_texture(target, color_id)?;
+            }
+            InspectorControlAction::RemoveSam2Point {
+                modifier_id,
+                point_id,
+            } => {
+                self.remove_sam2_point(target, modifier_id, point_id)?;
+            }
+            InspectorControlAction::SetSam2PointLabel { .. } => {
+                return Err("SAM2 point type must be selected from its control".to_string());
+            }
+            InspectorControlAction::SetSam2Model { .. }
+            | InspectorControlAction::SetSam2PointPosition { .. } => {
+                return Err("SAM2 value must be edited through its control".to_string());
+            }
+            InspectorControlAction::RemoveSam2Box {
+                modifier_id,
+                box_id,
+            } => {
+                self.remove_sam2_box(target, modifier_id, box_id)?;
+            }
+            InspectorControlAction::ToggleSam2Analysis { .. } => {
+                return Err("SAM2 analysis requires the configured compute server".to_string());
+            }
+            InspectorControlAction::RemoveTransparentFillPoint {
+                modifier_id,
+                point_id,
+            } => {
+                self.remove_transparent_fill_point(target, modifier_id, point_id)?;
+            }
+            InspectorControlAction::ToggleTransparentFillAnalysis { modifier_id } => {
+                self.toggle_transparent_fill_analysis(target, modifier_id)?;
+            }
+            InspectorControlAction::ToggleCameraAnalysis => {
+                return Err("camera analysis requires the configured compute server".to_string());
             }
         }
         Ok(())
@@ -460,6 +620,8 @@ pub fn presentation(
     address: &shrimply_project::project::ItemAddress,
     item: &VideoItem,
     runtime: InspectorRuntime,
+    camera_models: Option<&Result<Vec<String>, String>>,
+    default_text_font: Option<&shrimply_core::FontFamily>,
 ) -> VideoPresentation {
     let value = serde_json::to_value(item).expect("video inspector item must serialize");
     let static_visual = item.is_static_visual_media() || item.is_generated();
@@ -469,6 +631,15 @@ pub fn presentation(
 
     if matches!(item.content, VideoItemContent::Media) {
         visual_items.push(stabilization_item(item));
+    }
+
+    if let Some(cards) =
+        crate::generated::cards(item, project.canvas_size, runtime, default_text_font)
+    {
+        visual_items.extend(cards);
+    }
+    if let VideoItemContent::Paint(paint) = &item.content {
+        visual_items.extend(crate::paint::cards(paint, project.canvas_size, runtime));
     }
 
     if !static_visual {
@@ -493,6 +664,28 @@ pub fn presentation(
         playback_items.push(playback::repeat(item));
     }
 
+    if let VideoItemContent::Background(background) = &item.content {
+        visual_items.push(crate::background::card(background, runtime));
+    }
+
+    match &item.content {
+        VideoItemContent::Obj(scene) => visual_items.extend(crate::scene_3d::cards(
+            project,
+            address,
+            scene,
+            runtime,
+            camera_models,
+        )),
+        VideoItemContent::Gaussian(scene) => visual_items.extend(crate::gaussian_3d::cards(
+            project,
+            address,
+            scene,
+            runtime,
+            camera_models,
+        )),
+        _ => {}
+    }
+
     visual_items.push(compositing_item(
         item,
         &value,
@@ -508,7 +701,7 @@ pub fn presentation(
         title: crate::model::video_title(item),
         value,
         visual: visual_items,
-        modifiers: crate::visual_modifier_presentations(item, runtime),
+        modifiers: crate::visual_modifier_presentations(project, address, item, runtime),
         modifier_choices: crate::visual_modifier_catalog(item),
         playback: playback_items,
         stream: matches!(item.content, VideoItemContent::Media).then_some(
@@ -566,35 +759,44 @@ fn compositing_item(
         runtime,
     ));
     if show_upsampling {
-        section.add(crate::selector::layered_step_selector(
-            "/sample_method",
-            "Upsampling",
-            &item.sample_method,
-            runtime,
-        ));
+        section.add(
+            crate::selector::layered_step_selector(
+                "/sample_method",
+                "Upsampling",
+                &item.sample_method,
+                runtime,
+            )
+            .live_commit("video-upsampling"),
+        );
     }
-    section.add(layered_number(
-        video,
-        "/compositing/opacity",
-        "Opacity",
-        f64::from(item.compositing.opacity.value_at(local_time)) * 100.0,
-        NumberSpec {
-            minimum: 0.0,
-            maximum: 100.0,
-            drag_step: 1.0,
-            digits: 0,
-            unit: "%",
-        },
-        0.01,
-    ));
-    section.add(crate::selector::layered_step_selector(
-        "/compositing/blend_mode",
-        "Blend mode",
-        &item.compositing.blend_mode,
-        runtime,
-    ));
+    section.add(
+        layered_number(
+            video,
+            "/compositing/opacity",
+            "Opacity",
+            f64::from(item.compositing.opacity.value_at(local_time)) * 100.0,
+            NumberSpec {
+                minimum: 0.0,
+                maximum: 100.0,
+                drag_step: 1.0,
+                digits: 0,
+                unit: "%",
+            },
+            0.01,
+        )
+        .live_commit("visual-compositing-opacity"),
+    );
+    section.add(
+        crate::selector::layered_step_selector(
+            "/compositing/blend_mode",
+            "Blend mode",
+            &item.compositing.blend_mode,
+            runtime,
+        )
+        .live_commit("video-compositing-blend-mode"),
+    );
 
-    VideoCard::new("compositing", "Compositing", section).reset_fields(
+    let mut card = VideoCard::new("compositing", "Compositing", section).reset_fields(
         [
             (
                 "/compositing",
@@ -615,7 +817,21 @@ fn compositing_item(
             ),
         ],
         "reset-video-compositing",
-    )
+    );
+    if item.modifier_output_kind().ok() == Some(VisualKind::Raster) {
+        card.alpha_mask = Some(crate::alpha_mask::presentation(
+            item.compositing.alpha_mask.as_ref(),
+            "/compositing/alpha_mask",
+            None,
+            crate::alpha_mask::preview_focus(
+                item.id,
+                shrimply_project::project::VisualAlphaMaskTarget::Compositing,
+                true,
+            ),
+            runtime,
+        ));
+    }
+    card
 }
 
 fn stabilization_item(item: &VideoItem) -> VideoCard {
@@ -911,6 +1127,8 @@ fn layered_boolean(
         .value(current.to_string())
         .layered(path, layered_state(value, path))
         .graph(bool_graph(&timeline, runtime))
+        .live_commit("visual-bool")
+        .timeline_commits("visual-bool-keyframes", "visual-bool-expression")
 }
 
 fn bool_graph(
@@ -920,7 +1138,7 @@ fn bool_graph(
     if !matches!(timeline.base, TimelineBase::Keyframes(_)) {
         return None;
     }
-    let shrimply_keyframe_graph_ui::KeyframeGraph::Step { points } =
+    let crate::keyframe_graph::KeyframeGraph::Step { points } =
         crate::keyframe_model::step_graph_with(
             timeline,
             |value| {

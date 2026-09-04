@@ -126,21 +126,16 @@ impl InspectorContext {
     pub(crate) fn keyframe_graph_state(
         &self,
         scope: impl Into<String>,
-        initial: shrimply_keyframe_graph_ui::FrameGraphState,
+        initial: shrimply_inspector_core::keyframe_graph::FrameGraphState,
     ) -> shrimply_gtk_components::ui::SharedFrameGraphState {
-        let selected = match &self.selected_item {
-            Some(item) => {
-                format!("{:?}:{}:{}", item.kind(), item.track_id(), item.item_id())
-            }
-            None => "none".to_string(),
-        };
-        let key = format!("{selected}:{}", scope.into());
+        let key =
+            crate::keyframe_graph::view_state_scope(self.selected_item.as_ref(), &scope.into());
         self.keyframe_graph_views
             .borrow_mut()
             .entry(key)
             .or_insert_with(|| {
                 Rc::new(RefCell::new(
-                    shrimply_keyframe_graph_ui::FrameGraphComponents::single(initial),
+                    shrimply_inspector_core::keyframe_graph::FrameGraphComponents::single(initial),
                 ))
             })
             .clone()
@@ -182,7 +177,8 @@ pub fn new(
         project.clone(),
         player_state.clone(),
         selection_state.clone(),
-    );
+    )
+    .with_default_text_font(default_font.clone());
     activate_project_google_fonts(&project.borrow(), &default_font, &core);
     let content = gtk::Box::new(gtk::Orientation::Vertical, 0);
     let category_bar = gtk::Box::new(gtk::Orientation::Vertical, 0);
@@ -346,6 +342,7 @@ fn rebuild(
     }
     category_bar.set_visible(false);
 
+    state.core.retain_analysis_transitions();
     let target = state.core.target();
     let scroll_value = state.list_state.borrow().scroll_position(&target);
     *state.active_inspector.borrow_mut() = Some(target.clone());

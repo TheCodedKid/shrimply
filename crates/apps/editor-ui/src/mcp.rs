@@ -819,17 +819,15 @@ async fn analyze_transparent_fill(
             ..Default::default()
         },
     );
-    shrimply_video::transparent_fill_analysis::analyze(project, &address, modifier_id)?;
+    let run_id =
+        shrimply_video::transparent_fill_analysis::analyze(project, &address, modifier_id)?;
 
     loop {
         if canceled.load(Ordering::Acquire) {
-            shrimply_video::transparent_fill_analysis::cancel(modifier_id);
+            shrimply_video::transparent_fill_analysis::cancel(run_id);
             return Err("MCP client canceled Transparent Fill analysis".to_string());
         }
-        let status = {
-            let project = live.borrow();
-            shrimply_video::transparent_fill_analysis::status(&project, &address, modifier_id)
-        };
+        let status = shrimply_video::transparent_fill_analysis::status_for_run(run_id);
         match status {
             TransparentFillStatus::Running { .. } => {
                 glib::timeout_future(CANCELLATION_POLL_INTERVAL).await;
@@ -842,7 +840,7 @@ async fn analyze_transparent_fill(
                 return Err("Transparent Fill analysis was canceled".to_string());
             }
             TransparentFillStatus::Missing => {
-                shrimply_video::transparent_fill_analysis::cancel(modifier_id);
+                shrimply_video::transparent_fill_analysis::cancel(run_id);
                 return Err(
                     "Transparent Fill inputs changed while analysis was running; retry analysis"
                         .to_string(),

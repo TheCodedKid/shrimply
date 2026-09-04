@@ -7,88 +7,10 @@ use shrimply_project::project::{AudioSource, ItemAddress, Project, Time};
 use shrimply_state::player_state::{self, SharedPlayerState};
 use std::sync::{Mutex, OnceLock};
 
-use crate::{AudioCacheStatus, AudioModifierChoice, InspectorTarget};
+use crate::{AudioModifierChoice, InspectorTarget};
 
 type VoiceModelCatalog = Vec<(String, Vec<String>)>;
 static VOICE_MODELS: OnceLock<Mutex<VoiceModelCatalog>> = OnceLock::new();
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum AudioCachePreset {
-    OpusCompact,
-    OpusBalanced,
-    OpusHigh,
-    Flac,
-}
-
-impl AudioCachePreset {
-    pub const OPTIONS: &[(Self, &'static str)] = &[
-        (Self::OpusCompact, "Opus · Compact"),
-        (Self::OpusBalanced, "Opus · Balanced"),
-        (Self::OpusHigh, "Opus · High"),
-        (Self::Flac, "FLAC · Lossless"),
-    ];
-
-    pub fn key(self) -> &'static str {
-        match self {
-            Self::OpusCompact => "opus_compact",
-            Self::OpusBalanced => "opus_balanced",
-            Self::OpusHigh => "opus_high",
-            Self::Flac => "flac",
-        }
-    }
-
-    pub fn from_key(key: &str) -> Option<Self> {
-        Self::OPTIONS
-            .iter()
-            .map(|(preset, _)| *preset)
-            .find(|preset| preset.key() == key)
-    }
-
-    pub fn apply(self, value: &mut CacheModifier) -> bool {
-        let (format, quality) = match self {
-            Self::OpusCompact => (
-                shrimply_audio_modifiers::CacheFormat::Opus,
-                shrimply_audio_modifiers::OpusCacheQuality::Compact,
-            ),
-            Self::OpusBalanced => (
-                shrimply_audio_modifiers::CacheFormat::Opus,
-                shrimply_audio_modifiers::OpusCacheQuality::Balanced,
-            ),
-            Self::OpusHigh => (
-                shrimply_audio_modifiers::CacheFormat::Opus,
-                shrimply_audio_modifiers::OpusCacheQuality::High,
-            ),
-            Self::Flac => (
-                shrimply_audio_modifiers::CacheFormat::Flac,
-                value.opus_quality,
-            ),
-        };
-        if value.format == format && value.opus_quality == quality {
-            return false;
-        }
-        value.format = format;
-        value.opus_quality = quality;
-        true
-    }
-}
-
-pub fn audio_cache_preset(value: &CacheModifier) -> AudioCachePreset {
-    match (value.format, value.opus_quality) {
-        (shrimply_audio_modifiers::CacheFormat::Flac, _) => AudioCachePreset::Flac,
-        (
-            shrimply_audio_modifiers::CacheFormat::Opus,
-            shrimply_audio_modifiers::OpusCacheQuality::Compact,
-        ) => AudioCachePreset::OpusCompact,
-        (
-            shrimply_audio_modifiers::CacheFormat::Opus,
-            shrimply_audio_modifiers::OpusCacheQuality::Balanced,
-        ) => AudioCachePreset::OpusBalanced,
-        (
-            shrimply_audio_modifiers::CacheFormat::Opus,
-            shrimply_audio_modifiers::OpusCacheQuality::High,
-        ) => AudioCachePreset::OpusHigh,
-    }
-}
 
 #[derive(Clone)]
 pub struct AudioModifierOption {
@@ -637,17 +559,6 @@ pub(crate) fn audio_title(item: &shrimply_project::project::AudioItem) -> &'stat
         AudioSource::FoldedSequence(_) => "Folded Sequence",
         AudioSource::Tts(_) => "Text to Speech",
         AudioSource::Generator(_) => "Audio Generator",
-    }
-}
-
-pub fn audio_cache_status(id: uuid::Uuid) -> AudioCacheStatus {
-    match shrimply_audio::modifier_cache::status(id) {
-        shrimply_audio::modifier_cache::Status::Missing => AudioCacheStatus::Missing,
-        shrimply_audio::modifier_cache::Status::Baking { completed, total } => {
-            AudioCacheStatus::Baking { completed, total }
-        }
-        shrimply_audio::modifier_cache::Status::Ready => AudioCacheStatus::Ready,
-        shrimply_audio::modifier_cache::Status::Failed(error) => AudioCacheStatus::Failed(error),
     }
 }
 

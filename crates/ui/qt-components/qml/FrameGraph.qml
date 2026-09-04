@@ -17,6 +17,10 @@ FocusScope {
     signal pasteRequested(int component, var numerator, var denominator)
     signal textInterpolationRequested(int component, string ownerId, real x, real y)
     signal interpolationChanged(int component, string ownerId, int index)
+    signal textInterpolationChanged(int component, string ownerId, int index)
+    property var textInterpolationLabels: []
+    property var textInterpolationTooltips: []
+    property var textInterpolationIndexForOwner: null
     readonly property real graphValue: graph.graphValue
     readonly property var interpolationLabels: {
         const labels = []
@@ -157,6 +161,13 @@ FocusScope {
             }
             onTextInterpolationRequested: function(component, ownerId, x, y) {
                 root.textInterpolationRequested(component, ownerId, x, y)
+                if (root.textInterpolationLabels.length === 0)
+                    return
+                textInterpolationAnchor.x = x
+                textInterpolationAnchor.y = controls.height + y
+                textInterpolationMenu.selectedIndex = root.textInterpolationIndexForOwner
+                    ? root.textInterpolationIndexForOwner(ownerId) : -1
+                textInterpolationMenu.popup(textInterpolationAnchor, 0, 0)
             }
             onInterpolationRequested: function(component, ownerId, index, x, y) {
                 interpolationAnchor.x = x
@@ -166,6 +177,9 @@ FocusScope {
             }
             onInterpolationChanged: function(component, ownerId, index) {
                 root.interpolationChanged(component, ownerId, index)
+            }
+            onTextInterpolationChanged: function(component, ownerId, index) {
+                root.textInterpolationChanged(component, ownerId, index)
             }
 
             Keys.onPressed: function(event) {
@@ -238,6 +252,12 @@ FocusScope {
         height: 1
     }
 
+    Item {
+        id: textInterpolationAnchor
+        width: 1
+        height: 1
+    }
+
     SearchMenu {
         id: interpolationMenu
         width: 280
@@ -246,6 +266,18 @@ FocusScope {
         minimumListHeight: 180
         maximumListHeight: 240
         onActivated: function(index) { graph.setInterpolation(index) }
+        onClosed: graph.forceActiveFocus(Qt.PopupFocusReason)
+    }
+
+    SearchMenu {
+        id: textInterpolationMenu
+        width: 280
+        labels: root.textInterpolationLabels
+        tooltips: root.textInterpolationTooltips
+        placeholderText: ComponentTranslations.text("Search interpolations")
+        minimumListHeight: 180
+        maximumListHeight: 240
+        onActivated: function(index) { graph.setTextInterpolation(index) }
         onClosed: graph.forceActiveFocus(Qt.PopupFocusReason)
     }
 }

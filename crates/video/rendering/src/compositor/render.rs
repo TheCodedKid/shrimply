@@ -10,7 +10,8 @@ pub(super) fn render_project_frame(
     mode: RenderMode,
     audio_analysis: &FrameAudioAnalysis,
     item_ids: Option<&[Uuid]>,
-    cache_item_id: Option<Uuid>,
+    cache_item: Option<&ItemAddress>,
+    snap_cache_item: bool,
     excluded_item_id: Option<Uuid>,
     decode_control: Option<&DecodeControl>,
 ) -> RenderedFrame {
@@ -80,9 +81,11 @@ pub(super) fn render_project_frame(
         active_items.truncate(selected_end);
     }
     active_items.retain(|active| Some(active.item.id) != excluded_item_id);
-    if let Some(cache_item_id) = cache_item_id {
+    if let Some(cache_item_id) = cache_item.filter(|address| address.sequence_path().is_empty()) {
         for active in &mut active_items {
-            if active.item.id == cache_item_id {
+            if active.track_id == cache_item_id.track_id()
+                && active.item.id == cache_item_id.item_id()
+            {
                 active.clip_transition = None;
             }
         }
@@ -127,7 +130,8 @@ pub(super) fn render_project_frame(
         decode_control,
         superseded: false,
         clip_transition: None,
-        cache_item_id,
+        cache_item: cache_item.cloned(),
+        snap_cache_item,
         excluded_item_id,
     };
     if mode.prepare_active_sources() {
@@ -270,7 +274,14 @@ pub(super) fn render_project_frame(
                 active.track_id,
                 item,
                 routes,
-                cache_item_id == Some(item.id),
+                cache_item.is_some_and(|address| {
+                    address
+                        .sequence_path()
+                        .first()
+                        .copied()
+                        .unwrap_or_else(|| address.item_id())
+                        == item.id
+                }),
                 transmission_background.as_deref(),
             )
         };
@@ -442,7 +453,8 @@ pub(super) struct FrameItemRenderer<'a> {
     pub(super) decode_control: Option<&'a DecodeControl>,
     superseded: bool,
     pub(super) clip_transition: Option<ActiveClipTransition>,
-    cache_item_id: Option<Uuid>,
+    pub(super) cache_item: Option<ItemAddress>,
+    pub(super) snap_cache_item: bool,
     excluded_item_id: Option<Uuid>,
 }
 
@@ -490,7 +502,7 @@ impl FrameItemRenderer<'_> {
             .project
             .folded_sequence(reference.sequence_id)
             .ok_or_else(|| format!("missing folded sequence {}", reference.sequence_id))?;
-        let active = {
+        let mut active = {
             let _measurement =
                 shrimply_benchmarking::measure("Folded sequence / Resolve active items");
             sequence
@@ -514,6 +526,47 @@ impl FrameItemRenderer<'_> {
                 .filter(|(_, _, item, _, _)| Some(item.id) != self.excluded_item_id)
                 .collect::<Vec<_>>()
         };
+        if let Some(address) = self.cache_item.as_ref()
+            && address
+                .sequence_path()
+                .get(self.sequence_path.len())
+                .is_some_and(|host_id| *host_id == item.id)
+        {
+            let child_depth = self.sequence_path.len() + 1;
+            let child_id = address
+                .sequence_path()
+                .get(child_depth)
+                .copied()
+                .unwrap_or_else(|| address.item_id());
+            let final_child = child_depth == address.sequence_path().len();
+            if final_child
+                && self.project.video_item(address).is_some_and(|item| {
+                    matches!(
+                        item.content,
+                        shrimply_project::project::VideoItemContent::Obj(_)
+                    )
+                })
+            {
+                let selected_end = active
+                    .iter()
+                    .rposition(|(_, track_id, child, _, _)| {
+                        *track_id == address.track_id() && child.id == child_id
+                    })
+                    .map_or(0, |index| index + 1);
+                active.truncate(selected_end);
+            } else {
+                active.retain(|(_, track_id, child, _, _)| {
+                    child.id == child_id && (!final_child || *track_id == address.track_id())
+                });
+            }
+            if final_child {
+                for (_, track_id, child, transition, _) in &mut active {
+                    if *track_id == address.track_id() && child.id == address.item_id() {
+                        *transition = None;
+                    }
+                }
+            }
+        }
         self.sequence_stack.push(reference.sequence_id);
         self.sequence_path.push(item.id);
         let outer_position = self.position;
@@ -591,15 +644,31 @@ impl FrameItemRenderer<'_> {
                     break;
                 }
             };
+            let cache_child = self.cache_item.as_ref().is_some_and(|address| {
+                address.sequence_path() == self.sequence_path
+                    && address.track_id() == *track_id
+                    && address.item_id() == child.id
+            });
+            let cache_path_child = self.cache_item.as_ref().is_some_and(|address| {
+                address
+                    .sequence_path()
+                    .get(self.sequence_path.len())
+                    .copied()
+                    .unwrap_or_else(|| address.item_id())
+                    == child.id
+            });
             match self.render_item(
                 *track_index,
                 *track_id,
                 child,
                 routes,
-                false,
+                cache_path_child,
                 transmission_background.as_deref(),
             ) {
                 Ok(Some(layer)) => {
+                    if cache_child {
+                        layers.clear();
+                    }
                     layers.push(layer);
                     if transition.is_some_and(|transition| {
                         transition.role == ClipTransitionRole::Outgoing
@@ -723,8 +792,27 @@ impl FrameItemRenderer<'_> {
     ) -> Result<Option<(Visual, shrimply_project::project::CanvasSize)>, String> {
         let cached_item = crate::modifier_cache::effective_item(item, self.project.canvas_size)?;
         let item = cached_item.as_ref().unwrap_or(item);
-        let content_position =
-            crate::modifiers::transparent_fill::render_position(self.project, item, self.position);
+        let cache_item = self.cache_item.as_ref().is_some_and(|address| {
+            address.sequence_path() == self.sequence_path
+                && address.track_id() == track_id
+                && address.item_id() == item.id
+        });
+        let cache_host = self.cache_item.as_ref().is_some_and(|address| {
+            address
+                .sequence_path()
+                .get(self.sequence_path.len())
+                .is_some_and(|host_id| *host_id == item.id)
+        });
+        let cache_branch = cache_item || cache_host;
+        let content_position = if cache_item && self.snap_cache_item {
+            crate::modifiers::transparent_fill::snapped_transparent_fill_position(
+                self.project,
+                item,
+                self.position,
+            )
+        } else {
+            crate::modifiers::transparent_fill::render_position(self.project, item, self.position)
+        };
         let property_measurement =
             shrimply_benchmarking::measure("Video item / Resolve properties");
         let evaluation = VisualEvaluation::for_item_with_audio(
@@ -747,8 +835,7 @@ impl FrameItemRenderer<'_> {
             &self.audio_analysis,
             &mut self.cache.expressions,
         );
-        let cache_item = self.cache_item_id == Some(item.id);
-        let compositing = if cache_item {
+        let compositing = if cache_branch {
             ResolvedCompositing {
                 opacity: 1.0,
                 blend_mode: LayerBlendMode::Normal,
@@ -773,31 +860,35 @@ impl FrameItemRenderer<'_> {
                 | shrimply_project::project::VideoItemContent::Gaussian(_)
         );
         let motion_blur_transforms = self.motion_blur_transforms(item, transform, scene_3d);
-        let render_canvas = item
-            .modifiers
-            .iter()
-            .filter(|modifier| modifier.enabled)
-            .find_map(|modifier| match &modifier.effect {
-                shrimply_video_modifiers::ModifierEffect::Rasterize(effect) => Some(effect),
-                _ => None,
-            })
-            .map(|effect| {
-                let size = resolve_vec2(effect.size(), &evaluation, &mut self.cache.expressions);
-                let native = self.project.canvas_size;
-                shrimply_project::project::CanvasSize {
-                    width: if size.x > 0.0 {
-                        size.x.round().clamp(1.0, MAX_RENDER_DIMENSION) as u32
-                    } else {
-                        native.width
-                    },
-                    height: if size.y > 0.0 {
-                        size.y.round().clamp(1.0, MAX_RENDER_DIMENSION) as u32
-                    } else {
-                        native.height
-                    },
-                }
-            })
-            .unwrap_or_else(|| item.rendered_canvas_size(self.project.canvas_size));
+        let render_canvas = if cache_host {
+            self.project.canvas_size
+        } else {
+            item.modifiers
+                .iter()
+                .filter(|modifier| modifier.enabled)
+                .find_map(|modifier| match &modifier.effect {
+                    shrimply_video_modifiers::ModifierEffect::Rasterize(effect) => Some(effect),
+                    _ => None,
+                })
+                .map(|effect| {
+                    let size =
+                        resolve_vec2(effect.size(), &evaluation, &mut self.cache.expressions);
+                    let native = self.project.canvas_size;
+                    shrimply_project::project::CanvasSize {
+                        width: if size.x > 0.0 {
+                            size.x.round().clamp(1.0, MAX_RENDER_DIMENSION) as u32
+                        } else {
+                            native.width
+                        },
+                        height: if size.y > 0.0 {
+                            size.y.round().clamp(1.0, MAX_RENDER_DIMENSION) as u32
+                        } else {
+                            native.height
+                        },
+                    }
+                })
+                .unwrap_or_else(|| item.rendered_canvas_size(self.project.canvas_size))
+        };
         let sampling = resolve(
             &item.sample_method,
             &evaluation,
@@ -821,7 +912,7 @@ impl FrameItemRenderer<'_> {
             position: content_position,
             audio_analysis: &audio_analysis,
             state: VisualState {
-                transform: if scene_3d {
+                transform: if scene_3d || cache_host {
                     shrimply_math_geometry::ComposedTransform2D::IDENTITY
                 } else {
                     transform.composed()
@@ -832,7 +923,7 @@ impl FrameItemRenderer<'_> {
                 compositing,
             },
             render_canvas,
-            generated_transition: (!cache_item)
+            generated_transition: (!cache_branch)
                 .then(|| generated_transition(item, self.position, scene_3d))
                 .flatten(),
             accuracy: self.mode.accuracy(),
@@ -970,68 +1061,122 @@ impl FrameItemRenderer<'_> {
         };
         let modifier_measurement =
             shrimply_benchmarking::measure("Video item / Apply modifiers and masks");
-        if let Some(alpha_mask_video) = item.alpha_mask_video {
-            let mask =
-                self.alpha_mask_source(track_index, track_id, item, alpha_mask_video, routes)?;
-            if self.loading && !self.loading_placeholder {
-                return Ok(None);
+        if !cache_host {
+            if let Some(alpha_mask_video) = item.alpha_mask_video {
+                let mask =
+                    self.alpha_mask_source(track_index, track_id, item, alpha_mask_video, routes)?;
+                if self.loading && !self.loading_placeholder {
+                    return Ok(None);
+                }
+                visual = crate::alpha_mask::apply(visual, mask)?;
             }
-            visual = crate::alpha_mask::apply(visual, mask)?;
-        }
 
-        for (modifier_index, modifier) in item.modifiers.iter().enumerate() {
-            abort_render_if_superseded!(self.decode_control, return Ok(None));
-            if !modifier.enabled {
-                continue;
-            }
-            let mask_source = match &modifier.effect {
-                shrimply_video_modifiers::ModifierEffect::Raster(effect) => match &**effect {
-                    shrimply_video_modifiers::RasterModifierEffect::Mask(mask) => {
-                        self.mask_source(mask.item_id)?
-                    }
+            for (modifier_index, modifier) in item.modifiers.iter().enumerate() {
+                abort_render_if_superseded!(self.decode_control, return Ok(None));
+                if !modifier.enabled {
+                    continue;
+                }
+                let mask_source = match &modifier.effect {
+                    shrimply_video_modifiers::ModifierEffect::Raster(effect) => match &**effect {
+                        shrimply_video_modifiers::RasterModifierEffect::Mask(mask) => {
+                            self.mask_source(mask.item_id)?
+                        }
+                        _ => None,
+                    },
                     _ => None,
-                },
-                _ => None,
-            };
-            if self.loading && !self.loading_placeholder {
-                return Ok(None);
-            }
-            let alpha_mask = modifier
-                .alpha_mask
-                .as_ref()
-                .filter(|mask| mask.enabled)
-                .map(|mask| {
-                    resolve_shape_alpha_mask(mask, &evaluation, &mut self.cache.expressions)
-                });
-            let mut context = VisualModifierContext::new(
-                self.project,
-                item,
-                content_position,
-                modifier.id,
-                modifier_index,
-                &evaluation,
-                &mut self.cache.expressions,
-            );
-            context.accuracy = self.mode.accuracy();
-            context.require_complete_assets =
-                matches!(self.mode, RenderMode::ExportContentAccurate { .. });
-            context.mask_source = mask_source;
-            let masked = alpha_mask.is_some();
-            if let Some(mask) = alpha_mask {
-                visual.begin_alpha_mask(mask);
-            }
-            visual = crate::modifiers::apply(&modifier.effect, visual, &mut context)?;
-            if masked {
-                visual.end_alpha_mask();
+                };
+                if self.loading && !self.loading_placeholder {
+                    return Ok(None);
+                }
+                let alpha_mask = modifier
+                    .alpha_mask
+                    .as_ref()
+                    .filter(|mask| mask.enabled)
+                    .map(|mask| {
+                        resolve_shape_alpha_mask(mask, &evaluation, &mut self.cache.expressions)
+                    });
+                let analysis_cache_key = if matches!(
+                    &modifier.effect,
+                    ModifierEffect::Raster(effect)
+                        if matches!(&**effect, RasterModifierEffect::TransparentFill(_))
+                ) {
+                    let address = ItemAddress::Video {
+                        sequence_path: self.sequence_path.clone(),
+                        track_id,
+                        item_id: item.id,
+                    };
+                    let prompt_signature = match &modifier.effect {
+                        ModifierEffect::Raster(effect) => match &**effect {
+                            RasterModifierEffect::TransparentFill(fill) => fill.prompt_signature(),
+                            _ => unreachable!("checked transparent fill modifier"),
+                        },
+                        _ => unreachable!("checked raster modifier"),
+                    };
+                    let key = (address.clone(), modifier.id, prompt_signature);
+                    if let Some(cache_key) = self.cache.transparent_fill_keys.get(&key) {
+                        Some(cache_key.clone())
+                    } else {
+                        let source_index = self
+                            .project
+                            .video_item(&address)
+                            .and_then(|source| {
+                                source
+                                    .modifiers
+                                    .iter()
+                                    .position(|source| source.id == modifier.id)
+                            })
+                            .ok_or("transparent fill modifier source no longer exists")?;
+                        let render_project =
+                            crate::modifiers::transparent_fill::render_input_project(
+                                self.project,
+                                &address,
+                                source_index,
+                            )?;
+                        let cache_key = crate::modifiers::transparent_fill::analysis_cache_key(
+                            &render_project,
+                            &address,
+                            modifier.id,
+                            prompt_signature,
+                        );
+                        self.cache
+                            .transparent_fill_keys
+                            .insert(key, cache_key.clone());
+                        Some(cache_key)
+                    }
+                } else {
+                    None
+                };
+                let mut context = VisualModifierContext::new(
+                    self.project,
+                    item,
+                    content_position,
+                    modifier.id,
+                    modifier_index,
+                    &evaluation,
+                    &mut self.cache.expressions,
+                );
+                context.accuracy = self.mode.accuracy();
+                context.require_complete_assets =
+                    matches!(self.mode, RenderMode::ExportContentAccurate { .. });
+                context.mask_source = mask_source;
+                context.analysis_cache_key = analysis_cache_key;
+                let masked = alpha_mask.is_some();
+                if let Some(mask) = alpha_mask {
+                    visual.begin_alpha_mask(mask);
+                }
+                visual = crate::modifiers::apply(&modifier.effect, visual, &mut context)?;
+                if masked {
+                    visual.end_alpha_mask();
+                }
             }
         }
-        if let Some(samples) = motion_blur_transforms {
+        if !cache_branch && let Some(samples) = motion_blur_transforms {
             visual.push_motion_blur(transform.composed(), samples);
         }
-        if !scene_3d && !cache_item {
+        if !scene_3d && !cache_branch {
             apply_visual_transition(&mut visual, item, self.position, transform.position);
         }
-        if !cache_item && let Some(transition) = self.clip_transition {
+        if !cache_branch && let Some(transition) = self.clip_transition {
             apply_visual_clip_transition(&mut visual, transition, render_canvas);
         }
         if render_canvas != self.project.canvas_size {
@@ -1045,7 +1190,7 @@ impl FrameItemRenderer<'_> {
                 )),
             });
         }
-        if !cache_item
+        if !cache_branch
             && let Some(mask) = item
                 .compositing
                 .alpha_mask

@@ -46,7 +46,7 @@ struct Progress {
 
 struct BakeInput {
     project: Project,
-    item_id: Uuid,
+    address: ItemAddress,
     modifier_id: Uuid,
     start: Time,
     duration: Time,
@@ -190,7 +190,7 @@ impl Processor<Uuid> for BakeProcessor {
             .ok_or_else(|| "visual cache bake input disappeared".to_string())?;
         bake_inner(
             input.project,
-            input.item_id,
+            input.address,
             modifier_id,
             input.start,
             input.duration,
@@ -230,14 +230,14 @@ pub fn bake(project: Project, address: ItemAddress, modifier_id: Uuid) -> Result
     if matches!(status(modifier_id), Status::Baking { .. }) {
         return Err("this cache is already baking".to_string());
     }
-    let (project, item_id, start, duration, settings) =
+    let (project, address, start, duration, settings) =
         bake_project(project, &address, modifier_id)?;
     let (first_frame, end_frame) = frame_range(start, duration, project.fps)?;
     let total = end_frame - first_frame;
     invalidate_inner(modifier_id)?;
     let (disposition, subscription) = RUNTIME.request(BakeInput {
         project,
-        item_id,
+        address,
         modifier_id,
         start,
         duration,
@@ -331,7 +331,10 @@ fn bake_project(
     mut project: Project,
     address: &ItemAddress,
     modifier_id: Uuid,
-) -> Result<(Project, Uuid, Time, Time, CacheModifier), String> {
+) -> Result<(Project, ItemAddress, Time, Time, CacheModifier), String> {
+    let (start, end) = project
+        .projected_item_times(address)
+        .ok_or_else(|| "visual cache item is outside its folded-sequence hosts".to_string())?;
     let item = project
         .video_item(address)
         .ok_or_else(|| "visual cache item no longer exists".to_string())?;
@@ -347,34 +350,37 @@ fn bake_project(
         return Err("selected visual modifier is not a cache".to_string());
     };
     let settings = settings.clone();
-    let start = item.start;
-    let duration = item.end.saturating_sub(item.start);
+    let duration = end.saturating_sub(start);
     if duration == Time::ZERO {
         return Err("cannot cache an empty visual item".to_string());
     }
     let item_id = item.id;
-    for track in &mut project.video_tracks {
-        for item in &mut track.items {
-            if item
-                .transitions
-                .to_next
-                .as_ref()
-                .is_some_and(|transition| transition.target_item_id == item_id)
-            {
-                item.transitions.to_next = None;
-            }
+    let shrimply_project::project::TrackMut::Video(track) = project
+        .track_mut(&address.track())
+        .ok_or_else(|| "visual cache track no longer exists".to_string())?
+    else {
+        return Err("visual cache requires a video track".to_string());
+    };
+    for item in &mut track.items {
+        if item
+            .transitions
+            .to_next
+            .as_ref()
+            .is_some_and(|transition| transition.target_item_id == item_id)
+        {
+            item.transitions.to_next = None;
         }
     }
     let item = project
         .video_item_mut(address)
         .expect("visual cache item disappeared from cloned project");
     item.modifiers.truncate(index);
-    Ok((project, item_id, start, duration, settings))
+    Ok((project, address.clone(), start, duration, settings))
 }
 
 fn bake_inner(
     project: Project,
-    item_id: Uuid,
+    address: ItemAddress,
     modifier_id: Uuid,
     start: Time,
     duration: Time,
@@ -418,7 +424,7 @@ fn bake_inner(
             )
             .ok_or("cache frame rate must be positive")?;
             let composited = loop {
-                match renderer.render_cache_item(&project, position, item_id) {
+                match renderer.render_cache_item(&project, position, &address) {
                     Ok(frame) => break frame,
                     Err(error) if error == EXPORT_ASSETS_LOADING => {
                         if context.is_cancelled() {

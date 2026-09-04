@@ -1,273 +1,268 @@
-use shrimply_gtk_components::tr;
-use shrimply_gtk_components::ui::I18nWidgetExt;
 use std::{cell::Cell, rc::Rc, time::Duration};
 
 use gtk::{glib, prelude::*};
-use shrimply_gtk_components::ui::{NumberPicker, ProgressButton, ProgressButtonState};
-use shrimply_project::project::Project;
-use shrimply_video::transparent_fill_analysis::Status;
-use shrimply_video_modifiers::{
-    ModifierEffect, RasterModifierEffect,
-    transparent_fill::{MAXIMUM_GAP, TransparentFillModifier},
+use shrimply_gtk_components::{
+    tr,
+    ui::{I18nWidgetExt, NumberPicker, ProgressButton, ProgressButtonState},
 };
+use shrimply_inspector_core::{
+    AnalysisControlPresentation, AnalysisTooltip, ControlKind, ControlRowRole,
+    InspectorControlAction, InspectorTarget,
+};
+use shrimply_video_modifiers::transparent_fill::TransparentFillModifier;
 use uuid::Uuid;
 
-use super::{ScalarOptions, scalar_row};
-use crate::{
-    InspectorContext,
-    player_state::{self, ProjectChange},
-    ui::control_row,
-};
-
-const ANALYZE_TOOLTIP: &str = "Precompute exact one-bit transparency masks for every frame";
+use crate::InspectorContext;
 
 pub fn add_rows(
     value: &TransparentFillModifier,
     out: &gtk::Box,
-    id: Uuid,
+    modifier_id: Uuid,
     context: &InspectorContext,
 ) {
-    out.append(&scalar_row(
-        "Tolerance",
-        &value.tolerance,
-        id,
-        ScalarOptions {
-            minimum: Some(0.0),
-            maximum: Some(1.0),
-            unit: None,
-            rotating: false,
-        },
-        context,
-    ));
+    let key = context
+        .selected_item
+        .clone()
+        .expect("Transparent Fill inspector must have a selected item");
+    let target = InspectorTarget::Item(key);
+    let section = context
+        .inspector_core
+        .transparent_fill_presentation(&target, modifier_id)
+        .expect("live Transparent Fill modifier must have a shared presentation");
+    let mut controls = section.controls.into_iter();
 
-    let project = context.project.clone();
-    let player = context.player_state.clone();
-    let key = context.selected_item.clone();
+    let tolerance = controls
+        .next()
+        .expect("Transparent Fill tolerance control is missing");
+    let row = super::shared_scalar_row(
+        &tolerance,
+        "tolerance",
+        &value.tolerance,
+        modifier_id,
+        context,
+    );
+    row.set_sensitive(tolerance.sensitive);
+    if tolerance.visible {
+        out.append(&row);
+    }
+
+    let gap_control = controls
+        .next()
+        .expect("Transparent Fill maximum gap control is missing");
+    assert_eq!(gap_control.kind, ControlKind::Number);
+    assert_eq!(gap_control.target_id, Some(modifier_id));
+    assert_eq!(gap_control.value, value.maximum_gap.to_string());
+    assert!(gap_control.integer);
+    assert_eq!(
+        gap_control.commit_name,
+        shrimply_inspector_core::visual_modifiers::TRANSPARENT_FILL_EDIT_COMMIT
+    );
+    assert_eq!(gap_control.number.digits, 0);
+    assert_eq!(gap_control.action, None);
     let gap = NumberPicker::integer_builder(value.maximum_gap)
-        .minimum(0.0)
-        .maximum(f64::from(MAXIMUM_GAP))
-        .on_change_integer(move |maximum_gap: u32| {
-            update(&project, key.as_ref(), id, |fill| {
-                fill.maximum_gap = maximum_gap
-            });
-            refresh(&player);
+        .minimum(gap_control.number.minimum)
+        .maximum(gap_control.number.maximum)
+        .on_change_integer({
+            let controller = context.inspector_core.clone();
+            let target = target.clone();
+            move |maximum_gap| {
+                if let Err(error) =
+                    controller.set_transparent_fill_maximum_gap(&target, modifier_id, maximum_gap)
+                {
+                    tracing::error!(%error, "Could not update GTK Transparent Fill maximum gap");
+                }
+            }
         })
         .build();
-    gap.set_tooltip_text(Some(
-        "0 disables gap closing; positive values set the maximum gap in pixels",
-    ));
-    out.append(&control_row("Maximum gap", &gap));
+    gap.set_tooltip_i18n(&gap_control.tooltip);
+    let row = shrimply_gtk_components::ui::control_row(&gap_control.label, &gap);
+    row.set_sensitive(gap_control.sensitive);
+    if gap_control.visible {
+        out.append(&row);
+    }
 
-    for (index, point) in value.points.iter().enumerate() {
+    for point in &value.points {
+        let position_control = controls
+            .next()
+            .expect("Transparent Fill point position control is missing");
+        assert_eq!(position_control.kind, ControlKind::LayeredVector2);
+        assert_eq!(position_control.target_id, Some(modifier_id));
+        assert_eq!(position_control.timeline_id, Some(point.position.id));
+        assert_eq!(position_control.row_group, Some(point.id));
+        assert_eq!(position_control.row_role, ControlRowRole::Primary);
+        assert_eq!(position_control.number.minimum, 0.0);
+        assert_eq!(position_control.number.maximum, 1.0);
+        assert_eq!(position_control.number.unit, "x");
+
+        let remove_control = controls
+            .next()
+            .expect("Transparent Fill point removal control is missing");
+        assert_eq!(remove_control.kind, ControlKind::Action);
+        assert_eq!(remove_control.target_id, Some(modifier_id));
+        assert_eq!(remove_control.row_group, Some(point.id));
+        assert_eq!(remove_control.row_role, ControlRowRole::TrailingAction);
+        assert_eq!(remove_control.prefix_icon, "user-trash-symbolic");
+        assert_eq!(
+            remove_control.action,
+            Some(InspectorControlAction::RemoveTransparentFillPoint {
+                modifier_id,
+                point_id: point.id,
+            })
+        );
+
         let row = gtk::Box::new(gtk::Orientation::Horizontal, 6);
         let position = super::vec_row(
-            &shrimply_gtk_components::i18n::text_args(
-                "Point %{number}",
-                &[("number", (index + 1).to_string())],
-            ),
+            &position_control.label,
             &point.position,
-            id,
+            modifier_id,
             true,
             Some((0.0, 1.0)),
             context,
         );
         position.set_hexpand(true);
+        position.set_sensitive(position_control.sensitive);
         row.append(&position);
         let remove = gtk::Button::builder()
-            .icon_name("user-trash-symbolic")
-            .tooltip_text(tr!("Remove point").as_ref())
+            .icon_name(&remove_control.prefix_icon)
+            .tooltip_text(tr!(&remove_control.tooltip).as_ref())
             .css_classes(["flat"])
+            .sensitive(remove_control.sensitive)
             .build();
-        let project = context.project.clone();
-        let player = context.player_state.clone();
-        let key = context.selected_item.clone();
-        let point_id = point.id;
-        remove.connect_clicked(move |_| {
-            update(&project, key.as_ref(), id, |fill| {
-                fill.points.retain(|point| point.id != point_id)
-            });
-            refresh(&player);
-        });
-        row.append(&remove);
-        out.append(&row);
-    }
-
-    let analyze = ProgressButton::new("Analyze");
-    let can_analyze = !value.points.is_empty();
-    analyze.widget().set_halign(gtk::Align::End);
-    analyze.widget().set_sensitive(can_analyze);
-    analyze.widget().set_tooltip_i18n(ANALYZE_TOOLTIP);
-    analyze.widget().connect_clicked({
-        let project = context.project.clone();
-        let player = context.player_state.clone();
-        let key = context.selected_item.clone();
-        move |_| {
-            if shrimply_video::transparent_fill_analysis::cancel(id) {
-                refresh(&player);
-                return;
-            }
-            update(&project, key.as_ref(), id, |fill| {
-                fill.analysis_generation = fill.analysis_generation.wrapping_add(1).max(1)
-            });
-            if let Some(key) = key.as_ref() {
-                let snapshot = project.borrow().clone();
+        remove.connect_clicked({
+            let controller = context.inspector_core.clone();
+            let target = target.clone();
+            let point_id = point.id;
+            move |_| {
                 if let Err(error) =
-                    shrimply_video::transparent_fill_analysis::analyze(snapshot, key, id)
+                    controller.remove_transparent_fill_point(&target, modifier_id, point_id)
                 {
-                    tracing::error!("start transparent fill analysis: {error}");
+                    tracing::error!(%error, "Could not remove GTK Transparent Fill point");
                 }
             }
-            refresh(&player);
+        });
+        row.append(&remove);
+        if position_control.visible || remove_control.visible {
+            out.append(&row);
+        }
+    }
+
+    let analysis_control = controls
+        .next()
+        .expect("Transparent Fill analysis control is missing");
+    assert_eq!(analysis_control.kind, ControlKind::Analysis);
+    assert_eq!(analysis_control.target_id, Some(modifier_id));
+    assert_eq!(
+        analysis_control.action,
+        Some(InspectorControlAction::ToggleTransparentFillAnalysis { modifier_id })
+    );
+    assert!(controls.next().is_none());
+    let analyze = ProgressButton::new(&analysis_control.value);
+    analyze.widget().set_halign(gtk::Align::End);
+    analyze.widget().connect_clicked({
+        let controller = context.inspector_core.clone();
+        let target = target.clone();
+        move |_| {
+            if let Err(error) = controller.toggle_transparent_fill_analysis(&target, modifier_id) {
+                tracing::error!(%error, "Could not toggle GTK Transparent Fill analysis");
+            }
         }
     });
-
     let hovered = Rc::new(Cell::new(false));
     let motion = gtk::EventControllerMotion::new();
     motion.connect_enter({
         let analyze = analyze.clone();
         let hovered = hovered.clone();
-        let project = context.project.clone();
-        let key = context.selected_item.clone();
+        let controller = context.inspector_core.clone();
+        let target = target.clone();
         move |_, _, _| {
             hovered.set(true);
-            update_analysis_status(
-                &analyze,
-                current_status(&project, key.as_ref(), id),
-                true,
-                can_analyze,
-            );
+            if let Ok(status) = controller.transparent_fill_analysis_control(&target, modifier_id) {
+                update_analysis_button(&analyze, &status, true);
+            }
         }
     });
     motion.connect_leave({
         let analyze = analyze.clone();
         let hovered = hovered.clone();
-        let project = context.project.clone();
-        let key = context.selected_item.clone();
+        let controller = context.inspector_core.clone();
+        let target = target.clone();
         move |_| {
             hovered.set(false);
-            update_analysis_status(
-                &analyze,
-                current_status(&project, key.as_ref(), id),
-                false,
-                can_analyze,
-            );
+            if let Ok(status) = controller.transparent_fill_analysis_control(&target, modifier_id) {
+                update_analysis_button(&analyze, &status, false);
+            }
         }
     });
     analyze.widget().add_controller(motion);
-    let status = current_status(&context.project, context.selected_item.as_ref(), id);
-    update_analysis_status(&analyze, status.clone(), false, can_analyze);
-    if matches!(status, Status::Running { .. }) {
-        let analyze_poll = analyze.clone();
-        let project = context.project.clone();
-        let player = context.player_state.clone();
-        let key = context.selected_item.clone();
+    let initial_status = context
+        .inspector_core
+        .transparent_fill_analysis_control(&target, modifier_id)
+        .expect("live Transparent Fill analysis status must be available");
+    update_analysis_button(&analyze, &initial_status, false);
+    if context.inspector_core.observe_analysis_transition(
+        &target,
+        analysis_control
+            .action
+            .expect("Transparent Fill analysis action is missing"),
+        &initial_status,
+    ) {
+        context.inspector_core.refresh_analysis_output();
+    }
+    if initial_status.active() {
+        let analyze = analyze.clone();
+        let controller = context.inspector_core.clone();
+        let action = analysis_control
+            .action
+            .expect("Transparent Fill analysis action is missing");
         glib::timeout_add_local(Duration::from_millis(50), move || {
-            if analyze_poll.widget().parent().is_none() {
+            if analyze.widget().parent().is_none() {
                 return glib::ControlFlow::Break;
             }
-            let status = current_status(&project, key.as_ref(), id);
-            update_analysis_status(&analyze_poll, status.clone(), hovered.get(), can_analyze);
-            if matches!(status, Status::Running { .. }) {
-                glib::ControlFlow::Continue
-            } else {
-                refresh(&player);
+            let Ok(status) = controller.transparent_fill_analysis_control(&target, modifier_id)
+            else {
+                return glib::ControlFlow::Break;
+            };
+            let finished = controller.observe_analysis_transition(&target, action, &status);
+            update_analysis_button(&analyze, &status, hovered.get());
+            if finished {
+                controller.refresh_analysis_output();
                 glib::ControlFlow::Break
+            } else {
+                glib::ControlFlow::Continue
             }
         });
     }
-    out.append(analyze.widget());
-}
-
-fn current_status(
-    project: &Rc<std::cell::RefCell<Project>>,
-    key: Option<&shrimply_project::project::ItemAddress>,
-    id: Uuid,
-) -> Status {
-    let Some(key) = key else {
-        return Status::Missing;
-    };
-    shrimply_video::transparent_fill_analysis::status(&project.borrow(), key, id)
-}
-
-fn update_analysis_status(
-    button: &ProgressButton,
-    status: Status,
-    hovered: bool,
-    can_analyze: bool,
-) {
-    button.widget().remove_css_class("destructive-action");
-    button.widget().remove_css_class("suggested-action");
-    button.widget().set_tooltip_i18n(ANALYZE_TOOLTIP);
-    match status {
-        Status::Running { completed, total } => {
-            button.widget().set_sensitive(true);
-            button.set_label(if hovered { "Cancel" } else { "Analyzing…" });
-            if hovered {
-                button.widget().add_css_class("destructive-action");
-            }
-            if total == 0 {
-                button.set_state(ProgressButtonState::Indeterminate);
-            } else {
-                button.set_state(ProgressButtonState::Progress(
-                    completed as f64 / total as f64,
-                ));
-            }
-        }
-        Status::Complete => {
-            button.set_label("Reanalyze");
-            button.widget().set_sensitive(can_analyze);
-            button.set_state(ProgressButtonState::Idle);
-        }
-        Status::Failed(error) => {
-            button.set_label("Analyze");
-            button.widget().set_sensitive(can_analyze);
-            button.widget().add_css_class("suggested-action");
-            button.widget().set_tooltip_text(Some(&error));
-            button.set_state(ProgressButtonState::Idle);
-        }
-        Status::Missing | Status::Cancelled => {
-            button.set_label("Analyze");
-            button.widget().set_sensitive(can_analyze);
-            button.widget().add_css_class("suggested-action");
-            button.set_state(ProgressButtonState::Idle);
-        }
+    if analysis_control.visible {
+        out.append(analyze.widget());
     }
 }
 
-fn update(
-    project: &Rc<std::cell::RefCell<Project>>,
-    key: Option<&shrimply_project::project::ItemAddress>,
-    id: Uuid,
-    action: impl FnOnce(&mut TransparentFillModifier),
+fn update_analysis_button(
+    button: &ProgressButton,
+    status: &AnalysisControlPresentation,
+    hovered: bool,
 ) {
-    let Some(key) = key else {
-        return;
-    };
-    let mut project = project.borrow_mut();
-    let Some(fill) = project
-        .video_item_mut(key)
-        .and_then(|item| item.modifiers.iter_mut().find(|modifier| modifier.id == id))
-        .and_then(|modifier| match &mut modifier.effect {
-            ModifierEffect::Raster(effect) => match &mut **effect {
-                RasterModifierEffect::TransparentFill(fill) => Some(fill),
-                _ => None,
-            },
-            _ => None,
-        })
-    else {
-        return;
-    };
-    action(fill);
-    shrimply_project::project::commit_edit(&project, "edit-transparent-fill");
-}
-
-fn refresh(player: &crate::player_state::SharedPlayerState) {
-    player_state::refresh_project(
-        player,
-        ProjectChange {
-            video: true,
-            inspector: true,
-            ..Default::default()
-        },
-    );
+    button.widget().remove_css_class("destructive-action");
+    button.widget().remove_css_class("suggested-action");
+    button.widget().set_sensitive(status.sensitive);
+    match &status.tooltip {
+        AnalysisTooltip::MessageKey(message) => button.widget().set_tooltip_i18n(message),
+        AnalysisTooltip::RawError(error) => button.widget().set_tooltip_text(Some(error.as_str())),
+    }
+    button.set_label(if status.running && hovered {
+        button.widget().add_css_class("destructive-action");
+        "Cancel"
+    } else {
+        &status.label
+    });
+    if status.suggested {
+        button.widget().add_css_class("suggested-action");
+    }
+    button.set_state(if !status.running && !status.cancelling {
+        ProgressButtonState::Idle
+    } else if status.progress < 0.0 {
+        ProgressButtonState::Indeterminate
+    } else {
+        ProgressButtonState::Progress(status.progress)
+    });
 }

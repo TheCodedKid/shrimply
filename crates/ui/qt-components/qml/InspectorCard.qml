@@ -14,7 +14,7 @@ Frame {
     default property alias controls: body.content
     signal expandedRequested(bool expanded)
     signal resetRequested()
-    signal focusRequested()
+    signal focusRequested(Item focusedItem, bool bodyClicked)
     padding: 0
     implicitHeight: content.implicitHeight
 
@@ -27,16 +27,41 @@ Frame {
         return false
     }
 
+    function descendantAt(item, x, y) {
+        const child = item.childAt(x, y)
+        if (!child)
+            return item
+        const position = child.mapFromItem(item, x, y)
+        return descendantAt(child, position.x, position.y)
+    }
+
+    function isBodyDescendant(item) {
+        while (item && item !== root) {
+            if (item === body)
+                return true
+            item = item.parent
+        }
+        return false
+    }
+
     PointHandler {
         acceptedButtons: Qt.AllButtons
-        onActiveChanged: if (active) root.focusRequested()
+        onActiveChanged: if (active) {
+            const position = body.mapFromItem(root, point.position.x, point.position.y)
+            const bodyClicked = position.x >= 0 && position.y >= 0
+                && position.x < body.width && position.y < body.height
+            root.focusRequested(bodyClicked
+                ? root.descendantAt(body, position.x, position.y) : root,
+                bodyClicked)
+        }
     }
 
     Connections {
         target: root.Window.window
         function onActiveFocusItemChanged() {
             if (root.ownsFocus(root.Window.activeFocusItem))
-                root.focusRequested()
+                root.focusRequested(root.Window.activeFocusItem,
+                    root.isBodyDescendant(root.Window.activeFocusItem))
         }
     }
 

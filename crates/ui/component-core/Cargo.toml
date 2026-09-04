@@ -8,6 +8,7 @@ shrimply-math-color = { path = "../../math/color" }
 shrimply-math-core = { path = "../../math/core" }
 shrimply-project-core = { path = "../../project/project-core" }
 shrimply-benchmarking = { path = "../../benchmarking" }
+shrimply-i18n-core = { path = "../i18n-core" }
 typos.workspace = true
 typos-dict.workspace = true
 unicase.workspace = true

@@ -11,6 +11,7 @@ use crate::InspectedItem as SelectedItem;
 use crate::player_state::{self, ProjectChange};
 use crate::preview_focus::PreviewTarget;
 use shrimply_core::timeline_value::{TimelineStep, TimelineValue};
+use shrimply_inspector_core::{ControlKind, InspectorControl};
 use shrimply_project::project::{Project, Time};
 use shrimply_project::project::{VisualAlphaMaskTarget, VisualItem, VisualModifier};
 use shrimply_video_modifiers::MODIFIER_PREVIEW_FACET;
@@ -33,6 +34,7 @@ fn step_row<T: TimelineStep>(
     get: fn(&ModifierEffect) -> Option<&TimelineValue<T>>,
     get_mut: fn(&mut ModifierEffect) -> Option<&mut TimelineValue<T>>,
 ) -> gtk::Widget {
+    let timeline_id = value.id;
     crate::timeline_value::step::step_control(
         label,
         value,
@@ -45,6 +47,7 @@ fn step_row<T: TimelineStep>(
                     .iter()
                     .find(|modifier| modifier.id == modifier_id)
                     .and_then(|modifier| get(&modifier.effect))
+                    .filter(|timeline| timeline.id == timeline_id)
             },
             move |project, key| {
                 project
@@ -53,6 +56,7 @@ fn step_row<T: TimelineStep>(
                     .iter_mut()
                     .find(|modifier| modifier.id == modifier_id)
                     .and_then(|modifier| get_mut(&mut modifier.effect))
+                    .filter(|timeline| timeline.id == timeline_id)
             },
             commit_name,
             ProjectChange {
@@ -60,8 +64,82 @@ fn step_row<T: TimelineStep>(
                 inspector: true,
                 ..Default::default()
             },
-        ),
+        )
+        .refresh_inspector_on_value_change(),
     )
+}
+
+fn shared_step_row<T: TimelineStep>(
+    control: &InspectorControl,
+    field: &str,
+    value: &TimelineValue<T>,
+    modifier_id: Uuid,
+    context: &InspectorContext,
+    commit_name: &'static str,
+    get: fn(&ModifierEffect) -> Option<&TimelineValue<T>>,
+    get_mut: fn(&mut ModifierEffect) -> Option<&mut TimelineValue<T>>,
+) -> gtk::Widget {
+    assert_eq!(control.kind, ControlKind::LayeredSelector);
+    assert!(
+        control
+            .path
+            .ends_with(&format!("/effect/effect/config/{field}")),
+    );
+    assert_eq!(control.target_id, Some(modifier_id));
+    assert_eq!(control.timeline_id, Some(value.id));
+    assert_eq!(control.commit_name, commit_name);
+    step_row(
+        &control.label,
+        value,
+        modifier_id,
+        context,
+        commit_name,
+        get,
+        get_mut,
+    )
+}
+
+fn shared_scalar_row(
+    control: &InspectorControl,
+    field: &str,
+    value: &TimelineValue<f32>,
+    modifier_id: Uuid,
+    context: &InspectorContext,
+) -> gtk::Widget {
+    assert_eq!(control.kind, ControlKind::LayeredNumber);
+    assert!(
+        control
+            .path
+            .ends_with(&format!("/effect/effect/config/{field}")),
+    );
+    assert_eq!(control.target_id, Some(modifier_id));
+    assert_eq!(control.timeline_id, Some(value.id));
+    assert_eq!(control.commit_name, "visual-modifier-value");
+    assert_eq!(control.width_characters, 8);
+    let defaults = shrimply_inspector_core::NumberSpec::default();
+    let options = ScalarOptions {
+        minimum: (control.number.minimum != defaults.minimum).then_some(control.number.minimum),
+        maximum: (control.number.maximum != defaults.maximum).then_some(control.number.maximum),
+        unit: (!control.number.unit.is_empty()).then_some(control.number.unit),
+        rotating: control.prefix_icon_rotates,
+    };
+    if control.integer {
+        assert_eq!(control.number.drag_step, 1.0);
+        assert_eq!(control.number.digits, 0);
+        assert!(!control.prefix_icon_rotates);
+        integer_scalar_row(&control.label, value, modifier_id, options, context)
+    } else {
+        assert_eq!(
+            control.number.drag_step,
+            if control.prefix_icon_rotates {
+                1.0
+            } else {
+                0.01
+            },
+        );
+        assert_eq!(control.number.digits, 2);
+        scalar_row(&control.label, value, modifier_id, options, context)
+    }
 }
 
 #[path = "modifiers/add_menu.rs"]
@@ -649,85 +727,40 @@ fn apply_action(id: Uuid, action: Action, context: &InspectorContext) {
     let Some(key) = context.selected_item.clone() else {
         return;
     };
-    let project = context.project.clone();
-    let mut project = project.borrow_mut();
-    let Some(item) = project.video_item_mut(&key) else {
-        return;
+    let target = shrimply_inspector_core::InspectorTarget::Item(key);
+    let result = match action {
+        Action::Copy => context
+            .inspector_core
+            .copy_visual_modifier(&target, id, &context.property_clipboard)
+            .map(Some),
+        Action::Up => context
+            .inspector_core
+            .move_visual_modifier(&target, id, -1)
+            .map(|()| None),
+        Action::Down => context
+            .inspector_core
+            .move_visual_modifier(&target, id, 1)
+            .map(|()| None),
+        Action::Remove => context
+            .inspector_core
+            .remove_visual_modifier(&target, id)
+            .map(|()| None),
     };
-    if matches!(action, Action::Copy) {
-        let Some(modifier) = item.modifiers.iter().find(|modifier| modifier.id == id) else {
-            return;
-        };
-        context
-            .property_clipboard
-            .borrow_mut()
-            .copy_visual_modifier(modifier);
-        let message = shrimply_gtk_components::i18n::text_args(
-            "%{name} copied",
-            &[("name", modifier.effect.display_name().to_owned())],
-        );
-        shrimply_gtk_components::toast::show_confirmation_text_for_widget(
-            &context.category_bar,
-            &message,
-        );
-        drop(project);
-        (context.refresh)();
-        return;
-    }
-    let Some(index) = item.modifiers.iter().position(|modifier| modifier.id == id) else {
-        return;
-    };
-    if matches!(action, Action::Remove)
-        && matches!(
-            item.modifiers[index].effect,
-            ModifierEffect::Raster(ref effect)
-                if matches!(&**effect, RasterModifierEffect::Cache(_))
-        )
-        && let Err(error) = shrimply_video::modifier_cache::invalidate(id)
-    {
-        shrimply_gtk_components::toast::show_confirmation_text_for_widget(
-            &context.category_bar,
-            &format!("Could not remove cache: {error}"),
-        );
-        return;
-    }
-    let action = match action {
-        Action::Copy => unreachable!(),
-        Action::Up => shrimply_inspector_core::visual_modifiers::VisualModifierChainAction::MoveUp,
-        Action::Down => {
-            shrimply_inspector_core::visual_modifiers::VisualModifierChainAction::MoveDown
+    match result {
+        Ok(Some(name)) => {
+            let message =
+                shrimply_gtk_components::i18n::text_args("%{name} copied", &[("name", name)]);
+            shrimply_gtk_components::toast::show_confirmation_text_for_widget(
+                &context.category_bar,
+                &message,
+            );
         }
-        Action::Remove => {
-            shrimply_inspector_core::visual_modifiers::VisualModifierChainAction::Remove
-        }
-    };
-    let Some(modifiers) =
-        shrimply_inspector_core::visual_modifiers::edited_visual_modifier_chain(item, id, action)
-    else {
-        return;
-    };
-    item.modifiers = modifiers;
-    shrimply_project::project::commit_edit(
-        &project,
-        match action {
-            shrimply_inspector_core::visual_modifiers::VisualModifierChainAction::MoveUp
-            | shrimply_inspector_core::visual_modifiers::VisualModifierChainAction::MoveDown => {
-                "move-visual-modifier"
-            }
-            shrimply_inspector_core::visual_modifiers::VisualModifierChainAction::Remove => {
-                "remove-visual-modifier"
-            }
-        },
-    );
-    drop(project);
-    player_state::refresh_project(
-        &context.player_state,
-        ProjectChange {
-            video: true,
-            inspector: true,
-            ..Default::default()
-        },
-    );
+        Ok(None) => {}
+        Err(error) => shrimply_gtk_components::toast::show_confirmation_text_for_widget(
+            &context.category_bar,
+            &error,
+        ),
+    }
 }
 
 fn modifier_buttons(context: &InspectorContext) -> gtk::Widget {
@@ -802,25 +835,13 @@ fn reset_modifier(context: &InspectorContext, id: Uuid, effect: ModifierEffect) 
     let Some(key) = context.selected_item.clone() else {
         return;
     };
-    let mut project = context.project.borrow_mut();
-    let Some(modifier) = project
-        .video_item_mut(&key)
-        .and_then(|item| item.modifiers.iter_mut().find(|modifier| modifier.id == id))
-    else {
-        return;
-    };
-    modifier.effect = effect;
-    modifier.alpha_mask = None;
-    shrimply_project::project::commit_edit(&project, "reset-visual-modifier");
-    drop(project);
-    player_state::refresh_project(
-        &context.player_state,
-        ProjectChange {
-            video: true,
-            inspector: true,
-            ..Default::default()
-        },
-    );
+    if let Err(error) = context.inspector_core.reset_visual_modifier_effect(
+        &shrimply_inspector_core::InspectorTarget::Item(key),
+        id,
+        effect,
+    ) {
+        tracing::warn!(%error, "Could not reset visual modifier");
+    }
 }
 
 pub(super) fn add_effect(effect: ModifierEffect, context: &InspectorContext) {
@@ -965,7 +986,7 @@ fn audio_scalar_row_with_access(
             } else {
                 |value| value as f32
             },
-            clamp: |value| value,
+            clamp: crate::timeline_value::scalar::ScalarClamp::Function(|value| value),
         },
     )
 }
@@ -1054,7 +1075,7 @@ fn scalar_row_for<M: ScalarMode>(
             rotating_icon: options.rotating.then_some(("arrow3-up-symbolic", 0.0)),
             display: |v| v as f64,
             store: |v| v as f32,
-            clamp: M::clamp(options),
+            clamp: crate::timeline_value::scalar::ScalarClamp::Function(M::clamp(options)),
         },
     )
 }

@@ -1,10 +1,14 @@
 use crate::InspectedItem as SelectedItem;
 use crate::player_state::ProjectChange;
 use crate::timeline_value::*;
-use gtk::prelude::Cast;
+use shrimply_inspector_core::generated::shape::{
+    COLOR_EDIT_COMMIT, INTEGER_EDIT_COMMIT, INTEGER_EXPRESSION_COMMIT, INTEGER_KEYFRAME_COMMIT,
+    ROUNDING_EDIT_COMMIT, SCALAR_EDIT_COMMIT, STEP_EDIT_COMMIT, VECTOR_EDIT_COMMIT,
+};
+use shrimply_inspector_core::{ControlKind, InspectorControl};
 use shrimply_project::project::{
-    Project, SHAPE_APPEARANCE_PREVIEW_FACET, SHAPE_CONTENT_PREVIEW_FACET, ShapeItem, ShapeKind,
-    ShapeRoundingStrategy, Time, VideoItem, VideoItemContent, generated_item_keyframe_span,
+    Project, ShapeItem, ShapeKind, ShapeRoundingStrategy, Time, VideoItem, VideoItemContent,
+    generated_item_keyframe_span,
 };
 
 use crate::{
@@ -16,279 +20,180 @@ use crate::{
     timeline_value::vector::vec2::{VecSpec, VecTarget, vec_control},
 };
 
-pub(crate) fn shape_items(
-    shape: &ShapeItem,
-    _context: &InspectorContext,
-) -> Vec<InspectorListItem> {
+pub(crate) fn shape_items(shape: &ShapeItem, context: &InspectorContext) -> Vec<InspectorListItem> {
+    let cards = shrimply_inspector_core::generated::shape::cards(
+        shape,
+        context.project.borrow().canvas_size,
+        context.inspector_core.snapshot().runtime,
+    );
     vec![
-        DefaultInspectorItem::new(
-            "shape",
-            "Shape",
-            ShapeContent {
-                shape: shape.shape.clone(),
-                size: shape.size.clone(),
-                star_points: shape.star_points.clone(),
-                star_inner_radius_percent: shape.star_inner_radius_percent.clone(),
-                arrow_shaft_width_percent: shape.arrow_shaft_width_percent.clone(),
-                arrow_head_length_percent: shape.arrow_head_length_percent.clone(),
-                cross_arm_thickness_percent: shape.cross_arm_thickness_percent.clone(),
-                ellipse_inner_radius_percent: shape.ellipse_inner_radius_percent.clone(),
-                ellipse_completion_degrees: shape.ellipse_completion_degrees.clone(),
-            },
+        DefaultInspectorItem::new_with_default(
+            cards[0].key,
+            cards[0].title,
+            shape.clone(),
             shape_content_controls,
-            |context, value: ShapeContent| {
-                apply_shape_reset(context, "reset-shape-content", move |shape| {
-                    shape.shape = value.shape;
-                    shape.size = value.size;
-                    shape.star_points = value.star_points;
-                    shape.star_inner_radius_percent = value.star_inner_radius_percent;
-                    shape.arrow_shaft_width_percent = value.arrow_shaft_width_percent;
-                    shape.arrow_head_length_percent = value.arrow_head_length_percent;
-                    shape.cross_arm_thickness_percent = value.cross_arm_thickness_percent;
-                    shape.ellipse_inner_radius_percent = value.ellipse_inner_radius_percent;
-                    shape.ellipse_completion_degrees = value.ellipse_completion_degrees;
-                });
-            },
+            default_shape,
+            |context, value: ShapeItem| reset_shape_card(context, &value, 0),
         )
-        .default_with(|context| ShapeContent::from(default_shape(context)))
-        .preview_facet(SHAPE_CONTENT_PREVIEW_FACET)
+        .preview_facet(
+            cards[0]
+                .preview_facet
+                .expect("shared shape content card must have a preview facet"),
+        )
         .boxed(),
-        DefaultInspectorItem::new(
-            "shape-appearance",
-            "Appearance",
-            ShapeAppearance::from(shape.clone()),
+        DefaultInspectorItem::new_with_default(
+            cards[1].key,
+            cards[1].title,
+            shape.clone(),
             shape_appearance_controls,
-            |context, value: ShapeAppearance| {
-                apply_shape_reset(context, "reset-shape-appearance", move |shape| {
-                    value.apply(shape)
-                });
-            },
+            default_shape,
+            |context, value: ShapeItem| reset_shape_card(context, &value, 1),
         )
-        .default_with(|context| ShapeAppearance::from(default_shape(context)))
-        .preview_facet(SHAPE_APPEARANCE_PREVIEW_FACET)
+        .preview_facet(
+            cards[1]
+                .preview_facet
+                .expect("shared shape appearance card must have a preview facet"),
+        )
         .boxed(),
     ]
 }
 
-struct ShapeContent {
-    shape: TimelineValue<ShapeKind>,
-    size: TimelineValue<glam::Vec2>,
-    star_points: TimelineValue<u32>,
-    star_inner_radius_percent: TimelineValue<f32>,
-    arrow_shaft_width_percent: TimelineValue<f32>,
-    arrow_head_length_percent: TimelineValue<f32>,
-    cross_arm_thickness_percent: TimelineValue<f32>,
-    ellipse_inner_radius_percent: TimelineValue<f32>,
-    ellipse_completion_degrees: TimelineValue<f32>,
-}
-
-impl Default for ShapeContent {
-    fn default() -> Self {
-        Self::from(default_shape_for_canvas(
-            shrimply_project::project::CanvasSize {
-                width: 1,
-                height: 1,
-            },
-        ))
-    }
-}
-
-impl From<ShapeItem> for ShapeContent {
-    fn from(shape: ShapeItem) -> Self {
-        Self {
-            shape: shape.shape,
-            size: shape.size,
-            star_points: shape.star_points,
-            star_inner_radius_percent: shape.star_inner_radius_percent,
-            arrow_shaft_width_percent: shape.arrow_shaft_width_percent,
-            arrow_head_length_percent: shape.arrow_head_length_percent,
-            cross_arm_thickness_percent: shape.cross_arm_thickness_percent,
-            ellipse_inner_radius_percent: shape.ellipse_inner_radius_percent,
-            ellipse_completion_degrees: shape.ellipse_completion_degrees,
-        }
-    }
-}
-
-#[derive(Clone)]
-struct ShapeAppearance {
-    rounding_strategy: TimelineValue<ShapeRoundingStrategy>,
-    fill: TimelineValue<shrimply_core::Color<u8>>,
-    outline_color: TimelineValue<shrimply_core::Color<u8>>,
-    outline_width: TimelineValue<f32>,
-    corner_radius: TimelineValue<f32>,
-    shadow_color: TimelineValue<shrimply_core::Color<u8>>,
-    shadow_distance: TimelineValue<f32>,
-    shadow_direction_degrees: TimelineValue<f32>,
-    shadow_width: TimelineValue<f32>,
-    shadow_blur: TimelineValue<f32>,
-}
-
-impl Default for ShapeAppearance {
-    fn default() -> Self {
-        Self::from(default_shape_for_canvas(
-            shrimply_project::project::CanvasSize {
-                width: 1,
-                height: 1,
-            },
-        ))
-    }
-}
-
-impl From<ShapeItem> for ShapeAppearance {
-    fn from(shape: ShapeItem) -> Self {
-        Self {
-            rounding_strategy: shape.rounding_strategy,
-            fill: shape.fill,
-            outline_color: shape.outline_color,
-            outline_width: shape.outline_width,
-            corner_radius: shape.corner_radius,
-            shadow_color: shape.shadow_color,
-            shadow_distance: shape.shadow_distance,
-            shadow_direction_degrees: shape.shadow_direction_degrees,
-            shadow_width: shape.shadow_width,
-            shadow_blur: shape.shadow_blur,
-        }
-    }
-}
-
-impl ShapeAppearance {
-    fn apply(self, shape: &mut ShapeItem) {
-        shape.rounding_strategy = self.rounding_strategy;
-        shape.fill = self.fill;
-        shape.outline_color = self.outline_color;
-        shape.outline_width = self.outline_width;
-        shape.corner_radius = self.corner_radius;
-        shape.shadow_color = self.shadow_color;
-        shape.shadow_distance = self.shadow_distance;
-        shape.shadow_direction_degrees = self.shadow_direction_degrees;
-        shape.shadow_width = self.shadow_width;
-        shape.shadow_blur = self.shadow_blur;
-    }
-}
-
-fn shape_content_controls(value: &ShapeContent, context: &InspectorContext) -> Vec<gtk::Widget> {
-    let section = InspectorSection::controls();
-    section.add_wide_control(&shape_dropdown(&value.shape, context));
-    section.add_wide_control(&size_control("Size", &value.size, context));
-    let position = crate::player_state::snapshot(&context.player_state).position;
-    let local_time = context
-        .selected_item
+fn reset_shape_card(context: &InspectorContext, shape: &ShapeItem, index: usize) {
+    let Some(key) = context.selected_item.clone() else {
+        return;
+    };
+    let reset = shrimply_inspector_core::generated::shape::cards(
+        shape,
+        context.project.borrow().canvas_size,
+        context.inspector_core.snapshot().runtime,
+    )[index]
+        .reset
         .clone()
-        .and_then(|key| crate::video::visual_local_time(&context.project.borrow(), key, position))
-        .unwrap_or(Time::ZERO);
-    match value.shape.value_at(local_time) {
-        ShapeKind::Star => {
-            section.add_wide_control(&integer_control("Points", &value.star_points, context));
-            section.add_wide_control(&scalar_control(
-                "Inner radius",
-                &value.star_inner_radius_percent,
-                context,
-                ShapeField::StarInnerRadiusPercent,
-            ));
-        }
-        ShapeKind::Arrow => {
-            section.add_wide_control(&scalar_control(
-                "Shaft width",
-                &value.arrow_shaft_width_percent,
-                context,
-                ShapeField::ArrowShaftWidthPercent,
-            ));
-            section.add_wide_control(&scalar_control(
-                "Head length",
-                &value.arrow_head_length_percent,
-                context,
-                ShapeField::ArrowHeadLengthPercent,
-            ));
-        }
-        ShapeKind::Cross => section.add_wide_control(&scalar_control(
-            "Arm thickness",
-            &value.cross_arm_thickness_percent,
+        .expect("shared shape card must have reset behavior");
+    if let Err(error) = context
+        .inspector_core
+        .reset_video(&shrimply_inspector_core::InspectorTarget::Item(key), &reset)
+    {
+        tracing::error!(%error, "Could not reset GTK shape inspector card");
+    }
+}
+
+fn shape_content_controls(value: &ShapeItem, context: &InspectorContext) -> Vec<gtk::Widget> {
+    shared_controls(value, context, 0)
+}
+
+fn shape_appearance_controls(value: &ShapeItem, context: &InspectorContext) -> Vec<gtk::Widget> {
+    shared_controls(value, context, 1)
+}
+
+fn shared_controls(
+    shape: &ShapeItem,
+    context: &InspectorContext,
+    card_index: usize,
+) -> Vec<gtk::Widget> {
+    let card = shrimply_inspector_core::generated::shape::cards(
+        shape,
+        context.project.borrow().canvas_size,
+        context.inspector_core.snapshot().runtime,
+    )[card_index]
+        .clone();
+    let section = InspectorSection::controls();
+    for control in card.section.controls {
+        section.add_wide_control(&shape_control(shape, &control, context));
+    }
+    vec![section.into_widget()]
+}
+
+fn shape_control(
+    shape: &ShapeItem,
+    control: &InspectorControl,
+    context: &InspectorContext,
+) -> gtk::Widget {
+    match control.path.as_str() {
+        "/content/shape" => shape_dropdown(control, &shape.shape, context),
+        "/content/size" => size_control(control, &shape.size, context),
+        "/content/star_points" => integer_control(control, &shape.star_points, context),
+        "/content/star_inner_radius_percent" => scalar_control(
+            control,
+            &shape.star_inner_radius_percent,
+            context,
+            ShapeField::StarInnerRadiusPercent,
+        ),
+        "/content/arrow_shaft_width_percent" => scalar_control(
+            control,
+            &shape.arrow_shaft_width_percent,
+            context,
+            ShapeField::ArrowShaftWidthPercent,
+        ),
+        "/content/arrow_head_length_percent" => scalar_control(
+            control,
+            &shape.arrow_head_length_percent,
+            context,
+            ShapeField::ArrowHeadLengthPercent,
+        ),
+        "/content/cross_arm_thickness_percent" => scalar_control(
+            control,
+            &shape.cross_arm_thickness_percent,
             context,
             ShapeField::CrossArmThicknessPercent,
-        )),
-        ShapeKind::Ellipse => {
-            section.add_wide_control(&scalar_control(
-                "Completion",
-                &value.ellipse_completion_degrees,
-                context,
-                ShapeField::EllipseCompletionDegrees,
-            ));
-            section.add_wide_control(&scalar_control(
-                "Inner radius",
-                &value.ellipse_inner_radius_percent,
-                context,
-                ShapeField::EllipseInnerRadiusPercent,
-            ));
+        ),
+        "/content/ellipse_inner_radius_percent" => scalar_control(
+            control,
+            &shape.ellipse_inner_radius_percent,
+            context,
+            ShapeField::EllipseInnerRadiusPercent,
+        ),
+        "/content/ellipse_completion_degrees" => scalar_control(
+            control,
+            &shape.ellipse_completion_degrees,
+            context,
+            ShapeField::EllipseCompletionDegrees,
+        ),
+        "/content/fill" => shape_color_control(control, &shape.fill, context, shape_fill),
+        "/content/outline_color" => {
+            shape_color_control(control, &shape.outline_color, context, shape_outline_color)
         }
-        _ => {}
+        "/content/outline_width" => scalar_control(
+            control,
+            &shape.outline_width,
+            context,
+            ShapeField::OutlineWidth,
+        ),
+        "/content/corner_radius" => scalar_control(
+            control,
+            &shape.corner_radius,
+            context,
+            ShapeField::CornerRadius,
+        ),
+        "/content/rounding_strategy" => {
+            rounding_strategy_dropdown(control, &shape.rounding_strategy, context)
+        }
+        "/content/shadow_color" => {
+            shape_color_control(control, &shape.shadow_color, context, shape_shadow_color)
+        }
+        "/content/shadow_distance" => scalar_control(
+            control,
+            &shape.shadow_distance,
+            context,
+            ShapeField::ShadowDistance,
+        ),
+        "/content/shadow_direction_degrees" => scalar_control(
+            control,
+            &shape.shadow_direction_degrees,
+            context,
+            ShapeField::ShadowDirectionDegrees,
+        ),
+        "/content/shadow_width" => scalar_control(
+            control,
+            &shape.shadow_width,
+            context,
+            ShapeField::ShadowWidth,
+        ),
+        "/content/shadow_blur" => {
+            scalar_control(control, &shape.shadow_blur, context, ShapeField::ShadowBlur)
+        }
+        path => panic!("unsupported shared shape control: {path}"),
     }
-    vec![section.into_widget()]
-}
-
-fn shape_appearance_controls(
-    value: &ShapeAppearance,
-    context: &InspectorContext,
-) -> Vec<gtk::Widget> {
-    let section = InspectorSection::controls();
-    section.add_wide_control(&color_control(
-        "Fill",
-        &value.fill,
-        context,
-        color_target(shape_fill),
-    ));
-    section.add_wide_control(&color_control(
-        "Outline",
-        &value.outline_color,
-        context,
-        color_target(shape_outline_color),
-    ));
-    section.add_wide_control(&scalar_control(
-        "Outline width",
-        &value.outline_width,
-        context,
-        ShapeField::OutlineWidth,
-    ));
-    section.add_wide_control(&scalar_control(
-        "Rounded",
-        &value.corner_radius,
-        context,
-        ShapeField::CornerRadius,
-    ));
-    section.add_wide_control(&rounding_strategy_dropdown(
-        &value.rounding_strategy,
-        context,
-    ));
-    section.add_wide_control(&color_control(
-        "Shadow color",
-        &value.shadow_color,
-        context,
-        color_target(shape_shadow_color),
-    ));
-    section.add_wide_control(&scalar_control(
-        "Shadow distance",
-        &value.shadow_distance,
-        context,
-        ShapeField::ShadowDistance,
-    ));
-    section.add_wide_control(&scalar_control(
-        "Shadow direction",
-        &value.shadow_direction_degrees,
-        context,
-        ShapeField::ShadowDirectionDegrees,
-    ));
-    section.add_wide_control(&scalar_control(
-        "Shadow width",
-        &value.shadow_width,
-        context,
-        ShapeField::ShadowWidth,
-    ));
-    section.add_wide_control(&scalar_control(
-        "Shadow blur",
-        &value.shadow_blur,
-        context,
-        ShapeField::ShadowBlur,
-    ));
-    vec![section.into_widget()]
 }
 
 fn default_shape(context: &InspectorContext) -> ShapeItem {
@@ -302,34 +207,6 @@ fn default_shape_for_canvas(canvas_size: shrimply_project::project::CanvasSize) 
         unreachable!()
     };
     *shape
-}
-
-fn apply_shape_reset(
-    context: &InspectorContext,
-    commit_name: &'static str,
-    update: impl FnOnce(&mut ShapeItem),
-) {
-    let Some(key) = context.selected_item.clone() else {
-        return;
-    };
-    let mut project = context.project.borrow_mut();
-    let Some(item) = project.video_item_mut(&key) else {
-        return;
-    };
-    let VideoItemContent::Shape(shape) = &mut item.content else {
-        return;
-    };
-    update(shape);
-    shrimply_project::project::commit_edit(&project, commit_name);
-    drop(project);
-    crate::player_state::refresh_project(
-        &context.player_state,
-        ProjectChange {
-            video: true,
-            inspector: true,
-            ..ProjectChange::default()
-        },
-    );
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -350,26 +227,37 @@ enum ShapeField {
     ShadowBlur,
 }
 
-fn shape_dropdown(value: &TimelineValue<ShapeKind>, context: &InspectorContext) -> gtk::Widget {
+fn shape_dropdown(
+    control: &InspectorControl,
+    value: &TimelineValue<ShapeKind>,
+    context: &InspectorContext,
+) -> gtk::Widget {
+    assert_timeline_control(
+        control,
+        ControlKind::LayeredSelector,
+        value.id,
+        STEP_EDIT_COMMIT,
+    );
+    let timeline_id = value.id;
     crate::timeline_value::step::step_control(
-        "Shape",
+        &control.label,
         value,
         context,
         crate::timeline_value::step::StepTarget::new(
-            |project, key| {
+            move |project, key| {
                 let VideoItemContent::Shape(shape) = &project.video_item(&key)?.content else {
                     return None;
                 };
-                Some(&shape.shape)
+                (shape.shape.id == timeline_id).then_some(&shape.shape)
             },
-            |project, key| {
+            move |project, key| {
                 let VideoItemContent::Shape(shape) = &mut project.video_item_mut(&key)?.content
                 else {
                     return None;
                 };
-                Some(&mut shape.shape)
+                (shape.shape.id == timeline_id).then_some(&mut shape.shape)
             },
-            "edit-shape-kind",
+            STEP_EDIT_COMMIT,
             ProjectChange {
                 video: true,
                 inspector: true,
@@ -380,28 +268,36 @@ fn shape_dropdown(value: &TimelineValue<ShapeKind>, context: &InspectorContext) 
 }
 
 fn rounding_strategy_dropdown(
+    control: &InspectorControl,
     value: &TimelineValue<ShapeRoundingStrategy>,
     context: &InspectorContext,
 ) -> gtk::Widget {
+    assert_timeline_control(
+        control,
+        ControlKind::LayeredSelector,
+        value.id,
+        ROUNDING_EDIT_COMMIT,
+    );
+    let timeline_id = value.id;
     crate::timeline_value::step::step_control(
-        "Rounding",
+        &control.label,
         value,
         context,
         crate::timeline_value::step::StepTarget::new(
-            |project, key| {
+            move |project, key| {
                 let VideoItemContent::Shape(shape) = &project.video_item(&key)?.content else {
                     return None;
                 };
-                Some(&shape.rounding_strategy)
+                (shape.rounding_strategy.id == timeline_id).then_some(&shape.rounding_strategy)
             },
-            |project, key| {
+            move |project, key| {
                 let VideoItemContent::Shape(shape) = &mut project.video_item_mut(&key)?.content
                 else {
                     return None;
                 };
-                Some(&mut shape.rounding_strategy)
+                (shape.rounding_strategy.id == timeline_id).then_some(&mut shape.rounding_strategy)
             },
-            "edit-shape-rounding-strategy",
+            ROUNDING_EDIT_COMMIT,
             ProjectChange {
                 video: true,
                 inspector: true,
@@ -412,172 +308,85 @@ fn rounding_strategy_dropdown(
 }
 
 fn scalar_control(
-    label: &str,
+    control: &InspectorControl,
     value: &TimelineValue<f32>,
     context: &InspectorContext,
     field: ShapeField,
 ) -> gtk::Widget {
+    assert_timeline_control(
+        control,
+        ControlKind::LayeredNumber,
+        value.id,
+        SCALAR_EDIT_COMMIT,
+    );
     crate::timeline_value::scalar::scalar_control(
-        label,
+        &control.label,
         value,
         context,
-        shape_scalar_target(field),
-        shape_scalar_spec(field),
+        shape_scalar_target(field, value.id),
+        shape_scalar_spec(control, field),
     )
 }
 
 fn integer_control(
-    label: &str,
+    control: &InspectorControl,
     value: &TimelineValue<u32>,
     context: &InspectorContext,
 ) -> gtk::Widget {
-    let editor = gtk::SpinButton::with_range(3.0, 32.0, 1.0);
-    editor.set_value(f64::from(value.fallback()));
-    let key = context.selected_item.clone();
-    let editor_key = key.clone();
-    let project = context.project.clone();
-    let player = context.player_state.clone();
-    editor.connect_value_changed(move |editor| {
-        let Some(key) = editor_key.clone() else {
-            return;
-        };
-        let next = editor.value_as_int().clamp(3, 32) as u32;
-        let position = crate::player_state::snapshot(&player).position;
-        let mut project_ref = project.borrow_mut();
-        let Some(time) = project_ref.keyframe_time(&key, position) else {
-            return;
-        };
-        let step = crate::keyframe_editor::project_frame_step(&project_ref, Some(&key));
-        let Some(shape) = selected_shape_mut(&mut project_ref, key.clone()) else {
-            return;
-        };
-        match &mut shape.star_points.base {
-            TimelineBase::Const(value) => *value = next,
-            TimelineBase::Keyframes(keyframes) => {
-                if let Some(keyframe) = keyframes
-                    .iter_mut()
-                    .find(|keyframe| crate::keyframe_model::same_frame(keyframe.time, time, step))
-                {
-                    keyframe.time = time;
-                    keyframe.value = next;
-                } else {
-                    keyframes.push(u32::keyframe(time, next));
-                    keyframes.sort_by_key(|keyframe| keyframe.time);
-                }
-            }
-        }
-        shrimply_project::project::commit_coalesced_edit(&project_ref, "edit-shape-points");
-        drop(project_ref);
-        crate::player_state::refresh_project(
-            &player,
-            ProjectChange {
-                video: true,
-                ..Default::default()
-            },
-        );
-    });
-    let project_for_keyframes = context.project.clone();
-    let player_for_keyframes = context.player_state.clone();
-    let project_for_expression = context.project.clone();
-    let player_for_expression = context.player_state.clone();
-    let keyframes_key = key.clone();
-    let expression_key = key;
-    crate::timeline_value::layered_control(
-        label,
-        value,
-        editor.upcast(),
-        crate::timeline_value::LayeredSections::default(),
-        move |enabled| {
-            let Some(key) = keyframes_key.clone() else {
-                return;
-            };
-            let position = crate::player_state::snapshot(&player_for_keyframes).position;
-            let mut project = project_for_keyframes.borrow_mut();
-            let Some(evaluation_time) =
-                crate::video::visual_local_time(&project, key.clone(), position)
-            else {
-                return;
-            };
-            let Some(keyframe_time) = project.keyframe_time(&key, position) else {
-                return;
-            };
-            let Some(shape) = selected_shape_mut(&mut project, key.clone()) else {
-                return;
-            };
-            let current = shape.star_points.value_at(evaluation_time);
-            shape.star_points.base = if enabled {
-                TimelineBase::Keyframes(vec![u32::keyframe(keyframe_time, current)])
-            } else {
-                TimelineBase::Const(current)
-            };
-            shrimply_project::project::commit_edit(&project, "edit-shape-points-keyframes");
-            drop(project);
-            crate::player_state::refresh_project(
-                &player_for_keyframes,
-                ProjectChange {
-                    video: true,
-                    inspector: true,
-                    ..Default::default()
-                },
-            );
-        },
-        move |enabled| {
-            let Some(key) = expression_key.clone() else {
-                return;
-            };
-            let mut project = project_for_expression.borrow_mut();
-            let Some(shape) = selected_shape_mut(&mut project, key.clone()) else {
-                return;
-            };
-            shape
-                .star_points
-                .expression
-                .get_or_insert_with(|| TimelineExpression {
-                    id: uuid::Uuid::new_v4(),
-                    enabled,
-                    source: "x".to_string(),
-                })
-                .enabled = enabled;
-            shrimply_project::project::commit_edit(&project, "edit-shape-points-expression");
-            drop(project);
-            crate::player_state::refresh_project(
-                &player_for_expression,
-                ProjectChange {
-                    video: true,
-                    inspector: true,
-                    ..Default::default()
-                },
-            );
-        },
-    )
+    assert_eq!(control.kind, ControlKind::LayeredNumber);
+    assert_eq!(control.timeline_id, Some(value.id));
+    assert_eq!(control.commit_name, INTEGER_EDIT_COMMIT);
+    assert_eq!(control.keyframe_commit_name, INTEGER_KEYFRAME_COMMIT);
+    assert_eq!(control.expression_commit_name, INTEGER_EXPRESSION_COMMIT);
+    assert!(!control.commit_immediately);
+    assert!(control.integer);
+    crate::background::integer_control(value, control, context)
 }
 
 fn size_control(
-    label: &str,
+    control: &InspectorControl,
     value: &TimelineValue<glam::Vec2>,
     context: &InspectorContext,
 ) -> gtk::Widget {
+    assert_timeline_control(
+        control,
+        ControlKind::LayeredVector2,
+        value.id,
+        VECTOR_EDIT_COMMIT,
+    );
+    assert_eq!(control.prefixes, ["W", "H"]);
+    assert!(!control.lock);
     vec_control(
-        label,
+        &control.label,
         value,
         context,
-        vec_target(shape_size, shape_size_mut),
+        vec_target(value.id, shape_size, shape_size_mut),
         VecSpec {
             first_prefix: "W",
             second_prefix: "H",
-            minimum: Some(1.0),
-            ..vec_spec()
+            drag_step: control.number.drag_step,
+            digits: usize::try_from(control.number.digits)
+                .expect("shape vector digits must be non-negative"),
+            width_chars: control.width_characters,
+            minimum: Some(control.number.minimum),
+            maximum: None,
+            unit_name: control.number.unit,
         },
     )
 }
 
 fn vec_target(
+    value_id: uuid::Uuid,
     get: fn(&Project, SelectedItem) -> Option<&TimelineValue<glam::Vec2>>,
     get_mut: fn(&mut Project, SelectedItem) -> Option<&mut TimelineValue<glam::Vec2>>,
 ) -> VecTarget {
     VecTarget {
-        access: crate::timeline_value::vector::vec2::VecAccess::Item { get, get_mut },
-        scope_id: None,
+        access: crate::timeline_value::vector::vec2::VecAccess::ItemScoped {
+            get,
+            get_mut,
+            value_id,
+        },
+        scope_id: Some(value_id),
         local_time: video_local_time_for_key,
         duration: video_duration_for_key,
         refresh: ProjectChange {
@@ -585,26 +394,13 @@ fn vec_target(
             inspector: true,
             ..ProjectChange::default()
         },
-        commit_name: "edit-shape-vector",
+        commit_name: VECTOR_EDIT_COMMIT,
     }
 }
 
-fn vec_spec() -> VecSpec {
-    VecSpec {
-        first_prefix: "X",
-        second_prefix: "Y",
-        drag_step: 1.0,
-        digits: 0,
-        width_chars: 7,
-        minimum: None,
-        maximum: None,
-        unit_name: "px",
-    }
-}
-
-fn shape_scalar_target(field: ShapeField) -> ScalarTarget {
+fn shape_scalar_target(field: ShapeField, value_id: uuid::Uuid) -> ScalarTarget {
     ScalarTarget {
-        access: crate::timeline_value::scalar::ScalarAccess::Item {
+        access: crate::timeline_value::scalar::ScalarAccess::ItemScoped {
             get: match field {
                 ShapeField::RotationDegrees => shape_rotation_degrees,
                 ShapeField::StarInnerRadiusPercent => shape_star_inner_radius_percent,
@@ -635,8 +431,9 @@ fn shape_scalar_target(field: ShapeField) -> ScalarTarget {
                 ShapeField::ShadowWidth => shape_shadow_width_mut,
                 ShapeField::ShadowBlur => shape_shadow_blur_mut,
             },
+            value_id,
         },
-        scope_id: None,
+        scope_id: Some(value_id),
         local_time: video_local_time_for_key,
         duration: video_duration_for_key,
         refresh: ProjectChange {
@@ -644,56 +441,38 @@ fn shape_scalar_target(field: ShapeField) -> ScalarTarget {
             inspector: true,
             ..ProjectChange::default()
         },
-        commit_name: "edit-shape-scalar",
+        commit_name: SCALAR_EDIT_COMMIT,
     }
 }
 
-fn shape_scalar_spec(field: ShapeField) -> ScalarSpec {
-    let percent = matches!(
-        field,
-        ShapeField::StarInnerRadiusPercent
-            | ShapeField::ArrowShaftWidthPercent
-            | ShapeField::ArrowHeadLengthPercent
-            | ShapeField::CrossArmThicknessPercent
-            | ShapeField::EllipseInnerRadiusPercent
-    );
+fn shape_scalar_spec(control: &InspectorControl, field: ShapeField) -> ScalarSpec {
     ScalarSpec {
-        drag_step: 1.0,
-        digits: 0,
+        drag_step: control.number.drag_step,
+        digits: usize::try_from(control.number.digits)
+            .expect("shape scalar digits must be non-negative"),
         integer: false,
-        width_chars: 9,
+        width_chars: control.width_characters,
         minimum: match field {
             ShapeField::RotationDegrees | ShapeField::ShadowDirectionDegrees => None,
             ShapeField::StarInnerRadiusPercent
             | ShapeField::ArrowShaftWidthPercent
             | ShapeField::ArrowHeadLengthPercent
-            | ShapeField::CrossArmThicknessPercent => Some(5.0),
+            | ShapeField::CrossArmThicknessPercent => Some(control.number.minimum),
             ShapeField::EllipseInnerRadiusPercent | ShapeField::EllipseCompletionDegrees => {
-                Some(0.0)
+                Some(control.number.minimum)
             }
-            _ => Some(0.0),
+            _ => Some(control.number.minimum),
         },
         maximum: match field {
             ShapeField::StarInnerRadiusPercent
             | ShapeField::ArrowShaftWidthPercent
             | ShapeField::ArrowHeadLengthPercent
-            | ShapeField::CrossArmThicknessPercent => Some(95.0),
-            ShapeField::EllipseInnerRadiusPercent => Some(95.0),
-            ShapeField::EllipseCompletionDegrees => Some(360.0),
+            | ShapeField::CrossArmThicknessPercent => Some(control.number.maximum),
+            ShapeField::EllipseInnerRadiusPercent => Some(control.number.maximum),
+            ShapeField::EllipseCompletionDegrees => Some(control.number.maximum),
             _ => None,
         },
-        unit_name: if percent {
-            Some("%")
-        } else if matches!(
-            field,
-            ShapeField::RotationDegrees
-                | ShapeField::EllipseCompletionDegrees
-                | ShapeField::ShadowDirectionDegrees
-        ) {
-            Some("deg")
-        } else {
-            Some("px")
-        },
+        unit_name: Some(control.number.unit),
         rotating_icon: match field {
             ShapeField::RotationDegrees => Some(("arrow3-up-symbolic", 0.0)),
             ShapeField::ShadowDirectionDegrees => Some(("arrow3-up-symbolic", 90.0)),
@@ -701,7 +480,7 @@ fn shape_scalar_spec(field: ShapeField) -> ScalarSpec {
         },
         display: |value| value as f64,
         store: |value| value as f32,
-        clamp: match field {
+        clamp: crate::timeline_value::scalar::ScalarClamp::Function(match field {
             ShapeField::StarInnerRadiusPercent
             | ShapeField::ArrowShaftWidthPercent
             | ShapeField::ArrowHeadLengthPercent
@@ -714,25 +493,56 @@ fn shape_scalar_spec(field: ShapeField) -> ScalarSpec {
             | ShapeField::ShadowWidth
             | ShapeField::ShadowBlur => |value| value.max(0.0),
             ShapeField::RotationDegrees | ShapeField::ShadowDirectionDegrees => |value| value,
-        },
+        }),
     }
 }
 
-fn color_target(
+fn shape_color_control(
+    control: &InspectorControl,
+    value: &TimelineValue<shrimply_core::Color<u8>>,
+    context: &InspectorContext,
     get_mut: fn(&mut Project, SelectedItem) -> Option<&mut TimelineValue<shrimply_core::Color<u8>>>,
-) -> ColorTarget {
-    ColorTarget {
-        access: crate::timeline_value::color::ColorAccess::Item(get_mut),
-        scope_id: None,
-        local_time: video_local_time_for_key,
-        duration: video_duration_for_key,
-        refresh: ProjectChange {
-            video: true,
-            inspector: true,
-            ..ProjectChange::default()
+) -> gtk::Widget {
+    assert_timeline_control(
+        control,
+        ControlKind::LayeredColor,
+        value.id,
+        COLOR_EDIT_COMMIT,
+    );
+    color_control(
+        &control.label,
+        value,
+        context,
+        ColorTarget {
+            access: crate::timeline_value::color::ColorAccess::ItemScoped {
+                get_mut,
+                value_id: value.id,
+            },
+            scope_id: Some(value.id),
+            local_time: video_local_time_for_key,
+            duration: video_duration_for_key,
+            refresh: ProjectChange {
+                video: true,
+                inspector: true,
+                ..ProjectChange::default()
+            },
+            commit_name: COLOR_EDIT_COMMIT,
         },
-        commit_name: "edit-shape-color",
-    }
+    )
+}
+
+fn assert_timeline_control(
+    control: &InspectorControl,
+    kind: ControlKind,
+    timeline_id: uuid::Uuid,
+    commit_name: &str,
+) {
+    assert_eq!(control.kind, kind);
+    assert_eq!(control.timeline_id, Some(timeline_id));
+    assert_eq!(control.commit_name, commit_name);
+    assert_eq!(control.keyframe_commit_name, commit_name);
+    assert_eq!(control.expression_commit_name, commit_name);
+    assert!(!control.commit_immediately);
 }
 
 fn selected_shape(project: &Project, key: SelectedItem) -> Option<&ShapeItem> {

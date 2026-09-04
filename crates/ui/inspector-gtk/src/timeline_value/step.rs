@@ -4,15 +4,12 @@ use std::{
 };
 
 use crate::InspectedItem as SelectedItem;
-use shrimply_core::timeline_value::{
-    DiscreteEditPolicy, TimelineBase, TimelineStep, TimelineValue, edit_discrete_value,
-    set_expression_enabled, set_keyframes_enabled,
-};
+use shrimply_core::timeline_value::{TimelineBase, TimelineStep, TimelineValue};
 use shrimply_project::project::{Project, Time};
 
 use crate::{
     InspectorContext,
-    keyframe_editor::{self, KeyframeEditorActions, KeyframeGraph, KeyframePoint},
+    keyframe_editor::{self, KeyframeEditorActions},
     keyframe_model,
     player_state::{self, ProjectChange, SharedPlayerState},
     selector::{step_button_editor, step_editor},
@@ -138,7 +135,7 @@ fn step_control_with_buttons<T: TimelineStep>(
     if let TimelineBase::Keyframes(_) = &value.base {
         let built = keyframe_editor::build(
             context,
-            step_graph(value),
+            keyframe_model::step_graph(value),
             visible_area(&context.project.borrow(), key.clone())
                 .unwrap_or((Time::ZERO, Time::ZERO)),
             format!("step:{}:{}", target.commit_name, value.id),
@@ -151,7 +148,10 @@ fn step_control_with_buttons<T: TimelineStep>(
             context,
             "inspector step keyframe graph refresh",
             &built,
-            move || (graph_target.get)(&project.borrow(), graph_key.clone()).map(step_graph),
+            move || {
+                (graph_target.get)(&project.borrow(), graph_key.clone())
+                    .map(keyframe_model::step_graph)
+            },
         );
         sections.set_keyframe(built.widget);
     }
@@ -210,20 +210,6 @@ fn step_control_with_buttons<T: TimelineStep>(
             }
         },
     )
-}
-
-fn step_graph<T: TimelineStep>(value: &TimelineValue<T>) -> KeyframeGraph {
-    let points = match &value.base {
-        TimelineBase::Const(_) => Vec::new(),
-        TimelineBase::Keyframes(keyframes) => keyframes
-            .iter()
-            .map(|keyframe| KeyframePoint {
-                time: keyframe.time,
-                value: 0.5,
-            })
-            .collect(),
-    };
-    KeyframeGraph::Step { points }
 }
 
 fn actions<T: TimelineStep>(
@@ -304,16 +290,7 @@ fn update_value<T: TimelineStep>(
     let Some(value) = (target.get_mut)(&mut project, key.clone()) else {
         return;
     };
-    edit_discrete_value(
-        value,
-        time,
-        next,
-        |left, right| keyframe_model::same_frame(left, right, step),
-        DiscreteEditPolicy {
-            unchanged_is_noop: false,
-            sort_updated_keyframe: false,
-        },
-    );
+    keyframe_model::set_discrete_value(value, time, next, step);
     target.did_mutate(&mut project, key);
     commit_and_refresh(
         project,
@@ -343,7 +320,7 @@ fn toggle_keyframes<T: TimelineStep>(
         return false;
     };
     let current = value.value_at(evaluation_time);
-    if !set_keyframes_enabled(value, keyframe_time, current, enabled) {
+    if !keyframe_model::set_keyframes_enabled(value, keyframe_time, current, enabled) {
         return false;
     }
     target.did_mutate(&mut project, key);
@@ -362,7 +339,11 @@ fn toggle_expression<T: TimelineStep>(
     let Some(value) = (target.get_mut)(&mut project, key.clone()) else {
         return false;
     };
-    let changed = set_expression_enabled(value, enabled, "value");
+    let changed = keyframe_model::set_expression_enabled(
+        value,
+        enabled,
+        shrimply_inspector_core::timeline_value::SCALAR_EXPRESSION_DEFAULT,
+    );
     if changed {
         target.did_mutate(&mut project, key);
         commit_and_refresh(project, player, target, true);
@@ -403,18 +384,7 @@ fn add_key<T: TimelineStep>(
     let Some(value) = (target.get_mut)(&mut project, key.clone()) else {
         return;
     };
-    let current = value.value_at(time);
-    if matches!(&value.base, TimelineBase::Keyframes(_)) {
-        edit_discrete_value(
-            value,
-            time,
-            current,
-            |left, right| keyframe_model::same_frame(left, right, frame_step),
-            DiscreteEditPolicy {
-                unchanged_is_noop: false,
-                sort_updated_keyframe: false,
-            },
-        );
+    if keyframe_model::add_discrete_keyframe(value, time, frame_step) {
         target.did_mutate(&mut project, key);
         commit_and_refresh(project, player, target, true);
     }
@@ -432,17 +402,8 @@ fn delete_key<T: TimelineStep>(
     let Some(value) = (target.get_mut)(&mut project, key.clone()) else {
         return;
     };
-    let constant = if let TimelineBase::Keyframes(keyframes) = &mut value.base {
-        keyframes
-            .iter()
-            .position(|keyframe| keyframe_model::same_frame(keyframe.time, time, frame_step))
-            .map(|index| keyframes.remove(index).value)
-            .filter(|_| keyframes.is_empty())
-    } else {
-        None
-    };
-    if let Some(constant) = constant {
-        value.base = TimelineBase::Const(constant);
+    if !keyframe_model::delete_discrete_keyframe(value, time, frame_step) {
+        return;
     }
     target.did_mutate(&mut project, key);
     commit_and_refresh(project, player, target, true);
@@ -461,16 +422,7 @@ fn move_key<T: TimelineStep>(
     let Some(value) = (target.get_mut)(&mut project, key.clone()) else {
         return;
     };
-    if let TimelineBase::Keyframes(keyframes) = &mut value.base
-        && let Some(index) = keyframes
-            .iter()
-            .position(|keyframe| keyframe.time.approx_eq(old))
-    {
-        let mut keyframe = keyframes.remove(index);
-        keyframes.retain(|other| !other.time.approx_eq(time));
-        keyframe.time = time;
-        keyframes.push(keyframe);
-        keyframes.sort_by_key(|keyframe| keyframe.time);
+    if keyframe_model::move_discrete_keyframe(value, old, time) {
         target.did_mutate(&mut project, key);
         shrimply_project::project::commit_coalesced_edit(&project, target.commit_name);
         drop(project);

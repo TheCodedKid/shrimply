@@ -1,35 +1,18 @@
 use shrimply_gtk_components::tr;
-use std::{cell::RefCell, collections::BTreeSet, rc::Rc, time::Duration};
+use std::{cell::RefCell, rc::Rc, time::Duration};
 
 use adw::prelude::*;
 use gtk::glib::{self, SourceId};
 use shrimply_math_color::Color;
 use sourceview5::prelude::*;
 
-use crate::transform_eval::TransformExpressionCache;
+pub(crate) use shrimply_inspector_core::rhai_editor::ExpressionValue;
+use shrimply_inspector_core::rhai_editor::{
+    self, DIAGNOSTIC_DEBOUNCE_MILLISECONDS, DiagnosticCache, EDITOR_HEIGHT, INDENT_WIDTH,
+};
 
-const EDITOR_HEIGHT: i32 = 86;
-const INDENT_WIDTH: i32 = 2;
 const INDENT: &str = "  ";
-const DIAGNOSTIC_DEBOUNCE: Duration = Duration::from_millis(250);
 const ERROR_COLOR: Color = Color::new(1.0, 0.45, 0.42, 1.0);
-const STATIC_WORDS: &str = "\
-time t local_t value duration fps canvas_width canvas_height \
-media_width media_height source_width source_height seed \
-sin cos tan random shake vol Fraction abs int sqrt pow clamp lerp \
-rgb rgba gray graya hsv hsva oklab oklaba";
-
-#[derive(Clone, Copy)]
-pub(crate) enum ExpressionValue {
-    Bool,
-    Scalar,
-    Step,
-    Text,
-    Vec2,
-    Vec3,
-    Color,
-    Drawing,
-}
 
 pub(crate) fn editor(
     source: Option<String>,
@@ -64,11 +47,13 @@ pub(crate) fn editor(
     inline_view.completion().add_provider(&words);
 
     let pending_diagnostic = Rc::new(RefCell::new(None));
+    let diagnostic_cache = Rc::new(RefCell::new(DiagnosticCache::default()));
     update_diagnostic(
         &buffer,
         &diagnostic_tag,
         &diagnostic_message,
         &diagnostic_labels,
+        &diagnostic_cache,
     );
 
     let update = Rc::new(update);
@@ -77,16 +62,18 @@ pub(crate) fn editor(
     let changed_views = views.clone();
     let changed_diagnostic_message = diagnostic_message.clone();
     let changed_diagnostic_labels = diagnostic_labels.clone();
+    let changed_diagnostic_cache = diagnostic_cache.clone();
     buffer.connect_changed(move |buffer| {
         let (start, end) = buffer.bounds();
         update(buffer.text(&start, &end, true).to_string());
-        trigger_completion(buffer, &changed_views);
+        trigger_completion(buffer, &changed_views, value);
         schedule_diagnostic(
             buffer,
             &changed_tag,
             &changed_diagnostic_message,
             &changed_diagnostic_labels,
             &changed_pending,
+            &changed_diagnostic_cache,
         );
     });
 
@@ -147,7 +134,7 @@ fn editor_view(buffer: &sourceview5::Buffer, large: bool) -> sourceview5::View {
     view.set_auto_indent(true);
     view.set_insert_spaces_instead_of_tabs(true);
     view.set_indent_on_tab(true);
-    view.set_indent_width(INDENT_WIDTH);
+    view.set_indent_width(INDENT_WIDTH as i32);
     view.set_smart_backspace(true);
     view.set_smart_home_end(sourceview5::SmartHomeEndType::Before);
     view.set_show_line_numbers(large);
@@ -298,7 +285,7 @@ fn skip_or_insert_closer(buffer: &sourceview5::Buffer, close: char) -> bool {
     let remove = prefix
         .chars()
         .rev()
-        .take(INDENT_WIDTH as usize)
+        .take(INDENT_WIDTH)
         .take_while(|character| *character == ' ')
         .count() as i32;
     let remove = if remove == 0 && prefix.ends_with('\t') {
@@ -520,18 +507,7 @@ fn completion_words(value: ExpressionValue) -> (sourceview5::CompletionWords, so
         .priority(10)
         .build();
     let seed = sourceview5::Buffer::new(None);
-    match value {
-        ExpressionValue::Bool => seed.set_text(&format!("{STATIC_WORDS} true false")),
-        ExpressionValue::Scalar => seed.set_text(STATIC_WORDS),
-        ExpressionValue::Step => seed.set_text(STATIC_WORDS),
-        ExpressionValue::Text => seed.set_text(STATIC_WORDS),
-        ExpressionValue::Vec2 => seed.set_text(&format!("{STATIC_WORDS} x y")),
-        ExpressionValue::Vec3 => seed.set_text(&format!("{STATIC_WORDS} x y z")),
-        ExpressionValue::Color => seed.set_text(&format!("{STATIC_WORDS} r g b a")),
-        ExpressionValue::Drawing => {
-            seed.set_text(&format!("{STATIC_WORDS} strokes fills points position pressure loops seed width_scale color_index"))
-        }
-    }
+    seed.set_text(&rhai_editor::completion_words(value).join(" "));
     words.register(&seed);
     (words, seed)
 }
@@ -542,6 +518,7 @@ fn schedule_diagnostic(
     message: &Rc<RefCell<Option<String>>>,
     labels: &Rc<RefCell<Vec<glib::WeakRef<gtk::Label>>>>,
     pending: &Rc<RefCell<Option<SourceId>>>,
+    cache: &Rc<RefCell<DiagnosticCache>>,
 ) {
     if let Some(source_id) = pending.borrow_mut().take() {
         source_id.remove();
@@ -550,11 +527,15 @@ fn schedule_diagnostic(
     let tag = tag.clone();
     let message = message.clone();
     let labels = labels.clone();
+    let cache = cache.clone();
     let pending_for_timeout = pending.clone();
-    let source_id = glib::timeout_add_local_once(DIAGNOSTIC_DEBOUNCE, move || {
-        *pending_for_timeout.borrow_mut() = None;
-        update_diagnostic(&buffer, &tag, &message, &labels);
-    });
+    let source_id = glib::timeout_add_local_once(
+        Duration::from_millis(DIAGNOSTIC_DEBOUNCE_MILLISECONDS as u64),
+        move || {
+            *pending_for_timeout.borrow_mut() = None;
+            update_diagnostic(&buffer, &tag, &message, &labels, &cache);
+        },
+    );
     *pending.borrow_mut() = Some(source_id);
 }
 
@@ -563,11 +544,12 @@ fn update_diagnostic(
     tag: &gtk::TextTag,
     message: &Rc<RefCell<Option<String>>>,
     labels: &Rc<RefCell<Vec<glib::WeakRef<gtk::Label>>>>,
+    cache: &Rc<RefCell<DiagnosticCache>>,
 ) {
     let (start, end) = buffer.bounds();
     buffer.remove_tag(tag, &start, &end);
     let source = buffer.text(&start, &end, true).to_string();
-    let diagnostic = TransformExpressionCache::syntax_diagnostic(&source);
+    let diagnostic = cache.borrow_mut().diagnostic(&source).cloned();
     if let Some(diagnostic) = &diagnostic {
         tag.set_priority(buffer.tag_table().size() - 1);
         apply_diagnostic_tag(buffer, tag, diagnostic.line, diagnostic.column);
@@ -579,8 +561,9 @@ fn update_diagnostic(
 fn trigger_completion(
     buffer: &sourceview5::Buffer,
     views: &Rc<RefCell<Vec<glib::WeakRef<sourceview5::View>>>>,
+    value: ExpressionValue,
 ) {
-    if current_identifier_prefix(buffer).is_none_or(|prefix| prefix.len() < 2) {
+    if current_completion(buffer, value, true).is_none() {
         return;
     }
     let mut views = views.borrow_mut();
@@ -593,118 +576,41 @@ fn trigger_completion(
     });
 }
 
-fn current_identifier_prefix(buffer: &sourceview5::Buffer) -> Option<String> {
-    current_identifier_range(buffer).map(|range| range.text)
-}
-
-struct IdentifierRange {
-    text: String,
-    start: i32,
-    end: i32,
-}
-
-fn current_identifier_range(buffer: &sourceview5::Buffer) -> Option<IdentifierRange> {
+fn current_completion(
+    buffer: &sourceview5::Buffer,
+    value: ExpressionValue,
+    automatic: bool,
+) -> Option<rhai_editor::Completion> {
     let cursor = buffer.cursor_position();
     let offset = usize::try_from(cursor).ok()?;
     let (start, end) = buffer.bounds();
     let source = buffer.text(&start, &end, true).to_string();
-    let byte_offset = byte_index_for_char_offset(&source, offset)?;
-    let before = source.get(..byte_offset)?;
-    let start = before
-        .char_indices()
-        .rev()
-        .find_map(|(index, ch)| {
-            (!(ch == '_' || ch.is_ascii_alphanumeric())).then_some(index + ch.len_utf8())
-        })
-        .unwrap_or(0);
-    let prefix = before.get(start..)?;
-    let valid_start = prefix
-        .chars()
-        .next()
-        .is_some_and(|ch| ch == '_' || ch.is_ascii_alphabetic());
-    if !valid_start {
-        return None;
+    if automatic {
+        rhai_editor::automatic_completion(&source, value, offset)
+    } else {
+        rhai_editor::completion(&source, value, offset)
     }
-    Some(IdentifierRange {
-        text: prefix.to_string(),
-        start: cursor - prefix.chars().count() as i32,
-        end: cursor,
-    })
-}
-
-fn byte_index_for_char_offset(source: &str, offset: usize) -> Option<usize> {
-    if offset == 0 {
-        return Some(0);
-    }
-    source
-        .char_indices()
-        .nth(offset)
-        .map(|(index, _)| index)
-        .or_else(|| (source.chars().count() == offset).then_some(source.len()))
 }
 
 fn complete_current_prefix(buffer: &sourceview5::Buffer, value: ExpressionValue) -> bool {
-    let Some(range) = current_identifier_range(buffer) else {
+    let Some(completion) = current_completion(buffer, value, false) else {
         return false;
     };
-    let Some(candidate) = completion_candidate(buffer, value, &range.text) else {
+    let Some(candidate) = completion.candidates.first() else {
         return false;
     };
-    let mut start = buffer.iter_at_offset(range.start);
-    let mut end = buffer.iter_at_offset(range.end);
+    let (Ok(start_offset), Ok(end_offset)) = (
+        i32::try_from(completion.start),
+        i32::try_from(completion.end),
+    ) else {
+        return false;
+    };
+    let mut start = buffer.iter_at_offset(start_offset);
+    let mut end = buffer.iter_at_offset(end_offset);
     buffer.delete(&mut start, &mut end);
-    let mut insert = buffer.iter_at_offset(range.start);
-    buffer.insert(&mut insert, &candidate);
+    let mut insert = buffer.iter_at_offset(start_offset);
+    buffer.insert(&mut insert, candidate);
     true
-}
-
-fn completion_candidate(
-    buffer: &sourceview5::Buffer,
-    value: ExpressionValue,
-    prefix: &str,
-) -> Option<String> {
-    let mut candidates = BTreeSet::new();
-    candidates.extend(STATIC_WORDS.split_whitespace().map(str::to_string));
-    if matches!(value, ExpressionValue::Bool) {
-        candidates.extend(["true", "false"].map(str::to_string));
-    }
-    if matches!(value, ExpressionValue::Vec2 | ExpressionValue::Vec3) {
-        candidates.insert("x".to_string());
-        candidates.insert("y".to_string());
-    }
-    if matches!(value, ExpressionValue::Vec3) {
-        candidates.insert("z".to_string());
-    }
-    if matches!(value, ExpressionValue::Color) {
-        candidates.extend(["r", "g", "b", "a"].map(str::to_string));
-    }
-    let (start, end) = buffer.bounds();
-    let source = buffer.text(&start, &end, true).to_string();
-    for ident in identifiers(&source) {
-        candidates.insert(ident.to_string());
-    }
-    candidates
-        .into_iter()
-        .find(|candidate| candidate != prefix && candidate.starts_with(prefix))
-}
-
-fn identifiers(source: &str) -> Vec<&str> {
-    let mut identifiers = Vec::new();
-    let mut start = None;
-    for (index, ch) in source.char_indices() {
-        match (start, ch == '_' || ch.is_ascii_alphanumeric()) {
-            (None, true) if ch == '_' || ch.is_ascii_alphabetic() => start = Some(index),
-            (Some(open), false) => {
-                identifiers.push(&source[open..index]);
-                start = None;
-            }
-            _ => {}
-        }
-    }
-    if let Some(open) = start {
-        identifiers.push(&source[open..]);
-    }
-    identifiers
 }
 
 fn apply_diagnostic_tag(

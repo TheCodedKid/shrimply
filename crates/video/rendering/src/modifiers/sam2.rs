@@ -175,11 +175,21 @@ impl Sam2MaskCache {
     }
 
     pub(crate) fn abort_analysis(&self, key: &str) {
-        let store = self.store.lock().expect("SAM2 mask cache lock is poisoned");
-        store
+        let mut store = self.store.lock().expect("SAM2 mask cache lock is poisoned");
+        store.memory.retain(|(stored, _), _| stored != key);
+        let transaction = store
             .connection
+            .transaction()
+            .expect("begin discarding incomplete SAM2 analysis");
+        transaction
+            .execute("DELETE FROM analyses WHERE cache_key = ?1", params![key])
+            .expect("discard incomplete SAM2 analysis");
+        transaction
             .execute("DELETE FROM masks WHERE cache_key = ?1", params![key])
             .expect("discard incomplete SAM2 masks");
+        transaction
+            .commit()
+            .expect("commit discarding incomplete SAM2 analysis");
     }
 
     pub(crate) fn analysis_complete(&self, key: &str) -> bool {

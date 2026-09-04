@@ -10,10 +10,11 @@ use shrimply_project::project::{
 };
 use shrimply_state::player_state::{self, SharedPlayerState};
 use shrimply_timeline::selection_state::SharedSelectionState;
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
+use crate::audio_cache::audio_cache_status;
 use crate::audio_modifiers::{
-    audio_cache_status, audio_item_address, audio_modifier_evaluation_time, audio_modifier_key,
+    audio_item_address, audio_modifier_evaluation_time, audio_modifier_key,
     audio_modifier_keyframe_time, audio_modifier_number, audio_modifier_number_mut,
     audio_modifier_time, audio_title,
 };
@@ -21,6 +22,7 @@ use crate::target::InspectorTarget;
 
 pub const INSPECTOR_MIN_WIDTH: i32 = 320;
 const EXPRESSION_AUDIO_SAMPLE_RATE_HZ: u32 = 48_000;
+pub(crate) const INSPECTOR_EDIT_COMMIT: &str = "inspector-edit";
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct InspectorSnapshot {
@@ -136,6 +138,13 @@ pub struct TimelineModeChange<'a> {
     pub default_expression: &'a str,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum InspectorCommit<'a> {
+    Deferred,
+    Coalesced(&'a str),
+    Immediate(&'a str),
+}
+
 pub struct AudioModifierKeyframeMove {
     pub old_time: Time,
     pub time: Time,
@@ -148,9 +157,24 @@ pub struct InspectorController {
     pub(crate) project: Rc<RefCell<Project>>,
     pub(crate) player_state: SharedPlayerState,
     selection_state: SharedSelectionState,
-    pub(crate) keyframe_clipboard: Rc<RefCell<Option<crate::keyframe_model::KeyframeClipboard>>>,
+    default_text_font: Option<shrimply_core::FontFamily>,
+    pub(crate) keyframe_clipboard: Rc<crate::keyframe_model::KeyframeClipboardCache>,
     pub(crate) expression_cache: Rc<RefCell<shrimply_evaluation::TransformExpressionCache>>,
     pub(crate) audio_sampler: Rc<RefCell<shrimply_audio::streaming::FrameAudioSampler>>,
+    pub(crate) analysis_transitions: Rc<RefCell<HashMap<AnalysisTransitionKey, u64>>>,
+    pub(crate) transparent_fill_statuses:
+        Rc<RefCell<HashMap<AnalysisTransitionKey, CachedTransparentFillStatus>>>,
+}
+
+pub(crate) struct CachedTransparentFillStatus {
+    pub(crate) revision: u64,
+    pub(crate) prepared: shrimply_video::transparent_fill_analysis::PreparedStatus,
+}
+
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+pub(crate) struct AnalysisTransitionKey {
+    pub(crate) item: ItemAddress,
+    pub(crate) modifier_id: uuid::Uuid,
 }
 
 impl InspectorController {
@@ -163,14 +187,22 @@ impl InspectorController {
             project,
             player_state,
             selection_state,
-            keyframe_clipboard: Rc::new(RefCell::new(None)),
+            default_text_font: None,
+            keyframe_clipboard: Rc::new(crate::keyframe_model::KeyframeClipboardCache::new()),
             expression_cache: Rc::new(RefCell::new(Default::default())),
             audio_sampler: Rc::new(RefCell::new(
                 shrimply_audio::streaming::FrameAudioSampler::preview(
                     EXPRESSION_AUDIO_SAMPLE_RATE_HZ,
                 ),
             )),
+            analysis_transitions: Rc::new(RefCell::new(HashMap::new())),
+            transparent_fill_statuses: Rc::new(RefCell::new(HashMap::new())),
         }
+    }
+
+    pub fn with_default_text_font(mut self, font: shrimply_core::FontFamily) -> Self {
+        self.default_text_font = Some(font);
+        self
     }
 
     pub fn audio_sampler(&self) -> Rc<RefCell<shrimply_audio::streaming::FrameAudioSampler>> {
@@ -198,6 +230,17 @@ impl InspectorController {
         );
     }
 
+    pub fn refresh_analysis_output(&self) {
+        player_state::refresh_project(
+            &self.player_state,
+            player_state::ProjectChange {
+                video: true,
+                inspector: true,
+                ..Default::default()
+            },
+        );
+    }
+
     pub fn valid_preview_focus(
         &self,
         focused_item: &ItemAddress,
@@ -213,6 +256,13 @@ impl InspectorController {
     }
 
     pub fn snapshot(&self) -> InspectorSnapshot {
+        self.snapshot_with_camera_models(None)
+    }
+
+    pub fn snapshot_with_camera_models(
+        &self,
+        camera_models: Option<&Result<Vec<String>, String>>,
+    ) -> InspectorSnapshot {
         let project = self.project.borrow();
         let target = crate::target::resolve(&project, &self.selection_state);
         let track = match &target {
@@ -239,6 +289,8 @@ impl InspectorController {
                         .video_item(address)
                         .expect("resolved video inspector target must remain available"),
                     runtime,
+                    camera_models,
+                    self.default_text_font.as_ref(),
                 ))
             }
             _ => None,
@@ -416,7 +468,18 @@ impl InspectorController {
                 default_expression,
             },
             EditKind::Structural,
+            InspectorCommit::Immediate(INSPECTOR_EDIT_COMMIT),
         )
+    }
+
+    pub fn set_timeline_mode_with_commit(
+        &self,
+        target: &InspectorTarget,
+        path: &str,
+        change: TimelineModeChange<'_>,
+        commit: InspectorCommit<'_>,
+    ) -> Result<(), String> {
+        self.set_timeline_mode_with_kind(target, path, change, EditKind::Structural, commit)
     }
 
     fn set_timeline_mode_with_kind(
@@ -425,6 +488,7 @@ impl InspectorController {
         path: &str,
         change: TimelineModeChange<'_>,
         kind: EditKind,
+        commit: InspectorCommit<'_>,
     ) -> Result<(), String> {
         let local_time = if change.keyframes && change.enabled {
             let InspectorTarget::Item(address) = target else {
@@ -438,47 +502,27 @@ impl InspectorController {
         } else {
             Time::ZERO
         };
-        self.edit_value_if_changed_with_refresh(
+        self.edit_value_if_changed_with_refresh_and_commit(
             target,
             kind,
             false,
             crate::refresh::audio_path_change(target, path, kind),
+            commit,
             |root| {
-                let timeline = root
-                    .pointer_mut(path)
-                    .and_then(Value::as_object_mut)
-                    .ok_or_else(|| {
-                        format!("inspector timeline value is no longer available: {path}")
-                    })?;
+                let timeline = root.pointer_mut(path).ok_or_else(|| {
+                    format!("inspector timeline value is no longer available: {path}")
+                })?;
                 if change.keyframes {
-                    let base = timeline
-                        .get_mut("base")
-                        .and_then(Value::as_object_mut)
-                        .ok_or_else(|| "inspector timeline base is invalid".to_string())?;
-                    let currently_enabled = base.contains_key("keyframes");
-                    if currently_enabled == change.enabled {
-                        return Ok(false);
-                    }
-                    *base = if change.enabled {
-                        serde_json::json!({
-                            "keyframes": [{
-                                "id": uuid::Uuid::new_v4(),
-                                "time": local_time,
-                                "value": change.current,
-                                "interpolation_to_next": Interpolation::default(),
-                            }]
-                        })
-                        .as_object()
-                        .expect("timeline keyframe base must be an object")
-                        .clone()
-                    } else {
-                        serde_json::json!({ "const": change.current })
-                            .as_object()
-                            .expect("timeline constant base must be an object")
-                            .clone()
-                    };
-                    return Ok(true);
+                    return crate::keyframe_model::set_json_keyframes_enabled(
+                        timeline,
+                        local_time,
+                        change.current,
+                        change.enabled,
+                    );
                 }
+                let timeline = timeline.as_object_mut().ok_or_else(|| {
+                    format!("inspector timeline value is no longer available: {path}")
+                })?;
                 match timeline.get_mut("expression") {
                     Some(Value::Object(expression)) => {
                         let current = expression
@@ -522,7 +566,23 @@ impl InspectorController {
         path: &str,
         source: &str,
     ) -> Result<(), String> {
-        self.set_expression_source_with_kind(target, path, source, EditKind::Live)
+        self.set_expression_source_with_kind(
+            target,
+            path,
+            source,
+            EditKind::Live,
+            InspectorCommit::Coalesced(INSPECTOR_EDIT_COMMIT),
+        )
+    }
+
+    pub fn set_expression_source_with_commit(
+        &self,
+        target: &InspectorTarget,
+        path: &str,
+        source: &str,
+        commit: InspectorCommit<'_>,
+    ) -> Result<(), String> {
+        self.set_expression_source_with_kind(target, path, source, EditKind::Live, commit)
     }
 
     fn set_expression_source_with_kind(
@@ -531,14 +591,16 @@ impl InspectorController {
         path: &str,
         source: &str,
         kind: EditKind,
+        commit: InspectorCommit<'_>,
     ) -> Result<(), String> {
-        self.edit_value_if_changed_with_refresh(
+        self.edit_value_if_changed_with_refresh_and_commit(
             target,
             kind,
             false,
             (kind == EditKind::Live)
                 .then(|| crate::refresh::audio_scalar_expression_change(target))
                 .flatten(),
+            commit,
             |root| {
                 let expression = root
                     .pointer_mut(path)
@@ -560,7 +622,22 @@ impl InspectorController {
         path: &str,
         replacement: Value,
     ) -> Result<(), String> {
-        self.set_timeline_base_with_kind(target, path, replacement, EditKind::Live)
+        self.set_timeline_base_with_commit(
+            target,
+            path,
+            replacement,
+            InspectorCommit::Coalesced(INSPECTOR_EDIT_COMMIT),
+        )
+    }
+
+    pub fn set_timeline_base_with_commit(
+        &self,
+        target: &InspectorTarget,
+        path: &str,
+        replacement: Value,
+        commit: InspectorCommit<'_>,
+    ) -> Result<(), String> {
+        self.set_timeline_base_with_kind(target, path, replacement, EditKind::Live, commit)
     }
 
     fn set_timeline_base_with_kind(
@@ -569,6 +646,7 @@ impl InspectorController {
         path: &str,
         replacement: Value,
         kind: EditKind,
+        commit: InspectorCommit<'_>,
     ) -> Result<(), String> {
         let local_time = {
             let project = self.project.borrow();
@@ -595,11 +673,14 @@ impl InspectorController {
                 None
             }
         };
-        self.edit_value_if_changed_with_refresh(
+        let refresh = matches!(path, "/content/shape")
+            .then(|| crate::refresh::target_change(target, None, true));
+        self.edit_value_if_changed_with_refresh_and_commit(
             target,
             kind,
             false,
-            crate::refresh::audio_path_change(target, path, kind),
+            refresh.or_else(|| crate::refresh::audio_path_change(target, path, kind)),
+            commit,
             |root| {
                 let base = root
                     .pointer_mut(path)
@@ -776,8 +857,27 @@ impl InspectorController {
         timeline_id: Option<uuid::Uuid>,
     ) -> Result<f64, String> {
         let project = self.project.borrow();
-        if let (Some(timeline_id), InspectorTarget::Item(address @ ItemAddress::Video { .. })) =
-            (timeline_id, target)
+        if path.starts_with("/content/generator/")
+            && let (Some(timeline_id), InspectorTarget::Item(address @ ItemAddress::Video { .. })) =
+                (timeline_id, target)
+        {
+            let item = project
+                .video_item(address)
+                .ok_or_else(|| "video item is no longer available".to_string())?;
+            let local_time = target_runtime(&project, &self.player_state, target)
+                .local_time
+                .ok_or_else(|| "the current item time is not available".to_string())?;
+            if let Some(timeline) = crate::background::number_value(item, timeline_id) {
+                return Ok(f64::from(timeline.value_at(local_time)));
+            }
+            if let Some(timeline) = crate::background::integer_value(item, timeline_id) {
+                return Ok(f64::from(timeline.value_at(local_time)));
+            }
+            return Err(format!("background number is no longer available: {path}"));
+        }
+        if path.starts_with("/modifiers/")
+            && let (Some(timeline_id), InspectorTarget::Item(address @ ItemAddress::Video { .. })) =
+                (timeline_id, target)
         {
             let item = project
                 .video_item(address)
@@ -796,6 +896,11 @@ impl InspectorController {
             deserialize(value.pointer(path).cloned().ok_or_else(|| {
                 format!("inspector timeline value is no longer available: {path}")
             })?)?;
+        if timeline_id.is_some_and(|timeline_id| timeline.id != timeline_id) {
+            return Err(format!(
+                "inspector timeline value is no longer available: {path}"
+            ));
+        }
         let local_time = match target {
             InspectorTarget::Item(ItemAddress::Audio { .. }) => {
                 audio_modifier_evaluation_time(&project, &self.player_state, target)?
@@ -827,6 +932,24 @@ impl InspectorController {
         crate::visual_modifiers::visual_modifier_number(item, path, timeline_id)
             .map(|_| ())
             .ok_or_else(|| format!("visual modifier number is no longer available: {path}"))
+    }
+
+    pub fn ensure_visual_modifier_text(
+        &self,
+        target: &InspectorTarget,
+        path: &str,
+        timeline_id: uuid::Uuid,
+    ) -> Result<(), String> {
+        let project = self.project.borrow();
+        let InspectorTarget::Item(address @ ItemAddress::Video { .. }) = target else {
+            return Err("visual modifier text target is not a video item".to_string());
+        };
+        let item = project
+            .video_item(address)
+            .ok_or_else(|| "video item is no longer available".to_string())?;
+        crate::visual_modifiers::visual_modifier_text(item, path, timeline_id)
+            .map(|_| ())
+            .ok_or_else(|| format!("visual modifier text is no longer available: {path}"))
     }
 
     pub fn ensure_visual_modifier(
@@ -883,7 +1006,7 @@ impl InspectorController {
             .ok_or_else(|| format!("visual modifier vector is no longer available: {path}"))
     }
 
-    pub fn ensure_visual_modifier_timeline(
+    pub fn ensure_timeline(
         &self,
         target: &InspectorTarget,
         path: &str,
@@ -900,7 +1023,7 @@ impl InspectorController {
             .and_then(|id| uuid::Uuid::parse_str(id).ok());
         (current == Some(timeline_id))
             .then_some(())
-            .ok_or_else(|| format!("visual modifier timeline is no longer available: {path}"))
+            .ok_or_else(|| format!("inspector timeline is no longer available: {path}"))
     }
 
     pub fn timeline_vector2_value(
@@ -910,8 +1033,25 @@ impl InspectorController {
         timeline_id: Option<uuid::Uuid>,
     ) -> Result<glam::Vec2, String> {
         let project = self.project.borrow();
-        if let (Some(timeline_id), InspectorTarget::Item(address @ ItemAddress::Video { .. })) =
-            (timeline_id, target)
+        if path.starts_with("/content/generator/")
+            && let (Some(timeline_id), InspectorTarget::Item(address @ ItemAddress::Video { .. })) =
+                (timeline_id, target)
+        {
+            let item = project
+                .video_item(address)
+                .ok_or_else(|| "video item is no longer available".to_string())?;
+            let timeline = crate::background::vector_value(item, timeline_id)
+                .ok_or_else(|| format!("background vector is no longer available: {path}"))?;
+            let local_time = target_runtime(&project, &self.player_state, target)
+                .local_time
+                .ok_or_else(|| "the current item time is not available".to_string())?;
+            return Ok(crate::timeline_value::vector::vec2::value_at(
+                timeline, local_time,
+            ));
+        }
+        if path.starts_with("/modifiers/")
+            && let (Some(timeline_id), InspectorTarget::Item(address @ ItemAddress::Video { .. })) =
+                (timeline_id, target)
         {
             let item = project
                 .video_item(address)
@@ -924,7 +1064,9 @@ impl InspectorController {
             let local_time = target_runtime(&project, &self.player_state, target)
                 .local_time
                 .ok_or_else(|| "the current item time is not available".to_string())?;
-            return Ok(timeline.value_at(local_time));
+            return Ok(crate::timeline_value::vector::vec2::value_at(
+                timeline, local_time,
+            ));
         }
         let value = target_value(&project, target)
             .ok_or_else(|| "inspector target is no longer available".to_string())?
@@ -933,10 +1075,17 @@ impl InspectorController {
             deserialize(value.pointer(path).cloned().ok_or_else(|| {
                 format!("inspector timeline vector is no longer available: {path}")
             })?)?;
+        if timeline_id.is_some_and(|timeline_id| timeline.id != timeline_id) {
+            return Err(format!(
+                "inspector timeline vector is no longer available: {path}"
+            ));
+        }
         let local_time = target_runtime(&project, &self.player_state, target)
             .local_time
             .unwrap_or(Time::ZERO);
-        Ok(timeline.value_at(local_time))
+        Ok(crate::timeline_value::vector::vec2::value_at(
+            &timeline, local_time,
+        ))
     }
 
     pub fn timeline_vector3_value(
@@ -946,18 +1095,24 @@ impl InspectorController {
         timeline_id: uuid::Uuid,
     ) -> Result<glam::Vec3, String> {
         let project = self.project.borrow();
-        let InspectorTarget::Item(address @ ItemAddress::Video { .. }) = target else {
-            return Err("visual modifier vector target is not a video item".to_string());
-        };
-        let item = project
-            .video_item(address)
-            .ok_or_else(|| "video item is no longer available".to_string())?;
-        let timeline = crate::visual_modifiers::visual_modifier_vector3(item, path, timeline_id)
-            .ok_or_else(|| format!("visual modifier vector is no longer available: {path}"))?;
+        let value = target_value(&project, target)
+            .ok_or_else(|| "inspector target is no longer available".to_string())?
+            .1;
+        let timeline: shrimply_core::timeline_value::TimelineValue<glam::Vec3> =
+            deserialize(value.pointer(path).cloned().ok_or_else(|| {
+                format!("inspector timeline vector is no longer available: {path}")
+            })?)?;
+        if timeline.id != timeline_id {
+            return Err(format!(
+                "inspector timeline vector is no longer available: {path}"
+            ));
+        }
         let local_time = target_runtime(&project, &self.player_state, target)
             .local_time
             .ok_or_else(|| "the current item time is not available".to_string())?;
-        Ok(timeline.value_at(local_time))
+        Ok(crate::timeline_value::vector::vec3::value_at(
+            &timeline, local_time,
+        ))
     }
 
     pub fn visual_modifier_number_graph(
@@ -978,6 +1133,48 @@ impl InspectorController {
         let runtime = target_runtime(&project, &self.player_state, target);
         let current = timeline.value_at(runtime.local_time.unwrap_or(Time::ZERO));
         Ok(crate::transform::scalar_graph(timeline, current, runtime))
+    }
+
+    pub fn visual_modifier_text_graph(
+        &self,
+        target: &InspectorTarget,
+        path: &str,
+        timeline_id: uuid::Uuid,
+    ) -> Result<Option<crate::ScalarGraph>, String> {
+        let project = self.project.borrow();
+        let InspectorTarget::Item(address @ ItemAddress::Video { .. }) = target else {
+            return Err("visual modifier graph target is not a video item".to_string());
+        };
+        let item = project
+            .video_item(address)
+            .ok_or_else(|| "video item is no longer available".to_string())?;
+        let timeline = crate::visual_modifiers::visual_modifier_text(item, path, timeline_id)
+            .ok_or_else(|| format!("visual modifier text is no longer available: {path}"))?;
+        Ok(crate::timeline_text::speed_graph(
+            timeline,
+            target_runtime(&project, &self.player_state, target),
+        ))
+    }
+
+    pub(crate) fn generated_text_graph(
+        &self,
+        target: &InspectorTarget,
+        path: &str,
+        timeline_id: uuid::Uuid,
+    ) -> Result<Option<crate::ScalarGraph>, String> {
+        let project = self.project.borrow();
+        let InspectorTarget::Item(address @ ItemAddress::Video { .. }) = target else {
+            return Err("generated text graph target is not a video item".to_string());
+        };
+        let item = project
+            .video_item(address)
+            .ok_or_else(|| "video item is no longer available".to_string())?;
+        let timeline = crate::generated::text_value(item, path, timeline_id)
+            .ok_or_else(|| format!("generated text timeline is no longer available: {path}"))?;
+        Ok(crate::timeline_text::speed_graph(
+            timeline,
+            target_runtime(&project, &self.player_state, target),
+        ))
     }
 
     pub fn visual_modifier_vector2_graph(
@@ -1037,7 +1234,7 @@ impl InspectorController {
             .ok_or_else(|| "video item is no longer available".to_string())?;
         let timeline = crate::visual_modifiers::visual_modifier_color(item, path, timeline_id)
             .ok_or_else(|| format!("visual modifier color is no longer available: {path}"))?;
-        Ok(crate::visual_modifiers::color_speed_graph(
+        Ok(crate::timeline_color::speed_graph(
             timeline,
             target_runtime(&project, &self.player_state, target),
         ))
@@ -1079,6 +1276,151 @@ impl InspectorController {
             .ok_or_else(|| "video item is no longer available".to_string())?;
         let timeline = crate::visual_modifiers::halftone_mode(item, path, timeline_id)
             .ok_or_else(|| format!("halftone mode is no longer available: {path}"))?;
+        Ok(crate::selector::step_graph(
+            timeline,
+            target_runtime(&project, &self.player_state, target),
+        ))
+    }
+
+    pub fn mask_mode_graph(
+        &self,
+        target: &InspectorTarget,
+        path: &str,
+        modifier_id: uuid::Uuid,
+        timeline_id: uuid::Uuid,
+    ) -> Result<Option<crate::ScalarGraph>, String> {
+        let project = self.project.borrow();
+        let InspectorTarget::Item(address @ ItemAddress::Video { .. }) = target else {
+            return Err("visual modifier graph target is not a video item".to_string());
+        };
+        let item = project
+            .video_item(address)
+            .ok_or_else(|| "video item is no longer available".to_string())?;
+        if !crate::visual_modifiers::visual_modifier_matches(item, path, modifier_id) {
+            return Err("mask modifier is no longer available".to_string());
+        }
+        let timeline = crate::visual_modifiers::mask_mode(item, path, timeline_id)
+            .ok_or_else(|| format!("mask mode is no longer available: {path}"))?;
+        Ok(crate::selector::step_graph(
+            timeline,
+            target_runtime(&project, &self.player_state, target),
+        ))
+    }
+
+    pub fn kuwahara_version_graph(
+        &self,
+        target: &InspectorTarget,
+        path: &str,
+        timeline_id: uuid::Uuid,
+    ) -> Result<Option<crate::ScalarGraph>, String> {
+        let project = self.project.borrow();
+        let InspectorTarget::Item(address @ ItemAddress::Video { .. }) = target else {
+            return Err("visual modifier graph target is not a video item".to_string());
+        };
+        let item = project
+            .video_item(address)
+            .ok_or_else(|| "video item is no longer available".to_string())?;
+        let timeline = crate::visual_modifiers::kuwahara_version_timeline(item, path, timeline_id)
+            .ok_or_else(|| format!("Kuwahara version is no longer available: {path}"))?;
+        Ok(crate::selector::step_graph(
+            timeline,
+            target_runtime(&project, &self.player_state, target),
+        ))
+    }
+
+    pub fn rasterize_sample_method_graph(
+        &self,
+        target: &InspectorTarget,
+        path: &str,
+        timeline_id: uuid::Uuid,
+    ) -> Result<Option<crate::ScalarGraph>, String> {
+        let project = self.project.borrow();
+        let InspectorTarget::Item(address @ ItemAddress::Video { .. }) = target else {
+            return Err("visual modifier graph target is not a video item".to_string());
+        };
+        let item = project
+            .video_item(address)
+            .ok_or_else(|| "video item is no longer available".to_string())?;
+        let timeline =
+            crate::visual_modifiers::rasterize_sample_method_timeline(item, path, timeline_id)
+                .ok_or_else(|| format!("Rasterize sample method is no longer available: {path}"))?;
+        Ok(crate::selector::step_graph(
+            timeline,
+            target_runtime(&project, &self.player_state, target),
+        ))
+    }
+
+    pub fn sampling_method_graph(
+        &self,
+        target: &InspectorTarget,
+        path: &str,
+        modifier_id: uuid::Uuid,
+        timeline_id: uuid::Uuid,
+    ) -> Result<Option<crate::ScalarGraph>, String> {
+        let project = self.project.borrow();
+        let InspectorTarget::Item(address @ ItemAddress::Video { .. }) = target else {
+            return Err("visual modifier graph target is not a video item".to_string());
+        };
+        let item = project
+            .video_item(address)
+            .ok_or_else(|| "video item is no longer available".to_string())?;
+        if !crate::visual_modifiers::visual_modifier_matches(item, path, modifier_id) {
+            return Err("Sampling modifier is no longer available".to_string());
+        }
+        let timeline = crate::visual_modifiers::sampling_method_timeline(item, path, timeline_id)
+            .ok_or_else(|| format!("Sampling method is no longer available: {path}"))?;
+        Ok(crate::selector::step_graph(
+            timeline,
+            target_runtime(&project, &self.player_state, target),
+        ))
+    }
+
+    pub fn texture_bounds_address_mode_graph(
+        &self,
+        target: &InspectorTarget,
+        path: &str,
+        modifier_id: uuid::Uuid,
+        timeline_id: uuid::Uuid,
+    ) -> Result<Option<crate::ScalarGraph>, String> {
+        let project = self.project.borrow();
+        let InspectorTarget::Item(address @ ItemAddress::Video { .. }) = target else {
+            return Err("visual modifier graph target is not a video item".to_string());
+        };
+        let item = project
+            .video_item(address)
+            .ok_or_else(|| "video item is no longer available".to_string())?;
+        if !crate::visual_modifiers::visual_modifier_matches(item, path, modifier_id) {
+            return Err("Texture bounds modifier is no longer available".to_string());
+        }
+        let timeline =
+            crate::visual_modifiers::texture_bounds_address_mode_timeline(item, path, timeline_id)
+                .ok_or_else(|| format!("Texture addressing is no longer available: {path}"))?;
+        Ok(crate::selector::step_graph(
+            timeline,
+            target_runtime(&project, &self.player_state, target),
+        ))
+    }
+
+    pub fn repeat_offset_axis_graph(
+        &self,
+        target: &InspectorTarget,
+        path: &str,
+        modifier_id: uuid::Uuid,
+        timeline_id: uuid::Uuid,
+    ) -> Result<Option<crate::ScalarGraph>, String> {
+        let project = self.project.borrow();
+        let InspectorTarget::Item(address @ ItemAddress::Video { .. }) = target else {
+            return Err("visual modifier graph target is not a video item".to_string());
+        };
+        let item = project
+            .video_item(address)
+            .ok_or_else(|| "video item is no longer available".to_string())?;
+        if !crate::visual_modifiers::visual_modifier_matches(item, path, modifier_id) {
+            return Err("Repeat modifier is no longer available".to_string());
+        }
+        let timeline =
+            crate::visual_modifiers::repeat_offset_axis_timeline(item, path, timeline_id)
+                .ok_or_else(|| format!("Repeat offset axis is no longer available: {path}"))?;
         Ok(crate::selector::step_graph(
             timeline,
             target_runtime(&project, &self.player_state, target),
@@ -1217,12 +1559,7 @@ impl InspectorController {
         let keyframe_time = audio_modifier_time(&project, &self.player_state, target)?;
         let value = audio_modifier_number_mut(&mut project, target, modifier_id, value_id)?;
         let current = value.value_at(evaluation_time);
-        if !shrimply_core::timeline_value::set_keyframes_enabled(
-            value,
-            keyframe_time,
-            current,
-            enabled,
-        ) {
+        if !crate::keyframe_model::set_keyframes_enabled(value, keyframe_time, current, enabled) {
             return Ok(());
         }
         shrimply_project::project::commit_edit(&project, "audio-modifier-value");
@@ -1249,6 +1586,7 @@ impl InspectorController {
                 default_expression,
             },
             EditKind::AudioModifierStructural,
+            InspectorCommit::Immediate(INSPECTOR_EDIT_COMMIT),
         )
     }
 
@@ -1264,6 +1602,7 @@ impl InspectorController {
             &self.audio_modifier_path(target, id, path)?,
             source,
             EditKind::AudioModifierLive,
+            InspectorCommit::Coalesced(INSPECTOR_EDIT_COMMIT),
         )
     }
 
@@ -1278,7 +1617,13 @@ impl InspectorController {
         let time = audio_modifier_keyframe_time(&project, target, change.time)?;
         let next = (change.displayed_value * change.store_multiplier) as f32;
         let value = audio_modifier_number_mut(&mut project, target, modifier_id, value_id)?;
-        if !crate::keyframe_model::update_scalar_keyframe(value, change.old_time, time, next) {
+        if !crate::timeline_value::scalar::move_stored_keyframe(
+            value,
+            change.old_time,
+            time,
+            next,
+            crate::NumberConstraint::default(),
+        ) {
             return Ok(());
         }
         shrimply_project::project::commit_coalesced_edit(&project, "audio-modifier-keyframe");
@@ -1319,7 +1664,11 @@ impl InspectorController {
         let mut project = self.project.borrow_mut();
         let time = audio_modifier_keyframe_time(&project, target, time)?;
         let value = audio_modifier_number_mut(&mut project, target, modifier_id, value_id)?;
-        if !crate::keyframe_model::add_scalar_keyframe(value, time) {
+        if !crate::timeline_value::scalar::add_keyframe(
+            value,
+            time,
+            crate::NumberConstraint::default().into(),
+        ) {
             return Ok(());
         }
         shrimply_project::project::commit_edit(&project, "audio-modifier-keyframe");
@@ -1336,10 +1685,7 @@ impl InspectorController {
         owner_id: uuid::Uuid,
         interpolation_index: usize,
     ) -> Result<(), String> {
-        let interpolation = Interpolation::KEYFRAME
-            .get(interpolation_index)
-            .copied()
-            .ok_or_else(|| "audio modifier keyframe interpolation is invalid".to_string())?;
+        let interpolation = crate::keyframe_model::interpolation(interpolation_index)?;
         let mut project = self.project.borrow_mut();
         let value = audio_modifier_number_mut(&mut project, target, modifier_id, value_id)?;
         if !crate::keyframe_model::set_scalar_interpolation(value, owner_id, interpolation) {
@@ -1383,26 +1729,14 @@ impl InspectorController {
             return Ok(0);
         };
         let address = audio_item_address(target)?;
-        let timeline_times = clipboard
-            .times
-            .iter()
-            .map(|time| {
-                project
-                    .keyframe_timeline_time(address, *time)
-                    .unwrap_or(*time)
-                    .snapped(project.frame_step())
-            })
-            .collect::<Vec<_>>();
-        let Some(origin) = timeline_times.first().copied() else {
+        if !crate::keyframe_model::normalize_clipboard_times(
+            &project,
+            Some(address),
+            &mut clipboard,
+        ) {
             self.keyframe_clipboard.replace(None);
             return Ok(0);
-        };
-        clipboard.times = timeline_times
-            .into_iter()
-            .map(|time| Time {
-                seconds: time.seconds - origin.seconds,
-            })
-            .collect();
+        }
         let count = clipboard.len();
         self.keyframe_clipboard.replace(Some(clipboard));
         Ok(count)
@@ -1420,25 +1754,11 @@ impl InspectorController {
         };
         let mut project = self.project.borrow_mut();
         let address = audio_item_address(target)?;
-        let anchor = project
-            .keyframe_timeline_time(address, time)
-            .unwrap_or(time)
-            .snapped(project.frame_step());
-        let times = clipboard
-            .times
-            .iter()
-            .filter_map(|offset| {
-                project.keyframe_time(
-                    address,
-                    Time {
-                        seconds: anchor.seconds + offset.seconds,
-                    },
-                )
-            })
-            .collect::<Vec<_>>();
-        if times.len() != clipboard.len() {
+        let Some(times) =
+            crate::keyframe_model::clipboard_paste_times(&project, Some(address), &clipboard, time)
+        else {
             return Err("audio modifier keyframes cannot be pasted at this time".to_string());
-        }
+        };
         let value = audio_modifier_number_mut(&mut project, target, modifier_id, value_id)?;
         let Some(pasted) = crate::keyframe_model::paste_keyframes(value, &clipboard, &times) else {
             return Ok(0);
@@ -1816,6 +2136,31 @@ impl InspectorController {
         refresh: Option<player_state::ProjectChange>,
         edit: impl FnOnce(&mut Value) -> Result<bool, String>,
     ) -> Result<(), String> {
+        self.edit_value_if_changed_with_refresh_and_commit(
+            target,
+            kind,
+            affects_duration,
+            refresh,
+            default_commit(kind),
+            edit,
+        )
+    }
+
+    pub(crate) fn edit_value_if_changed_with_refresh_and_commit(
+        &self,
+        target: &InspectorTarget,
+        kind: EditKind,
+        affects_duration: bool,
+        refresh: Option<player_state::ProjectChange>,
+        commit: InspectorCommit<'_>,
+        edit: impl FnOnce(&mut Value) -> Result<bool, String>,
+    ) -> Result<(), String> {
+        if matches!(
+            commit,
+            InspectorCommit::Coalesced("") | InspectorCommit::Immediate("")
+        ) {
+            return Err("inspector edit has no commit name".to_string());
+        }
         let mut project = self.project.borrow_mut();
         let mut value = target_value(&project, target)
             .ok_or_else(|| "inspector target is no longer available".to_string())?
@@ -1823,6 +2168,13 @@ impl InspectorController {
         let original = value.clone();
         if !edit(&mut value)? {
             return Ok(());
+        }
+        if matches!(
+            target,
+            InspectorTarget::Item(address)
+                if project.video_item(address).is_some_and(|item| matches!(item.content, VideoItemContent::Paint(_)))
+        ) {
+            crate::paint::bump_serialized_revision(&mut value)?;
         }
         replace_target(&mut project, target, value)?;
         if kind == EditKind::Asset
@@ -1835,14 +2187,15 @@ impl InspectorController {
                 .expect("restoring the previous inspector assets must succeed");
             return Err(format!("could not refresh edited project assets: {error}"));
         }
-        match kind {
-            EditKind::Live | EditKind::AudioModifierLive => {
-                shrimply_project::project::commit_coalesced_edit(&project, "qt-inspector-edit")
+        match commit {
+            InspectorCommit::Deferred => {}
+            InspectorCommit::Coalesced(name) => {
+                shrimply_project::project::commit_coalesced_edit(&project, name);
             }
-            EditKind::Structural | EditKind::Asset | EditKind::AudioModifierStructural => {
-                shrimply_project::project::commit_edit(&project, "qt-inspector-edit")
+            InspectorCommit::Immediate(name) => {
+                shrimply_project::project::commit_edit(&project, name);
             }
-        };
+        }
         let duration = affects_duration.then(|| project.duration());
         let mut change = refresh.unwrap_or_else(|| match kind {
             EditKind::AudioModifierLive => player_state::ProjectChange {
@@ -1880,6 +2233,17 @@ pub(crate) enum EditKind {
     Asset,
     AudioModifierLive,
     AudioModifierStructural,
+}
+
+pub(crate) fn default_commit(kind: EditKind) -> InspectorCommit<'static> {
+    match kind {
+        EditKind::Live | EditKind::AudioModifierLive => {
+            InspectorCommit::Coalesced(INSPECTOR_EDIT_COMMIT)
+        }
+        EditKind::Structural | EditKind::Asset | EditKind::AudioModifierStructural => {
+            InspectorCommit::Immediate(INSPECTOR_EDIT_COMMIT)
+        }
+    }
 }
 
 fn target_details(
@@ -2044,10 +2408,7 @@ pub(crate) fn target_runtime(
     let keyframe_range =
         address.and_then(|address| crate::target::keyframe_range(project, address));
     let duration = keyframe_range.map(|(start, end)| end.saturating_sub(start));
-    let frame_step = address
-        .and_then(|address| project.keyframe_step(address))
-        .filter(|step| *step > Time::ZERO)
-        .unwrap_or_else(|| project.frame_step());
+    let frame_step = crate::keyframe_model::project_frame_step(project, address);
     let keyframe_playhead =
         address.and_then(|address| project.keyframe_time(address, snapshot.position));
     InspectorRuntime {

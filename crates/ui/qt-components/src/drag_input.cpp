@@ -11,6 +11,7 @@
 #include <QtGui/qguiapplication_platform.h>
 #include <QtQml/qqml.h>
 
+#include <algorithm>
 #include <cmath>
 
 extern "C" bool shrimply_qt_number_begin_pointer_lock(void *display, void *surface,
@@ -72,6 +73,12 @@ public:
     explicit CodeSyntaxHighlighter(QTextDocument *document)
         : QSyntaxHighlighter(static_cast<QObject *>(nullptr)) {
         setDocument(document);
+    }
+
+    void setDiagnostic(int line, int column) {
+        diagnostic_line_ = line;
+        diagnostic_column_ = column;
+        rehighlight();
     }
 
 protected:
@@ -182,9 +189,30 @@ protected:
             }
             ++offset;
         }
+
+        if (diagnostic_line_ >= 0
+            && (diagnostic_line_ == 0
+                || diagnostic_line_ == currentBlock().blockNumber() + 1)) {
+            const qsizetype start = diagnostic_line_ == 0
+                                       ? 0
+                                       : std::clamp<qsizetype>(diagnostic_column_ - 1, 0,
+                                                               std::max<qsizetype>(0, text.size() - 1));
+            const qsizetype length = diagnostic_line_ == 0
+                                         ? text.size()
+                                         : std::min<qsizetype>(1, text.size());
+            if (length > 0) {
+                QTextCharFormat diagnostic = format(start);
+                diagnostic.setUnderlineStyle(QTextCharFormat::SpellCheckUnderline);
+                diagnostic.setUnderlineColor(QColor(255, 115, 107));
+                setFormat(start, length, diagnostic);
+            }
+        }
     }
 
 private:
+    int diagnostic_line_ = -1;
+    int diagnostic_column_ = -1;
+
     static const QSet<QString> &keywords() {
         static const QSet<QString> words = {
             "break", "const", "continue", "else", "export", "false", "fn",
@@ -368,10 +396,37 @@ void CodeHighlighter::setDocument(QQuickTextDocument *document) {
     emit documentChanged();
 }
 
+int CodeHighlighter::diagnosticLine() const { return diagnostic_line_; }
+
+void CodeHighlighter::setDiagnosticLine(int line) {
+    if (diagnostic_line_ == line) {
+        return;
+    }
+    diagnostic_line_ = line;
+    if (highlighter_) {
+        highlighter_->setDiagnostic(diagnostic_line_, diagnostic_column_);
+    }
+    emit diagnosticChanged();
+}
+
+int CodeHighlighter::diagnosticColumn() const { return diagnostic_column_; }
+
+void CodeHighlighter::setDiagnosticColumn(int column) {
+    if (diagnostic_column_ == column) {
+        return;
+    }
+    diagnostic_column_ = column;
+    if (highlighter_) {
+        highlighter_->setDiagnostic(diagnostic_line_, diagnostic_column_);
+    }
+    emit diagnosticChanged();
+}
+
 void CodeHighlighter::rebuild() {
     highlighter_.reset();
     if (document_ && document_->textDocument()) {
         highlighter_ = std::make_unique<CodeSyntaxHighlighter>(document_->textDocument());
+        highlighter_->setDiagnostic(diagnostic_line_, diagnostic_column_);
     }
 }
 

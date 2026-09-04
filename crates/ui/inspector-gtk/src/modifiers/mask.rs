@@ -1,169 +1,120 @@
 use gtk::prelude::*;
+use shrimply_core::timeline_value::TimelineStep;
 use shrimply_gtk_components::tr;
-use shrimply_project::project::Project;
-use shrimply_video_modifiers::{ModifierEffect, RasterModifierEffect, mask::MaskModifier};
+use shrimply_inspector_core::{
+    ControlKind, InspectorControlAction, InspectorTarget,
+    visual_modifiers::{MASK_MODE_COMMIT, mask_mode_value, mask_mode_value_mut},
+};
+use shrimply_video_modifiers::mask::{MaskMode, MaskModifier};
 use uuid::Uuid;
 
-use crate::{
-    InspectorContext,
-    player_state::{self, ProjectChange},
-};
+use crate::InspectorContext;
 use shrimply_gtk_components::ui::{control_row, switch_row};
 
 pub fn add_rows(value: &MaskModifier, out: &gtk::Box, id: Uuid, context: &InspectorContext) {
-    let source = gtk::Box::new(gtk::Orientation::Horizontal, 4);
-    let item_label = if value.item_id.is_some() {
-        mask_item_label(
-            &context.project.borrow(),
-            context.selected_item.as_ref(),
-            value.item_id,
-        )
-    } else {
-        tr!("Drag onto a visual clip…").into_owned()
+    let Some(key) = context.selected_item.clone() else {
+        return;
     };
+    let section = context
+        .inspector_core
+        .mask_presentation(&InspectorTarget::Item(key), id)
+        .expect("live Mask modifier must have a shared presentation");
+    let [source_control, mode_control, invert_control] = section
+        .controls
+        .try_into()
+        .expect("Mask presentation must contain exactly three controls");
+
+    assert_eq!(source_control.kind, ControlKind::Action);
+    assert_eq!(source_control.target_id, Some(id));
+    assert_eq!(source_control.drag_payload, id.to_string());
+    assert_eq!(source_control.action.is_some(), value.item_id.is_some());
+    let source = gtk::Box::new(gtk::Orientation::Horizontal, 4);
     let pick = gtk::Button::builder()
-        .label(&item_label)
-        .tooltip_text(tr!("Drag onto a visual clip in the timeline").as_ref())
+        .label(&source_control.value)
+        .tooltip_text(tr!(&source_control.tooltip).as_ref())
         .hexpand(true)
         .build();
+    let drag_payload = source_control.drag_payload;
     let drag = gtk::DragSource::builder()
         .actions(gtk::gdk::DragAction::COPY)
         .build();
     drag.connect_prepare(move |_, _, _| {
         Some(gtk::gdk::ContentProvider::for_value(
-            &gtk::glib::Bytes::from_owned(id.to_string().into_bytes()).to_value(),
+            &gtk::glib::Bytes::from_owned(drag_payload.clone().into_bytes()).to_value(),
         ))
     });
     pick.add_controller(drag);
     source.append(&pick);
     let clear = gtk::Button::builder()
-        .icon_name("edit-clear-symbolic")
-        .tooltip_text(tr!("Clear mask source").as_ref())
-        .sensitive(value.item_id.is_some())
+        .icon_name(&source_control.action_icon)
+        .tooltip_text(tr!(&source_control.action_tooltip).as_ref())
+        .sensitive(source_control.action.is_some())
         .build();
+    if let Some(InspectorControlAction::ClearMaskSource { modifier_id }) = source_control.action {
+        assert_eq!(modifier_id, id);
+    }
     clear.connect_clicked({
-        let project = context.project.clone();
-        let player = context.player_state.clone();
+        let controller = context.inspector_core.clone();
         let key = context.selected_item.clone();
         move |_| {
-            let Some(key) = &key else {
+            let Some(key) = key.clone() else {
                 return;
             };
-            update_mask(&project, key, id, |mask| mask.item_id = None);
-            player_state::refresh_project(
-                &player,
-                ProjectChange {
-                    video: true,
-                    inspector: true,
-                    ..Default::default()
-                },
-            );
+            if let Err(error) = controller.clear_mask_source(&InspectorTarget::Item(key), id) {
+                tracing::error!(%error, "Could not clear GTK mask source");
+            }
         }
     });
     source.append(&clear);
-    out.append(&control_row("Source", &source));
+    out.append(&control_row(&source_control.label, &source));
 
-    out.append(&super::step_row(
-        "Mode",
+    out.append(&super::shared_step_row(
+        &mode_control,
+        "mode",
         &value.mode,
         id,
         context,
-        "edit-mask-mode",
-        |modifier| match modifier {
-            ModifierEffect::Raster(effect) => match &**effect {
-                RasterModifierEffect::Mask(effect) => Some(&effect.mode),
-                _ => None,
-            },
-            _ => None,
-        },
-        |modifier| match modifier {
-            ModifierEffect::Raster(effect) => match &mut **effect {
-                RasterModifierEffect::Mask(effect) => Some(&mut effect.mode),
-                _ => None,
-            },
-            _ => None,
-        },
+        MASK_MODE_COMMIT,
+        mask_mode_value,
+        mask_mode_value_mut,
     ));
+    assert_eq!(
+        mode_control.values,
+        MaskMode::variants()
+            .iter()
+            .map(|variant| variant.key.to_string())
+            .collect::<Vec<_>>(),
+    );
+    assert_eq!(
+        mode_control.labels,
+        MaskMode::variants()
+            .iter()
+            .map(|variant| variant.label.to_string())
+            .collect::<Vec<_>>(),
+    );
+    assert!(mode_control.icons.is_empty());
 
-    out.append(&switch_row("Invert", None, value.invert, {
-        let project = context.project.clone();
-        let player = context.player_state.clone();
+    assert_eq!(invert_control.kind, ControlKind::Boolean);
+    assert!(
+        invert_control
+            .path
+            .ends_with("/effect/effect/config/invert")
+    );
+    assert_eq!(invert_control.target_id, Some(id));
+    assert_eq!(invert_control.value, value.invert.to_string());
+    assert_eq!(invert_control.commit_name, "edit-mask");
+    out.append(&switch_row(&invert_control.label, None, value.invert, {
+        let controller = context.inspector_core.clone();
         let key = context.selected_item.clone();
         move |invert| {
-            let Some(key) = &key else {
+            let Some(key) = key.clone() else {
                 return;
             };
-            update_mask(&project, key, id, |mask| mask.invert = invert);
-            player_state::refresh_project(
-                &player,
-                ProjectChange {
-                    video: true,
-                    ..Default::default()
-                },
-            );
+            if let Err(error) =
+                controller.set_mask_inverted(&InspectorTarget::Item(key), id, invert)
+            {
+                tracing::error!(%error, "Could not update GTK mask inversion");
+            }
         }
     }));
-}
-
-fn update_mask(
-    project: &std::rc::Rc<std::cell::RefCell<Project>>,
-    key: &shrimply_project::project::ItemAddress,
-    id: Uuid,
-    update: impl FnOnce(&mut MaskModifier),
-) {
-    let mut project = project.borrow_mut();
-    let Some(item) = project.video_item_mut(key) else {
-        return;
-    };
-    let Some(mask) = item
-        .modifiers
-        .iter_mut()
-        .find(|modifier| modifier.id == id)
-        .and_then(|modifier| match &mut modifier.effect {
-            ModifierEffect::Raster(effect) => match &mut **effect {
-                RasterModifierEffect::Mask(mask) => Some(mask),
-                _ => None,
-            },
-            _ => None,
-        })
-    else {
-        return;
-    };
-    update(mask);
-    shrimply_project::project::commit_edit(&project, "edit-mask");
-}
-
-fn mask_item_label(
-    project: &Project,
-    selected_item: Option<&shrimply_project::project::ItemAddress>,
-    id: Option<Uuid>,
-) -> String {
-    let Some(id) = id else {
-        return "Choose item…".to_string();
-    };
-    let Some(sequence_path) = selected_item.map(|item| item.sequence_path()) else {
-        return "Missing item".to_string();
-    };
-    let Some(tracks) = project.video_tracks_for_path(sequence_path) else {
-        return "Missing item".to_string();
-    };
-    tracks
-        .iter()
-        .enumerate()
-        .find_map(|(track_index, track)| {
-            track
-                .items
-                .iter()
-                .position(|item| item.id == id)
-                .map(|item_index| {
-                    shrimply_gtk_components::i18n::text_args(
-                        "Track %{track} · Item %{item}",
-                        &[
-                            ("track", (track_index + 1).to_string()),
-                            ("item", (item_index + 1).to_string()),
-                        ],
-                    )
-                })
-        })
-        .unwrap_or_else(|| "Missing item".to_string())
 }

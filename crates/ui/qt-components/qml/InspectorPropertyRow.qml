@@ -9,6 +9,7 @@ ControlRow {
     property bool keyframeAvailable: true
     property bool expressionAvailable: true
     default property alias editor: holder.data
+    property alias trailing: trailingControls.data
     signal keyframesToggled(bool enabled)
     signal expressionToggled(bool enabled)
 
@@ -47,6 +48,11 @@ ControlRow {
             ToolTip.visible: hovered
             ToolTip.text: qsTr("Expression")
             onClicked: root.expressionToggled(checked)
+        }
+        RowLayout {
+            id: trailingControls
+            visible: children.length > 0
+            spacing: 6
         }
     }
 }

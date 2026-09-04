@@ -13,7 +13,7 @@ Frame {
 
     LivePerformanceBackend { id: backend }
     Timer {
-        interval: 500
+        interval: backend.refreshInterval()
         repeat: true
         running: root.visible && root.expanded
         triggeredOnStart: true
@@ -55,6 +55,19 @@ Frame {
                     Layout.fillWidth: true
                 }
                 ToolButton {
+                    icon.source: "qrc:/qt/qml/dev/shrimply/components/icons/clear.svg"
+                    icon.color: palette.buttonText
+                    display: AbstractButton.IconOnly
+                    background: Item {}
+                    ToolTip.visible: hovered
+                    ToolTip.text: ComponentTranslations.text("Clear")
+                    onClicked: {
+                        backend.clear()
+                        if (root.expanded)
+                            backend.refresh()
+                    }
+                }
+                ToolButton {
                     icon.source: "qrc:/qt/qml/dev/shrimply/components/icons/copy.svg"
                     icon.color: palette.buttonText
                     display: AbstractButton.IconOnly
@@ -66,19 +79,6 @@ Frame {
                         clipboard.selectAll()
                         clipboard.copy()
                         clipboard.deselect()
-                    }
-                }
-                ToolButton {
-                    icon.source: "qrc:/qt/qml/dev/shrimply/components/icons/clear.svg"
-                    icon.color: palette.buttonText
-                    display: AbstractButton.IconOnly
-                    background: Item {}
-                    ToolTip.visible: hovered
-                    ToolTip.text: ComponentTranslations.text("Clear")
-                    onClicked: {
-                        backend.clear()
-                        if (root.expanded)
-                            backend.refresh()
                     }
                 }
                 ToolButton {

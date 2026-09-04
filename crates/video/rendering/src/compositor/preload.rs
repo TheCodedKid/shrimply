@@ -456,15 +456,28 @@ impl FrameItemRenderer<'_> {
         let Some(preload) = preload_for(item) else {
             return;
         };
+        let cache_item = self.cache_item.as_ref().is_some_and(|address| {
+            address.sequence_path() == self.sequence_path
+                && address.track_id() == track_id
+                && address.item_id() == item.id
+        });
         preload.prepare(
             PreloadRequest {
                 sequence_path: &self.sequence_path,
                 track_id,
-                position: crate::modifiers::transparent_fill::render_position(
-                    self.project,
-                    item,
-                    self.position,
-                ),
+                position: if cache_item && self.snap_cache_item {
+                    crate::modifiers::transparent_fill::snapped_transparent_fill_position(
+                        self.project,
+                        item,
+                        self.position,
+                    )
+                } else {
+                    crate::modifiers::transparent_fill::render_position(
+                        self.project,
+                        item,
+                        self.position,
+                    )
+                },
                 canvas_size: self.project.canvas_size,
                 accuracy: self.mode.accuracy(),
                 decode_control: self.decode_control,

@@ -2,15 +2,13 @@ use shrimply_gtk_components::tr;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use num_traits::ToPrimitive;
-
 use super::{LayeredSections, layered_control};
 use crate::InspectedItem as SelectedItem;
-use crate::keyframe_editor::{self, KeyframeEditorActions, KeyframeGraph, SpeedSegment};
+use crate::keyframe_editor::{self, KeyframeEditorActions};
 use crate::player_state::{self, ProjectChange, SharedPlayerState};
 use crate::timeline_value::*;
 use crate::{InspectorContext, keyframe_model};
-use shrimply_gtk_components::ui::ColorPicker;
+use shrimply_gtk_components::ui::{ColorPicker, WeakColorPickerHandle};
 use shrimply_project::project::Time;
 use shrimply_project::project::{Color, Project};
 use uuid::Uuid;
@@ -20,17 +18,26 @@ pub(crate) type ColorGetMut = for<'a> fn(
     SelectedItem,
 )
     -> Option<&'a mut TimelineValue<shrimply_core::Color<u8>>>;
-pub(crate) type SceneColorGetMut = for<'a> fn(
-    &'a mut shrimply_scene_3d::ObjScene,
-) -> &'a mut TimelineValue<shrimply_core::Color<u8>>;
 
 #[derive(Clone, Copy)]
 pub(crate) enum ColorAccess {
-    Item(ColorGetMut),
-    Scene3d(SceneColorGetMut),
-    Modifier { id: Uuid, value_id: Uuid },
-    Background { value_id: Uuid },
-    PaintPalette { value_id: Uuid },
+    ItemScoped {
+        get_mut: ColorGetMut,
+        value_id: Uuid,
+    },
+    Scene3dScoped {
+        value_id: Uuid,
+    },
+    Modifier {
+        id: Uuid,
+        value_id: Uuid,
+    },
+    Background {
+        value_id: Uuid,
+    },
+    PaintPalette {
+        value_id: Uuid,
+    },
 }
 impl ColorAccess {
     fn get_mut(
@@ -39,8 +46,11 @@ impl ColorAccess {
         k: SelectedItem,
     ) -> Option<&mut TimelineValue<shrimply_core::Color<u8>>> {
         match self {
-            Self::Item(get) => get(p, k.clone()),
-            Self::Scene3d(get) => scene_3d(p, k.clone()).map(get),
+            Self::ItemScoped { get_mut, value_id } => {
+                get_mut(p, k.clone()).filter(|value| value.id == value_id)
+            }
+            Self::Scene3dScoped { value_id } => scene_3d(p, k.clone())
+                .and_then(|scene| shrimply_inspector_core::scene_3d::color_mut(scene, value_id)),
             Self::Modifier { id, value_id } => crate::modifiers::color_mut(
                 &mut p
                     .video_item_mut(&k)?
@@ -104,7 +114,9 @@ pub(crate) fn color_control(
     context: &InspectorContext,
     target: ColorTarget,
 ) -> gtk::Widget {
-    let color = current_color(value, current_time(context, target));
+    let timeline_id = value.id;
+    let color =
+        shrimply_inspector_core::timeline_color::value_at(value, current_time(context, target));
     let Some(key) = context.selected_item.clone() else {
         let button = ColorPicker::builder(color)
             .title(tr!(label).as_ref())
@@ -123,15 +135,30 @@ pub(crate) fn color_control(
     let player_state = context.player_state.clone();
     let refresh = context.refresh.clone();
     let button_key = key.clone();
-    let button = ColorPicker::builder(color)
+    let picker = ColorPicker::builder(color)
         .title(tr!(label).as_ref())
         .hexpand(true)
         .on_change(move |color| {
-            if update_color(&project, &player_state, button_key.clone(), target, color) {
+            if update_color(
+                &project,
+                &player_state,
+                button_key.clone(),
+                target,
+                timeline_id,
+                color,
+            ) {
                 refresh();
             }
         })
-        .build();
+        .build_with_handle();
+    let button = picker.widget;
+    connect_color_display(
+        context,
+        key.clone(),
+        target,
+        timeline_id,
+        picker.handle.downgrade(),
+    );
     let keyframes = matches!(value.base, TimelineBase::Keyframes(_));
     let expression = value.expression.as_ref().is_some_and(|v| v.enabled);
     let mut sections = LayeredSections::default();
@@ -142,10 +169,10 @@ pub(crate) fn color_control(
         };
         let built = keyframe_editor::build(
             context,
-            color_speed_graph(value),
+            shrimply_inspector_core::timeline_color::keyframe_graph(value),
             (Time::ZERO, duration),
             format!("color:{}:{:?}:{label}", target.commit_name, target.scope_id),
-            keyframe_actions(context, key.clone(), target),
+            keyframe_actions(context, key.clone(), target, timeline_id),
         );
         let project = context.project.clone();
         let graph_key = key.clone();
@@ -154,26 +181,21 @@ pub(crate) fn color_control(
             "inspector color keyframe graph refresh",
             &built,
             move || {
-                let mut project = project.borrow_mut();
-                target
-                    .access
-                    .get_mut(&mut project, graph_key.clone())
-                    .map(|value| color_speed_graph(value))
+                let project = project.borrow();
+                let value = project.video_item(&graph_key).and_then(|item| {
+                    shrimply_inspector_core::timeline_color::video_value(item, timeline_id)
+                })?;
+                shrimply_inspector_core::timeline_color::validate_timeline(value, timeline_id)
+                    .ok()?;
+                Some(shrimply_inspector_core::timeline_color::keyframe_graph(
+                    value,
+                ))
             },
         );
         sections.set_keyframe(built.widget);
     }
     if expression {
-        let project = context.project.clone();
-        let player = context.player_state.clone();
-        let expression_key = key.clone();
-        sections.push_expression(crate::rhai_editor::editor(
-            value.expression_source().map(str::to_string),
-            crate::rhai_editor::ExpressionValue::Color,
-            move |source| {
-                update_expression(&project, &player, expression_key.clone(), target, source)
-            },
-        ));
+        sections.push_expression(expression_editor(context, key.clone(), target, timeline_id));
     }
     let kp = context.project.clone();
     let kpl = context.player_state.clone();
@@ -189,15 +211,126 @@ pub(crate) fn color_control(
         button,
         sections,
         move |enabled| {
-            if toggle_keyframes(&kp, &kpl, keyframe_key.clone(), target, enabled) {
+            if toggle_keyframes(
+                &kp,
+                &kpl,
+                keyframe_key.clone(),
+                target,
+                timeline_id,
+                enabled,
+            ) {
                 kr();
             }
         },
         move |enabled| {
-            toggle_expression(&ep, &epl, expression_key.clone(), target, enabled);
+            toggle_expression(
+                &ep,
+                &epl,
+                expression_key.clone(),
+                target,
+                timeline_id,
+                enabled,
+            );
             er();
         },
     )
+}
+
+fn expression_editor(
+    context: &InspectorContext,
+    key: SelectedItem,
+    target: ColorTarget,
+    timeline_id: Uuid,
+) -> gtk::Widget {
+    let source = context
+        .project
+        .borrow()
+        .video_item(&key)
+        .and_then(|item| shrimply_inspector_core::timeline_color::video_value(item, timeline_id))
+        .and_then(|value| value.expression_source().map(str::to_string));
+    let project = context.project.clone();
+    let player = context.player_state.clone();
+    let editor_key = key.clone();
+    let output_key = key;
+    expression_section(
+        context,
+        "inspector color expression output",
+        move |refresh| {
+            crate::rhai_editor::editor(
+                source,
+                crate::rhai_editor::ExpressionValue::Color,
+                move |source| {
+                    update_expression(
+                        &project,
+                        &player,
+                        editor_key.clone(),
+                        target,
+                        timeline_id,
+                        source,
+                    );
+                    refresh();
+                },
+            )
+        },
+        move |project, position, audio, cache| {
+            let value = project.video_item(&output_key).and_then(|item| {
+                shrimply_inspector_core::timeline_color::video_value(item, timeline_id)
+            })?;
+            let outcome = evaluate_expression(project, &output_key, position, audio, cache, value)?;
+            Some(ExpressionOutput {
+                value: format!(
+                    "#{:02X}{:02X}{:02X}{:02X}",
+                    outcome.value.r, outcome.value.g, outcome.value.b, outcome.value.a,
+                ),
+                error: outcome.error,
+            })
+        },
+    )
+}
+
+fn connect_color_display(
+    context: &InspectorContext,
+    key: SelectedItem,
+    target: ColorTarget,
+    timeline_id: Uuid,
+    picker: WeakColorPickerHandle,
+) {
+    let project = context.project.clone();
+    let player = context.player_state.clone();
+    let alive = Rc::downgrade(&context.listener_scope);
+    let alive_for_prune = alive.clone();
+    player_state::connect_while_alive_named(
+        &context.player_state,
+        "inspector color display refresh",
+        move || alive_for_prune.upgrade().is_some(),
+        move |event| {
+            if !matches!(
+                event,
+                player_state::PlayerEvent::State(_) | player_state::PlayerEvent::Project(_)
+            ) || alive.upgrade().is_none()
+            {
+                return;
+            }
+            let position = player_state::snapshot(&player).position;
+            let project = project.borrow();
+            let Some(time) = (target.local_time)(&project, key.clone(), position) else {
+                return;
+            };
+            let Some(value) = project.video_item(&key).and_then(|item| {
+                shrimply_inspector_core::timeline_color::video_value(item, timeline_id)
+            }) else {
+                return;
+            };
+            if shrimply_inspector_core::timeline_color::validate_timeline(value, timeline_id)
+                .is_err()
+                || !picker.set_color(shrimply_inspector_core::timeline_color::value_at(
+                    value, time,
+                ))
+            {
+                return;
+            }
+        },
+    );
 }
 
 fn update_color(
@@ -205,6 +338,7 @@ fn update_color(
     player_state: &SharedPlayerState,
     key: SelectedItem,
     target: ColorTarget,
+    timeline_id: Uuid,
     color: Color<u8>,
 ) -> bool {
     let mut project = project.borrow_mut();
@@ -218,21 +352,14 @@ fn update_color(
     let Some(value) = target.access.get_mut(&mut project, key.clone()) else {
         return false;
     };
-    let current = current_color(value, evaluation_time);
-    if !edit_curve_value(
-        value,
-        keyframe_time,
-        color,
-        PartialEq::eq,
-        CurveEditPolicy {
-            unchanged_keyframe_is_noop: true,
-            insert: if current == color {
-                CurveKeyframeInsert::Skip
-            } else {
-                CurveKeyframeInsert::Default
-            },
-        },
-    ) {
+    if shrimply_inspector_core::timeline_color::validate_timeline(value, timeline_id).is_err()
+        || !shrimply_inspector_core::timeline_color::set_value(
+            value,
+            evaluation_time,
+            keyframe_time,
+            color,
+        )
+    {
         return false;
     }
     target.access.mark_mutated(&mut project, key);
@@ -255,17 +382,11 @@ fn current_time(c: &InspectorContext, t: ColorTarget) -> Time {
         })
         .unwrap_or(Time::ZERO)
 }
-fn current_color(value: &TimelineValue<shrimply_core::Color<u8>>, time: Time) -> Color<u8> {
-    match &value.base {
-        TimelineBase::Const(v) => *v,
-        TimelineBase::Keyframes(v) => crate::transform_eval::color_keyframes_value(v, time),
-    }
-}
-
 fn keyframe_actions(
     context: &InspectorContext,
     key: SelectedItem,
     target: ColorTarget,
+    timeline_id: Uuid,
 ) -> KeyframeEditorActions {
     let project = context.project.clone();
     let player_state = context.player_state.clone();
@@ -291,7 +412,14 @@ fn keyframe_actions(
     let interpolation_key = key;
     KeyframeEditorActions {
         add_at_time: Rc::new(move |time| {
-            if add_keyframe_at_time(&add_project, &add_player, add_key.clone(), target, time) {
+            if add_keyframe_at_time(
+                &add_project,
+                &add_player,
+                add_key.clone(),
+                target,
+                timeline_id,
+                time,
+            ) {
                 refresh_add();
             }
         }),
@@ -301,6 +429,7 @@ fn keyframe_actions(
                 &delete_player,
                 delete_key.clone(),
                 target,
+                timeline_id,
                 time,
             ) {
                 refresh_delete();
@@ -312,6 +441,7 @@ fn keyframe_actions(
                 &point_player,
                 point_key.clone(),
                 target,
+                timeline_id,
                 old_time,
                 time,
             );
@@ -322,12 +452,25 @@ fn keyframe_actions(
                 target
                     .access
                     .get_mut(&mut project, copy_key.clone())
-                    .and_then(|value| keyframe_model::copy_keyframes(value, times))
+                    .filter(|value| {
+                        shrimply_inspector_core::timeline_color::validate_timeline(
+                            value,
+                            timeline_id,
+                        )
+                        .is_ok()
+                    })
+                    .and_then(|value| {
+                        shrimply_inspector_core::timeline_color::copy_keyframes(value, times)
+                    })
             }),
             paste: Rc::new(move |clipboard, time| {
                 let mut project = paste_project.borrow_mut();
                 let value = target.access.get_mut(&mut project, paste_key.clone())?;
-                let times = keyframe_model::paste_keyframes(value, clipboard, time)?;
+                shrimply_inspector_core::timeline_color::validate_timeline(value, timeline_id)
+                    .ok()?;
+                let times = shrimply_inspector_core::timeline_color::paste_keyframes(
+                    value, clipboard, time,
+                )?;
                 target.access.mark_mutated(&mut project, paste_key.clone());
                 shrimply_project::project::commit_edit(&project, target.commit_name);
                 drop(project);
@@ -341,6 +484,7 @@ fn keyframe_actions(
                 &interpolation_player,
                 interpolation_key.clone(),
                 target,
+                timeline_id,
                 owner_id,
                 interpolation,
             );
@@ -355,31 +499,17 @@ fn add_keyframe_at_time(
     player_state: &SharedPlayerState,
     key: SelectedItem,
     target: ColorTarget,
+    timeline_id: Uuid,
     time: Time,
 ) -> bool {
     let mut project = project.borrow_mut();
     let Some(value) = target.access.get_mut(&mut project, key.clone()) else {
         return false;
     };
-    let next = current_color(value, time);
-    let TimelineBase::Keyframes(keyframes) = &mut value.base else {
-        return false;
-    };
-    if let Some(keyframe) = keyframes
-        .iter_mut()
-        .find(|keyframe| keyframe.time.approx_eq(time))
+    if shrimply_inspector_core::timeline_color::validate_timeline(value, timeline_id).is_err()
+        || !shrimply_inspector_core::timeline_color::add_keyframe(value, time)
     {
-        if keyframe.time == time {
-            return false;
-        }
-        keyframe.time = time;
-        keyframes.sort_by_key(|keyframe| keyframe.time);
-    } else {
-        insert_curve_keyframe(
-            keyframes,
-            keyframe(time, next),
-            CurveKeyframeInsert::InheritPreviousInterpolation,
-        );
+        return false;
     }
     target.access.mark_mutated(&mut project, key);
     shrimply_project::project::commit_edit(&project, target.commit_name);
@@ -393,24 +523,17 @@ fn delete_keyframe_at_time(
     player_state: &SharedPlayerState,
     key: SelectedItem,
     target: ColorTarget,
+    timeline_id: Uuid,
     time: Time,
 ) -> bool {
     let mut project = project.borrow_mut();
     let Some(value) = target.access.get_mut(&mut project, key.clone()) else {
         return false;
     };
-    let TimelineBase::Keyframes(keyframes) = &mut value.base else {
+    if shrimply_inspector_core::timeline_color::validate_timeline(value, timeline_id).is_err()
+        || !shrimply_inspector_core::timeline_color::delete_keyframe(value, time)
+    {
         return false;
-    };
-    let Some(index) = keyframes
-        .iter()
-        .position(|keyframe| keyframe.time.approx_eq(time))
-    else {
-        return false;
-    };
-    let removed = keyframes.remove(index);
-    if keyframes.is_empty() {
-        value.base = TimelineBase::Const(removed.value);
     }
     target.access.mark_mutated(&mut project, key);
     shrimply_project::project::commit_edit(&project, target.commit_name);
@@ -424,24 +547,19 @@ fn update_keyframe_point(
     player_state: &SharedPlayerState,
     key: SelectedItem,
     target: ColorTarget,
+    timeline_id: Uuid,
     old_time: Time,
     time: Time,
 ) -> bool {
     let mut project = project.borrow_mut();
-    let Some(keyframes) = color_keyframes_mut(&mut project, key.clone(), target) else {
+    let Some(value) = target.access.get_mut(&mut project, key.clone()) else {
         return false;
     };
-    let Some(index) = keyframes
-        .iter()
-        .position(|keyframe| keyframe.time.approx_eq(old_time))
-    else {
+    if shrimply_inspector_core::timeline_color::validate_timeline(value, timeline_id).is_err()
+        || !shrimply_inspector_core::timeline_color::move_keyframes(value, &[(old_time, time)])
+    {
         return false;
-    };
-    let mut keyframe = keyframes.remove(index);
-    keyframes.retain(|other| !other.time.approx_eq(time));
-    keyframe.time = time;
-    keyframes.push(keyframe);
-    keyframes.sort_by_key(|keyframe| keyframe.time);
+    }
     target.access.mark_mutated(&mut project, key);
     shrimply_project::project::commit_coalesced_edit(&project, target.commit_name);
     drop(project);
@@ -454,23 +572,26 @@ fn set_keyframe_interpolation(
     player_state: &SharedPlayerState,
     key: SelectedItem,
     target: ColorTarget,
+    timeline_id: Uuid,
     owner_id: Uuid,
     interpolation: Interpolation,
 ) -> bool {
     let mut project = project.borrow_mut();
-    let Some(keyframes) = color_keyframes_mut(&mut project, key.clone(), target) else {
+    let Some(value) = target.access.get_mut(&mut project, key.clone()) else {
         return false;
     };
-    let Some(keyframe) = keyframes
-        .iter_mut()
-        .find(|keyframe| keyframe.id == owner_id)
-    else {
-        return false;
-    };
-    if keyframe.interpolation_to_next == interpolation {
+    if shrimply_inspector_core::timeline_color::validate_timeline(value, timeline_id).is_err()
+        || !matches!(
+            shrimply_inspector_core::timeline_color::set_interpolation(
+                value,
+                owner_id,
+                interpolation,
+            ),
+            Ok(true)
+        )
+    {
         return false;
     }
-    keyframe.interpolation_to_next = interpolation;
     target.access.mark_mutated(&mut project, key);
     shrimply_project::project::commit_edit(&project, target.commit_name);
     drop(project);
@@ -478,69 +599,12 @@ fn set_keyframe_interpolation(
     true
 }
 
-fn color_keyframes_mut(
-    project: &mut Project,
-    key: SelectedItem,
-    target: ColorTarget,
-) -> Option<&mut Vec<TimelineVectorKeyframe<shrimply_core::Color<u8>>>> {
-    let value = target.access.get_mut(project, key.clone())?;
-    match &mut value.base {
-        TimelineBase::Keyframes(keyframes) => Some(keyframes),
-        TimelineBase::Const(_) => None,
-    }
-}
-
-fn color_speed_graph(value: &TimelineValue<shrimply_core::Color<u8>>) -> KeyframeGraph {
-    let TimelineBase::Keyframes(keyframes) = &value.base else {
-        return KeyframeGraph::Speed {
-            segments: Vec::new(),
-            keys: Vec::new(),
-            static_value: 0.0,
-        };
-    };
-    let segments = color_speed_segments(keyframes);
-    KeyframeGraph::Speed {
-        segments,
-        keys: keyframes.iter().map(|keyframe| keyframe.time).collect(),
-        static_value: 0.0,
-    }
-}
-
-fn color_speed_segments(
-    keyframes: &[TimelineVectorKeyframe<shrimply_core::Color<u8>>],
-) -> Vec<SpeedSegment> {
-    keyframes
-        .windows(2)
-        .filter_map(|pair| {
-            let span = pair[1].time.seconds - pair[0].time.seconds;
-            let seconds = span.to_f64()?;
-            if seconds <= f64::EPSILON {
-                return None;
-            }
-            Some(SpeedSegment {
-                owner_id: pair[0].id,
-                start: pair[0].time,
-                end: pair[1].time,
-                value: pair[0].value.oklaba_distance(pair[1].value) as f64 / seconds,
-                interpolation: pair[0].interpolation_to_next,
-            })
-        })
-        .collect()
-}
-
-fn keyframe(time: Time, value: Color<u8>) -> TimelineVectorKeyframe<shrimply_core::Color<u8>> {
-    TimelineVectorKeyframe::<shrimply_core::Color<u8>> {
-        id: Uuid::new_v4(),
-        time,
-        value,
-        interpolation_to_next: Default::default(),
-    }
-}
 fn toggle_keyframes(
     p: &Rc<RefCell<Project>>,
     s: &SharedPlayerState,
     k: SelectedItem,
     t: ColorTarget,
+    timeline_id: Uuid,
     enabled: bool,
 ) -> bool {
     let position = player_state::snapshot(s).position;
@@ -554,8 +618,14 @@ fn toggle_keyframes(
     let Some(v) = t.access.get_mut(&mut p, k.clone()) else {
         return false;
     };
-    let current = current_color(v, evaluation_time);
-    if !set_keyframes_enabled(v, keyframe_time, current, enabled) {
+    if shrimply_inspector_core::timeline_color::validate_timeline(v, timeline_id).is_err()
+        || !shrimply_inspector_core::timeline_color::set_keyframes_enabled(
+            v,
+            evaluation_time,
+            keyframe_time,
+            enabled,
+        )
+    {
         return false;
     }
     t.access.mark_mutated(&mut p, k);
@@ -569,13 +639,17 @@ fn toggle_expression(
     s: &SharedPlayerState,
     k: SelectedItem,
     t: ColorTarget,
+    timeline_id: Uuid,
     enabled: bool,
 ) {
     let mut p = p.borrow_mut();
     let Some(v) = t.access.get_mut(&mut p, k.clone()) else {
         return;
     };
-    let changed = set_expression_enabled(v, enabled, "value");
+    if shrimply_inspector_core::timeline_color::validate_timeline(v, timeline_id).is_err() {
+        return;
+    }
+    let changed = shrimply_inspector_core::timeline_color::set_expression_enabled(v, enabled);
     if !changed {
         return;
     }
@@ -589,20 +663,18 @@ fn update_expression(
     s: &SharedPlayerState,
     k: SelectedItem,
     t: ColorTarget,
+    timeline_id: Uuid,
     source: String,
 ) {
     let mut p = p.borrow_mut();
-    let Some(e) = t
-        .access
-        .get_mut(&mut p, k.clone())
-        .and_then(|v| v.expression.as_mut())
-    else {
+    let Some(value) = t.access.get_mut(&mut p, k.clone()) else {
         return;
     };
-    if e.source == source {
+    if shrimply_inspector_core::timeline_color::validate_timeline(value, timeline_id).is_err()
+        || !shrimply_inspector_core::timeline_color::set_expression_source(value, source)
+    {
         return;
     }
-    e.source = source;
     t.access.mark_mutated(&mut p, k);
     shrimply_project::project::commit_coalesced_edit(&p, t.commit_name);
     drop(p);

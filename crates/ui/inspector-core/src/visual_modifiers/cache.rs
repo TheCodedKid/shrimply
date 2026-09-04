@@ -53,7 +53,10 @@ pub(super) fn presentation(
     section.add(
         InspectorControl::new(ControlKind::VisualCache, format!("{base}/bake"), "")
             .value(control.label)
-            .components(vec![control.progress.to_string()])
+            .components(vec![
+                control.progress.to_string(),
+                u8::from(control.baking).to_string(),
+            ])
             .tooltip(control.tooltip)
             .target(id),
     );
@@ -78,10 +81,9 @@ impl InspectorController {
         id: uuid::Uuid,
         quality: &str,
     ) -> Result<(), String> {
-        let quality: CacheQuality = serde_json::from_value(serde_json::Value::String(
-            quality.to_string(),
-        ))
-        .map_err(|_| format!("unknown visual cache quality: {quality}"))?;
+        let quality: CacheQuality =
+            serde_json::from_value(serde_json::Value::String(quality.to_string()))
+                .map_err(|_| format!("unknown visual cache quality: {quality}"))?;
         let mut project = self.project.borrow_mut();
         let cache = project
             .video_item_mut(super::video_address(target)?)

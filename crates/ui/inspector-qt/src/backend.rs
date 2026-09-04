@@ -1,4 +1,5 @@
 use core::pin::Pin;
+use std::collections::HashMap;
 
 use cxx_qt::CxxQtType;
 use cxx_qt_lib::{QColor, QString, QStringList, QUrl};
@@ -6,11 +7,90 @@ use shrimply_inspector_core::InspectorTarget;
 
 use crate::item::{InspectorAction, InspectorListItem};
 use crate::list::{InspectorDocument, InspectorListState};
-use crate::section::{ControlKind, InspectorControl};
+use crate::section::{ControlKind, ControlRowRole, InspectorControl};
 use crate::value_backend::{
-    boolean_action, control_value, default_expression, fraction_value, optional_action,
-    timeline_value,
+    boolean_action, control_value, fraction_value, optional_action, timeline_value,
 };
+
+const MISSING_CONTROL_INDEX: i32 = -1;
+
+type AnalysisControlKey = (usize, usize, usize);
+
+#[derive(Clone, Debug, PartialEq)]
+struct CachedAnalysisControl {
+    target: InspectorTarget,
+    action: shrimply_inspector_core::InspectorControlAction,
+    presentation: shrimply_inspector_core::AnalysisControlPresentation,
+}
+
+fn analysis_presentation(
+    control: &InspectorControl,
+    target: Option<&InspectorTarget>,
+) -> Option<shrimply_inspector_core::AnalysisControlPresentation> {
+    match control.action? {
+        shrimply_inspector_core::InspectorControlAction::ToggleSam2Analysis {
+            modifier_id,
+            generation,
+            prompt_signature,
+            can_analyze,
+        } => Some(shrimply_inspector_core::sam2_analysis_control(
+            modifier_id,
+            generation,
+            prompt_signature,
+            can_analyze,
+        )),
+        shrimply_inspector_core::InspectorControlAction::ToggleTransparentFillAnalysis {
+            modifier_id,
+        } => super::transparent_fill_analysis_control(target?, modifier_id).ok(),
+        shrimply_inspector_core::InspectorControlAction::ToggleCameraAnalysis => {
+            super::camera_analysis_control(target?).ok()
+        }
+        _ => None,
+    }
+}
+
+fn analysis_tooltip(status: &shrimply_inspector_core::AnalysisControlPresentation) -> QString {
+    match &status.tooltip {
+        shrimply_inspector_core::AnalysisTooltip::MessageKey(message) => {
+            shrimply_i18n_qt::text(message)
+        }
+        shrimply_inspector_core::AnalysisTooltip::RawError(error) => QString::from(error.as_str()),
+    }
+}
+
+fn analysis_control_cache(
+    document: &InspectorDocument,
+) -> HashMap<AnalysisControlKey, CachedAnalysisControl> {
+    let mut cache = HashMap::new();
+    for (category_index, category) in document.categories.iter().enumerate() {
+        for (item_index, item) in category.items.iter().enumerate() {
+            let section = match item {
+                InspectorListItem::Item(item) => &item.section,
+                InspectorListItem::Flat(section) => section,
+            };
+            for (control_index, control) in section.controls.iter().enumerate() {
+                if control.kind != ControlKind::Analysis {
+                    continue;
+                }
+                let Some(action) = control.action else {
+                    continue;
+                };
+                let Some(presentation) = control.analysis.clone() else {
+                    continue;
+                };
+                cache.insert(
+                    (category_index, item_index, control_index),
+                    CachedAnalysisControl {
+                        target: document.target.clone(),
+                        action,
+                        presentation,
+                    },
+                );
+            }
+        }
+    }
+    cache
+}
 
 #[cxx_qt::bridge]
 pub(crate) mod qobject {
@@ -25,6 +105,8 @@ pub(crate) mod qobject {
         Color,
         LayeredColor,
         LayeredText,
+        LayeredDrawing,
+        FontFamilies,
         Selector,
         Vector2,
         Vector3,
@@ -39,6 +121,7 @@ pub(crate) mod qobject {
         AudioCachePreset,
         VisualCache,
         VisualCacheQuality,
+        Analysis,
         ModifierMenu,
         TtsEditor,
         BeatDetection,
@@ -47,6 +130,14 @@ pub(crate) mod qobject {
         FileLocation,
         InfoLoading,
         Action,
+    }
+
+    #[qenum(InspectorBackend)]
+    enum InspectorControlRowRole {
+        Standalone,
+        Primary,
+        Auxiliary,
+        TrailingAction,
     }
 
     unsafe extern "C++" {
@@ -66,11 +157,13 @@ pub(crate) mod qobject {
         #[qproperty(bool, ready)]
         #[qproperty(i32, revision)]
         #[qproperty(i32, cache_revision, cxx_name = "cacheRevision")]
+        #[qproperty(i32, analysis_revision, cxx_name = "analysisRevision")]
         #[qproperty(i32, document_revision, cxx_name = "documentRevision")]
         #[qproperty(i32, expression_revision, cxx_name = "expressionRevision")]
         #[qproperty(i32, graph_revision, cxx_name = "graphRevision")]
         #[qproperty(i32, playhead_revision, cxx_name = "playheadRevision")]
         #[qproperty(i32, transform_revision, cxx_name = "transformRevision")]
+        #[qproperty(i32, font_browser_revision, cxx_name = "fontBrowserRevision")]
         #[qproperty(i32, active_category, cxx_name = "activeCategory")]
         #[qproperty(f64, scroll_position, cxx_name = "scrollPosition")]
         #[qproperty(QString, title)]
@@ -78,6 +171,14 @@ pub(crate) mod qobject {
 
         #[qinvokable]
         fn poll(self: Pin<&mut InspectorBackend>, scroll_position: f64);
+        #[qinvokable]
+        #[cxx_name = "pollAnalysisControl"]
+        fn poll_analysis_control(
+            self: Pin<&mut InspectorBackend>,
+            category: i32,
+            item: i32,
+            control: i32,
+        );
         #[qinvokable]
         #[cxx_name = "targetChangePending"]
         fn target_change_pending(self: &InspectorBackend) -> bool;
@@ -133,6 +234,12 @@ pub(crate) mod qobject {
         #[qinvokable]
         #[cxx_name = "focusItem"]
         fn focus_item(self: Pin<&mut InspectorBackend>, category: i32, item: i32);
+        #[qinvokable]
+        #[cxx_name = "focusItemBody"]
+        fn focus_item_body(self: Pin<&mut InspectorBackend>, category: i32, item: i32);
+        #[qinvokable]
+        #[cxx_name = "focusControl"]
+        fn focus_control(self: Pin<&mut InspectorBackend>, category: i32, item: i32, control: i32);
         #[qinvokable]
         #[cxx_name = "itemExpanded"]
         fn item_expanded(self: &InspectorBackend, category: i32, item: i32) -> bool;
@@ -236,6 +343,23 @@ pub(crate) mod qobject {
             item: i32,
             control: i32,
         ) -> InspectorControlKind;
+        #[qinvokable]
+        #[cxx_name = "controlRowRole"]
+        fn control_row_role(
+            self: &InspectorBackend,
+            category: i32,
+            item: i32,
+            control: i32,
+        ) -> InspectorControlRowRole;
+        #[qinvokable]
+        #[cxx_name = "controlRowMember"]
+        fn control_row_member(
+            self: &InspectorBackend,
+            category: i32,
+            item: i32,
+            control: i32,
+            role: InspectorControlRowRole,
+        ) -> i32;
         #[qinvokable]
         #[cxx_name = "controlLabel"]
         fn control_label(
@@ -363,6 +487,46 @@ pub(crate) mod qobject {
             control: i32,
         ) -> QString;
         #[qinvokable]
+        #[cxx_name = "controlHasAction"]
+        fn control_has_action(
+            self: &InspectorBackend,
+            category: i32,
+            item: i32,
+            control: i32,
+        ) -> bool;
+        #[qinvokable]
+        #[cxx_name = "controlActionIcon"]
+        fn control_action_icon(
+            self: &InspectorBackend,
+            category: i32,
+            item: i32,
+            control: i32,
+        ) -> QString;
+        #[qinvokable]
+        #[cxx_name = "controlActionSensitive"]
+        fn control_action_sensitive(
+            self: &InspectorBackend,
+            category: i32,
+            item: i32,
+            control: i32,
+        ) -> bool;
+        #[qinvokable]
+        #[cxx_name = "controlActionTooltip"]
+        fn control_action_tooltip(
+            self: &InspectorBackend,
+            category: i32,
+            item: i32,
+            control: i32,
+        ) -> QString;
+        #[qinvokable]
+        #[cxx_name = "controlDragPayload"]
+        fn control_drag_payload(
+            self: &InspectorBackend,
+            category: i32,
+            item: i32,
+            control: i32,
+        ) -> QString;
+        #[qinvokable]
         #[cxx_name = "controlPrefixIconRotates"]
         fn control_prefix_icon_rotates(
             self: &InspectorBackend,
@@ -431,6 +595,68 @@ pub(crate) mod qobject {
             control: i32,
         ) -> QStringList;
         #[qinvokable]
+        #[cxx_name = "openFontBrowser"]
+        fn open_font_browser(self: Pin<&mut InspectorBackend>);
+        #[qinvokable]
+        #[cxx_name = "searchFontBrowser"]
+        fn search_font_browser(self: Pin<&mut InspectorBackend>, query: &QString);
+        #[qinvokable]
+        #[cxx_name = "requestFontBrowserPreviews"]
+        fn request_font_browser_previews(self: Pin<&mut InspectorBackend>, first: i32, count: i32);
+        #[qinvokable]
+        #[cxx_name = "fontBrowserCount"]
+        fn font_browser_count(self: &InspectorBackend) -> i32;
+        #[qinvokable]
+        #[cxx_name = "fontBrowserLabel"]
+        fn font_browser_label(self: &InspectorBackend, choice: i32) -> QString;
+        #[qinvokable]
+        #[cxx_name = "fontBrowserValue"]
+        fn font_browser_value(self: &InspectorBackend, choice: i32) -> QString;
+        #[qinvokable]
+        #[cxx_name = "fontBrowserGoogle"]
+        fn font_browser_google(self: &InspectorBackend, choice: i32) -> bool;
+        #[qinvokable]
+        #[cxx_name = "fontBrowserPreviewSource"]
+        fn font_browser_preview_source(self: &InspectorBackend, choice: i32) -> QUrl;
+        #[qinvokable]
+        #[cxx_name = "fontBrowserStatus"]
+        fn font_browser_status(self: &InspectorBackend) -> QString;
+        #[qinvokable]
+        #[cxx_name = "fontBrowserBusy"]
+        fn font_browser_busy(self: &InspectorBackend) -> bool;
+        #[qinvokable]
+        #[cxx_name = "fontListWithChoice"]
+        fn font_list_with_choice(
+            self: &InspectorBackend,
+            value: &QString,
+            index: i32,
+            family: &QString,
+        ) -> QString;
+        #[qinvokable]
+        #[cxx_name = "moveFontListValue"]
+        fn move_font_list_value(
+            self: &InspectorBackend,
+            value: &QString,
+            index: i32,
+            offset: i32,
+        ) -> QString;
+        #[qinvokable]
+        #[cxx_name = "removeFontListValue"]
+        fn remove_font_list_value(self: &InspectorBackend, value: &QString, index: i32) -> QString;
+        #[qinvokable]
+        #[cxx_name = "activateControlFont"]
+        fn activate_control_font(
+            self: Pin<&mut InspectorBackend>,
+            category: i32,
+            item: i32,
+            control: i32,
+            family: &QString,
+            value: &QString,
+        );
+        #[qinvokable]
+        #[cxx_name = "cancelControlFontActivation"]
+        fn cancel_control_font_activation(self: &InspectorBackend);
+        #[qinvokable]
         #[cxx_name = "controlKeyframes"]
         fn control_keyframes(
             self: &InspectorBackend,
@@ -461,6 +687,27 @@ pub(crate) mod qobject {
             category: i32,
             item: i32,
             control: i32,
+        ) -> QStringList;
+        #[qinvokable]
+        #[cxx_name = "expressionDiagnostic"]
+        fn expression_diagnostic(self: Pin<&mut InspectorBackend>, source: &QString)
+        -> QStringList;
+        #[qinvokable]
+        #[cxx_name = "expressionDiagnosticDebounce"]
+        fn expression_diagnostic_debounce(self: &InspectorBackend) -> i32;
+        #[qinvokable]
+        #[cxx_name = "expressionCompletionDebounce"]
+        fn expression_completion_debounce(self: &InspectorBackend) -> i32;
+        #[qinvokable]
+        #[cxx_name = "controlExpressionCompletion"]
+        fn control_expression_completion(
+            self: &InspectorBackend,
+            category: i32,
+            item: i32,
+            control: i32,
+            source: &QString,
+            cursor: i32,
+            automatic: bool,
         ) -> QStringList;
         #[qinvokable]
         #[cxx_name = "controlGraphPointTimes"]
@@ -646,11 +893,44 @@ pub(crate) mod qobject {
             interpolation: i32,
         );
         #[qinvokable]
+        #[cxx_name = "textInterpolationLabels"]
+        fn text_interpolation_labels(self: &InspectorBackend) -> QStringList;
+        #[qinvokable]
+        #[cxx_name = "textInterpolationTooltips"]
+        fn text_interpolation_tooltips(self: &InspectorBackend) -> QStringList;
+        #[qinvokable]
+        #[cxx_name = "controlGraphTextInterpolation"]
+        fn control_graph_text_interpolation(
+            self: &InspectorBackend,
+            category: i32,
+            item: i32,
+            control: i32,
+            owner_id: &QString,
+        ) -> i32;
+        #[qinvokable]
+        #[cxx_name = "setControlGraphTextInterpolation"]
+        fn set_control_graph_text_interpolation(
+            self: Pin<&mut InspectorBackend>,
+            category: i32,
+            item: i32,
+            control: i32,
+            owner_id: &QString,
+            interpolation: i32,
+        );
+        #[qinvokable]
         #[cxx_name = "toggleControlGraphPlayback"]
         fn toggle_control_graph_playback(self: Pin<&mut InspectorBackend>);
         #[qinvokable]
         #[cxx_name = "triggerControlAction"]
         fn trigger_control_action(
+            self: Pin<&mut InspectorBackend>,
+            category: i32,
+            item: i32,
+            control: i32,
+        );
+        #[qinvokable]
+        #[cxx_name = "triggerSecondaryControlAction"]
+        fn trigger_secondary_control_action(
             self: Pin<&mut InspectorBackend>,
             category: i32,
             item: i32,
@@ -693,11 +973,13 @@ pub struct InspectorBackendRust {
     ready: bool,
     revision: i32,
     cache_revision: i32,
+    analysis_revision: i32,
     document_revision: i32,
     expression_revision: i32,
     graph_revision: i32,
     playhead_revision: i32,
     transform_revision: i32,
+    font_browser_revision: i32,
     active_category: i32,
     scroll_position: f64,
     title: QString,
@@ -706,6 +988,8 @@ pub struct InspectorBackendRust {
     stabilization_generating: Option<bool>,
     resolved_transform: Option<shrimply_project::project::ResolvedTransform>,
     transform_live: Option<shrimply_inspector_core::transform::TransformLivePresentation>,
+    analysis_controls: HashMap<AnalysisControlKey, CachedAnalysisControl>,
+    expression_diagnostic_cache: shrimply_inspector_core::rhai_editor::DiagnosticCache,
 }
 
 impl cxx_qt::Initialize for qobject::InspectorBackend {
@@ -732,11 +1016,98 @@ impl qobject::InspectorBackend {
             })
     }
 
+    fn cached_analysis_control(
+        &self,
+        category: i32,
+        item: i32,
+        control: i32,
+    ) -> Option<&shrimply_inspector_core::AnalysisControlPresentation> {
+        let key = analysis_control_key(category, item, control)?;
+        let document = self.document()?;
+        let control = self.control(category, item, control)?;
+        let cached = self.rust().analysis_controls.get(&key)?;
+        (control.kind == ControlKind::Analysis
+            && control.action == Some(cached.action)
+            && cached.target == document.target)
+            .then_some(&cached.presentation)
+    }
+
+    pub fn poll_analysis_control(mut self: Pin<&mut Self>, category: i32, item: i32, control: i32) {
+        let Some(key) = analysis_control_key(category, item, control) else {
+            return;
+        };
+        let next = self
+            .control_target(category, item, control)
+            .and_then(|(target, control)| {
+                (control.kind == ControlKind::Analysis).then_some((target, control))
+            })
+            .and_then(|(target, control)| {
+                Some(CachedAnalysisControl {
+                    target: target.clone(),
+                    action: control.action?,
+                    presentation: analysis_presentation(&control, Some(&target))?,
+                })
+            });
+        let (changed, camera_changed, refresh_analysis_output) = match next {
+            Some(next) => {
+                let previous = self.rust().analysis_controls.get(&key);
+                let refresh_analysis_output = super::with_controller(|controller| {
+                    Ok(controller.observe_analysis_transition(
+                        &next.target,
+                        next.action,
+                        &next.presentation,
+                    ))
+                })
+                .expect("Qt analysis control polled before inspector installation");
+                let changed = previous != Some(&next);
+                let camera_changed = changed
+                    && next.action
+                        == shrimply_inspector_core::InspectorControlAction::ToggleCameraAnalysis;
+                if changed {
+                    self.as_mut().rust_mut().analysis_controls.insert(key, next);
+                }
+                (changed, camera_changed, refresh_analysis_output)
+            }
+            None => (
+                self.as_mut()
+                    .rust_mut()
+                    .analysis_controls
+                    .remove(&key)
+                    .is_some(),
+                false,
+                false,
+            ),
+        };
+        if changed {
+            let revision = self.analysis_revision().wrapping_add(1);
+            self.as_mut().set_analysis_revision(revision);
+        }
+        if camera_changed {
+            super::mark_dirty();
+        }
+        if refresh_analysis_output {
+            super::with_controller(|controller| {
+                controller.refresh_analysis_output();
+                Ok(())
+            })
+            .expect("Qt analysis control polled before inspector installation");
+        }
+    }
+
     pub fn minimum_width(&self) -> i32 {
         shrimply_inspector_core::INSPECTOR_MIN_WIDTH
     }
 
     pub fn poll(mut self: Pin<&mut Self>, scroll_position: f64) {
+        let (font_browser_changed, font_edits) = super::receive_font_browser();
+        for (edit, activation) in font_edits {
+            let result = activation.and_then(|()| super::apply_font_browser_edit(&edit));
+            self.as_mut().finish(result);
+        }
+        if font_browser_changed {
+            let revision = self.font_browser_revision().wrapping_add(1);
+            self.as_mut().set_font_browser_revision(revision);
+        }
         if self.target_change_pending() {
             super::mark_dirty();
         }
@@ -769,7 +1140,7 @@ impl qobject::InspectorBackend {
                 if let Some(target) = target
                     && let Some(document) = self.as_mut().rust_mut().document.as_mut()
                 {
-                    crate::graph_backend::update_visual_modifier_graphs(document, &target);
+                    crate::graph_backend::update_control_graphs(document, &target);
                 }
                 let revision = self.graph_revision().wrapping_add(1);
                 self.as_mut().set_graph_revision(revision);
@@ -816,6 +1187,20 @@ impl qobject::InspectorBackend {
         let scroll_position = self.rust().list_state.scroll_position(&document.target);
         let active = i32::try_from(active).expect("inspector category index exceeds Qt limits");
         let title = QString::from(document.title.as_str());
+        let analysis_controls = analysis_control_cache(&document);
+        let refresh_analysis_output = super::with_controller(|controller| {
+            let mut refresh = false;
+            for control in analysis_controls.values() {
+                refresh |= controller.observe_analysis_transition(
+                    &control.target,
+                    control.action,
+                    &control.presentation,
+                );
+            }
+            Ok(refresh)
+        })
+        .expect("Qt analysis document rebuilt before inspector installation");
+        let analysis_changed = self.rust().analysis_controls != analysis_controls;
         let transform_live = super::transform_live_presentation(&document.target);
         let resolved_transform = transform_live
             .as_ref()
@@ -824,6 +1209,7 @@ impl qobject::InspectorBackend {
         let revision = self.revision().wrapping_add(1);
         let document_revision = self.document_revision().wrapping_add(1);
         self.as_mut().rust_mut().document = Some(document);
+        self.as_mut().rust_mut().analysis_controls = analysis_controls;
         self.as_mut().rust_mut().resolved_transform = resolved_transform;
         self.as_mut().rust_mut().transform_live = transform_live;
         self.as_mut().set_ready(true);
@@ -831,7 +1217,18 @@ impl qobject::InspectorBackend {
         self.as_mut().set_active_category(active);
         self.as_mut().set_scroll_position(scroll_position);
         self.as_mut().set_document_revision(document_revision);
+        if analysis_changed {
+            let analysis_revision = self.analysis_revision().wrapping_add(1);
+            self.as_mut().set_analysis_revision(analysis_revision);
+        }
         self.as_mut().set_revision(revision);
+        if refresh_analysis_output {
+            super::with_controller(|controller| {
+                controller.refresh_analysis_output();
+                Ok(())
+            })
+            .expect("Qt analysis document rebuilt before inspector installation");
+        }
     }
 
     pub fn destructive_background(&self) -> QColor {
@@ -955,6 +1352,32 @@ impl qobject::InspectorBackend {
     pub fn focus_item(self: Pin<&mut Self>, category: i32, item: i32) {
         if let Some((document, item)) = self.document().zip(self.card(category, item)) {
             super::focus_item(document, item);
+        }
+    }
+
+    pub fn focus_item_body(self: Pin<&mut Self>, category: i32, item: i32) {
+        if let Some((document, item)) = self.document().zip(self.card(category, item)) {
+            if let Some(control) = item
+                .section
+                .controls
+                .iter()
+                .find(|control| control.preview_focus.is_some())
+            {
+                super::focus_control(document, item, control);
+            } else {
+                super::focus_item(document, item);
+            }
+        }
+    }
+
+    pub fn focus_control(self: Pin<&mut Self>, category: i32, item: i32, control: i32) {
+        if let Some((document, item, control)) = self
+            .document()
+            .zip(self.card(category, item))
+            .zip(self.control(category, item, control))
+            .map(|((document, item), control)| (document, item, control))
+        {
+            super::focus_control(document, item, control);
         }
     }
 
@@ -1140,6 +1563,8 @@ impl qobject::InspectorBackend {
                 ControlKind::Color => QtKind::Color,
                 ControlKind::LayeredColor => QtKind::LayeredColor,
                 ControlKind::LayeredText => QtKind::LayeredText,
+                ControlKind::LayeredDrawing => QtKind::LayeredDrawing,
+                ControlKind::FontFamilies => QtKind::FontFamilies,
                 ControlKind::Selector
                 | ControlKind::OptionalSelector
                 | ControlKind::OptionalNumberSelector => QtKind::Selector,
@@ -1156,6 +1581,7 @@ impl qobject::InspectorBackend {
                 ControlKind::AudioCachePreset => QtKind::AudioCachePreset,
                 ControlKind::VisualCache => QtKind::VisualCache,
                 ControlKind::VisualCacheQuality => QtKind::VisualCacheQuality,
+                ControlKind::Analysis => QtKind::Analysis,
                 ControlKind::AudioModifierMenu | ControlKind::VisualModifierMenu => {
                     QtKind::ModifierMenu
                 }
@@ -1167,6 +1593,51 @@ impl qobject::InspectorBackend {
                 ControlKind::InfoLoading => QtKind::InfoLoading,
                 ControlKind::Action => QtKind::Action,
             })
+    }
+
+    pub fn control_row_role(
+        &self,
+        category: i32,
+        item: i32,
+        control: i32,
+    ) -> qobject::InspectorControlRowRole {
+        use qobject::InspectorControlRowRole as QtRole;
+        self.control(category, item, control)
+            .map_or(QtRole::Standalone, |control| match control.row_role {
+                ControlRowRole::Standalone => QtRole::Standalone,
+                ControlRowRole::Primary => QtRole::Primary,
+                ControlRowRole::Auxiliary => QtRole::Auxiliary,
+                ControlRowRole::TrailingAction => QtRole::TrailingAction,
+            })
+    }
+
+    pub fn control_row_member(
+        &self,
+        category: i32,
+        item: i32,
+        control: i32,
+        role: qobject::InspectorControlRowRole,
+    ) -> i32 {
+        use qobject::InspectorControlRowRole as QtRole;
+        let role = match role {
+            QtRole::Standalone => ControlRowRole::Standalone,
+            QtRole::Primary => ControlRowRole::Primary,
+            QtRole::Auxiliary => ControlRowRole::Auxiliary,
+            QtRole::TrailingAction => ControlRowRole::TrailingAction,
+            _ => panic!("Qt passed an invalid inspector control row role"),
+        };
+        let Some((section, group)) = self.section(category, item).zip(
+            self.control(category, item, control)
+                .and_then(|control| control.row_group),
+        ) else {
+            return MISSING_CONTROL_INDEX;
+        };
+        section
+            .controls
+            .iter()
+            .position(|control| control.row_group == Some(group) && control.row_role == role)
+            .and_then(|index| i32::try_from(index).ok())
+            .unwrap_or(MISSING_CONTROL_INDEX)
     }
 
     pub fn control_label(&self, category: i32, item: i32, control: i32) -> QString {
@@ -1185,8 +1656,17 @@ impl qobject::InspectorBackend {
     }
 
     pub fn control_tooltip(&self, category: i32, item: i32, control: i32) -> QString {
+        let control_index = control;
         self.control(category, item, control)
             .map_or_else(QString::default, |control| {
+                if control.kind == ControlKind::Analysis {
+                    return self
+                        .cached_analysis_control(category, item, control_index)
+                        .map_or_else(
+                            || shrimply_i18n_qt::text(&control.tooltip),
+                            analysis_tooltip,
+                        );
+                }
                 control.target_id.map_or_else(
                     || shrimply_i18n_qt::text(&control.tooltip),
                     |id| {
@@ -1209,6 +1689,7 @@ impl qobject::InspectorBackend {
     }
 
     pub fn control_value(&self, category: i32, item: i32, control: i32) -> QString {
+        let control_index = control;
         let target = self.document().map(|document| document.target.clone());
         self.control(category, item, control)
             .map_or_else(QString::default, |control| {
@@ -1225,6 +1706,7 @@ impl qobject::InspectorBackend {
                             target.as_ref().and_then(|target| {
                                 super::timeline_number_value(
                                     target,
+                                    control.audio_modifier,
                                     control.target_id,
                                     control.timeline_id,
                                     control.timeline_path.as_deref().unwrap_or(&control.path),
@@ -1232,25 +1714,24 @@ impl qobject::InspectorBackend {
                                 .ok()
                             })
                         })
-                        .map(|value| {
-                            value
-                                * if control.store_multiplier == 0.0 {
-                                    1.0
-                                } else {
-                                    control.store_multiplier.recip()
-                                }
-                        })
+                        .map(|value| control.display_number(value))
                         .unwrap_or_else(|| control.value.parse::<f64>().unwrap_or_default());
                     QString::from(value.to_string())
                 } else if matches!(
                     control.kind,
                     ControlKind::AudioCache | ControlKind::VisualCache
                 ) {
+                    control
+                        .target_id
+                        .and_then(|id| super::tracked_cache_control(control.kind, id))
+                        .map_or_else(
+                            || shrimply_i18n_qt::text(&control.value),
+                            |status| shrimply_i18n_qt::text(status.label),
+                        )
+                } else if control.kind == ControlKind::Analysis {
                     QString::from(
-                        control
-                            .target_id
-                            .and_then(|id| super::tracked_cache_control(control.kind, id))
-                            .map_or(control.value.as_str(), |status| status.label),
+                        self.cached_analysis_control(category, item, control_index)
+                            .map_or(control.value.as_str(), |status| status.label.as_str()),
                     )
                 } else {
                     QString::from(control.value.as_str())
@@ -1259,19 +1740,39 @@ impl qobject::InspectorBackend {
     }
 
     pub fn control_component(&self, category: i32, item: i32, control: i32, component: i32) -> f64 {
+        let control_index = control;
         let target = self.document().map(|document| document.target.clone());
         self.control(category, item, control)
             .and_then(|control| {
+                if control.kind == ControlKind::Analysis && component >= 0 {
+                    let status = self.cached_analysis_control(category, item, control_index)?;
+                    return match component {
+                        0 => Some(status.progress),
+                        1 => Some(f64::from(u8::from(status.running))),
+                        2 => Some(f64::from(u8::from(status.cancelling))),
+                        3 => Some(f64::from(u8::from(status.suggested))),
+                        _ => None,
+                    };
+                }
                 if matches!(
                     control.kind,
                     ControlKind::AudioCache | ControlKind::VisualCache
-                ) && component == 0
-                {
-                    return control
+                ) {
+                    let status = control
                         .target_id
                         .and_then(|id| super::tracked_cache_control(control.kind, id))
-                        .map(|status| status.progress)
-                        .or_else(|| control.components.first()?.parse().ok());
+                        .and_then(|status| match component {
+                            0 => Some(status.progress),
+                            1 => Some(f64::from(u8::from(status.baking))),
+                            _ => None,
+                        });
+                    return status.or_else(|| {
+                        control
+                            .components
+                            .get(usize::try_from(component).ok()?)?
+                            .parse()
+                            .ok()
+                    });
                 }
                 if control.kind == ControlKind::LayeredVector2 {
                     let value = self
@@ -1378,17 +1879,22 @@ impl qobject::InspectorBackend {
     }
 
     pub fn control_sensitive(&self, category: i32, item: i32, control: i32) -> bool {
+        let control_index = control;
         self.control(category, item, control)
             .is_some_and(|control| {
+                if control.kind == ControlKind::Analysis {
+                    return self
+                        .cached_analysis_control(category, item, control_index)
+                        .map_or(control.sensitive, |status| status.sensitive);
+                }
                 control.sensitive
                     && !(matches!(
                         control.kind,
                         ControlKind::AudioCachePreset | ControlKind::VisualCacheQuality
-                    )
-                        && control
-                            .target_id
-                            .and_then(|id| super::tracked_cache_control(control.kind, id))
-                            .is_some_and(|status| status.baking))
+                    ) && control
+                        .target_id
+                        .and_then(|id| super::tracked_cache_control(control.kind, id))
+                        .is_some_and(|status| status.baking))
             })
     }
 
@@ -1398,8 +1904,14 @@ impl qobject::InspectorBackend {
     }
 
     pub fn control_busy(&self, category: i32, item: i32, control: i32) -> bool {
+        let control_index = control;
         self.control(category, item, control)
             .is_some_and(|control| {
+                if control.kind == ControlKind::Analysis {
+                    return self
+                        .cached_analysis_control(category, item, control_index)
+                        .map_or(control.busy, |status| status.active());
+                }
                 control.busy
                     || control.kind == ControlKind::BeatDetection
                         && control
@@ -1466,6 +1978,37 @@ impl qobject::InspectorBackend {
         self.control(category, item, control)
             .map_or_else(QString::default, |control| {
                 QString::from(control.prefix_icon.as_str())
+            })
+    }
+
+    pub fn control_has_action(&self, category: i32, item: i32, control: i32) -> bool {
+        self.control(category, item, control)
+            .is_some_and(|control| control.action.is_some())
+    }
+
+    pub fn control_action_icon(&self, category: i32, item: i32, control: i32) -> QString {
+        self.control(category, item, control)
+            .map_or_else(QString::default, |control| {
+                QString::from(control.action_icon.as_str())
+            })
+    }
+
+    pub fn control_action_sensitive(&self, category: i32, item: i32, control: i32) -> bool {
+        self.control(category, item, control)
+            .is_some_and(|control| control.action_sensitive)
+    }
+
+    pub fn control_action_tooltip(&self, category: i32, item: i32, control: i32) -> QString {
+        self.control(category, item, control)
+            .map_or_else(QString::default, |control| {
+                shrimply_i18n_qt::text(&control.action_tooltip)
+            })
+    }
+
+    pub fn control_drag_payload(&self, category: i32, item: i32, control: i32) -> QString {
+        self.control(category, item, control)
+            .map_or_else(QString::default, |control| {
+                QString::from(control.drag_payload.as_str())
             })
     }
 
@@ -1552,6 +2095,199 @@ impl qobject::InspectorBackend {
         )
     }
 
+    pub fn open_font_browser(mut self: Pin<&mut Self>) {
+        if super::open_font_browser() {
+            let revision = self.font_browser_revision().wrapping_add(1);
+            self.as_mut().set_font_browser_revision(revision);
+        }
+    }
+
+    pub fn search_font_browser(mut self: Pin<&mut Self>, query: &QString) {
+        if super::search_font_browser(query.to_string()) {
+            let revision = self.font_browser_revision().wrapping_add(1);
+            self.as_mut().set_font_browser_revision(revision);
+        }
+    }
+
+    pub fn request_font_browser_previews(self: Pin<&mut Self>, first: i32, count: i32) {
+        let (Ok(first), Ok(count)) = (usize::try_from(first), usize::try_from(count)) else {
+            return;
+        };
+        let Some(end) = first.checked_add(count) else {
+            return;
+        };
+        super::request_font_browser_previews(first..end);
+    }
+
+    pub fn font_browser_count(&self) -> i32 {
+        count(Some(super::font_browser_count()))
+    }
+
+    pub fn font_browser_label(&self, choice: i32) -> QString {
+        index(choice)
+            .and_then(super::font_browser_choice)
+            .map_or_else(QString::default, |family| QString::from(&family.name))
+    }
+
+    pub fn font_browser_value(&self, choice: i32) -> QString {
+        index(choice)
+            .and_then(super::font_browser_choice)
+            .map_or_else(QString::default, |family| {
+                QString::from(
+                    serde_json::to_string(&shrimply_inspector_core::font_cache::project_family(
+                        &family,
+                    ))
+                    .expect("font family must serialize"),
+                )
+            })
+    }
+
+    pub fn font_browser_google(&self, choice: i32) -> bool {
+        index(choice)
+            .and_then(super::font_browser_choice)
+            .is_some_and(|family| {
+                family.source == shrimply_inspector_core::font_cache::FontSource::Google
+            })
+    }
+
+    pub fn font_browser_preview_source(&self, choice: i32) -> QUrl {
+        let Some(family) = index(choice).and_then(super::font_browser_choice) else {
+            return QUrl::default();
+        };
+        match shrimply_inspector_core::font_cache::preview_source(
+            &family,
+            super::font_browser_lookup().as_ref(),
+        ) {
+            Ok(shrimply_inspector_core::font_cache::FontPreviewSource::Installed) | Err(_) => {
+                QUrl::default()
+            }
+            Ok(shrimply_inspector_core::font_cache::FontPreviewSource::File(path)) => {
+                QUrl::from_local_file(&QString::from(path.to_string_lossy().as_ref()))
+            }
+            Ok(shrimply_inspector_core::font_cache::FontPreviewSource::Remote(url)) => {
+                QUrl::from(url.as_str())
+            }
+        }
+    }
+
+    pub fn font_browser_status(&self) -> QString {
+        QString::from(super::font_browser_status())
+    }
+
+    pub fn font_browser_busy(&self) -> bool {
+        super::font_browser_busy()
+    }
+
+    pub fn font_list_with_choice(&self, value: &QString, index: i32, family: &QString) -> QString {
+        let Ok(families) =
+            serde_json::from_str::<Vec<shrimply_core::FontFamily>>(&value.to_string())
+        else {
+            return QString::default();
+        };
+        let Ok(family) = serde_json::from_str::<shrimply_core::FontFamily>(&family.to_string())
+        else {
+            return QString::default();
+        };
+        let next = if index < 0 {
+            shrimply_inspector_core::font_selector::append_family(&families, family)
+        } else {
+            usize::try_from(index).ok().and_then(|index| {
+                shrimply_inspector_core::font_selector::replace_family(&families, index, family)
+            })
+        };
+        next.map_or_else(QString::default, |next| {
+            QString::from(serde_json::to_string(&next).expect("font families must serialize"))
+        })
+    }
+
+    pub fn move_font_list_value(&self, value: &QString, index: i32, offset: i32) -> QString {
+        let Ok(families) =
+            serde_json::from_str::<Vec<shrimply_core::FontFamily>>(&value.to_string())
+        else {
+            return QString::default();
+        };
+        let next = usize::try_from(index).ok().and_then(|index| {
+            isize::try_from(offset).ok().and_then(|offset| {
+                shrimply_inspector_core::font_selector::move_family(&families, index, offset)
+            })
+        });
+        next.map_or_else(QString::default, |next| {
+            QString::from(serde_json::to_string(&next).expect("font families must serialize"))
+        })
+    }
+
+    pub fn remove_font_list_value(&self, value: &QString, index: i32) -> QString {
+        let Ok(families) =
+            serde_json::from_str::<Vec<shrimply_core::FontFamily>>(&value.to_string())
+        else {
+            return QString::default();
+        };
+        let next = usize::try_from(index).ok().and_then(|index| {
+            shrimply_inspector_core::font_selector::remove_family(&families, index)
+        });
+        next.map_or_else(QString::default, |next| {
+            QString::from(serde_json::to_string(&next).expect("font families must serialize"))
+        })
+    }
+
+    pub fn activate_control_font(
+        mut self: Pin<&mut Self>,
+        category: i32,
+        item: i32,
+        control: i32,
+        family: &QString,
+        value: &QString,
+    ) {
+        let result = self
+            .control_target(category, item, control)
+            .ok_or_else(|| "font control is no longer available".to_string())
+            .and_then(|(target, control)| {
+                if control.kind != ControlKind::FontFamilies {
+                    return Err("inspector control is not a font family list".to_string());
+                }
+                let chosen: shrimply_core::FontFamily =
+                    serde_json::from_str(&family.to_string())
+                        .map_err(|error| format!("invalid font family: {error}"))?;
+                let next: Vec<shrimply_core::FontFamily> = serde_json::from_str(&value.to_string())
+                    .map_err(|error| format!("invalid font family list: {error}"))?;
+                if !next.iter().any(|candidate| candidate == &chosen) {
+                    return Err("selected font is missing from the font list".to_string());
+                }
+                let source = match &chosen {
+                    shrimply_core::FontFamily::Local { .. } => {
+                        shrimply_inspector_core::font_cache::FontSource::Local
+                    }
+                    shrimply_core::FontFamily::GoogleFonts { .. } => {
+                        shrimply_inspector_core::font_cache::FontSource::Google
+                    }
+                };
+                let available = super::find_font_browser_choice(chosen.name(), source)
+                    .ok_or_else(|| "selected font is no longer available".to_string())?;
+                let modifier_id = control.target_id;
+                super::with_controller(|controller| {
+                    super::ensure_font_control(controller, &target, &control.path, modifier_id)
+                })?;
+                super::activate_font_browser_family(
+                    available,
+                    super::PendingFontEdit {
+                        target,
+                        modifier_id,
+                        path: control.path,
+                        commit_name: control.commit_name,
+                        source_value: control.value,
+                        value: value.to_string(),
+                    },
+                )
+            });
+        if let Err(error) = result {
+            self.as_mut().finish(Err(error));
+        }
+    }
+
+    pub fn cancel_control_font_activation(&self) {
+        super::cancel_font_browser_edit();
+    }
+
     pub fn control_keyframes(&self, category: i32, item: i32, control: i32) -> bool {
         self.control(category, item, control)
             .is_some_and(|control| control.layered.keyframes)
@@ -1580,6 +2316,46 @@ impl qobject::InspectorBackend {
             return QStringList::default();
         }
         let path = control.timeline_path.as_deref().unwrap_or(&control.path);
+        if let Some(field) = shrimply_inspector_core::transform::TransformField::from_path(path) {
+            let Some(timeline_id) = control.timeline_id else {
+                return QStringList::default();
+            };
+            let output = match field {
+                shrimply_inspector_core::transform::TransformField::Vec2(field) => {
+                    let Ok(Some(output)) = super::transform_vec2_expression_output(
+                        &document.target,
+                        field,
+                        timeline_id,
+                    ) else {
+                        return QStringList::default();
+                    };
+                    [
+                        shrimply_inspector_core::transform::expressions::format_vec2(
+                            field,
+                            output.value,
+                        ),
+                        output.error.unwrap_or_default(),
+                    ]
+                }
+                shrimply_inspector_core::transform::TransformField::Scalar(field) => {
+                    let Ok(Some(output)) = super::transform_scalar_expression_output(
+                        &document.target,
+                        field,
+                        timeline_id,
+                    ) else {
+                        return QStringList::default();
+                    };
+                    [
+                        shrimply_inspector_core::transform::expressions::format_scalar(
+                            field,
+                            output.value,
+                        ),
+                        output.error.unwrap_or_default(),
+                    ]
+                }
+            };
+            return output.into_iter().map(QString::from).collect();
+        }
         if control.kind == ControlKind::LayeredBoolean {
             let Ok(output) = super::bool_expression_output(&document.target, path) else {
                 return QStringList::default();
@@ -1610,15 +2386,11 @@ impl qobject::InspectorBackend {
             let first_prefix = control.prefixes.first().map_or("X", String::as_str);
             let second_prefix = control.prefixes.get(1).map_or("Y", String::as_str);
             return [
-                format!(
-                    "{} {:.*}{}  {} {:.*}{}",
+                shrimply_inspector_core::timeline_value::vector::vec2::format_value(
+                    output.value,
                     first_prefix,
-                    digits,
-                    output.value.x,
-                    control.number.unit,
                     second_prefix,
                     digits,
-                    output.value.y,
                     control.number.unit,
                 ),
                 output.error.unwrap_or_default(),
@@ -1631,8 +2403,7 @@ impl qobject::InspectorBackend {
             let Some(timeline_id) = control.timeline_id else {
                 return QStringList::default();
             };
-            let Ok(output) =
-                super::vector3_expression_output(&document.target, path, timeline_id)
+            let Ok(output) = super::vector3_expression_output(&document.target, path, timeline_id)
             else {
                 return QStringList::default();
             };
@@ -1641,19 +2412,10 @@ impl qobject::InspectorBackend {
             let second_prefix = control.prefixes.get(1).map_or("Y", String::as_str);
             let third_prefix = control.prefixes.get(2).map_or("Z", String::as_str);
             return [
-                format!(
-                    "{} {:.*}{}  {} {:.*}{}  {} {:.*}{}",
-                    first_prefix,
+                shrimply_inspector_core::timeline_value::vector::vec3::format_value(
+                    output.value,
+                    [first_prefix, second_prefix, third_prefix],
                     digits,
-                    output.value.x,
-                    control.number.unit,
-                    second_prefix,
-                    digits,
-                    output.value.y,
-                    control.number.unit,
-                    third_prefix,
-                    digits,
-                    output.value.z,
                     control.number.unit,
                 ),
                 output.error.unwrap_or_default(),
@@ -1681,6 +2443,46 @@ impl qobject::InspectorBackend {
             .map(QString::from)
             .collect();
         }
+        if control.kind == ControlKind::LayeredText {
+            let Some(timeline_id) = control.timeline_id else {
+                return QStringList::default();
+            };
+            let Ok(output) = super::text_expression_output(&document.target, path, timeline_id)
+            else {
+                return QStringList::default();
+            };
+            return [output.value, output.error.unwrap_or_default()]
+                .into_iter()
+                .map(QString::from)
+                .collect();
+        }
+        if control.kind == ControlKind::LayeredDrawing {
+            let Some(timeline_id) = control.timeline_id else {
+                return QStringList::default();
+            };
+            let Ok(output) = super::paint_drawing_expression_output(&document.target, timeline_id)
+            else {
+                return QStringList::default();
+            };
+            return [output.value, output.error.unwrap_or_default()]
+                .into_iter()
+                .map(QString::from)
+                .collect();
+        }
+        if crate::graph_backend::background_integer(&control) {
+            let Some(timeline_id) = control.timeline_id else {
+                return QStringList::default();
+            };
+            let Ok(output) =
+                super::background_integer_expression_output(&document.target, path, timeline_id)
+            else {
+                return QStringList::default();
+            };
+            return [output.value.to_string(), output.error.unwrap_or_default()]
+                .into_iter()
+                .map(QString::from)
+                .collect();
+        }
         let output = if control.audio_modifier {
             control
                 .target_id
@@ -1699,16 +2501,11 @@ impl qobject::InspectorBackend {
         let Ok(output) = output else {
             return QStringList::default();
         };
-        let display_multiplier = if control.store_multiplier == 0.0 {
-            1.0
-        } else {
-            control.store_multiplier.recip()
-        };
         [
             format!(
                 "{:.*}{}",
                 usize::try_from(control.number.digits).unwrap_or_default(),
-                f64::from(output.value) * display_multiplier,
+                control.display_number(f64::from(output.value)),
                 control.number.unit,
             ),
             output.error.unwrap_or_default(),
@@ -1716,6 +2513,102 @@ impl qobject::InspectorBackend {
         .into_iter()
         .map(QString::from)
         .collect()
+    }
+
+    pub fn expression_diagnostic(mut self: Pin<&mut Self>, source: &QString) -> QStringList {
+        let source = source.to_string();
+        let diagnostic = self
+            .as_mut()
+            .rust_mut()
+            .expression_diagnostic_cache
+            .diagnostic(&source)
+            .cloned();
+        let Some(diagnostic) = diagnostic else {
+            return QStringList::default();
+        };
+        [
+            diagnostic.message,
+            diagnostic
+                .line
+                .map_or_else(String::new, |line| line.to_string()),
+            diagnostic
+                .column
+                .map_or_else(String::new, |column| column.to_string()),
+        ]
+        .into_iter()
+        .map(QString::from)
+        .collect()
+    }
+
+    pub fn expression_diagnostic_debounce(&self) -> i32 {
+        shrimply_inspector_core::rhai_editor::DIAGNOSTIC_DEBOUNCE_MILLISECONDS
+    }
+
+    pub fn expression_completion_debounce(&self) -> i32 {
+        shrimply_inspector_core::rhai_editor::COMPLETION_DEBOUNCE_MILLISECONDS
+    }
+
+    pub fn control_expression_completion(
+        &self,
+        category: i32,
+        item: i32,
+        control: i32,
+        source: &QString,
+        cursor: i32,
+        automatic: bool,
+    ) -> QStringList {
+        let Some(control) = self.control(category, item, control) else {
+            return QStringList::default();
+        };
+        let value = match control.kind {
+            ControlKind::LayeredBoolean => {
+                shrimply_inspector_core::rhai_editor::ExpressionValue::Bool
+            }
+            ControlKind::LayeredSelector => {
+                shrimply_inspector_core::rhai_editor::ExpressionValue::Step
+            }
+            ControlKind::LayeredText => shrimply_inspector_core::rhai_editor::ExpressionValue::Text,
+            ControlKind::LayeredDrawing => {
+                shrimply_inspector_core::rhai_editor::ExpressionValue::Drawing
+            }
+            ControlKind::LayeredVector2 => {
+                shrimply_inspector_core::rhai_editor::ExpressionValue::Vec2
+            }
+            ControlKind::LayeredVector3 => {
+                shrimply_inspector_core::rhai_editor::ExpressionValue::Vec3
+            }
+            ControlKind::LayeredColor => {
+                shrimply_inspector_core::rhai_editor::ExpressionValue::Color
+            }
+            _ => shrimply_inspector_core::rhai_editor::ExpressionValue::Scalar,
+        };
+        let source = source.to_string();
+        let utf16_cursor = usize::try_from(cursor).unwrap_or_default();
+        let cursor = shrimply_inspector_core::rhai_editor::utf16_offset_to_char_offset(
+            &source,
+            utf16_cursor,
+        );
+        let completion = if automatic {
+            shrimply_inspector_core::rhai_editor::automatic_completion(&source, value, cursor)
+        } else {
+            shrimply_inspector_core::rhai_editor::completion(&source, value, cursor)
+        };
+        let Some(completion) = completion else {
+            return QStringList::default();
+        };
+        let start = shrimply_inspector_core::rhai_editor::char_offset_to_utf16_offset(
+            &source,
+            completion.start,
+        );
+        let end = shrimply_inspector_core::rhai_editor::char_offset_to_utf16_offset(
+            &source,
+            completion.end,
+        );
+        [start.to_string(), end.to_string()]
+            .into_iter()
+            .chain(completion.candidates)
+            .map(QString::from)
+            .collect()
     }
 
     pub fn set_control_value(
@@ -1733,6 +2626,26 @@ impl qobject::InspectorBackend {
             return;
         }
         let value = value.to_string();
+        if let Some(shrimply_inspector_core::InspectorControlAction::SetSam2Model { modifier_id }) =
+            control.action
+        {
+            self.as_mut()
+                .finish(super::set_sam2_model(&target, modifier_id, &value));
+            return;
+        }
+        if let Some(shrimply_inspector_core::InspectorControlAction::SetSam2PointLabel {
+            modifier_id,
+            point_id,
+        }) = control.action
+        {
+            self.as_mut().finish(super::set_sam2_point_label(
+                &target,
+                modifier_id,
+                point_id,
+                &value,
+            ));
+            return;
+        }
         if control.kind == ControlKind::AudioModifierMenu {
             if value == "__paste__" {
                 let result = super::paste_audio_modifiers(&target).map(|count| {
@@ -1775,6 +2688,22 @@ impl qobject::InspectorBackend {
             }
             return;
         }
+        if control.kind == ControlKind::LayeredText {
+            let result = control
+                .timeline_id
+                .ok_or_else(|| "text timeline ID is unavailable".to_string())
+                .and_then(|timeline_id| {
+                    super::set_text_value(
+                        &target,
+                        &control.path,
+                        timeline_id,
+                        value,
+                        &control.commit_name,
+                    )
+                });
+            self.as_mut().finish(result);
+            return;
+        }
         if let Some(result) = super::named_control_edit(&target, &control, value.clone()) {
             self.as_mut().finish(result);
             return;
@@ -1799,7 +2728,18 @@ impl qobject::InspectorBackend {
             ControlKind::LayeredNumber | ControlKind::LayeredSelector
         ) {
             control_value(&control, &value).and_then(|value| {
-                if control.audio_modifier {
+                if crate::graph_backend::background_integer(&control) {
+                    let value = serde_json::from_value::<u32>(value)
+                        .map_err(|error| format!("invalid background integer: {error}"))?;
+                    super::set_background_integer_value(
+                        &target,
+                        &control.path,
+                        control.timeline_id.ok_or_else(|| {
+                            "background integer timeline ID is unavailable".to_string()
+                        })?,
+                        value,
+                    )
+                } else if control.audio_modifier {
                     control
                         .target_id
                         .ok_or_else(|| "audio modifier target is unavailable".to_string())
@@ -1819,7 +2759,13 @@ impl qobject::InspectorBackend {
                                 })
                         })
                 } else {
-                    super::set_timeline_base(&target, &control.path, value)
+                    super::set_timeline_base(
+                        &target,
+                        &control.path,
+                        value,
+                        &control.commit_name,
+                        control.commit_immediately,
+                    )
                 }
             })
         } else if control.kind == ControlKind::OptionalSelector {
@@ -1835,10 +2781,13 @@ impl qobject::InspectorBackend {
                 (!value.is_empty()).then_some(value.as_str()),
             )
         } else {
-            let value = if control.kind == ControlKind::Number && control.store_multiplier != 1.0 {
+            let value = if control.kind == ControlKind::Number
+                && (control.store_multiplier != 1.0
+                    || control.number_mapping != shrimply_inspector_core::NumberMapping::Linear)
+            {
                 value
                     .parse::<f64>()
-                    .map(|value| (value * control.store_multiplier).to_string())
+                    .map(|value| control.store_number(value).to_string())
                     .map_err(|_| format!("invalid numeric inspector value: {value}"))
             } else {
                 Ok(value)
@@ -1874,24 +2823,72 @@ impl qobject::InspectorBackend {
         item: i32,
         control: i32,
     ) {
+        let control_index = control;
         let Some((target, control)) = self.control_target(category, item, control) else {
             return;
         };
-        let result = match control.kind {
-            ControlKind::AudioCache => control
-                .target_id
-                .ok_or_else(|| "audio cache control has no modifier target".to_string())
-                .and_then(|id| super::toggle_audio_cache(&target, id)),
-            ControlKind::VisualCache => control
-                .target_id
-                .ok_or_else(|| "visual cache control has no modifier target".to_string())
-                .and_then(|id| super::toggle_visual_cache(&target, id)),
-            ControlKind::Action => control
-                .action
-                .ok_or_else(|| "inspector action control has no action".to_string())
-                .and_then(|action| super::trigger_video_control_action(&target, action)),
-            _ => Err("inspector control does not have an action".to_string()),
+        if control.action.is_some() && !control.action_sensitive {
+            return;
+        }
+        let result = if let Some(action) = control.action {
+            match action {
+                shrimply_inspector_core::InspectorControlAction::SelectObject3dModel {
+                    modifier_id,
+                } => super::select_object_3d_model(&target, modifier_id),
+                shrimply_inspector_core::InspectorControlAction::SelectScene3dEnvironment => {
+                    super::select_scene_3d_environment(&target)
+                }
+                shrimply_inspector_core::InspectorControlAction::SelectPaintTexture {
+                    color_id,
+                } => super::select_paint_texture(&target, color_id),
+                shrimply_inspector_core::InspectorControlAction::ToggleSam2Analysis {
+                    modifier_id,
+                    ..
+                } => super::toggle_sam2_analysis(&target, modifier_id),
+                shrimply_inspector_core::InspectorControlAction::ToggleTransparentFillAnalysis {
+                    modifier_id,
+                } => super::toggle_transparent_fill_analysis(&target, modifier_id),
+                shrimply_inspector_core::InspectorControlAction::ToggleCameraAnalysis => {
+                    super::toggle_camera_analysis(&target)
+                }
+                action => super::trigger_video_control_action(&target, action),
+            }
+        } else {
+            match control.kind {
+                ControlKind::AudioCache => control
+                    .target_id
+                    .ok_or_else(|| "audio cache control has no modifier target".to_string())
+                    .and_then(|id| super::toggle_audio_cache(&target, id)),
+                ControlKind::VisualCache => control
+                    .target_id
+                    .ok_or_else(|| "visual cache control has no modifier target".to_string())
+                    .and_then(|id| super::toggle_visual_cache(&target, id)),
+                ControlKind::Analysis => Err("analysis control has no action".to_string()),
+                ControlKind::Action => Err("inspector action control has no action".to_string()),
+                _ => Err("inspector control does not have an action".to_string()),
+            }
         };
+        let refresh_analysis = result.is_ok() && control.kind == ControlKind::Analysis;
+        self.as_mut().finish(result);
+        if refresh_analysis {
+            self.as_mut()
+                .poll_analysis_control(category, item, control_index);
+        }
+    }
+
+    pub fn trigger_secondary_control_action(
+        mut self: Pin<&mut Self>,
+        category: i32,
+        item: i32,
+        control: i32,
+    ) {
+        let Some((target, control)) = self.control_target(category, item, control) else {
+            return;
+        };
+        let result = control
+            .secondary_action
+            .ok_or_else(|| "inspector control does not have a secondary action".to_string())
+            .and_then(|action| super::trigger_video_control_action(&target, action));
         self.as_mut().finish(result);
     }
 
@@ -1927,6 +2924,20 @@ impl qobject::InspectorBackend {
             self.as_mut().finish(Err(error));
             return;
         }
+        if let Some(shrimply_inspector_core::InspectorControlAction::SetSam2PointPosition {
+            modifier_id,
+            point_id,
+        }) = control.action
+        {
+            self.as_mut().finish(super::set_sam2_point_position(
+                &target,
+                modifier_id,
+                point_id,
+                first,
+                second,
+            ));
+            return;
+        }
         let count = if matches!(
             control.kind,
             ControlKind::Vector3 | ControlKind::LayeredVector3
@@ -1941,6 +2952,7 @@ impl qobject::InspectorBackend {
                 &control.path,
                 first * control.store_multiplier,
                 second * control.store_multiplier,
+                &control.commit_name,
             ));
             return;
         }
@@ -1951,6 +2963,7 @@ impl qobject::InspectorBackend {
                 first * control.store_multiplier,
                 second * control.store_multiplier,
                 third * control.store_multiplier,
+                &control.commit_name,
             ));
             return;
         }
@@ -1995,6 +3008,7 @@ impl qobject::InspectorBackend {
                             channels[2],
                             channels[3],
                         ),
+                        &control.commit_name,
                     )
                 });
             self.as_mut().finish(result);
@@ -2044,7 +3058,14 @@ impl qobject::InspectorBackend {
             return;
         }
         let path = control.timeline_path.as_deref().unwrap_or(&control.path);
-        let result = if control.audio_modifier {
+        let result = if control.kind == ControlKind::LayeredDrawing {
+            control
+                .timeline_id
+                .ok_or_else(|| "paint drawing timeline ID is unavailable".to_string())
+                .and_then(|timeline_id| {
+                    super::set_paint_drawing_keyframes_enabled(&target, timeline_id, enabled)
+                })
+        } else if control.audio_modifier {
             control
                 .target_id
                 .ok_or_else(|| "audio modifier target is unavailable".to_string())
@@ -2062,28 +3083,77 @@ impl qobject::InspectorBackend {
                                     keyframes: true,
                                     enabled,
                                     current: serde_json::Value::Null,
-                                    default_expression: default_expression(&control),
+                                    default_expression: control.kind.default_expression(),
                                 },
                             )
                         })
                 })
         } else if control.kind == ControlKind::LayeredNumber {
-            super::set_scalar_keyframes_enabled(&target, path, enabled)
+            if crate::graph_backend::background_integer(&control) {
+                control
+                    .timeline_id
+                    .ok_or_else(|| "background integer timeline ID is unavailable".to_string())
+                    .and_then(|timeline_id| {
+                        super::set_background_integer_keyframes_enabled(
+                            &target,
+                            path,
+                            timeline_id,
+                            enabled,
+                        )
+                    })
+            } else {
+                super::set_scalar_keyframes_enabled(
+                    &target,
+                    path,
+                    enabled,
+                    control.number_constraint,
+                    &control.keyframe_commit_name,
+                )
+            }
         } else if control.kind == ControlKind::LayeredVector2 {
-            super::set_vector2_keyframes_enabled(&target, path, enabled)
+            super::set_vector2_keyframes_enabled(
+                &target,
+                path,
+                enabled,
+                &control.keyframe_commit_name,
+            )
         } else if control.kind == ControlKind::LayeredVector3 {
-            super::set_vector3_keyframes_enabled(&target, path, enabled)
+            super::set_vector3_keyframes_enabled(
+                &target,
+                path,
+                enabled,
+                &control.keyframe_commit_name,
+            )
         } else if control.kind == ControlKind::LayeredColor {
             control
                 .timeline_id
                 .ok_or_else(|| "timeline color ID is unavailable".to_string())
                 .and_then(|timeline_id| {
-                    super::set_color_keyframes_enabled(&target, path, timeline_id, enabled)
+                    super::set_color_keyframes_enabled(
+                        &target,
+                        path,
+                        timeline_id,
+                        enabled,
+                        &control.keyframe_commit_name,
+                    )
                 })
         } else if control.kind == ControlKind::LayeredBoolean {
-            super::set_bool_keyframes_enabled(&target, path, enabled)
+            super::set_bool_keyframes_enabled(&target, path, enabled, &control.keyframe_commit_name)
+        } else if control.kind == ControlKind::LayeredText {
+            control
+                .timeline_id
+                .ok_or_else(|| "text timeline ID is unavailable".to_string())
+                .and_then(|timeline_id| {
+                    super::set_text_keyframes_enabled(
+                        &target,
+                        path,
+                        timeline_id,
+                        enabled,
+                        &control.keyframe_commit_name,
+                    )
+                })
         } else if control.kind == ControlKind::LayeredSelector {
-            super::set_step_keyframes_enabled(&target, path, enabled)
+            super::set_step_keyframes_enabled(&target, path, enabled, &control.keyframe_commit_name)
         } else {
             timeline_value(&control).and_then(|current| {
                 super::set_timeline_mode(
@@ -2092,7 +3162,8 @@ impl qobject::InspectorBackend {
                     true,
                     enabled,
                     current,
-                    default_expression(&control),
+                    control.kind.default_expression(),
+                    &control.keyframe_commit_name,
                 )
             })
         };
@@ -2114,7 +3185,17 @@ impl qobject::InspectorBackend {
             return;
         }
         let path = control.timeline_path.as_deref().unwrap_or(&control.path);
-        let result = if control.audio_modifier {
+        let result = if control.kind == ControlKind::LayeredDrawing {
+            super::set_timeline_mode(
+                &target,
+                path,
+                false,
+                enabled,
+                serde_json::Value::Null,
+                control.kind.default_expression(),
+                &control.expression_commit_name,
+            )
+        } else if control.audio_modifier {
             control
                 .target_id
                 .ok_or_else(|| "audio modifier target is unavailable".to_string())
@@ -2132,10 +3213,51 @@ impl qobject::InspectorBackend {
                                     keyframes: false,
                                     enabled,
                                     current: serde_json::Value::Null,
-                                    default_expression: default_expression(&control),
+                                    default_expression: control.kind.default_expression(),
                                 },
                             )
                         })
+                })
+        } else if crate::graph_backend::background_integer(&control) {
+            control
+                .timeline_id
+                .ok_or_else(|| "background integer timeline ID is unavailable".to_string())
+                .and_then(|timeline_id| {
+                    super::set_background_integer_expression_enabled(
+                        &target,
+                        path,
+                        timeline_id,
+                        enabled,
+                    )
+                })
+        } else if let Some(field) =
+            shrimply_inspector_core::transform::TransformField::from_path(path)
+        {
+            control
+                .timeline_id
+                .ok_or_else(|| "transform timeline ID is unavailable".to_string())
+                .and_then(|timeline_id| {
+                    super::set_transform_expression_enabled(&target, field, timeline_id, enabled)
+                })
+        } else if control.kind == ControlKind::LayeredVector2 {
+            super::set_vector2_expression_enabled(
+                &target,
+                path,
+                enabled,
+                &control.expression_commit_name,
+            )
+        } else if control.kind == ControlKind::LayeredText {
+            control
+                .timeline_id
+                .ok_or_else(|| "text timeline ID is unavailable".to_string())
+                .and_then(|timeline_id| {
+                    super::set_text_expression_enabled(
+                        &target,
+                        path,
+                        timeline_id,
+                        enabled,
+                        &control.expression_commit_name,
+                    )
                 })
         } else {
             timeline_value(&control).and_then(|current| {
@@ -2145,7 +3267,8 @@ impl qobject::InspectorBackend {
                     false,
                     enabled,
                     current,
-                    default_expression(&control),
+                    control.kind.default_expression(),
+                    &control.expression_commit_name,
                 )
             })
         };
@@ -2175,8 +3298,49 @@ impl qobject::InspectorBackend {
                 .and_then(|id| {
                     super::set_audio_modifier_expression_source(&target, id, path, &source)
                 })
+        } else if crate::graph_backend::background_integer(&control) {
+            control
+                .timeline_id
+                .ok_or_else(|| "background integer timeline ID is unavailable".to_string())
+                .and_then(|timeline_id| {
+                    super::set_background_integer_expression_source(
+                        &target,
+                        path,
+                        timeline_id,
+                        source,
+                    )
+                })
+        } else if let Some(field) =
+            shrimply_inspector_core::transform::TransformField::from_path(path)
+        {
+            control
+                .timeline_id
+                .ok_or_else(|| "transform timeline ID is unavailable".to_string())
+                .and_then(|timeline_id| {
+                    super::set_transform_expression_source(&target, field, timeline_id, source)
+                })
+        } else if control.kind == ControlKind::LayeredVector2 {
+            super::set_vector2_expression_source(
+                &target,
+                path,
+                source,
+                &control.expression_commit_name,
+            )
+        } else if control.kind == ControlKind::LayeredText {
+            control
+                .timeline_id
+                .ok_or_else(|| "text timeline ID is unavailable".to_string())
+                .and_then(|timeline_id| {
+                    super::set_text_expression_source(
+                        &target,
+                        path,
+                        timeline_id,
+                        &source,
+                        &control.expression_commit_name,
+                    )
+                })
         } else {
-            super::set_expression_source(&target, path, &source)
+            super::set_expression_source(&target, path, &source, &control.expression_commit_name)
         };
         self.as_mut().finish(result);
     }
@@ -2278,6 +3442,10 @@ impl qobject::InspectorBackend {
 
 fn index(index: i32) -> Option<usize> {
     usize::try_from(index).ok()
+}
+
+fn analysis_control_key(category: i32, item: i32, control: i32) -> Option<AnalysisControlKey> {
+    Some((index(category)?, index(item)?, index(control)?))
 }
 
 fn count(value: Option<usize>) -> i32 {

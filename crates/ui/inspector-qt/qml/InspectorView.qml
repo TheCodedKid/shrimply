@@ -9,12 +9,25 @@ import dev.shrimply.inspector
 Item {
     id: root
     implicitWidth: backend.minimumWidth()
+    readonly property int expressionDiagnosticDebounce:
+        backend.expressionDiagnosticDebounce()
+    readonly property int expressionCompletionDebounce:
+        backend.expressionCompletionDebounce()
     signal error(string body)
     signal confirmation(string body)
 
     function refreshed(value) {
         const revision = backend.revision
         return revision >= 0 ? value : value
+    }
+
+    function expressionDiagnostic(source) {
+        return backend.expressionDiagnostic(source)
+    }
+
+    function expressionCompletion(category, item, control, source, cursor, automatic) {
+        return backend.controlExpressionCompletion(
+            category, item, control, source, cursor, automatic)
     }
 
     function bundledCategoryIcon(name) {
@@ -185,13 +198,30 @@ Item {
                                 }
                                 onResetRequested: backend.resetItem(
                                     itemLoader.categoryIndex, itemLoader.index)
-                                onFocusRequested: focusPreview()
+                                onFocusRequested: function(focusedItem, bodyClicked) {
+                                    focusPreview(focusedItem, bodyClicked)
+                                }
 
-                                function focusPreview() {
-                                    if (backend.itemFocusAvailable(
+                                function focusPreview(focusedItem, bodyClicked) {
+                                    if (!backend.itemFocusAvailable(
                                             itemLoader.categoryIndex, itemLoader.index))
+                                        return
+                                    if (!bodyClicked) {
                                         backend.focusItem(
                                             itemLoader.categoryIndex, itemLoader.index)
+                                        return
+                                    }
+                                    while (focusedItem && focusedItem !== card) {
+                                        if (focusedItem.inspectorControlIndex !== undefined) {
+                                            backend.focusControl(itemLoader.categoryIndex,
+                                                itemLoader.index,
+                                                focusedItem.inspectorControlIndex)
+                                            return
+                                        }
+                                        focusedItem = focusedItem.parent
+                                    }
+                                    backend.focusItemBody(
+                                        itemLoader.categoryIndex, itemLoader.index)
                                 }
 
                                 beforeReset: RowLayout {
@@ -287,6 +317,7 @@ Item {
                 Loader {
                     id: controlLoader
                     required property int index
+                    readonly property int inspectorControlIndex: index
                     readonly property int categoryIndex: controlColumn.categoryIndex
                     readonly property int itemIndex: controlColumn.itemIndex
                     readonly property int kind: root.refreshed(backend.controlKind(
@@ -295,6 +326,13 @@ Item {
                         categoryIndex, itemIndex, index))
                     readonly property bool transformLive: root.refreshed(
                         backend.controlTransformLive(categoryIndex, itemIndex, index))
+                    readonly property int rowRole: root.refreshed(
+                        backend.controlRowRole(categoryIndex, itemIndex, index))
+                    readonly property bool inlineRowPrimary:
+                        rowRole === InspectorBackend.Primary
+                    readonly property bool inlineRowTail:
+                        rowRole === InspectorBackend.Auxiliary
+                        || rowRole === InspectorBackend.TrailingAction
                     readonly property string value: {
                         const revision = kind === InspectorBackend.AudioCache
                             || kind === InspectorBackend.VisualCache
@@ -306,7 +344,9 @@ Item {
                     readonly property bool editable: root.refreshed(backend.controlEditable(
                         categoryIndex, itemIndex, index))
                     readonly property bool sensitive: {
-                        const revision = kind === InspectorBackend.AudioCache
+                        const revision = kind === InspectorBackend.Analysis
+                            ? backend.documentRevision + backend.analysisRevision
+                            : kind === InspectorBackend.AudioCache
                             || kind === InspectorBackend.AudioCachePreset
                             || kind === InspectorBackend.VisualCache
                             || kind === InspectorBackend.VisualCacheQuality
@@ -315,7 +355,7 @@ Item {
                         return revision >= 0 && backend.controlSensitive(
                             categoryIndex, itemIndex, index)
                     }
-                    visible: root.refreshed(
+                    visible: !inlineRowTail && root.refreshed(
                         backend.controlVisible(categoryIndex, itemIndex, index))
                     enabled: kind === InspectorBackend.ReadOnly
                         || kind === InspectorBackend.Selector
@@ -325,9 +365,11 @@ Item {
                         || kind === InspectorBackend.FileLocation
                         || kind === InspectorBackend.InfoLoading
                         || kind === InspectorBackend.Action
+                        || kind === InspectorBackend.Analysis
                         ? sensitive : editable && sensitive
                     Layout.fillWidth: true
-                    sourceComponent: kind === InspectorBackend.Boolean ? booleanControl
+                    sourceComponent: inlineRowTail ? null
+                        : kind === InspectorBackend.Boolean ? booleanControl
                         : kind === InspectorBackend.Number ? numberControl
                         : kind === InspectorBackend.Fraction ? fractionControl
                         : kind === InspectorBackend.Text ? textControl
@@ -335,7 +377,9 @@ Item {
                         : kind === InspectorBackend.ReadOnly ? readOnlyControl
                         : kind === InspectorBackend.Color ? colorControl
                         : kind === InspectorBackend.LayeredColor ? layeredColorControl
-                        : kind === InspectorBackend.LayeredText ? multilineControl
+                        : kind === InspectorBackend.LayeredText ? layeredTextControl
+                        : kind === InspectorBackend.LayeredDrawing ? layeredDrawingControl
+                        : kind === InspectorBackend.FontFamilies ? fontFamiliesControl
                         : kind === InspectorBackend.Selector
                             || kind === InspectorBackend.AudioCachePreset
                             || kind === InspectorBackend.VisualCacheQuality
@@ -351,6 +395,7 @@ Item {
                         : kind === InspectorBackend.LayeredSelector ? layeredSelectorControl
                         : kind === InspectorBackend.AudioCache ? audioCacheControl
                         : kind === InspectorBackend.VisualCache ? visualCacheControl
+                        : kind === InspectorBackend.Analysis ? analysisControl
                         : kind === InspectorBackend.ModifierMenu ? audioModifierMenuControl
                         : kind === InspectorBackend.TtsEditor ? ttsEditorControl
                         : kind === InspectorBackend.BeatDetection ? beatDetectionControl
@@ -566,10 +611,211 @@ Item {
                         }
                     }
                     Component {
+                        id: layeredTextControl
+                        InspectorTextGraphProperty {
+                            id: propertyGraph
+                            expressionDiagnosticProvider: function(source) {
+                                return root.expressionDiagnostic(source)
+                            }
+                            expressionDiagnosticDebounce: root.expressionDiagnosticDebounce
+                            expressionCompletionDebounce: root.expressionCompletionDebounce
+                            expressionCompletionProvider: function(source, cursor, automatic) {
+                                return root.expressionCompletion(controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index, source, cursor,
+                                    automatic)
+                            }
+                            readonly property int graphDocumentRevision: backend.documentRevision
+                            readonly property int graphModelRevision: backend.graphRevision
+                            readonly property int graphPlayheadRevision:
+                                backend.playheadRevision
+                            readonly property int textRevision:
+                                backend.documentRevision + backend.graphRevision
+                                    + backend.playheadRevision
+                            readonly property var expressionResult: {
+                                const documentRevision = backend.documentRevision
+                                const expressionRevision = backend.expressionRevision
+                                const playheadRevision = backend.playheadRevision
+                                return propertyGraph.expression
+                                        && documentRevision + expressionRevision
+                                        + playheadRevision >= 0
+                                    ? backend.controlExpressionResult(
+                                        controlLoader.categoryIndex,
+                                        controlLoader.itemIndex, controlLoader.index)
+                                    : []
+                            }
+                            label: controlLoader.label
+                            textValue: textRevision >= 0 ? backend.controlValue(
+                                controlLoader.categoryIndex,
+                                controlLoader.itemIndex, controlLoader.index) : ""
+                            keyframes: root.refreshed(backend.controlKeyframes(
+                                controlLoader.categoryIndex,
+                                controlLoader.itemIndex, controlLoader.index))
+                            expression: root.refreshed(backend.controlExpression(
+                                controlLoader.categoryIndex,
+                                controlLoader.itemIndex, controlLoader.index))
+                            expressionValue: root.refreshed(
+                                backend.controlExpressionSource(
+                                    controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index))
+                            expressionOutput: expressionResult.length > 0
+                                ? expressionResult[0] : ""
+                            expressionError: expressionResult.length > 1
+                                ? expressionResult[1] : ""
+                            externalClipboardMarker: backend.keyframeClipboardMarker()
+                            textInterpolationLabels: backend.textInterpolationLabels()
+                            textInterpolationTooltips: backend.textInterpolationTooltips()
+                            textInterpolationIndexForOwner: function(ownerId) {
+                                return backend.controlGraphTextInterpolation(
+                                    controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index,
+                                    ownerId)
+                            }
+
+                            function updateGraphPlayhead() {
+                                if (!propertyGraph.keyframes)
+                                    return
+                                const playhead = backend.controlGraphPlayhead(
+                                    controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index)
+                                if (playhead.length === 2)
+                                    propertyGraph.setGraphPlayhead(playhead[0], playhead[1])
+                            }
+                            function configureGraph() {
+                                if (!propertyGraph.keyframes)
+                                    return
+                                const times = backend.controlGraphPointTimes(
+                                    controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index)
+                                const segments = backend.controlGraphSegments(
+                                    controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index)
+                                const timing = backend.controlGraphTiming(
+                                    controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index)
+                                if (timing.length !== 6)
+                                    return
+                                propertyGraph.replaceSpeedGraphComponent(
+                                    0, times, segments, 0)
+                                propertyGraph.setGraphRange(
+                                    timing[0], timing[1], timing[2], timing[3])
+                                propertyGraph.setGraphFrameStep(timing[4], timing[5])
+                                propertyGraph.setGraphSnapping(
+                                    backend.keyframeSnappingEnabled(),
+                                    backend.keyframeSnappingRadius())
+                                propertyGraph.setGraphExternalClipboard(true)
+                                propertyGraph.setTextInterpolation(true)
+                                propertyGraph.updateGraphPlayhead()
+                            }
+
+                            Component.onCompleted: configureGraph()
+                            onGraphLoaded: configureGraph()
+                            onGraphDocumentRevisionChanged: configureGraph()
+                            onGraphModelRevisionChanged: configureGraph()
+                            onGraphPlayheadRevisionChanged: updateGraphPlayhead()
+                            onTextEdited: function(value) { controlLoader.edit(value) }
+                            onTextCommitted: function(value) { controlLoader.commit() }
+                            onGraphPlaybackToggled: backend.toggleControlGraphPlayback()
+                            onGraphPlayheadChanged: function(component, numerator, denominator) {
+                                if (component === 0)
+                                    backend.seekControlGraph(
+                                        controlLoader.categoryIndex,
+                                        controlLoader.itemIndex, controlLoader.index,
+                                        numerator, denominator)
+                            }
+                            onGraphKeysMoved: function(component, oldTimes, times, values) {
+                                if (component === 0)
+                                    backend.moveControlGraphKeys(
+                                        controlLoader.categoryIndex,
+                                        controlLoader.itemIndex, controlLoader.index,
+                                        oldTimes, times, values)
+                            }
+                            onGraphEditFinished: controlLoader.commit()
+                            onGraphKeysDeleted: function(component, times) {
+                                if (component === 0)
+                                    backend.deleteControlGraphKeys(
+                                        controlLoader.categoryIndex,
+                                        controlLoader.itemIndex, controlLoader.index, times)
+                            }
+                            onGraphKeyAdded: function(component, numerator, denominator) {
+                                if (component === 0)
+                                    backend.addControlGraphKey(
+                                        controlLoader.categoryIndex,
+                                        controlLoader.itemIndex, controlLoader.index,
+                                        numerator, denominator)
+                            }
+                            onGraphCopyRequested: function(component, times) {
+                                if (component === 0 && backend.copyControlGraphKeys(
+                                        controlLoader.categoryIndex,
+                                        controlLoader.itemIndex, controlLoader.index, times)) {
+                                    propertyGraph.copyExternalClipboardMarker()
+                                }
+                            }
+                            onGraphPasteRequested: function(component, numerator, denominator) {
+                                if (component === 0)
+                                    backend.pasteControlGraphKeys(
+                                        controlLoader.categoryIndex,
+                                        controlLoader.itemIndex, controlLoader.index,
+                                        numerator, denominator)
+                            }
+                            onGraphInterpolationChanged: function(component, ownerId, interpolation) {
+                                if (component === 0)
+                                    backend.setControlGraphInterpolation(
+                                        controlLoader.categoryIndex,
+                                        controlLoader.itemIndex, controlLoader.index,
+                                        ownerId, interpolation)
+                            }
+                            onTextInterpolationChanged: function(ownerId, interpolation) {
+                                backend.setControlGraphTextInterpolation(
+                                    controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index,
+                                    ownerId, interpolation)
+                            }
+                            onKeyframesToggled: function(enabled) {
+                                backend.setControlKeyframes(controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index, enabled)
+                            }
+                            onExpressionToggled: function(enabled) {
+                                backend.setControlExpression(controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index, enabled)
+                            }
+                            onExpressionEdited: function(value) {
+                                backend.setControlExpressionSource(controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index, value)
+                            }
+                            onExpressionCommitted: controlLoader.commit()
+                        }
+                    }
+                    Component {
                         id: readOnlyControl
                         ControlRow {
                             label: controlLoader.label
-                            ReadOnlyField { text: controlLoader.value }
+                            RowLayout {
+                                BusyIndicator {
+                                    visible: running
+                                    readonly property int busyRevision:
+                                        backend.revision + backend.analysisRevision
+                                    running: busyRevision >= 0 && backend.controlBusy(
+                                            controlLoader.categoryIndex,
+                                            controlLoader.itemIndex, controlLoader.index)
+                                    implicitWidth: 18
+                                    implicitHeight: 18
+                                }
+                                ReadOnlyField { text: controlLoader.value }
+                            }
+                        }
+                    }
+                    Component {
+                        id: fontFamiliesControl
+                        ControlRow {
+                            label: controlLoader.label
+                            FontFamilyList {
+                                value: controlLoader.value
+                                browserBackend: backend
+                                categoryIndex: controlLoader.categoryIndex
+                                itemIndex: controlLoader.itemIndex
+                                controlIndex: controlLoader.index
+                                onEdited: function(value) { controlLoader.edit(value) }
+                            }
                         }
                     }
                     Component {
@@ -670,6 +916,16 @@ Item {
                         id: layeredColorControl
                         InspectorGraphProperty {
                             id: propertyGraph
+                            expressionDiagnosticProvider: function(source) {
+                                return root.expressionDiagnostic(source)
+                            }
+                            expressionDiagnosticDebounce: root.expressionDiagnosticDebounce
+                            expressionCompletionDebounce: root.expressionCompletionDebounce
+                            expressionCompletionProvider: function(source, cursor, automatic) {
+                                return root.expressionCompletion(controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index, source, cursor,
+                                    automatic)
+                            }
                             readonly property int graphDocumentRevision: backend.documentRevision
                             readonly property int graphModelRevision: backend.graphRevision
                             readonly property int graphPlayheadRevision:
@@ -755,24 +1011,43 @@ Item {
                             onGraphModelRevisionChanged: configureGraph()
                             onGraphPlayheadRevisionChanged: updateGraphPlayhead()
 
-                            ColorPicker {
-                                color: propertyGraph.colorChannels.length === 4 ? Qt.rgba(
-                                    Number(propertyGraph.colorChannels[0]) / 255,
-                                    Number(propertyGraph.colorChannels[1]) / 255,
-                                    Number(propertyGraph.colorChannels[2]) / 255,
-                                    Number(propertyGraph.colorChannels[3]) / 255) : "transparent"
-                                title: controlLoader.label
-                                withAlpha: root.refreshed(backend.controlWithAlpha(
-                                    controlLoader.categoryIndex,
-                                    controlLoader.itemIndex, controlLoader.index))
-                                onSelected: function(color) {
-                                    backend.setControlColor(
+                            RowLayout {
+                                ColorPicker {
+                                    color: propertyGraph.colorChannels.length === 4 ? Qt.rgba(
+                                        Number(propertyGraph.colorChannels[0]) / 255,
+                                        Number(propertyGraph.colorChannels[1]) / 255,
+                                        Number(propertyGraph.colorChannels[2]) / 255,
+                                        Number(propertyGraph.colorChannels[3]) / 255) : "transparent"
+                                    title: controlLoader.label
+                                    withAlpha: root.refreshed(backend.controlWithAlpha(
                                         controlLoader.categoryIndex,
-                                        controlLoader.itemIndex, controlLoader.index,
-                                        color.r, color.g, color.b, color.a)
-                                    controlLoader.commit()
+                                        controlLoader.itemIndex, controlLoader.index))
+                                    Layout.fillWidth: true
+                                    onSelected: function(color) {
+                                        backend.setControlColor(
+                                            controlLoader.categoryIndex,
+                                            controlLoader.itemIndex, controlLoader.index,
+                                            color.r, color.g, color.b, color.a)
+                                        controlLoader.commit()
+                                    }
+                                    onScreenColorFailed: function(message) { root.error(message) }
                                 }
-                                onScreenColorFailed: function(message) { root.error(message) }
+                                ToolButton {
+                                    visible: root.refreshed(backend.controlHasAction(
+                                        controlLoader.categoryIndex,
+                                        controlLoader.itemIndex, controlLoader.index))
+                                    enabled: root.refreshed(backend.controlActionSensitive(
+                                        controlLoader.categoryIndex,
+                                        controlLoader.itemIndex, controlLoader.index))
+                                    flat: true
+                                    icon.name: controlLoader.prefixIcon()
+                                    display: AbstractButton.IconOnly
+                                    ToolTip.visible: hovered && controlLoader.tooltip().length > 0
+                                    ToolTip.text: controlLoader.tooltip()
+                                    onClicked: backend.triggerControlAction(
+                                        controlLoader.categoryIndex,
+                                        controlLoader.itemIndex, controlLoader.index)
+                                }
                             }
 
                             onGraphPlaybackToggled: backend.toggleControlGraphPlayback()
@@ -967,6 +1242,16 @@ Item {
                         id: layeredNumberControl
                         InspectorGraphProperty {
                             id: propertyGraph
+                            expressionDiagnosticProvider: function(source) {
+                                return root.expressionDiagnostic(source)
+                            }
+                            expressionDiagnosticDebounce: root.expressionDiagnosticDebounce
+                            expressionCompletionDebounce: root.expressionCompletionDebounce
+                            expressionCompletionProvider: function(source, cursor, automatic) {
+                                return root.expressionCompletion(controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index, source, cursor,
+                                    automatic)
+                            }
                             readonly property int graphDocumentRevision: backend.documentRevision
                             readonly property int graphModelRevision: backend.graphRevision
                             readonly property int graphPlayheadRevision:
@@ -1145,9 +1430,164 @@ Item {
                         }
                     }
                     Component {
+                        id: layeredDrawingControl
+                        InspectorGraphProperty {
+                            id: propertyGraph
+                            expressionDiagnosticProvider: function(source) {
+                                return root.expressionDiagnostic(source)
+                            }
+                            expressionDiagnosticDebounce: root.expressionDiagnosticDebounce
+                            expressionCompletionDebounce: root.expressionCompletionDebounce
+                            expressionCompletionProvider: function(source, cursor, automatic) {
+                                return root.expressionCompletion(controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index, source, cursor,
+                                    automatic)
+                            }
+                            readonly property int graphDocumentRevision: backend.documentRevision
+                            readonly property int graphModelRevision: backend.graphRevision
+                            readonly property int graphPlayheadRevision: backend.playheadRevision
+                            readonly property var expressionResult: {
+                                const revision = backend.documentRevision
+                                    + backend.expressionRevision + backend.playheadRevision
+                                return propertyGraph.expression && revision >= 0
+                                    ? backend.controlExpressionResult(
+                                        controlLoader.categoryIndex,
+                                        controlLoader.itemIndex, controlLoader.index) : []
+                            }
+                            label: controlLoader.label
+                            initialGraphValue: 0
+                            keyframes: root.refreshed(backend.controlKeyframes(
+                                controlLoader.categoryIndex,
+                                controlLoader.itemIndex, controlLoader.index))
+                            expression: root.refreshed(backend.controlExpression(
+                                controlLoader.categoryIndex,
+                                controlLoader.itemIndex, controlLoader.index))
+                            expressionValue: root.refreshed(
+                                backend.controlExpressionSource(
+                                    controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index))
+                            expressionOutput: expressionResult.length > 0
+                                ? expressionResult[0] : ""
+                            expressionError: expressionResult.length > 1
+                                ? expressionResult[1] : ""
+                            externalClipboardMarker: backend.keyframeClipboardMarker()
+
+                            Label {
+                                text: controlLoader.value
+                                color: palette.placeholderText
+                                Layout.fillWidth: true
+                            }
+
+                            function updateGraphPlayhead() {
+                                if (!propertyGraph.keyframes)
+                                    return
+                                const playhead = backend.controlGraphPlayhead(
+                                    controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index)
+                                if (playhead.length === 2)
+                                    propertyGraph.setGraphPlayhead(playhead[0], playhead[1])
+                            }
+                            function configureGraph() {
+                                if (!propertyGraph.keyframes)
+                                    return
+                                const times = backend.controlGraphPointTimes(
+                                    controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index)
+                                const segments = backend.controlGraphSegments(
+                                    controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index)
+                                const timing = backend.controlGraphTiming(
+                                    controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index)
+                                if (timing.length !== 6)
+                                    return
+                                propertyGraph.replaceSpeedGraphComponent(0, times, segments, 0)
+                                propertyGraph.setGraphRange(
+                                    timing[0], timing[1], timing[2], timing[3])
+                                propertyGraph.setGraphFrameStep(timing[4], timing[5])
+                                propertyGraph.setGraphSnapping(
+                                    backend.keyframeSnappingEnabled(),
+                                    backend.keyframeSnappingRadius())
+                                propertyGraph.setGraphExternalClipboard(true)
+                                propertyGraph.updateGraphPlayhead()
+                            }
+                            Component.onCompleted: configureGraph()
+                            onGraphLoaded: configureGraph()
+                            onGraphDocumentRevisionChanged: configureGraph()
+                            onGraphModelRevisionChanged: configureGraph()
+                            onGraphPlayheadRevisionChanged: updateGraphPlayhead()
+                            onGraphPlaybackToggled: backend.toggleControlGraphPlayback()
+                            onGraphPlayheadChanged: function(component, numerator, denominator) {
+                                if (component === 0)
+                                    backend.seekControlGraph(controlLoader.categoryIndex,
+                                        controlLoader.itemIndex, controlLoader.index,
+                                        numerator, denominator)
+                            }
+                            onGraphKeysMoved: function(component, oldTimes, times, values) {
+                                if (component === 0)
+                                    backend.moveControlGraphKeys(controlLoader.categoryIndex,
+                                        controlLoader.itemIndex, controlLoader.index,
+                                        oldTimes, times, values)
+                            }
+                            onGraphEditFinished: controlLoader.commit()
+                            onGraphKeysDeleted: function(component, times) {
+                                if (component === 0)
+                                    backend.deleteControlGraphKeys(controlLoader.categoryIndex,
+                                        controlLoader.itemIndex, controlLoader.index, times)
+                            }
+                            onGraphKeyAdded: function(component, numerator, denominator) {
+                                if (component === 0)
+                                    backend.addControlGraphKey(controlLoader.categoryIndex,
+                                        controlLoader.itemIndex, controlLoader.index,
+                                        numerator, denominator)
+                            }
+                            onGraphCopyRequested: function(component, times) {
+                                if (component === 0 && backend.copyControlGraphKeys(
+                                        controlLoader.categoryIndex, controlLoader.itemIndex,
+                                        controlLoader.index, times))
+                                    propertyGraph.copyExternalClipboardMarker()
+                            }
+                            onGraphPasteRequested: function(component, numerator, denominator) {
+                                if (component === 0)
+                                    backend.pasteControlGraphKeys(controlLoader.categoryIndex,
+                                        controlLoader.itemIndex, controlLoader.index,
+                                        numerator, denominator)
+                            }
+                            onGraphInterpolationChanged: function(component, ownerId, interpolation) {
+                                if (component === 0)
+                                    backend.setControlGraphInterpolation(
+                                        controlLoader.categoryIndex, controlLoader.itemIndex,
+                                        controlLoader.index, ownerId, interpolation)
+                            }
+                            onKeyframesToggled: function(enabled) {
+                                backend.setControlKeyframes(controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index, enabled)
+                            }
+                            onExpressionToggled: function(enabled) {
+                                backend.setControlExpression(controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index, enabled)
+                            }
+                            onExpressionEdited: function(value) {
+                                backend.setControlExpressionSource(controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index, value)
+                            }
+                            onExpressionCommitted: controlLoader.commit()
+                        }
+                    }
+                    Component {
                         id: layeredBooleanControl
                         InspectorGraphProperty {
                             id: propertyGraph
+                            expressionDiagnosticProvider: function(source) {
+                                return root.expressionDiagnostic(source)
+                            }
+                            expressionDiagnosticDebounce: root.expressionDiagnosticDebounce
+                            expressionCompletionDebounce: root.expressionCompletionDebounce
+                            expressionCompletionProvider: function(source, cursor, automatic) {
+                                return root.expressionCompletion(controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index, source, cursor,
+                                    automatic)
+                            }
                             readonly property int graphDocumentRevision: backend.documentRevision
                             readonly property int graphPlayheadRevision:
                                 backend.playheadRevision
@@ -1308,6 +1748,16 @@ Item {
                         id: layeredSelectorControl
                         InspectorGraphProperty {
                             id: propertyGraph
+                            expressionDiagnosticProvider: function(source) {
+                                return root.expressionDiagnostic(source)
+                            }
+                            expressionDiagnosticDebounce: root.expressionDiagnosticDebounce
+                            expressionCompletionDebounce: root.expressionCompletionDebounce
+                            expressionCompletionProvider: function(source, cursor, automatic) {
+                                return root.expressionCompletion(controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index, source, cursor,
+                                    automatic)
+                            }
                             readonly property int graphDocumentRevision: backend.documentRevision
                             readonly property int graphModelRevision: backend.graphRevision
                             readonly property int graphPlayheadRevision:
@@ -1486,6 +1936,16 @@ Item {
                         id: layeredVector2Control
                         InspectorPairGraphProperty {
                             id: propertyGraph
+                            expressionDiagnosticProvider: function(source) {
+                                return root.expressionDiagnostic(source)
+                            }
+                            expressionDiagnosticDebounce: root.expressionDiagnosticDebounce
+                            expressionCompletionDebounce: root.expressionCompletionDebounce
+                            expressionCompletionProvider: function(source, cursor, automatic) {
+                                return root.expressionCompletion(controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index, source, cursor,
+                                    automatic)
+                            }
                             readonly property int graphDocumentRevision: backend.documentRevision
                             readonly property int graphModelRevision: backend.graphRevision
                             readonly property int graphPlayheadRevision:
@@ -1540,6 +2000,85 @@ Item {
                             firstPrefix: controlLoader.prefix(0)
                             secondPrefix: controlLoader.prefix(1)
                             enableLock: controlLoader.locked()
+                            trailing: Loader {
+                                active: controlLoader.inlineRowPrimary
+                                sourceComponent: RowLayout {
+                                    id: inlineControlRow
+                                    readonly property int selectorIndex:
+                                        backend.controlRowMember(
+                                            controlLoader.categoryIndex,
+                                            controlLoader.itemIndex,
+                                            controlLoader.index,
+                                            InspectorBackend.Auxiliary)
+                                    readonly property int removeIndex:
+                                        backend.controlRowMember(
+                                            controlLoader.categoryIndex,
+                                            controlLoader.itemIndex,
+                                            controlLoader.index,
+                                            InspectorBackend.TrailingAction)
+                                    Dropdown {
+                                        Layout.fillWidth: true
+                                        visible: inlineControlRow.selectorIndex >= 0
+                                        enabled: backend.controlEditable(
+                                            controlLoader.categoryIndex,
+                                            controlLoader.itemIndex,
+                                            inlineControlRow.selectorIndex)
+                                            && backend.controlSensitive(
+                                                controlLoader.categoryIndex,
+                                                controlLoader.itemIndex,
+                                                inlineControlRow.selectorIndex)
+                                        value: root.refreshed(backend.controlValue(
+                                            controlLoader.categoryIndex,
+                                            controlLoader.itemIndex,
+                                            inlineControlRow.selectorIndex))
+                                        values: root.refreshed(backend.controlChoiceValues(
+                                            controlLoader.categoryIndex,
+                                            controlLoader.itemIndex,
+                                            inlineControlRow.selectorIndex))
+                                        labels: root.refreshed(backend.controlChoiceLabels(
+                                            controlLoader.categoryIndex,
+                                            controlLoader.itemIndex,
+                                            inlineControlRow.selectorIndex))
+                                        ToolTip.visible: hovered
+                                        ToolTip.text: backend.controlLabel(
+                                            controlLoader.categoryIndex,
+                                            controlLoader.itemIndex,
+                                            inlineControlRow.selectorIndex)
+                                        onSelected: function(value) {
+                                            backend.setControlValue(
+                                                controlLoader.categoryIndex,
+                                                controlLoader.itemIndex,
+                                                inlineControlRow.selectorIndex,
+                                                String(value))
+                                            backend.commitControl(
+                                                controlLoader.categoryIndex,
+                                                controlLoader.itemIndex,
+                                                inlineControlRow.selectorIndex)
+                                        }
+                                    }
+                                    ToolButton {
+                                        flat: true
+                                        enabled: backend.controlSensitive(
+                                            controlLoader.categoryIndex,
+                                            controlLoader.itemIndex,
+                                            inlineControlRow.removeIndex)
+                                        icon.name: backend.controlPrefixIcon(
+                                            controlLoader.categoryIndex,
+                                            controlLoader.itemIndex,
+                                            inlineControlRow.removeIndex)
+                                        display: AbstractButton.IconOnly
+                                        ToolTip.visible: hovered
+                                        ToolTip.text: backend.controlTooltip(
+                                            controlLoader.categoryIndex,
+                                            controlLoader.itemIndex,
+                                            inlineControlRow.removeIndex)
+                                        onClicked: backend.triggerControlAction(
+                                            controlLoader.categoryIndex,
+                                            controlLoader.itemIndex,
+                                            inlineControlRow.removeIndex)
+                                    }
+                                }
+                            }
                             function updateGraphPlayhead() {
                                 if (!propertyGraph.keyframes)
                                     return
@@ -1666,51 +2205,156 @@ Item {
                     }
                     Component {
                         id: actionControl
-                        ControlRow {
-                            label: controlLoader.label
-                            subtitle: root.refreshed(backend.controlSubtitle(
-                                controlLoader.categoryIndex,
-                                controlLoader.itemIndex, controlLoader.index))
-                            ProgressButton {
-                                text: controlLoader.value
-                                progressState: backend.controlBusy(
+                        Loader {
+                            Layout.fillWidth: true
+                            readonly property bool iconOnlyRow:
+                                controlLoader.label.length > 0
+                                && controlLoader.prefixIcon().length > 0
+                                && backend.controlHasAction(
                                     controlLoader.categoryIndex,
                                     controlLoader.itemIndex,
                                     controlLoader.index)
-                                        ? ProgressButton.Indeterminate : ProgressButton.Idle
-                                ToolTip.visible: hovered && controlLoader.tooltip().length > 0
-                                ToolTip.text: controlLoader.tooltip()
-                                onClicked: backend.triggerControlAction(
+                                && backend.controlDragPayload(
                                     controlLoader.categoryIndex,
-                                    controlLoader.itemIndex, controlLoader.index)
+                                    controlLoader.itemIndex,
+                                    controlLoader.index).length === 0
+                            sourceComponent: iconOnlyRow ? labeledIconAction
+                                : controlLoader.label.length === 0
+                                    && controlLoader.prefixIcon().length > 0
+                                ? flatActionButton : labeledActionButton
+                            Component {
+                                id: flatActionButton
+                                ProgressButton {
+                                    text: ComponentTranslations.text(controlLoader.value)
+                                    flat: true
+                                    icon.name: controlLoader.prefixIcon()
+                                    ToolTip.visible: hovered
+                                        && controlLoader.tooltip().length > 0
+                                    ToolTip.text: controlLoader.tooltip()
+                                    onClicked: backend.triggerControlAction(
+                                        controlLoader.categoryIndex,
+                                        controlLoader.itemIndex, controlLoader.index)
+                                }
+                            }
+                            Component {
+                                id: labeledIconAction
+                                ControlRow {
+                                    label: controlLoader.label
+                                    RowLayout {
+                                        Item { Layout.fillWidth: true }
+                                        ToolButton {
+                                            flat: true
+                                            icon.name: controlLoader.prefixIcon()
+                                            display: AbstractButton.IconOnly
+                                            ToolTip.visible: hovered
+                                                && controlLoader.tooltip().length > 0
+                                            ToolTip.text: controlLoader.tooltip()
+                                            onClicked: backend.triggerControlAction(
+                                                controlLoader.categoryIndex,
+                                                controlLoader.itemIndex,
+                                                controlLoader.index)
+                                        }
+                                    }
+                                }
+                            }
+                            Component {
+                                id: labeledActionButton
+                                ControlRow {
+                                    label: controlLoader.label
+                                    subtitle: root.refreshed(backend.controlSubtitle(
+                                        controlLoader.categoryIndex,
+                                        controlLoader.itemIndex, controlLoader.index))
+                                    RowLayout {
+                                        id: actionRow
+                                        Layout.fillWidth: true
+                                        readonly property string dragPayload: backend.controlDragPayload(
+                                            controlLoader.categoryIndex,
+                                            controlLoader.itemIndex, controlLoader.index)
+                                        ProgressButton {
+                                            id: actionButton
+                                            text: ComponentTranslations.text(controlLoader.value)
+                                            icon.name: controlLoader.prefixIcon()
+                                            progressState: backend.controlBusy(
+                                                controlLoader.categoryIndex,
+                                                controlLoader.itemIndex,
+                                                controlLoader.index)
+                                                    ? ProgressButton.Indeterminate
+                                                    : ProgressButton.Idle
+                                            Layout.fillWidth: true
+                                            Drag.active: actionDrag.active
+                                            Drag.dragType: Drag.Automatic
+                                            Drag.supportedActions: Qt.CopyAction
+                                            Drag.mimeData: ({ "text/plain": actionRow.dragPayload })
+                                            DragHandler {
+                                                id: actionDrag
+                                                enabled: actionRow.dragPayload.length > 0
+                                                target: null
+                                            }
+                                            ToolTip.visible: hovered
+                                                && controlLoader.tooltip().length > 0
+                                            ToolTip.text: controlLoader.tooltip()
+                                            onClicked: {
+                                                if (actionRow.dragPayload.length === 0)
+                                                    backend.triggerControlAction(
+                                                        controlLoader.categoryIndex,
+                                                        controlLoader.itemIndex,
+                                                        controlLoader.index)
+                                            }
+                                        }
+                                        ToolButton {
+                                            readonly property string actionIcon:
+                                                backend.controlActionIcon(
+                                                    controlLoader.categoryIndex,
+                                                    controlLoader.itemIndex,
+                                                    controlLoader.index)
+                                            visible: backend.controlHasAction(
+                                                controlLoader.categoryIndex,
+                                                controlLoader.itemIndex,
+                                                controlLoader.index)
+                                                && actionIcon.length > 0
+                                            flat: true
+                                            icon.name: actionIcon
+                                            display: AbstractButton.IconOnly
+                                            ToolTip.visible: hovered
+                                            ToolTip.text: backend.controlActionTooltip(
+                                                controlLoader.categoryIndex,
+                                                controlLoader.itemIndex,
+                                                controlLoader.index)
+                                            onClicked: backend.triggerSecondaryControlAction(
+                                                controlLoader.categoryIndex,
+                                                controlLoader.itemIndex,
+                                                controlLoader.index)
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
                     Component {
                         id: audioCacheControl
-                        ColumnLayout {
-                            SystemPalette { id: systemPalette }
+                        RowLayout {
+                            SystemPalette { id: audioCachePalette }
                             Layout.fillWidth: true
-                            ProgressBar {
-                                readonly property real progress: controlLoader.component(0)
-                                visible: controlLoader.value === "Baking…"
-                                indeterminate: progress < 0
-                                value: Math.max(0, progress)
-                                Layout.fillWidth: true
-                            }
-                            Button {
-                                readonly property bool cancelHovered:
-                                    controlLoader.value === "Baking…" && hovered
-                                highlighted: controlLoader.value !== "Baking…"
-                                text: controlLoader.value === "Baking…" && hovered
-                                    ? qsTr("Cancel") : controlLoader.value
+                            Item { Layout.fillWidth: true }
+                            ProgressButton {
+                                readonly property real cacheProgress: controlLoader.component(0)
+                                readonly property bool baking:
+                                    controlLoader.component(1) > 0
+                                readonly property bool cancelHovered: baking && hovered
+                                highlighted: !baking
+                                text: cancelHovered ? qsTr("Cancel") : controlLoader.value
+                                progressState: !baking ? ProgressButton.Idle
+                                    : cacheProgress < 0 ? ProgressButton.Indeterminate
+                                    : ProgressButton.Progress
+                                progress: Math.max(0, cacheProgress)
                                 palette.button: cancelHovered
-                                    ? backend.destructiveBackground() : systemPalette.button
+                                    ? backend.destructiveBackground()
+                                    : audioCachePalette.button
                                 palette.buttonText: cancelHovered
-                                    ? backend.destructiveForeground() : systemPalette.buttonText
+                                    ? backend.destructiveForeground()
+                                    : audioCachePalette.buttonText
                                 ToolTip.visible: hovered && controlLoader.tooltip().length > 0
                                 ToolTip.text: controlLoader.tooltip()
-                                Layout.alignment: Qt.AlignRight
                                 onClicked: backend.triggerControlAction(
                                     controlLoader.categoryIndex,
                                     controlLoader.itemIndex, controlLoader.index)
@@ -1757,7 +2401,7 @@ Item {
                             ProgressButton {
                                 readonly property real cacheProgress: controlLoader.component(0)
                                 readonly property bool baking:
-                                    controlLoader.value === "Baking…"
+                                    controlLoader.component(1) > 0
                                 readonly property bool cancelHovered: baking && hovered
                                 highlighted: !baking
                                 text: cancelHovered ? qsTr("Cancel") : controlLoader.value
@@ -1781,9 +2425,100 @@ Item {
                         }
                     }
                     Component {
+                        id: analysisControl
+                        RowLayout {
+                            SystemPalette { id: analysisPalette }
+                            Layout.fillWidth: true
+                            Item { Layout.fillWidth: true }
+                            ProgressButton {
+                                id: analysisButton
+                                readonly property int statusRevision: backend.analysisRevision
+                                readonly property real analysisProgress: {
+                                    const revision = statusRevision
+                                    return revision >= 0 ? backend.controlComponent(
+                                        controlLoader.categoryIndex,
+                                        controlLoader.itemIndex, controlLoader.index, 0) : -1
+                                }
+                                readonly property bool analysisRunning: {
+                                    const revision = statusRevision
+                                    return revision >= 0 && backend.controlComponent(
+                                        controlLoader.categoryIndex,
+                                        controlLoader.itemIndex, controlLoader.index, 1) > 0
+                                }
+                                readonly property bool analysisCancelling: {
+                                    const revision = statusRevision
+                                    return revision >= 0 && backend.controlComponent(
+                                        controlLoader.categoryIndex,
+                                        controlLoader.itemIndex, controlLoader.index, 2) > 0
+                                }
+                                readonly property bool suggested: {
+                                    const revision = statusRevision
+                                    return revision >= 0 && backend.controlComponent(
+                                        controlLoader.categoryIndex,
+                                        controlLoader.itemIndex, controlLoader.index, 3) > 0
+                                }
+                                readonly property string analysisLabel: {
+                                    const revision = statusRevision
+                                    return revision >= 0 ? ComponentTranslations.text(
+                                        backend.controlValue(
+                                            controlLoader.categoryIndex,
+                                            controlLoader.itemIndex, controlLoader.index)) : ""
+                                }
+                                readonly property string analysisTooltip: {
+                                    const revision = statusRevision
+                                    return revision >= 0 ? backend.controlTooltip(
+                                        controlLoader.categoryIndex,
+                                        controlLoader.itemIndex, controlLoader.index) : ""
+                                }
+                                readonly property bool cancelHovered: analysisRunning && hovered
+                                enabled: {
+                                    const revision = statusRevision
+                                    return revision >= 0 && backend.controlSensitive(
+                                        controlLoader.categoryIndex,
+                                        controlLoader.itemIndex, controlLoader.index)
+                                }
+                                highlighted: suggested
+                                text: cancelHovered ? qsTr("Cancel") : analysisLabel
+                                progressState: !analysisRunning && !analysisCancelling
+                                    ? ProgressButton.Idle
+                                    : analysisProgress < 0 ? ProgressButton.Indeterminate
+                                    : ProgressButton.Progress
+                                progress: Math.max(0, analysisProgress)
+                                palette.button: cancelHovered
+                                    ? backend.destructiveBackground() : analysisPalette.button
+                                palette.buttonText: cancelHovered
+                                    ? backend.destructiveForeground() : analysisPalette.buttonText
+                                ToolTip.visible: hovered && analysisTooltip.length > 0
+                                ToolTip.text: analysisTooltip
+                                onClicked: backend.triggerControlAction(
+                                    controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index)
+                                Timer {
+                                    interval: 50
+                                    repeat: true
+                                    running: analysisButton.analysisRunning
+                                        || analysisButton.analysisCancelling
+                                    onTriggered: backend.pollAnalysisControl(
+                                        controlLoader.categoryIndex,
+                                        controlLoader.itemIndex, controlLoader.index)
+                                }
+                            }
+                        }
+                    }
+                    Component {
                         id: layeredVector3Control
                         InspectorTripleGraphProperty {
                             id: propertyGraph
+                            expressionDiagnosticProvider: function(source) {
+                                return root.expressionDiagnostic(source)
+                            }
+                            expressionDiagnosticDebounce: root.expressionDiagnosticDebounce
+                            expressionCompletionDebounce: root.expressionCompletionDebounce
+                            expressionCompletionProvider: function(source, cursor, automatic) {
+                                return root.expressionCompletion(controlLoader.categoryIndex,
+                                    controlLoader.itemIndex, controlLoader.index, source, cursor,
+                                    automatic)
+                            }
                             readonly property int graphDocumentRevision: backend.documentRevision
                             readonly property int graphModelRevision: backend.graphRevision
                             readonly property int graphPlayheadRevision:

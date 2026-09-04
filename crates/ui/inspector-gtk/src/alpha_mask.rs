@@ -2,13 +2,14 @@ use std::rc::Rc;
 
 use gtk::prelude::*;
 use shrimply_gtk_components::ui::switch_row;
-use shrimply_project::project::{AlphaMaskShape, VisualAlphaMask, VisualAlphaMaskTarget};
+use shrimply_inspector_core::{ControlKind, InspectorControl, InspectorTarget, NumberSpec};
+use shrimply_project::project::{AlphaMaskShape, VisualAlphaMaskTarget};
 
 use crate::{
     InspectorContext,
     item::HeaderButtonToggle,
-    player_state::{self, ProjectChange},
-    preview_focus::{self, FocusedPreview, PreviewTarget},
+    player_state::ProjectChange,
+    preview_focus::{self, FocusedPreview},
     timeline_value::{
         scalar::{ScalarAccess, ScalarSpec, ScalarTarget, scalar_control},
         vector::vec2::{VecAccess, VecSpec, VecTarget, vec_control},
@@ -16,39 +17,49 @@ use crate::{
 };
 
 pub(crate) fn button_toggle(
-    target: VisualAlphaMaskTarget,
+    mask_target: VisualAlphaMaskTarget,
     context: &InspectorContext,
 ) -> HeaderButtonToggle {
     let active = context.selected_item.as_ref().is_some_and(|key| {
         context
-            .project
-            .borrow()
-            .video_item(key)
-            .and_then(|item| item.alpha_mask(target))
-            .is_some_and(|mask| mask.enabled)
+            .inspector_core
+            .alpha_mask_presentation(&InspectorTarget::Item(key.clone()), mask_target)
+            .is_ok_and(|presentation| presentation.active)
     });
     let context = context.detached();
     HeaderButtonToggle {
         icon: "select-symbolic",
         active,
         tooltip: "Mask",
-        activate: Rc::new(move |active| set_open(&context, target, active)),
+        activate: Rc::new(move |active| set_open(&context, mask_target, active)),
     }
 }
 
-pub(crate) fn widget(target: VisualAlphaMaskTarget, context: &InspectorContext) -> gtk::Widget {
+pub(crate) fn widget(
+    mask_target: VisualAlphaMaskTarget,
+    context: &InspectorContext,
+) -> gtk::Widget {
     let out = gtk::Box::new(gtk::Orientation::Vertical, 8);
-    let mask = context.selected_item.as_ref().and_then(|key| {
-        context
-            .project
-            .borrow()
-            .video_item(key)
-            .and_then(|item| item.alpha_mask(target))
-            .cloned()
-    });
-    let Some(mask) = mask.filter(|mask| mask.enabled) else {
+    let Some(key) = context.selected_item.clone() else {
         return out.upcast();
     };
+    let target = InspectorTarget::Item(key.clone());
+    let Ok(presentation) = context
+        .inspector_core
+        .alpha_mask_presentation(&target, mask_target)
+    else {
+        return out.upcast();
+    };
+    if !presentation.active {
+        return out.upcast();
+    }
+    let mask = context
+        .project
+        .borrow()
+        .video_item(&key)
+        .and_then(|item| item.alpha_mask(mask_target))
+        .cloned()
+        .expect("active alpha-mask presentation must have a live mask");
 
     out.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
     let click = gtk::GestureClick::new();
@@ -56,289 +67,294 @@ pub(crate) fn widget(target: VisualAlphaMaskTarget, context: &InspectorContext) 
     click.set_propagation_phase(gtk::PropagationPhase::Capture);
     click.connect_pressed({
         let context = context.detached();
-        move |_, _, _, _| focus_mask(&context, target, mask.shape)
+        move |_, _, _, _| focus(&context, mask_target, true)
     });
     out.add_controller(click);
 
+    let mut controls = presentation.section.controls.into_iter();
+    let shape = controls
+        .next()
+        .expect("alpha-mask shape control is missing");
+    assert_eq!(shape.kind, ControlKind::Selector);
+    let shape_choices = shrimply_inspector_core::alpha_mask::SHAPE_CHOICES;
+    assert_eq!(
+        shape.value,
+        shape_choices
+            .iter()
+            .find_map(|(candidate, value, _)| (*candidate == mask.shape).then_some(*value))
+            .expect("current alpha-mask shape must be a declared choice")
+    );
+    assert_eq!(
+        shape.values,
+        shape_choices
+            .iter()
+            .map(|(_, value, _)| (*value).to_string())
+            .collect::<Vec<_>>()
+    );
+    assert_eq!(
+        shape.labels,
+        shape_choices
+            .iter()
+            .map(|(_, _, label)| (*label).to_string())
+            .collect::<Vec<_>>()
+    );
+    assert_eq!(
+        shape.commit_name,
+        shrimply_inspector_core::alpha_mask::SHAPE_COMMIT
+    );
+    assert!(shape.commit_immediately);
     out.append(&crate::ui::selector(
-        "Shape",
+        &shape.label,
         mask.shape,
-        [
-            (AlphaMaskShape::Rectangle, "Rectangle"),
-            (AlphaMaskShape::Ellipse, "Ellipse"),
-            (AlphaMaskShape::Polygon, "Polygon"),
-        ],
+        shape_choices.map(|(shape, _, label)| (shape, label)),
         {
             let context = context.detached();
             move |shape| {
-                update(&context, target, "alpha-mask-shape", |mask| {
-                    mask.shape = shape
-                });
-                focus_mask(&context, target, shape);
+                let Some(key) = context.selected_item.clone() else {
+                    return;
+                };
+                if let Err(error) = context.inspector_core.set_alpha_mask_shape(
+                    &InspectorTarget::Item(key),
+                    mask_target,
+                    shape,
+                ) {
+                    tracing::error!(%error, "Could not update GTK alpha-mask shape");
+                    return;
+                }
+                focus(&context, mask_target, true);
+                schedule_refresh(&context);
             }
         },
     ));
 
-    out.append(&switch_row("Invert", None, mask.invert, {
+    let invert = controls
+        .next()
+        .expect("alpha-mask inversion control is missing");
+    assert_eq!(invert.kind, ControlKind::Boolean);
+    assert_eq!(invert.value, mask.invert.to_string());
+    assert_eq!(
+        invert.commit_name,
+        shrimply_inspector_core::alpha_mask::INVERT_COMMIT
+    );
+    assert!(invert.commit_immediately);
+    out.append(&switch_row(&invert.label, None, mask.invert, {
         let context = context.detached();
         move |invert| {
-            update(&context, target, "invert-alpha-mask", |mask| {
-                mask.invert = invert
-            });
+            let Some(key) = context.selected_item.clone() else {
+                return;
+            };
+            if let Err(error) = context.inspector_core.set_alpha_mask_inverted(
+                &InspectorTarget::Item(key),
+                mask_target,
+                invert,
+            ) {
+                tracing::error!(%error, "Could not update GTK alpha-mask inversion");
+            }
         }
     }));
 
-    out.append(&vec_control(
-        "Center",
-        &mask.center,
-        context,
-        vec_target(target, mask.center.id),
-        VecSpec {
-            first_prefix: "X",
-            second_prefix: "Y",
-            drag_step: 0.01,
-            digits: 2,
-            width_chars: 7,
-            minimum: None,
-            maximum: None,
-            unit_name: "x",
-        },
-    ));
-    out.append(&vec_control(
-        "Size",
-        &mask.size,
-        context,
-        vec_target(target, mask.size.id),
-        VecSpec {
-            first_prefix: "W",
-            second_prefix: "H",
-            drag_step: 0.01,
-            digits: 2,
-            width_chars: 7,
-            minimum: Some(0.0),
-            maximum: None,
-            unit_name: "x",
-        },
-    ));
-    out.append(&scalar_control(
-        "Rotation",
+    let center = controls
+        .next()
+        .expect("alpha-mask center control is missing");
+    out.append(&vector_widget(&center, &mask.center, context, mask_target));
+    let size = controls.next().expect("alpha-mask size control is missing");
+    out.append(&vector_widget(&size, &mask.size, context, mask_target));
+    let rotation = controls
+        .next()
+        .expect("alpha-mask rotation control is missing");
+    out.append(&scalar_widget(
+        &rotation,
         &mask.rotation_degrees,
         context,
-        scalar_target(target, mask.rotation_degrees.id),
-        ScalarSpec {
-            drag_step: 1.0,
-            digits: 1,
-            integer: false,
-            width_chars: 8,
-            minimum: None,
-            maximum: None,
-            unit_name: Some("°"),
-            rotating_icon: Some(("arrow3-up-symbolic", 0.0)),
-            display: f64::from,
-            store: |value| value as f32,
-            clamp: |value| value,
-        },
+        mask_target,
     ));
     if mask.shape == AlphaMaskShape::Rectangle {
-        out.append(&scalar_control(
-            "Roundness",
+        let rounding = controls
+            .next()
+            .expect("rectangular alpha-mask roundness control is missing");
+        out.append(&scalar_widget(
+            &rounding,
             &mask.rounding,
             context,
-            scalar_target(target, mask.rounding.id),
-            ScalarSpec {
-                drag_step: 1.0,
-                digits: 1,
-                integer: false,
-                width_chars: 8,
-                minimum: Some(0.0),
-                maximum: Some(100.0),
-                unit_name: Some("%"),
-                rotating_icon: None,
-                display: |value| f64::from(value) * 100.0,
-                store: |value| (value / 100.0) as f32,
-                clamp: |value| value.clamp(0.0, 1.0),
-            },
+            mask_target,
         ));
     }
-    out.append(&scalar_control(
-        "Feather",
+    let feather = controls
+        .next()
+        .expect("alpha-mask feather control is missing");
+    out.append(&scalar_widget(
+        &feather,
         &mask.feather,
         context,
-        scalar_target(target, mask.feather.id),
-        ScalarSpec {
-            drag_step: 1.0,
-            digits: 1,
-            integer: false,
-            width_chars: 8,
-            minimum: Some(0.0),
-            maximum: Some(100.0),
-            unit_name: Some("%"),
-            rotating_icon: None,
-            display: |value| f64::from(value) * 100.0,
-            store: |value| (value / 100.0) as f32,
-            clamp: |value| value.clamp(0.0, 1.0),
-        },
+        mask_target,
     ));
+    assert!(
+        controls.next().is_none(),
+        "alpha-mask has unexpected controls"
+    );
 
     out.upcast()
 }
 
-fn vec_target(target: VisualAlphaMaskTarget, value_id: uuid::Uuid) -> VecTarget {
-    VecTarget {
-        access: VecAccess::AlphaMask { target, value_id },
-        scope_id: Some(value_id),
-        local_time: crate::video::visual_local_time,
-        duration: crate::video::visual_duration,
-        refresh: ProjectChange {
-            video: true,
-            ..Default::default()
-        },
-        commit_name: "visual-alpha-mask-vector",
-    }
-}
-
-fn scalar_target(target: VisualAlphaMaskTarget, value_id: uuid::Uuid) -> ScalarTarget {
-    ScalarTarget {
-        access: ScalarAccess::AlphaMask { target, value_id },
-        scope_id: Some(value_id),
-        local_time: crate::video::visual_local_time,
-        duration: crate::video::visual_duration,
-        refresh: ProjectChange {
-            video: true,
-            ..Default::default()
-        },
-        commit_name: "visual-alpha-mask-scalar",
-    }
-}
-
-fn focus_mask(context: &InspectorContext, target: VisualAlphaMaskTarget, _shape: AlphaMaskShape) {
-    let Some(item) = context.preview_item.clone() else {
-        return;
-    };
-    let Some(item_id) = context
-        .project
-        .borrow()
-        .video_item(&item)
-        .map(|item| item.id)
-    else {
-        return;
-    };
-    let (card_key, target) = match target {
-        VisualAlphaMaskTarget::Compositing => (
-            "compositing".to_string(),
-            PreviewTarget::new(
-                item_id,
-                shrimply_project::project::COMPOSITING_ALPHA_MASK_PREVIEW_FACET,
-            ),
-        ),
-        VisualAlphaMaskTarget::Modifier(id) => (
-            format!("modifier:{id}"),
-            PreviewTarget::new(
-                id,
-                shrimply_project::project::MODIFIER_ALPHA_MASK_PREVIEW_FACET,
-            ),
-        ),
-    };
-    preview_focus::set(
-        &context.preview_focus,
-        FocusedPreview {
-            item,
-            card_key,
-            target,
-        },
-    );
-}
-
-fn update(
+fn vector_widget(
+    control: &InspectorControl,
+    timeline: &shrimply_core::timeline_value::TimelineValue<glam::Vec2>,
     context: &InspectorContext,
-    target: VisualAlphaMaskTarget,
-    commit_name: &'static str,
-    change: impl FnOnce(&mut VisualAlphaMask),
-) {
-    let Some(key) = context.selected_item.clone() else {
-        return;
+    mask_target: VisualAlphaMaskTarget,
+) -> gtk::Widget {
+    assert_eq!(control.kind, ControlKind::LayeredVector2);
+    assert_eq!(control.timeline_id, Some(timeline.id));
+    let prefixes = match control.prefixes.as_slice() {
+        [first, second] if first == "X" && second == "Y" => ("X", "Y"),
+        [first, second] if first == "W" && second == "H" => ("W", "H"),
+        prefixes => panic!("unsupported alpha-mask vector prefixes: {prefixes:?}"),
     };
-    let mut project = context.project.borrow_mut();
-    let Some(mask) = project
-        .video_item_mut(&key)
-        .and_then(|item| item.alpha_mask_mut(target))
-    else {
-        return;
-    };
-    change(mask);
-    shrimply_project::project::commit_edit(&project, commit_name);
-    drop(project);
-    player_state::refresh_project(
-        &context.player_state,
-        ProjectChange {
-            video: true,
-            inspector: true,
-            ..Default::default()
-        },
+    assert_eq!(control.width_characters, 7);
+    assert_eq!(
+        control.commit_name,
+        shrimply_inspector_core::alpha_mask::VECTOR_COMMIT
     );
-    let refresh = context.refresh.clone();
-    gtk::glib::idle_add_local_once(move || refresh());
+    assert_eq!(control.store_multiplier, 1.0);
+    assert!(!control.integer);
+    assert!(!control.lock);
+    let defaults = NumberSpec::default();
+    vec_control(
+        &control.label,
+        timeline,
+        context,
+        VecTarget {
+            access: VecAccess::AlphaMask {
+                target: mask_target,
+                value_id: timeline.id,
+            },
+            scope_id: Some(timeline.id),
+            local_time: crate::video::visual_local_time,
+            duration: crate::video::visual_duration,
+            refresh: ProjectChange {
+                video: true,
+                ..Default::default()
+            },
+            commit_name: shrimply_inspector_core::alpha_mask::VECTOR_COMMIT,
+        },
+        VecSpec {
+            first_prefix: prefixes.0,
+            second_prefix: prefixes.1,
+            drag_step: control.number.drag_step,
+            digits: usize::try_from(control.number.digits)
+                .expect("alpha-mask vector digits must be nonnegative"),
+            width_chars: control.width_characters,
+            minimum: (control.number.minimum != defaults.minimum).then_some(control.number.minimum),
+            maximum: (control.number.maximum != defaults.maximum).then_some(control.number.maximum),
+            unit_name: "x",
+        },
+    )
 }
 
-fn set_open(context: &InspectorContext, target: VisualAlphaMaskTarget, open: bool) {
+fn scalar_widget(
+    control: &InspectorControl,
+    timeline: &shrimply_core::timeline_value::TimelineValue<f32>,
+    context: &InspectorContext,
+    mask_target: VisualAlphaMaskTarget,
+) -> gtk::Widget {
+    assert_eq!(control.kind, ControlKind::LayeredNumber);
+    assert_eq!(control.timeline_id, Some(timeline.id));
+    assert_eq!(control.width_characters, 8);
+    assert_eq!(
+        control.commit_name,
+        shrimply_inspector_core::alpha_mask::SCALAR_COMMIT
+    );
+    assert!(!control.integer);
+    assert!(!control.lock);
+    let defaults = NumberSpec::default();
+    let spec = match control.store_multiplier {
+        1.0 => {
+            assert_eq!(control.number.unit, "°");
+            assert!(control.prefix_icon_rotates);
+            ScalarSpec {
+                drag_step: control.number.drag_step,
+                digits: usize::try_from(control.number.digits)
+                    .expect("alpha-mask scalar digits must be nonnegative"),
+                integer: false,
+                width_chars: control.width_characters,
+                minimum: (control.number.minimum != defaults.minimum)
+                    .then_some(control.number.minimum),
+                maximum: (control.number.maximum != defaults.maximum)
+                    .then_some(control.number.maximum),
+                unit_name: Some("°"),
+                rotating_icon: Some((
+                    "arrow3-up-symbolic",
+                    control.prefix_icon_rotation_offset_degrees,
+                )),
+                display: f64::from,
+                store: |value| value as f32,
+                clamp: crate::timeline_value::scalar::ScalarClamp::Function(|value| value),
+            }
+        }
+        0.01 => {
+            assert_eq!(control.number.unit, "%");
+            assert!(!control.prefix_icon_rotates);
+            assert_eq!(
+                (control.number.minimum, control.number.maximum),
+                (0.0, 100.0)
+            );
+            ScalarSpec {
+                drag_step: control.number.drag_step,
+                digits: usize::try_from(control.number.digits)
+                    .expect("alpha-mask percentage digits must be nonnegative"),
+                integer: false,
+                width_chars: control.width_characters,
+                minimum: Some(control.number.minimum),
+                maximum: Some(control.number.maximum),
+                unit_name: Some("%"),
+                rotating_icon: None,
+                display: |value| f64::from(value) * 100.0,
+                store: |value| (value / 100.0) as f32,
+                clamp: crate::timeline_value::scalar::ScalarClamp::Function(|value| {
+                    value.clamp(0.0, 1.0)
+                }),
+            }
+        }
+        multiplier => panic!("unsupported alpha-mask storage multiplier: {multiplier}"),
+    };
+    scalar_control(
+        &control.label,
+        timeline,
+        context,
+        ScalarTarget {
+            access: ScalarAccess::AlphaMask {
+                target: mask_target,
+                value_id: timeline.id,
+            },
+            scope_id: Some(timeline.id),
+            local_time: crate::video::visual_local_time,
+            duration: crate::video::visual_duration,
+            refresh: ProjectChange {
+                video: true,
+                ..Default::default()
+            },
+            commit_name: shrimply_inspector_core::alpha_mask::SCALAR_COMMIT,
+        },
+        spec,
+    )
+}
+
+fn set_open(context: &InspectorContext, mask_target: VisualAlphaMaskTarget, open: bool) {
     let Some(key) = context.selected_item.clone() else {
         return;
     };
-    let mut project = context.project.borrow_mut();
-    let Some(item) = project.video_item_mut(&key) else {
+    if let Err(error) = context.inspector_core.set_alpha_mask_enabled(
+        &InspectorTarget::Item(key),
+        mask_target,
+        open,
+    ) {
+        tracing::error!(%error, "Could not toggle GTK alpha mask");
         return;
-    };
-    let shape = if open {
-        if let Some(mask) = item.alpha_mask_mut(target) {
-            if mask.enabled {
-                return;
-            }
-            mask.enabled = true;
-            mask.shape
-        } else {
-            let mask = VisualAlphaMask::default();
-            let shape = mask.shape;
-            if !item.set_alpha_mask(target, Some(mask)) {
-                return;
-            }
-            shape
-        }
-    } else {
-        let Some(shape) = item.alpha_mask(target).map(|mask| mask.shape) else {
-            return;
-        };
-        if !item.set_alpha_mask(target, None) {
-            return;
-        }
-        shape
-    };
-    shrimply_project::project::commit_edit(
-        &project,
-        if open {
-            "add-alpha-mask"
-        } else {
-            "remove-alpha-mask"
-        },
-    );
-    drop(project);
-    if open {
-        focus_mask(context, target, shape);
-    } else {
-        focus_card(context, target);
     }
-    player_state::refresh_project(
-        &context.player_state,
-        ProjectChange {
-            video: true,
-            inspector: true,
-            ..Default::default()
-        },
-    );
-    let refresh = context.refresh.clone();
-    gtk::glib::idle_add_local_once(move || refresh());
+    focus(context, mask_target, open);
+    schedule_refresh(context);
 }
 
-fn focus_card(context: &InspectorContext, target: VisualAlphaMaskTarget) {
+fn focus(context: &InspectorContext, mask_target: VisualAlphaMaskTarget, mask: bool) {
     let Some(item) = context.preview_item.clone() else {
         return;
     };
@@ -350,22 +366,18 @@ fn focus_card(context: &InspectorContext, target: VisualAlphaMaskTarget) {
     else {
         return;
     };
-    let (card_key, target) = match target {
-        VisualAlphaMaskTarget::Compositing => (
-            "compositing".to_string(),
-            PreviewTarget::new(item_id, shrimply_project::project::ITEM_PREVIEW_FACET),
-        ),
-        VisualAlphaMaskTarget::Modifier(id) => (
-            format!("modifier:{id}"),
-            PreviewTarget::new(id, shrimply_video_modifiers::MODIFIER_PREVIEW_FACET),
-        ),
-    };
+    let focus = shrimply_inspector_core::alpha_mask::preview_focus(item_id, mask_target, mask);
     preview_focus::set(
         &context.preview_focus,
         FocusedPreview {
             item,
-            card_key,
-            target,
+            card_key: focus.card_key,
+            target: focus.target.resolve(item_id),
         },
     );
+}
+
+fn schedule_refresh(context: &InspectorContext) {
+    let refresh = context.refresh.clone();
+    gtk::glib::idle_add_local_once(move || refresh());
 }

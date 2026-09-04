@@ -18,7 +18,7 @@ mod paint_render;
 pub(crate) mod path_transition;
 mod pdf_render;
 pub mod preview;
-pub mod sam2_analysis;
+pub use shrimply_video_modifiers::sam2_analysis;
 pub(crate) mod shaky_path;
 pub mod shape_render;
 pub use shrimply_project::svg_color;

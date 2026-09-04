@@ -5,8 +5,10 @@ use gtk::{gdk, gio};
 use shrimply_core::timeline_value::TextInterpolation;
 use shrimply_gtk_components::tr;
 use shrimply_gtk_components::ui::{FrameGraph, SearchMenuItem, matches_query, searchable_popover};
+use shrimply_inspector_core::keyframe_graph::{
+    FrameGraphAction, FrameGraphComponentAction, FrameGraphState,
+};
 use shrimply_interpolation::Interpolation;
-use shrimply_keyframe_graph_ui::{FrameGraphAction, FrameGraphComponentAction, FrameGraphState};
 use shrimply_project::project::{ItemAddress, Project, Time};
 use shrimply_state::preferences;
 use uuid::Uuid;
@@ -15,9 +17,10 @@ use super::{InspectorContext, keyframe_model};
 use crate::player_state;
 
 pub(crate) use super::keyframe_graph::{KeyframeGraph, KeyframePoint, RawSegment, SpeedSegment};
+pub(crate) use keyframe_model::project_frame_step;
 
 thread_local! {
-    static KEYFRAME_CLIPBOARD: RefCell<Option<keyframe_model::KeyframeClipboard>> = const { RefCell::new(None) };
+    static KEYFRAME_CLIPBOARD: keyframe_model::KeyframeClipboardCache = const { keyframe_model::KeyframeClipboardCache::new() };
 }
 
 pub(crate) struct BuiltKeyframeEditor {
@@ -67,25 +70,6 @@ struct GraphActionContext {
     graph_area: Rc<RefCell<Option<gtk::GLArea>>>,
 }
 
-pub(crate) fn project_frame_step(project: &Project, item: Option<&ItemAddress>) -> Time {
-    item.and_then(|item| project.keyframe_step(item))
-        .filter(|step| *step > Time::ZERO)
-        .unwrap_or_else(|| project.frame_step())
-}
-
-pub(crate) fn project_frame_keyframe_time(
-    project: &Project,
-    item: Option<&ItemAddress>,
-    time: Time,
-) -> Option<Time> {
-    let Some(item) = item else {
-        return Some(time.snapped(project.frame_step()));
-    };
-    project
-        .keyframe_timeline_time(item, time)
-        .and_then(|timeline_time| project.keyframe_time(item, timeline_time))
-}
-
 pub(crate) fn build(
     context: &InspectorContext,
     graph: KeyframeGraph,
@@ -96,8 +80,11 @@ pub(crate) fn build(
     let project = context.project.clone();
     let selected_item = context.selected_item.clone();
     let frame_step = project_frame_step(&project.borrow(), selected_item.as_ref());
-    let item_range =
-        clip_bounded_visible_area(&project.borrow(), selected_item.as_ref(), visible_area);
+    let item_range = keyframe_model::bounded_visible_area(
+        &project.borrow(),
+        selected_item.as_ref(),
+        visible_area,
+    );
     let playhead = local_playhead(context);
     let mut initial = FrameGraphState::new(graph.clone(), item_range, frame_step, playhead());
     configure_state(
@@ -141,8 +128,11 @@ pub(crate) fn build(
         let playhead = playhead.clone();
         Rc::new(move |updated| {
             let project = project.borrow();
-            let item_range =
-                clip_bounded_visible_area(&project, selected_item.as_ref(), visible_area);
+            let item_range = keyframe_model::bounded_visible_area(
+                &project,
+                selected_item.as_ref(),
+                visible_area,
+            );
             let frame_step = project_frame_step(&project, selected_item.as_ref());
             drop(project);
             let mut state = state.borrow_mut();
@@ -222,11 +212,8 @@ fn configure_state(
     preferences: &preferences::SharedPreferences,
     text_interpolation: bool,
 ) {
-    let preferences = preferences::snapshot(preferences);
-    state.set_snapping(
-        preferences.timeline_magnet == "true",
-        f64::from(preferences.timeline_snap_radius_px),
-    );
+    let (enabled, radius) = keyframe_model::graph_snapping(preferences);
+    state.set_snapping(enabled, radius);
     state.set_external_clipboard(true);
     state.set_text_interpolation(text_interpolation);
 }
@@ -265,7 +252,7 @@ fn dispatch_action(context: &GraphActionContext, action: FrameGraphComponentActi
             for key_move in moves {
                 let time = {
                     let project = context.project.borrow();
-                    project_frame_keyframe_time(
+                    keyframe_model::canonical_keyframe_time(
                         &project,
                         context.selected_item.as_ref(),
                         key_move.time,
@@ -285,7 +272,11 @@ fn dispatch_action(context: &GraphActionContext, action: FrameGraphComponentActi
         FrameGraphAction::KeyAdded(point) => {
             let time = {
                 let project = context.project.borrow();
-                project_frame_keyframe_time(&project, context.selected_item.as_ref(), point.time)
+                keyframe_model::canonical_keyframe_time(
+                    &project,
+                    context.selected_item.as_ref(),
+                    point.time,
+                )
             };
             if let Some(time) = time {
                 (context.actions.add_at_time)(time);
@@ -323,28 +314,14 @@ fn copy_keyframes(context: &GraphActionContext, selected: &[Time]) {
                 return;
             };
             let project = context.project.borrow();
-            let timeline_times = clipboard
-                .times
-                .iter()
-                .map(|time| {
-                    context
-                        .selected_item
-                        .as_ref()
-                        .and_then(|item| project.keyframe_timeline_time(item, *time))
-                        .unwrap_or(*time)
-                        .snapped(project.frame_step())
-                })
-                .collect::<Vec<_>>();
-            let Some(origin) = timeline_times.first().copied() else {
+            if !keyframe_model::normalize_clipboard_times(
+                &project,
+                context.selected_item.as_ref(),
+                &mut clipboard,
+            ) {
                 KEYFRAME_CLIPBOARD.with(|stored| stored.replace(None));
                 return;
-            };
-            clipboard.times = timeline_times
-                .into_iter()
-                .map(|time| Time {
-                    seconds: time.seconds - origin.seconds,
-                })
-                .collect();
+            }
             drop(project);
             let count = clipboard.len();
             KEYFRAME_CLIPBOARD.with(|stored| stored.replace(Some(clipboard)));
@@ -372,32 +349,14 @@ fn paste_keyframes(context: &GraphActionContext, time: Time) {
             let Some(clipboard) = KEYFRAME_CLIPBOARD.with(|stored| stored.borrow().clone()) else {
                 return;
             };
-            let times = {
-                let project = context.project.borrow();
-                let anchor = context
-                    .selected_item
-                    .as_ref()
-                    .and_then(|item| project.keyframe_timeline_time(item, time))
-                    .unwrap_or(time)
-                    .snapped(project.frame_step());
-                clipboard
-                    .times
-                    .iter()
-                    .filter_map(|offset| {
-                        let timeline_time = Time {
-                            seconds: anchor.seconds + offset.seconds,
-                        };
-                        context
-                            .selected_item
-                            .as_ref()
-                            .map(|item| project.keyframe_time(item, timeline_time))
-                            .unwrap_or(Some(timeline_time))
-                    })
-                    .collect::<Vec<_>>()
-            };
-            if times.len() != clipboard.len() {
+            let Some(times) = keyframe_model::clipboard_paste_times(
+                &context.project.borrow(),
+                context.selected_item.as_ref(),
+                &clipboard,
+                time,
+            ) else {
                 return;
-            }
+            };
             let paste = paste.clone();
             Rc::new(move || paste(&clipboard, &times).map(|times| times.len()))
         }
@@ -462,7 +421,7 @@ fn show_text_interpolation(context: &GraphActionContext, owner_id: Uuid, x: f64,
                     let set = set.clone();
                     SearchMenuItem::new(tr!(mode.label()).as_ref(), move || set(owner_id, mode))
                         .selected(mode == selected)
-                        .tooltip(text_interpolation_tooltip(mode))
+                        .tooltip(mode.tooltip())
                 })
                 .collect()
         },
@@ -471,30 +430,4 @@ fn show_text_interpolation(context: &GraphActionContext, owner_id: Uuid, x: f64,
     popover.set_pointing_to(Some(&gdk::Rectangle::new(x as i32, y as i32, 1, 1)));
     popover.connect_closed(|popover| popover.unparent());
     popover.popup();
-}
-
-fn text_interpolation_tooltip(mode: TextInterpolation) -> &'static str {
-    match mode {
-        TextInterpolation::Jump => "Change all at once",
-        TextInterpolation::Type => "Clear and rewrite the whole text",
-        TextInterpolation::Append => "Edit after the shared beginning",
-        TextInterpolation::Insert => "Edit between the shared ends",
-        TextInterpolation::Diff => "Edit only the changed characters",
-        TextInterpolation::Decode => "Scramble, resize, then reveal the new text",
-    }
-}
-
-fn clip_bounded_visible_area(
-    project: &Project,
-    selected_item: Option<&ItemAddress>,
-    (start, end): (Time, Time),
-) -> (Time, Time) {
-    let clip_duration = selected_item
-        .and_then(|key| project.item(key))
-        .map(|item| {
-            let (start, end) = item.times();
-            end.saturating_sub(start).max(start.saturating_sub(end))
-        })
-        .unwrap_or(Time::ZERO);
-    (start, end.max(start.saturating_add(clip_duration)))
 }

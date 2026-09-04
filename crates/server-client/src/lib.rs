@@ -19,6 +19,10 @@ const MESSAGE_PACK: &str = "application/msgpack";
 const MESSAGE_PACK_STREAM: &str = "application/x-msgpack-stream";
 const PROTOCOL_MAJOR: u32 = 4;
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
+const COMPUTE_STREAM_KEEPALIVE_INTERVAL: Duration = Duration::from_secs(5);
+const COMPUTE_STREAM_ALLOWED_MISSED_KEEPALIVES: u32 = 2;
+const COMPUTE_STREAM_READ_TIMEOUT: Duration =
+    COMPUTE_STREAM_KEEPALIVE_INTERVAL.saturating_mul(COMPUTE_STREAM_ALLOWED_MISSED_KEEPALIVES + 1);
 const STREAM_HEADER_BYTES: usize = 8;
 const SAM2_CONTENT: &str = "application/x-shrimply-sam2-analysis";
 const SAM2_ARCHIVE_MAGIC: &[u8; 8] = b"SHRMSA01";
@@ -415,6 +419,7 @@ pub fn analyze_sam2(
     tracing::info!(%endpoint, archive = %archive.display(), body_bytes = length, "Sending SAM2 request");
     let request = reqwest::blocking::Client::builder()
         .connect_timeout(REQUEST_TIMEOUT)
+        .timeout(COMPUTE_STREAM_READ_TIMEOUT)
         .build()
         .map_err(|error| error.to_string())?
         .post(&endpoint)
@@ -448,9 +453,7 @@ pub fn analyze_sam2(
     loop {
         tracing::debug!(%endpoint, "Waiting for SAM2 event header");
         let mut header = [0; STREAM_HEADER_BYTES];
-        response
-            .read_exact(&mut header)
-            .map_err(|error| format!("Compute server connection failed: {error}"))?;
+        read_sam2_stream(&mut response, &mut header, cancellation)?;
         let length = usize::try_from(u64::from_le_bytes(header))
             .map_err(|_| "SAM2 server event is too large".to_string())?;
         if length > MAXIMUM_COMPUTE_EVENT_BYTES {
@@ -458,9 +461,7 @@ pub fn analyze_sam2(
         }
         let mut payload = vec![0; length];
         tracing::debug!(%endpoint, event_bytes = payload.len(), "Reading SAM2 event payload");
-        response
-            .read_exact(&mut payload)
-            .map_err(|error| format!("Compute server connection failed: {error}"))?;
+        read_sam2_stream(&mut response, &mut payload, cancellation)?;
         let event = rmp_serde::from_slice::<Sam2Event>(&payload)
             .map_err(|error| format!("Invalid SAM2 server event: {error}"))?;
         let done = matches!(&event, Sam2Event::Result { .. });
@@ -480,6 +481,30 @@ pub fn analyze_sam2(
             return Ok(());
         }
     }
+}
+
+fn read_sam2_stream(
+    response: &mut reqwest::blocking::Response,
+    mut output: &mut [u8],
+    cancellation: &CancellationToken,
+) -> Result<(), String> {
+    while !output.is_empty() {
+        if cancellation.is_cancelled() {
+            return Err("Compute job cancelled".to_string());
+        }
+        match response.read(output) {
+            Ok(0) => {
+                return Err("Compute server connection failed: response ended early".to_string());
+            }
+            Ok(read) => output = &mut output[read..],
+            Err(error) if error.kind() == std::io::ErrorKind::Interrupted => {}
+            Err(_) if cancellation.is_cancelled() => {
+                return Err("Compute job cancelled".to_string());
+            }
+            Err(error) => return Err(format!("Compute server connection failed: {error}")),
+        }
+    }
+    Ok(())
 }
 
 pub fn server_status(server_url: &str) -> Result<ServerStatus, String> {

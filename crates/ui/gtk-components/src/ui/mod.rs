@@ -24,7 +24,9 @@ mod switch_row;
 mod tabs;
 
 pub use code_editor::{code_editor, configure_code_language};
-pub use color_picker::{ColorPicker, ColorPickerBuilder};
+pub use color_picker::{
+    ColorPicker, ColorPickerBuilder, ColorPickerHandle, ColorPickerParts, WeakColorPickerHandle,
+};
 pub use control_row::control_row;
 pub use expression_editor::ExpressionEditor;
 pub use frame_graph::{FrameGraph, SharedFrameGraphState};

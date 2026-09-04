@@ -1,7 +1,7 @@
 use hashbrown::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Arc, Condvar, Mutex, OnceLock};
 use std::time::Duration;
 
 use reqwest::Url;
@@ -16,7 +16,7 @@ const REQUEST_TIMEOUT: Duration = Duration::from_secs(20);
 const MAX_RESPONSE_BYTES: usize = 256 * 1024 * 1024;
 const GOOGLE_FONTS_CSS_ENDPOINT: &str = "https://fonts.googleapis.com/css2";
 
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum FontSource {
     Local,
     Google,
@@ -42,11 +42,23 @@ pub struct FontCapabilities {
     pub axes: Vec<FontAxis>,
 }
 
+pub struct FontCatalog {
+    pub families: Vec<FontFamily>,
+    pub cache_error: Option<String>,
+}
+
 #[derive(Clone, Debug)]
 pub struct GoogleFamily {
     pub name: String,
     repository_path: String,
     faces: Vec<GoogleFace>,
+}
+
+#[derive(Clone, Debug)]
+pub enum FontPreviewSource {
+    Installed,
+    File(PathBuf),
+    Remote(Url),
 }
 
 #[derive(Clone, Debug)]
@@ -74,7 +86,19 @@ struct ActiveFamily {
     _directory: TempDir,
 }
 
+enum PreviewFile {
+    Preparing(Arc<PreviewPreparation>),
+    Ready(PathBuf),
+}
+
+struct PreviewPreparation {
+    result: Mutex<Option<Result<PathBuf, String>>>,
+    ready: Condvar,
+}
+
 static ACTIVE_FAMILIES: OnceLock<Mutex<HashMap<String, ActiveFamily>>> = OnceLock::new();
+static GOOGLE_FAMILY_CATALOG: OnceLock<Mutex<Option<Vec<FontFamily>>>> = OnceLock::new();
+static PREVIEW_FILES: OnceLock<Mutex<HashMap<(String, i64), PreviewFile>>> = OnceLock::new();
 
 pub struct ProjectFontActivation {
     receiver: async_channel::Receiver<()>,
@@ -90,6 +114,15 @@ impl ProjectFontActivation {
             Ok(()) | Err(async_channel::TryRecvError::Closed) => true,
             Err(async_channel::TryRecvError::Empty) => false,
         }
+    }
+}
+
+impl GoogleFamily {
+    fn preview_url(&self) -> Option<&Url> {
+        self.faces
+            .iter()
+            .rev()
+            .find_map(|face| face.source_url.as_ref())
     }
 }
 
@@ -118,6 +151,148 @@ pub fn activate_project_google_fonts(
         let _ = sender.send_blocking(());
     });
     Some(ProjectFontActivation { receiver })
+}
+
+pub fn available_families() -> FontCatalog {
+    static LOCAL_FAMILIES: OnceLock<Vec<FontFamily>> = OnceLock::new();
+    let mut families = LOCAL_FAMILIES
+        .get_or_init(|| {
+            let mut names = FontMgr::new().family_names().collect::<Vec<_>>();
+            names.sort_by_key(|name| name.to_lowercase());
+            names.dedup_by(|left, right| left.eq_ignore_ascii_case(right));
+            names
+                .into_iter()
+                .map(|name| FontFamily {
+                    name,
+                    source: FontSource::Local,
+                    revision: 0,
+                })
+                .collect()
+        })
+        .clone();
+    let catalog = GOOGLE_FAMILY_CATALOG.get_or_init(Default::default);
+    let cached = catalog
+        .lock()
+        .unwrap_or_else(|_| panic!("Google font catalog cache lock died"))
+        .clone()
+        .map_or_else(cached_google_families, Ok);
+    if let Ok(cached) = &cached {
+        *catalog
+            .lock()
+            .unwrap_or_else(|_| panic!("Google font catalog cache lock died")) =
+            Some(cached.clone());
+    }
+    let cache_error = match cached {
+        Ok(cached) => {
+            families.extend(cached);
+            None
+        }
+        Err(error) => Some(error),
+    };
+    families.sort_by(|left, right| {
+        left.name
+            .to_lowercase()
+            .cmp(&right.name.to_lowercase())
+            .then_with(|| source_order(left.source).cmp(&source_order(right.source)))
+    });
+    families.dedup_by(|left, right| {
+        left.source == right.source && left.name.eq_ignore_ascii_case(&right.name)
+    });
+    FontCatalog {
+        families,
+        cache_error,
+    }
+}
+
+pub fn matching_families(
+    families: &[FontFamily],
+    query: &str,
+    lookup: Option<&GoogleFamily>,
+) -> Vec<FontFamily> {
+    let query = normalized_search(query);
+    let mut visible = families
+        .iter()
+        .filter(|family| query.is_empty() || family.name.to_lowercase().contains(&query))
+        .cloned()
+        .collect::<Vec<_>>();
+    if let Some(lookup) = lookup
+        && !visible.iter().any(|family| {
+            family.source == FontSource::Google && family.name.eq_ignore_ascii_case(&lookup.name)
+        })
+    {
+        visible.push(FontFamily {
+            name: lookup.name.clone(),
+            source: FontSource::Google,
+            revision: -1,
+        });
+    }
+    visible
+}
+
+pub fn google_lookup_needed(families: &[FontFamily], query: &str) -> bool {
+    if query.trim().is_empty() {
+        return false;
+    }
+    normalize_google_query(query).map_or(true, |query| {
+        !families.iter().any(|family| {
+            family.source == FontSource::Google && family.name.eq_ignore_ascii_case(&query)
+        })
+    })
+}
+
+pub fn activate_selection(
+    family: FontFamily,
+    lookup: Option<&GoogleFamily>,
+) -> Result<FontFamily, String> {
+    if family.source == FontSource::Local {
+        return Ok(family);
+    }
+    let family = if family.revision < 0 {
+        let metadata = lookup
+            .filter(|metadata| metadata.name.eq_ignore_ascii_case(&family.name))
+            .ok_or_else(|| "Google font metadata is no longer available".to_string())?;
+        download_google_family(metadata)?
+    } else {
+        family
+    };
+    activate_family(materialize_family(&family.name)?)?;
+    Ok(family)
+}
+
+pub fn preview_source(
+    family: &FontFamily,
+    lookup: Option<&GoogleFamily>,
+) -> Result<FontPreviewSource, String> {
+    match family.source {
+        FontSource::Local => Ok(FontPreviewSource::Installed),
+        FontSource::Google if family.revision < 0 => lookup
+            .filter(|metadata| metadata.name.eq_ignore_ascii_case(&family.name))
+            .and_then(GoogleFamily::preview_url)
+            .cloned()
+            .map(FontPreviewSource::Remote)
+            .ok_or_else(|| format!("Google font {} has no preview URL", family.name)),
+        FontSource::Google => cached_preview_path(&family.name, family.revision)
+            .map(FontPreviewSource::File)
+            .ok_or_else(|| format!("Google font {} preview is not ready", family.name)),
+    }
+}
+
+pub fn prepare_cached_preview(family: &FontFamily) -> Result<(), String> {
+    if family.source != FontSource::Google || family.revision < 0 {
+        return Ok(());
+    }
+    materialize_cached_preview(&family.name, family.revision).map(drop)
+}
+
+pub fn project_family(family: &FontFamily) -> ProjectFontFamily {
+    match family.source {
+        FontSource::Local => ProjectFontFamily::Local {
+            name: family.name.clone(),
+        },
+        FontSource::Google => ProjectFontFamily::GoogleFonts {
+            name: family.name.clone(),
+        },
+    }
 }
 
 fn project_google_fonts(project: &Project, default_font: &ProjectFontFamily) -> HashSet<String> {
@@ -349,6 +524,16 @@ pub fn cached_capabilities(name: &str) -> Result<FontCapabilities, String> {
 }
 
 pub fn local_capabilities(name: &str) -> FontCapabilities {
+    static CAPABILITIES: OnceLock<Mutex<HashMap<String, FontCapabilities>>> = OnceLock::new();
+    let cache = CAPABILITIES.get_or_init(Default::default);
+    if let Some(capabilities) = cache
+        .lock()
+        .unwrap_or_else(|_| panic!("local font capability cache lock died"))
+        .get(name)
+        .cloned()
+    {
+        return capabilities;
+    }
     let mut axes = HashMap::<String, FontAxis>::new();
     let mut style_set = FontMgr::new().match_family(name);
     for index in 0..style_set.count() {
@@ -370,7 +555,12 @@ pub fn local_capabilities(name: &str) -> FontCapabilities {
     }
     let mut axes = axes.into_values().collect::<Vec<_>>();
     axes.sort_by(|left, right| left.tag.cmp(&right.tag));
-    FontCapabilities { axes }
+    let capabilities = FontCapabilities { axes };
+    cache
+        .lock()
+        .unwrap_or_else(|_| panic!("local font capability cache lock died"))
+        .insert(name.to_string(), capabilities.clone());
+    capabilities
 }
 
 pub fn materialize_family(name: &str) -> Result<MaterializedFamily, String> {
@@ -411,6 +601,120 @@ pub fn materialize_family(name: &str) -> Result<MaterializedFamily, String> {
         directory,
         paths,
     })
+}
+
+fn cached_preview_path(name: &str, revision: i64) -> Option<PathBuf> {
+    let key = (name.to_lowercase(), revision);
+    match PREVIEW_FILES.get()?.try_lock().ok()?.get(&key) {
+        Some(PreviewFile::Ready(path)) => Some(path.clone()),
+        Some(PreviewFile::Preparing(_)) | None => None,
+    }
+}
+
+fn materialize_cached_preview(name: &str, revision: i64) -> Result<PathBuf, String> {
+    let key = (name.to_lowercase(), revision);
+    let previews = PREVIEW_FILES.get_or_init(Default::default);
+    let (preparation, prepare) = {
+        let mut previews = previews
+            .lock()
+            .unwrap_or_else(|_| panic!("font preview cache lock died"));
+        match previews.get(&key) {
+            Some(PreviewFile::Ready(path)) => return Ok(path.clone()),
+            Some(PreviewFile::Preparing(preparation)) => (preparation.clone(), false),
+            None => {
+                let preparation = Arc::new(PreviewPreparation {
+                    result: Mutex::new(None),
+                    ready: Condvar::new(),
+                });
+                previews.insert(key.clone(), PreviewFile::Preparing(preparation.clone()));
+                (preparation, true)
+            }
+        }
+    };
+    if !prepare {
+        let mut result = preparation
+            .result
+            .lock()
+            .unwrap_or_else(|_| panic!("font preview preparation lock died"));
+        while result.is_none() {
+            result = preparation
+                .ready
+                .wait(result)
+                .unwrap_or_else(|_| panic!("font preview preparation lock died"));
+        }
+        return result
+            .clone()
+            .expect("completed font preview preparation must have a result");
+    }
+
+    let result = materialize_cached_preview_file(name, revision);
+    let mut previews = previews
+        .lock()
+        .unwrap_or_else(|_| panic!("font preview cache lock died"));
+    let mut completed = preparation
+        .result
+        .lock()
+        .unwrap_or_else(|_| panic!("font preview preparation lock died"));
+    *completed = Some(result.clone());
+    if previews.get(&key).is_some_and(|preview| {
+        matches!(preview, PreviewFile::Preparing(current) if Arc::ptr_eq(current, &preparation))
+    }) {
+        match &result {
+            Ok(path) => {
+                previews.insert(key, PreviewFile::Ready(path.clone()));
+            }
+            Err(_) => {
+                previews.remove(&key);
+            }
+        }
+    }
+    drop(completed);
+    drop(previews);
+    preparation.ready.notify_all();
+    result
+}
+
+fn materialize_cached_preview_file(name: &str, revision: i64) -> Result<PathBuf, String> {
+    let connection = connection()?;
+    let (canonical, filename, data): (String, String, Vec<u8>) = connection
+        .query_row(
+            "SELECT families.name, font_files.filename, font_files.data \
+             FROM families JOIN font_files ON font_files.family = families.name \
+             WHERE families.name = ?1 COLLATE NOCASE AND families.revision = ?2 \
+             ORDER BY CASE font_files.style WHEN 'normal' THEN 0 ELSE 1 END, \
+             ABS(font_files.weight - 400), font_files.filename LIMIT 1",
+            params![name, revision],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )
+        .map_err(database_error)?;
+    let filename = Path::new(&filename)
+        .file_name()
+        .ok_or_else(|| "cached font has an invalid filename".to_string())?;
+    let family = canonical
+        .chars()
+        .map(|character| {
+            if character.is_ascii_alphanumeric() || matches!(character, '-' | '_') {
+                character
+            } else {
+                '_'
+            }
+        })
+        .collect::<String>();
+    let directory = cache_database_path()?
+        .parent()
+        .expect("font cache database must have a parent")
+        .join("font-previews");
+    fs::create_dir_all(&directory)
+        .map_err(|error| format!("could not create font preview cache: {error}"))?;
+    let path = directory.join(format!(
+        "{family}-{revision}-{}",
+        filename.to_string_lossy()
+    ));
+    if !path.exists() {
+        fs::write(&path, data)
+            .map_err(|error| format!("could not cache font preview {}: {error}", path.display()))?;
+    }
+    Ok(path)
 }
 
 pub fn activate_family(family: MaterializedFamily) -> Result<(), String> {
@@ -500,6 +804,12 @@ fn store_family(family: &GoogleFamily, faces: &[DownloadedFace]) -> Result<FontF
         }
     }
     transaction.commit().map_err(database_error)?;
+    if let Some(cache) = GOOGLE_FAMILY_CATALOG.get() {
+        cache
+            .lock()
+            .unwrap_or_else(|_| panic!("Google font catalog cache lock died"))
+            .take();
+    }
     Ok(FontFamily {
         name: family.name.clone(),
         source: FontSource::Google,
@@ -566,6 +876,19 @@ fn cache_database_path() -> Result<PathBuf, String> {
         .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".cache")))
         .map(|root| root.join("shrimply").join(CACHE_DATABASE_NAME))
         .ok_or_else(|| "neither XDG_CACHE_HOME nor HOME is set".to_string())
+}
+
+fn normalized_search(value: &str) -> String {
+    normalize_google_query(value)
+        .unwrap_or_else(|_| value.trim().replace('+', " "))
+        .to_lowercase()
+}
+
+const fn source_order(source: FontSource) -> u8 {
+    match source {
+        FontSource::Local => 0,
+        FontSource::Google => 1,
+    }
 }
 
 fn http_client() -> Result<reqwest::blocking::Client, String> {

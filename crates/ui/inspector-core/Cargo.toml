@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 async-channel.workspace = true
+ffmpeg-next.workspace = true
 hashbrown.workspace = true
 glam.workspace = true
 reqwest = { workspace = true, features = ["blocking"] }
@@ -13,8 +14,10 @@ serde.workspace = true
 serde_json.workspace = true
 shrimply-audio = { path = "../../audio/audio" }
 shrimply-audio-modifiers = { path = "../../audio/audio-modifiers" }
+shrimply-3dgs = { path = "../../3d/3dgs" }
 shrimply-core = { path = "../../core" }
 shrimply-evaluation = { path = "../../evaluation" }
+shrimply-i18n-core = { path = "../i18n-core" }
 shrimply-keyframe-graph-ui = { path = "../../timeline/keyframe-graph-ui" }
 shrimply-math-core = { path = "../../math/core" }
 shrimply-media-info = { path = "../../media-info" }
@@ -31,6 +34,7 @@ shrimply-tts = { path = "../../audio/tts" }
 shrimply-video = { path = "../../video/rendering" }
 shrimply-video-modifiers = { path = "../../video/video-modifiers" }
 skia-safe = { workspace = true, features = ["textlayout"] }
+strum.workspace = true
 tempfile.workspace = true
 tracing.workspace = true
 uuid = { workspace = true, features = ["v4"] }

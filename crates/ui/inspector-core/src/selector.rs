@@ -148,7 +148,7 @@ pub(crate) fn step_graph<T: TimelineStep>(
     let TimelineBase::Keyframes(_) = &value.base else {
         return None;
     };
-    let shrimply_keyframe_graph_ui::KeyframeGraph::Step { points } =
+    let crate::keyframe_graph::KeyframeGraph::Step { points } =
         crate::keyframe_model::step_graph_with(value, |value| step_variant_index(value) as f64)
     else {
         unreachable!("step timeline must produce a step graph")

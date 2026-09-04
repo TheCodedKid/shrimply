@@ -1,24 +1,232 @@
 use glam::{Vec2, Vec3};
-use shrimply_core::timeline_value::{
-    CurveEditPolicy, CurveKeyframeInsert, Interpolation, TimelineBase, TimelineValue,
-    edit_curve_value, set_keyframes_enabled,
-};
+use shrimply_core::timeline_value::{Interpolation, TimelineBase, TimelineValue};
 use shrimply_project::project::{
-    ItemAddress, Project, ResolvedTransform, Time, VideoItem, VideoItemContent,
+    ItemAddress, Project, ResolvedTransform, Time, Transform, VideoItem, VideoItemContent,
 };
 use shrimply_video_modifiers::{ModifierEffect, RasterModifierEffect, VectorModifierEffect};
 
 use crate::{
-    ControlKind, GraphPoint, GraphSegment, InspectorControl, InspectorController,
+    ControlKind, GraphPoint, GraphSegment, InspectorCommit, InspectorControl, InspectorController,
     InspectorExpressionOutput, InspectorRuntime, InspectorSection, InspectorTarget, LayeredState,
     NumberSpec, ScalarGraph, VideoCard,
 };
 
-const POSITION_PATH: &str = "/transform/position";
-const ANCHOR_PATH: &str = "/transform/anchor";
-const SCALE_PATH: &str = "/transform/scale";
-const SHEAR_PATH: &str = "/transform/shear";
-const ROTATION_PATH: &str = "/transform/rotation_degrees";
+pub mod expressions;
+
+pub const TRANSFORM_CARD_KEY: &str = "transform";
+pub const TRANSFORM_CARD_TITLE: &str = "Transform";
+pub const TRANSFORM_LIVE_COMMIT: &str = "video-transform";
+pub const TRANSFORM_KEYFRAME_COMMIT: &str = "video-transform-keyframe";
+pub const TRANSFORM_KEYFRAMES_COMMIT: &str = "video-transform-keyframes";
+pub const RESET_TRANSFORM_COMMIT: &str = "reset-transform";
+pub const ADD_TRANSFORM_KEYFRAME_COMMIT: &str = "add-transform-keyframe";
+pub const DELETE_TRANSFORM_KEYFRAME_COMMIT: &str = "delete-transform-keyframe";
+pub const PASTE_TRANSFORM_KEYFRAMES_COMMIT: &str = "paste-transform-keyframes";
+pub const TRANSFORM_KEYFRAME_POINT_COMMIT: &str = "video-transform-keyframe-point";
+pub const TRANSFORM_KEYFRAME_INTERPOLATION_COMMIT: &str = "video-transform-keyframe-interpolation";
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Vec2Field {
+    Position,
+    Anchor,
+    Scale,
+    Shear,
+}
+
+impl Vec2Field {
+    pub const ALL: [Self; 4] = [Self::Position, Self::Anchor, Self::Scale, Self::Shear];
+
+    pub const fn path(self) -> &'static str {
+        match self {
+            Self::Position => "/transform/position",
+            Self::Anchor => "/transform/anchor",
+            Self::Scale => "/transform/scale",
+            Self::Shear => "/transform/shear",
+        }
+    }
+
+    pub fn from_path(path: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|field| field.path() == path)
+    }
+
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Position => "Position",
+            Self::Anchor => "Anchor",
+            Self::Scale => "Scale",
+            Self::Shear => "Shear",
+        }
+    }
+
+    pub fn number(self) -> NumberSpec {
+        match self {
+            Self::Position | Self::Anchor => NumberSpec {
+                drag_step: 1.0,
+                digits: 0,
+                unit: "px",
+                ..NumberSpec::default()
+            },
+            Self::Scale => NumberSpec {
+                minimum: 0.0,
+                drag_step: 0.01,
+                digits: 2,
+                unit: "x",
+                ..NumberSpec::default()
+            },
+            Self::Shear => NumberSpec {
+                drag_step: 0.01,
+                digits: 2,
+                ..NumberSpec::default()
+            },
+        }
+    }
+
+    pub const fn lock(self) -> bool {
+        matches!(self, Self::Scale)
+    }
+
+    pub const fn width_characters(self) -> i32 {
+        7
+    }
+
+    pub const fn prefixes(self) -> [&'static str; 2] {
+        ["X", "Y"]
+    }
+
+    pub fn value(self, transform: ResolvedTransform) -> Vec2 {
+        match self {
+            Self::Position => transform.position,
+            Self::Anchor => transform.anchor,
+            Self::Scale => transform.scale,
+            Self::Shear => transform.shear,
+        }
+    }
+
+    pub fn timeline<'a>(self, transform: &'a Transform) -> &'a TimelineValue<Vec2> {
+        match self {
+            Self::Position => &transform.position,
+            Self::Anchor => &transform.anchor,
+            Self::Scale => &transform.scale,
+            Self::Shear => &transform.shear,
+        }
+    }
+
+    pub fn timeline_mut<'a>(self, transform: &'a mut Transform) -> &'a mut TimelineValue<Vec2> {
+        match self {
+            Self::Position => &mut transform.position,
+            Self::Anchor => &mut transform.anchor,
+            Self::Scale => &mut transform.scale,
+            Self::Shear => &mut transform.shear,
+        }
+    }
+
+    pub fn normalize(self, value: Vec2) -> Vec2 {
+        if self.lock() {
+            value.max(Vec2::ZERO)
+        } else {
+            value
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ScalarField {
+    RotationDegrees,
+}
+
+impl ScalarField {
+    pub const ALL: [Self; 1] = [Self::RotationDegrees];
+
+    pub const fn path(self) -> &'static str {
+        match self {
+            Self::RotationDegrees => "/transform/rotation_degrees",
+        }
+    }
+
+    pub fn from_path(path: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|field| field.path() == path)
+    }
+
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::RotationDegrees => "Rotation",
+        }
+    }
+
+    pub fn number(self) -> NumberSpec {
+        match self {
+            Self::RotationDegrees => NumberSpec {
+                drag_step: 0.1,
+                digits: 1,
+                unit: "°",
+                ..NumberSpec::default()
+            },
+        }
+    }
+
+    pub const fn width_characters(self) -> i32 {
+        9
+    }
+
+    pub fn value(self, transform: ResolvedTransform) -> f64 {
+        match self {
+            Self::RotationDegrees => f64::from(transform.rotation_degrees),
+        }
+    }
+
+    pub fn timeline<'a>(self, transform: &'a Transform) -> &'a TimelineValue<f32> {
+        match self {
+            Self::RotationDegrees => &transform.rotation_degrees,
+        }
+    }
+
+    pub fn timeline_mut<'a>(self, transform: &'a mut Transform) -> &'a mut TimelineValue<f32> {
+        match self {
+            Self::RotationDegrees => &mut transform.rotation_degrees,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum TransformField {
+    Vec2(Vec2Field),
+    Scalar(ScalarField),
+}
+
+impl TransformField {
+    pub const ALL: [Self; 5] = [
+        Self::Vec2(Vec2Field::Position),
+        Self::Vec2(Vec2Field::Anchor),
+        Self::Vec2(Vec2Field::Scale),
+        Self::Vec2(Vec2Field::Shear),
+        Self::Scalar(ScalarField::RotationDegrees),
+    ];
+
+    pub const fn path(self) -> &'static str {
+        match self {
+            Self::Vec2(field) => field.path(),
+            Self::Scalar(field) => field.path(),
+        }
+    }
+
+    pub fn from_path(path: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|field| field.path() == path)
+    }
+
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Vec2(field) => field.label(),
+            Self::Scalar(field) => field.label(),
+        }
+    }
+
+    pub fn timeline_id(self, transform: &Transform) -> uuid::Uuid {
+        match self {
+            Self::Vec2(field) => field.timeline(transform).id,
+            Self::Scalar(field) => field.timeline(transform).id,
+        }
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct TransformLivePresentation {
@@ -67,122 +275,87 @@ pub(crate) fn card(
         .timeline_time_to_sequence(&address.track(), runtime.position)
         .map(|position| shrimply_evaluation::resolve_item_base_transform(project, item, position))
         .unwrap_or_else(|| item.transform.fallback());
-    let mut section = InspectorSection::default();
-    section.add(vector_control(
-        POSITION_PATH,
-        "Position",
-        &item.transform.position,
-        display.position,
-        runtime,
-        NumberSpec {
-            drag_step: 1.0,
-            digits: 0,
-            unit: "px",
-            ..NumberSpec::default()
-        },
-        false,
-    ));
-    section.add(vector_control(
-        ANCHOR_PATH,
-        "Anchor",
-        &item.transform.anchor,
-        display.anchor,
-        runtime,
-        NumberSpec {
-            drag_step: 1.0,
-            digits: 0,
-            unit: "px",
-            ..NumberSpec::default()
-        },
-        false,
-    ));
-    section.add(vector_control(
-        SCALE_PATH,
-        "Scale",
-        &item.transform.scale,
-        display.scale,
-        runtime,
-        NumberSpec {
-            minimum: 0.0,
-            drag_step: 0.01,
-            digits: 2,
-            unit: "x",
-            ..NumberSpec::default()
-        },
-        true,
-    ));
-    section.add(vector_control(
-        SHEAR_PATH,
-        "Shear",
-        &item.transform.shear,
-        display.shear,
-        runtime,
-        NumberSpec {
-            drag_step: 0.01,
-            digits: 2,
-            ..NumberSpec::default()
-        },
-        false,
-    ));
-    section.add(scalar_control(
-        &item.transform.rotation_degrees,
-        display.rotation_degrees,
-        runtime,
-    ));
+    let section = section(&item.transform, display, runtime);
     Some(
         VideoCard {
-            key: "transform",
-            title: "Transform",
+            key: TRANSFORM_CARD_KEY,
+            title: TRANSFORM_CARD_TITLE,
             section,
             reset: None,
+            alpha_mask: None,
+            preview_facet: None,
         }
         .reset(
             "/transform",
             serde_json::to_value(item.natural_transform(project.canvas_size))
                 .expect("natural video transform must serialize"),
-            "reset-transform",
+            RESET_TRANSFORM_COMMIT,
         ),
     )
 }
 
+pub fn section(
+    transform: &Transform,
+    display: ResolvedTransform,
+    runtime: InspectorRuntime,
+) -> InspectorSection {
+    let mut section = InspectorSection::default();
+    for field in TransformField::ALL {
+        section.add(match field {
+            TransformField::Vec2(field) => vector_control(
+                field,
+                field.timeline(transform),
+                field.value(display),
+                runtime,
+            ),
+            TransformField::Scalar(field) => scalar_control(
+                field,
+                field.timeline(transform),
+                field.value(display),
+                runtime,
+            ),
+        });
+    }
+    section
+}
+
 fn vector_control(
-    path: &'static str,
-    label: &'static str,
+    field: Vec2Field,
     timeline: &TimelineValue<Vec2>,
     display: Vec2,
     runtime: InspectorRuntime,
-    number: NumberSpec,
-    lock: bool,
 ) -> InspectorControl {
-    let control = InspectorControl::new(ControlKind::LayeredVector2, path, label)
+    let path = field.path();
+    let control = InspectorControl::new(ControlKind::LayeredVector2, path, field.label())
         .components(vec![display.x.to_string(), display.y.to_string()])
-        .number(number)
-        .width_characters(7)
-        .prefixes(["X", "Y"])
+        .number(field.number())
+        .width_characters(field.width_characters())
+        .prefixes(field.prefixes())
         .layered(path, LayeredState::from(timeline))
-        .graph(vector_speed_graph(timeline, runtime))
-        .live_commit("video-transform");
-    if lock { control.lock() } else { control }
+        .timeline(timeline.id, vector_speed_graph(timeline, runtime))
+        .live_commit(TRANSFORM_LIVE_COMMIT);
+    if field.lock() {
+        control.lock()
+    } else {
+        control
+    }
 }
 
 fn scalar_control(
+    field: ScalarField,
     timeline: &TimelineValue<f32>,
-    display: f32,
+    display: f64,
     runtime: InspectorRuntime,
 ) -> InspectorControl {
-    InspectorControl::new(ControlKind::LayeredNumber, ROTATION_PATH, "Rotation")
+    let path = field.path();
+    InspectorControl::new(ControlKind::LayeredNumber, path, field.label())
         .value(display.to_string())
-        .number(NumberSpec {
-            drag_step: 0.1,
-            digits: 1,
-            unit: "°",
-            ..NumberSpec::default()
-        })
-        .width_characters(9)
+        .number(field.number())
+        .width_characters(field.width_characters())
         .rotating_icon("rotation.svg", 0.0)
-        .layered(ROTATION_PATH, LayeredState::from(timeline))
-        .graph(scalar_graph(timeline, display, runtime))
-        .live_commit("video-transform")
+        .layered(path, LayeredState::from(timeline))
+        .timeline(timeline.id, scalar_graph(timeline, display as f32, runtime))
+        .live_commit(TRANSFORM_LIVE_COMMIT)
 }
 
 fn graph_shell(
@@ -203,34 +376,7 @@ pub(crate) fn vector_speed_graph(
     timeline: &TimelineValue<Vec2>,
     runtime: InspectorRuntime,
 ) -> Option<ScalarGraph> {
-    let TimelineBase::Keyframes(keyframes) = &timeline.base else {
-        return None;
-    };
-    let points = keyframes
-        .iter()
-        .map(|keyframe| GraphPoint {
-            time: keyframe.time,
-            value: 0.0,
-        })
-        .collect();
-    let segments = keyframes
-        .windows(2)
-        .filter_map(|pair| {
-            let seconds = pair[1].time.signed_sub(pair[0].time).as_secs_f64();
-            (seconds > f64::EPSILON).then(|| {
-                let speed = f64::from((pair[1].value - pair[0].value).length()) / seconds;
-                GraphSegment {
-                    owner_id: pair[0].id,
-                    start: pair[0].time,
-                    end: pair[1].time,
-                    start_value: speed,
-                    end_value: speed,
-                    interpolation: interpolation_index(pair[0].interpolation_to_next),
-                }
-            })
-        })
-        .collect();
-    Some(graph_shell(runtime, points, segments))
+    crate::timeline_value::vector::scalar_speed_graph(timeline, runtime)
 }
 
 pub(crate) fn scalar_graph(
@@ -238,7 +384,7 @@ pub(crate) fn scalar_graph(
     display: f32,
     runtime: InspectorRuntime,
 ) -> Option<ScalarGraph> {
-    let shrimply_keyframe_graph_ui::KeyframeGraph::RawValue {
+    let crate::keyframe_graph::KeyframeGraph::RawValue {
         points, segments, ..
     } = crate::keyframe_model::scalar_graph(timeline, f64::from(display), f64::from)
     else {
@@ -294,33 +440,27 @@ impl InspectorController {
         let runtime = crate::model::target_runtime(&project, &self.player_state, target);
         let (item, position) = transform_item_at(&project, target, runtime.position)?;
         let resolved = shrimply_evaluation::resolve_item_base_transform(&project, item, position);
-        let mut vectors = vec![
-            (POSITION_PATH.to_string(), resolved.position),
-            (ANCHOR_PATH.to_string(), resolved.anchor),
-            (SCALE_PATH.to_string(), resolved.scale),
-            (SHEAR_PATH.to_string(), resolved.shear),
-        ];
+        let mut vectors = Vec2Field::ALL
+            .into_iter()
+            .map(|field| (field.path().to_string(), field.value(resolved)))
+            .collect::<Vec<_>>();
         let mut numbers = vec![(
-            ROTATION_PATH.to_string(),
+            ScalarField::RotationDegrees.path().to_string(),
             f64::from(resolved.rotation_degrees),
         )];
-        let mut graphs = [
-            (POSITION_PATH, &item.transform.position),
-            (ANCHOR_PATH, &item.transform.anchor),
-            (SCALE_PATH, &item.transform.scale),
-            (SHEAR_PATH, &item.transform.shear),
-        ]
-        .into_iter()
-        .filter_map(|(path, value)| {
-            vector_speed_graph(value, runtime).map(|graph| (path.to_string(), graph))
-        })
-        .collect::<Vec<_>>();
+        let mut graphs = Vec2Field::ALL
+            .into_iter()
+            .filter_map(|field| {
+                vector_speed_graph(field.timeline(&item.transform), runtime)
+                    .map(|graph| (field.path().to_string(), graph))
+            })
+            .collect::<Vec<_>>();
         if let Some(graph) = scalar_graph(
             &item.transform.rotation_degrees,
             resolved.rotation_degrees,
             runtime,
         ) {
-            graphs.push((ROTATION_PATH.to_string(), graph));
+            graphs.push((ScalarField::RotationDegrees.path().to_string(), graph));
         }
         let player = shrimply_state::player_state::snapshot(&self.player_state);
         let audio =
@@ -394,14 +534,15 @@ impl InspectorController {
         path: &str,
         first: f64,
         second: f64,
+        commit: InspectorCommit<'_>,
     ) -> Result<(), String> {
         if !first.is_finite() || !second.is_finite() {
             return Err("transform vector must be finite".to_string());
         }
         let (mut timeline, runtime) = self.vector2_timeline(target, path)?;
         let mut next = Vec2::new(first as f32, second as f32);
-        if path == SCALE_PATH {
-            next = next.max(Vec2::ZERO);
+        if let Some(field) = Vec2Field::from_path(path) {
+            next = field.normalize(next);
         }
         let time = if matches!(timeline.base, TimelineBase::Keyframes(_)) {
             runtime
@@ -410,22 +551,125 @@ impl InspectorController {
         } else {
             Time::ZERO
         };
-        if !edit_curve_value(
-            &mut timeline,
-            time,
-            next,
-            |current, next| current.abs_diff_eq(*next, 0.000_001),
-            CurveEditPolicy {
-                unchanged_keyframe_is_noop: true,
-                insert: CurveKeyframeInsert::InheritPreviousInterpolation,
-            },
-        ) {
+        if !crate::timeline_value::vector::vec2::set_value(&mut timeline, time, next) {
             return Ok(());
         }
-        self.set_live_keyframe_graph_value(
+        self.set_live_keyframe_graph_value_with_commit(
             target,
             path,
             serde_json::to_value(timeline).expect("transform vector must serialize"),
+            commit,
+        )
+    }
+
+    pub fn set_vector2_component_value(
+        &self,
+        target: &InspectorTarget,
+        field: Vec2Field,
+        timeline_id: uuid::Uuid,
+        component: usize,
+        value: f64,
+        commit: InspectorCommit<'_>,
+    ) -> Result<(), String> {
+        if !value.is_finite() {
+            return Err("transform vector component must be finite".to_string());
+        }
+        if self.target() != *target {
+            return Err("inspector target changed".to_string());
+        }
+        let path = field.path();
+        let project = self.project.borrow();
+        let runtime = crate::model::target_runtime(&project, &self.player_state, target);
+        let mut timeline = field
+            .timeline(
+                &project
+                    .video_item(video_address(target)?)
+                    .ok_or_else(|| "transform item is no longer available".to_string())?
+                    .transform,
+            )
+            .clone();
+        drop(project);
+        if timeline.id != timeline_id {
+            return Err("transform vector is no longer available".to_string());
+        }
+        let mut next = timeline.value_at(runtime.local_time.unwrap_or(Time::ZERO));
+        match component {
+            0 => next.x = value as f32,
+            1 => next.y = value as f32,
+            _ => return Err("transform vector component is invalid".to_string()),
+        }
+        let time = if matches!(timeline.base, TimelineBase::Keyframes(_)) {
+            runtime
+                .keyframe_playhead
+                .ok_or_else(|| "transform keyframe time is no longer available".to_string())?
+        } else {
+            Time::ZERO
+        };
+        if !crate::timeline_value::vector::vec2::set_value(
+            &mut timeline,
+            time,
+            field.normalize(next),
+        ) {
+            return Ok(());
+        }
+        self.set_live_keyframe_graph_value_with_commit(
+            target,
+            path,
+            serde_json::to_value(timeline).expect("transform vector must serialize"),
+            commit,
+        )
+    }
+
+    pub fn set_transform_scalar_value(
+        &self,
+        target: &InspectorTarget,
+        field: ScalarField,
+        timeline_id: uuid::Uuid,
+        value: f64,
+        commit: InspectorCommit<'_>,
+    ) -> Result<(), String> {
+        if !value.is_finite() {
+            return Err("transform scalar must be finite".to_string());
+        }
+        if self.target() != *target {
+            return Err("inspector target changed".to_string());
+        }
+        let path = field.path();
+        let project = self.project.borrow();
+        let runtime = crate::model::target_runtime(&project, &self.player_state, target);
+        let mut timeline = field
+            .timeline(
+                &project
+                    .video_item(video_address(target)?)
+                    .ok_or_else(|| "transform item is no longer available".to_string())?
+                    .transform,
+            )
+            .clone();
+        drop(project);
+        if timeline.id != timeline_id {
+            return Err("transform scalar is no longer available".to_string());
+        }
+        let time = if matches!(timeline.base, TimelineBase::Keyframes(_)) {
+            runtime
+                .keyframe_playhead
+                .ok_or_else(|| "transform keyframe time is no longer available".to_string())?
+        } else {
+            Time::ZERO
+        };
+        if !crate::timeline_value::scalar::set_displayed_value(
+            &mut timeline,
+            time,
+            value,
+            |value| value as f32,
+            crate::timeline_value::scalar::ScalarConstraint::Function(|value| value),
+        ) {
+            return Ok(());
+        }
+        self.set_live_keyframe_graph_value_with_commit(
+            target,
+            path,
+            serde_json::to_value(timeline).expect("transform scalar must serialize"),
+            commit,
         )
     }
 
@@ -436,6 +680,7 @@ impl InspectorController {
         first: f64,
         second: f64,
         third: f64,
+        commit: InspectorCommit<'_>,
     ) -> Result<(), String> {
         if !first.is_finite() || !second.is_finite() || !third.is_finite() {
             return Err("modifier vector must be finite".to_string());
@@ -451,22 +696,18 @@ impl InspectorController {
         } else {
             Time::ZERO
         };
-        if !edit_curve_value(
+        if !crate::timeline_value::vector::vec3::set_value(
             &mut timeline,
             time,
             Vec3::new(first as f32, second as f32, third as f32),
-            |current, next| current.abs_diff_eq(*next, 0.000_001),
-            CurveEditPolicy {
-                unchanged_keyframe_is_noop: true,
-                insert: CurveKeyframeInsert::InheritPreviousInterpolation,
-            },
         ) {
             return Ok(());
         }
-        self.set_live_keyframe_graph_value(
+        self.set_live_keyframe_graph_value_with_commit(
             target,
             path,
             serde_json::to_value(timeline).expect("modifier vector must serialize"),
+            commit,
         )
     }
 
@@ -475,22 +716,77 @@ impl InspectorController {
         target: &InspectorTarget,
         path: &str,
         enabled: bool,
+        commit: InspectorCommit<'_>,
     ) -> Result<(), String> {
         let (mut timeline, runtime) = self.vector2_timeline(target, path)?;
         let time = runtime
             .keyframe_playhead
             .ok_or_else(|| "transform keyframe time is no longer available".to_string())?;
-        let mut current = timeline.value_at(runtime.local_time.unwrap_or(Time::ZERO));
-        if path == SCALE_PATH {
-            current = current.max(Vec2::ZERO);
-        }
-        if !set_keyframes_enabled(&mut timeline, time, current, enabled) {
+        let evaluation_time = runtime.local_time.unwrap_or(Time::ZERO);
+        let changed = if let Some(field) = Vec2Field::from_path(path) {
+            let current = field.normalize(timeline.value_at(evaluation_time));
+            crate::keyframe_model::set_keyframes_enabled(&mut timeline, time, current, enabled)
+        } else {
+            crate::timeline_value::vector::vec2::set_keyframes_enabled(
+                &mut timeline,
+                evaluation_time,
+                time,
+                enabled,
+            )
+        };
+        if !changed {
             return Ok(());
         }
-        self.set_value(
+        if let Some(field) = Vec2Field::from_path(path) {
+            normalize_vector_timeline(&mut timeline, field);
+        }
+        self.replace_value_with_commit(
+            target,
+            crate::model::EditKind::Structural,
+            path,
+            serde_json::to_value(timeline).expect("transform vector must serialize"),
+            crate::refresh::audio_path_change(target, path, crate::model::EditKind::Structural),
+            commit,
+        )
+    }
+
+    pub fn set_vector2_expression_enabled(
+        &self,
+        target: &InspectorTarget,
+        path: &str,
+        enabled: bool,
+        commit: InspectorCommit<'_>,
+    ) -> Result<(), String> {
+        let (mut timeline, _) = self.vector2_timeline(target, path)?;
+        if !crate::timeline_value::vector::vec2::set_expression_enabled(&mut timeline, enabled) {
+            return Ok(());
+        }
+        self.replace_value_with_commit(
+            target,
+            crate::model::EditKind::Structural,
+            path,
+            serde_json::to_value(timeline).expect("transform vector must serialize"),
+            crate::refresh::audio_path_change(target, path, crate::model::EditKind::Structural),
+            commit,
+        )
+    }
+
+    pub fn set_vector2_expression_source(
+        &self,
+        target: &InspectorTarget,
+        path: &str,
+        source: String,
+        commit: InspectorCommit<'_>,
+    ) -> Result<(), String> {
+        let (mut timeline, _) = self.vector2_timeline(target, path)?;
+        if !crate::timeline_value::vector::vec2::set_expression_source(&mut timeline, source) {
+            return Ok(());
+        }
+        self.set_live_keyframe_graph_value_with_commit(
             target,
             path,
             serde_json::to_value(timeline).expect("transform vector must serialize"),
+            commit,
         )
     }
 
@@ -499,6 +795,7 @@ impl InspectorController {
         target: &InspectorTarget,
         path: &str,
         enabled: bool,
+        commit: InspectorCommit<'_>,
     ) -> Result<(), String> {
         let (mut timeline, runtime) = self.vector3_timeline(target, path)?;
         let evaluation_time = runtime
@@ -507,14 +804,21 @@ impl InspectorController {
         let time = runtime
             .keyframe_playhead
             .ok_or_else(|| "modifier keyframe time is no longer available".to_string())?;
-        let current = timeline.value_at(evaluation_time);
-        if !set_keyframes_enabled(&mut timeline, time, current, enabled) {
+        if !crate::timeline_value::vector::vec3::set_keyframes_enabled(
+            &mut timeline,
+            evaluation_time,
+            time,
+            enabled,
+        ) {
             return Ok(());
         }
-        self.set_value(
+        self.replace_value_with_commit(
             target,
+            crate::model::EditKind::Structural,
             path,
             serde_json::to_value(timeline).expect("modifier vector must serialize"),
+            crate::refresh::audio_path_change(target, path, crate::model::EditKind::Structural),
+            commit,
         )
     }
 
@@ -524,13 +828,18 @@ impl InspectorController {
         path: &str,
         timeline_id: Option<uuid::Uuid>,
     ) -> Result<InspectorExpressionOutput<Vec2>, String> {
-        if let Some(timeline_id) = timeline_id {
+        if path.starts_with("/modifiers/")
+            && let Some(timeline_id) = timeline_id
+        {
             return self.video_modifier_expression_output(
                 target,
                 path,
                 timeline_id,
                 crate::visual_modifiers::visual_modifier_vector2,
             );
+        }
+        if let Some(timeline_id) = timeline_id {
+            self.ensure_timeline(target, path, timeline_id)?;
         }
         self.video_expression_output(target, path)
     }
@@ -541,12 +850,17 @@ impl InspectorController {
         path: &str,
         timeline_id: uuid::Uuid,
     ) -> Result<InspectorExpressionOutput<Vec3>, String> {
-        self.video_modifier_expression_output(
-            target,
-            path,
-            timeline_id,
-            crate::visual_modifiers::visual_modifier_vector3,
-        )
+        if path.starts_with("/modifiers/") {
+            self.video_modifier_expression_output(
+                target,
+                path,
+                timeline_id,
+                crate::visual_modifiers::visual_modifier_vector3,
+            )
+        } else {
+            self.ensure_timeline(target, path, timeline_id)?;
+            self.video_expression_output(target, path)
+        }
     }
 
     pub fn move_vector2_keyframes(
@@ -554,16 +868,18 @@ impl InspectorController {
         target: &InspectorTarget,
         path: &str,
         moves: &[(Time, Time)],
+        commit: InspectorCommit<'_>,
     ) -> Result<Vec<Time>, String> {
         let moves = self.canonical_vector_moves(target, moves)?;
         let (mut timeline, _) = self.vector2_timeline(target, path)?;
-        if !crate::keyframe_model::move_discrete_keyframes(&mut timeline, &moves) {
+        if !crate::timeline_value::vector::vec2::move_keyframes(&mut timeline, &moves) {
             return Err("transform keyframe move targets are no longer available".to_string());
         }
-        self.set_live_keyframe_graph_value(
+        self.set_live_keyframe_graph_value_with_commit(
             target,
             path,
             serde_json::to_value(timeline).expect("transform vector must serialize"),
+            commit,
         )?;
         Ok(moves.into_iter().map(|(_, time)| time).collect())
     }
@@ -573,25 +889,19 @@ impl InspectorController {
         target: &InspectorTarget,
         path: &str,
         time: Time,
+        commit: InspectorCommit<'_>,
     ) -> Result<(), String> {
         let (mut timeline, _) = self.vector2_timeline(target, path)?;
-        let TimelineBase::Keyframes(keyframes) = &mut timeline.base else {
+        if !crate::timeline_value::vector::vec2::delete_keyframe(&mut timeline, time) {
             return Ok(());
-        };
-        let Some(index) = keyframes
-            .iter()
-            .position(|keyframe| keyframe.time.approx_eq(time))
-        else {
-            return Ok(());
-        };
-        keyframes.remove(index);
-        if keyframes.is_empty() {
-            timeline.base = TimelineBase::Const(Vec2::ZERO);
         }
-        self.set_value(
+        self.replace_value_with_commit(
             target,
+            crate::model::EditKind::Structural,
             path,
             serde_json::to_value(timeline).expect("transform vector must serialize"),
+            crate::refresh::audio_path_change(target, path, crate::model::EditKind::Structural),
+            commit,
         )
     }
 
@@ -600,8 +910,9 @@ impl InspectorController {
         target: &InspectorTarget,
         path: &str,
         time: Time,
+        commit: InspectorCommit<'_>,
     ) -> Result<(), String> {
-        if path != ROTATION_PATH {
+        if ScalarField::from_path(path).is_none() {
             return Err(format!("unknown transform scalar: {path}"));
         }
         let mut timeline = self.scalar_timeline(target, path)?;
@@ -615,10 +926,13 @@ impl InspectorController {
             return Ok(());
         };
         keyframes.remove(index);
-        self.set_value(
+        self.replace_value_with_commit(
             target,
+            crate::model::EditKind::Structural,
             path,
             serde_json::to_value(timeline).expect("transform scalar must serialize"),
+            crate::refresh::audio_path_change(target, path, crate::model::EditKind::Structural),
+            commit,
         )
     }
 
@@ -627,26 +941,23 @@ impl InspectorController {
         target: &InspectorTarget,
         path: &str,
         time: Time,
+        commit: InspectorCommit<'_>,
     ) -> Result<(), String> {
         let time = self.canonical_vector_time(target, time)?;
         let (mut timeline, _) = self.vector2_timeline(target, path)?;
-        let current = timeline.value_at(time);
-        if !edit_curve_value(
-            &mut timeline,
-            time,
-            current,
-            |_, _| false,
-            CurveEditPolicy {
-                unchanged_keyframe_is_noop: false,
-                insert: CurveKeyframeInsert::InheritPreviousInterpolation,
-            },
-        ) {
+        if !crate::timeline_value::vector::vec2::add_keyframe(&mut timeline, time) {
             return Ok(());
         }
-        self.set_value(
+        if let Some(field) = Vec2Field::from_path(path) {
+            normalize_vector_timeline(&mut timeline, field);
+        }
+        self.replace_value_with_commit(
             target,
+            crate::model::EditKind::Structural,
             path,
             serde_json::to_value(timeline).expect("transform vector must serialize"),
+            crate::refresh::audio_path_change(target, path, crate::model::EditKind::Structural),
+            commit,
         )
     }
 
@@ -657,32 +968,22 @@ impl InspectorController {
         selected: &[Time],
     ) -> Result<usize, String> {
         let (timeline, _) = self.vector2_timeline(target, path)?;
-        let Some(mut clipboard) = crate::keyframe_model::copy_keyframes(&timeline, selected) else {
+        let Some(mut clipboard) =
+            crate::timeline_value::vector::vec2::copy_keyframes(&timeline, selected)
+        else {
             self.keyframe_clipboard.replace(None);
             return Ok(0);
         };
         let project = self.project.borrow();
         let address = video_address(target)?;
-        let times = clipboard
-            .times
-            .iter()
-            .map(|time| {
-                project
-                    .keyframe_timeline_time(address, *time)
-                    .unwrap_or(*time)
-                    .snapped(project.frame_step())
-            })
-            .collect::<Vec<_>>();
-        let Some(origin) = times.first().copied() else {
+        if !crate::keyframe_model::normalize_clipboard_times(
+            &project,
+            Some(address),
+            &mut clipboard,
+        ) {
             self.keyframe_clipboard.replace(None);
             return Ok(0);
-        };
-        clipboard.times = times
-            .into_iter()
-            .map(|time| Time {
-                seconds: time.seconds - origin.seconds,
-            })
-            .collect();
+        }
         let count = clipboard.len();
         self.keyframe_clipboard.replace(Some(clipboard));
         Ok(count)
@@ -693,42 +994,32 @@ impl InspectorController {
         target: &InspectorTarget,
         path: &str,
         time: Time,
+        commit: InspectorCommit<'_>,
     ) -> Result<usize, String> {
         let Some(clipboard) = self.keyframe_clipboard.borrow().clone() else {
             return Ok(0);
         };
         let project = self.project.borrow();
         let address = video_address(target)?;
-        let anchor = project
-            .keyframe_timeline_time(address, time)
-            .unwrap_or(time)
-            .snapped(project.frame_step());
-        let times = clipboard
-            .times
-            .iter()
-            .filter_map(|offset| {
-                project.keyframe_time(
-                    address,
-                    Time {
-                        seconds: anchor.seconds + offset.seconds,
-                    },
-                )
-            })
-            .collect::<Vec<_>>();
+        let times =
+            crate::keyframe_model::clipboard_paste_times(&project, Some(address), &clipboard, time);
         drop(project);
-        if times.len() != clipboard.len() {
+        let Some(times) = times else {
             return Err("transform keyframes cannot be pasted at this time".to_string());
-        }
+        };
         let (mut timeline, _) = self.vector2_timeline(target, path)?;
         let Some(pasted) =
-            crate::keyframe_model::paste_keyframes(&mut timeline, &clipboard, &times)
+            crate::timeline_value::vector::vec2::paste_keyframes(&mut timeline, &clipboard, &times)
         else {
             return Ok(0);
         };
-        self.set_value(
+        self.replace_value_with_commit(
             target,
+            crate::model::EditKind::Structural,
             path,
             serde_json::to_value(timeline).expect("transform vector must serialize"),
+            crate::refresh::audio_path_change(target, path, crate::model::EditKind::Structural),
+            commit,
         )?;
         Ok(pasted.len())
     }
@@ -739,29 +1030,24 @@ impl InspectorController {
         path: &str,
         owner_id: uuid::Uuid,
         interpolation_index: usize,
+        commit: InspectorCommit<'_>,
     ) -> Result<(), String> {
-        let interpolation = Interpolation::KEYFRAME
-            .get(interpolation_index)
-            .copied()
-            .ok_or_else(|| "transform interpolation is invalid".to_string())?;
+        let interpolation = crate::keyframe_model::interpolation(interpolation_index)?;
         let (mut timeline, _) = self.vector2_timeline(target, path)?;
-        let TimelineBase::Keyframes(keyframes) = &mut timeline.base else {
-            return Ok(());
-        };
-        let Some(keyframe) = keyframes
-            .iter_mut()
-            .find(|keyframe| keyframe.id == owner_id)
-        else {
-            return Ok(());
-        };
-        if keyframe.interpolation_to_next == interpolation {
+        if !crate::timeline_value::vector::vec2::set_interpolation(
+            &mut timeline,
+            owner_id,
+            interpolation,
+        ) {
             return Ok(());
         }
-        keyframe.interpolation_to_next = interpolation;
-        self.set_value(
+        self.replace_value_with_commit(
             target,
+            crate::model::EditKind::Structural,
             path,
             serde_json::to_value(timeline).expect("transform vector must serialize"),
+            crate::refresh::audio_path_change(target, path, crate::model::EditKind::Structural),
+            commit,
         )
     }
 
@@ -770,16 +1056,18 @@ impl InspectorController {
         target: &InspectorTarget,
         path: &str,
         moves: &[(Time, Time)],
+        commit: InspectorCommit<'_>,
     ) -> Result<Vec<Time>, String> {
         let moves = self.canonical_vector_moves(target, moves)?;
         let (mut timeline, _) = self.vector3_timeline(target, path)?;
-        if !crate::keyframe_model::move_discrete_keyframes(&mut timeline, &moves) {
+        if !crate::timeline_value::vector::vec3::move_keyframes(&mut timeline, &moves) {
             return Err("modifier keyframe move targets are no longer available".to_string());
         }
-        self.set_live_keyframe_graph_value(
+        self.set_live_keyframe_graph_value_with_commit(
             target,
             path,
             serde_json::to_value(timeline).expect("modifier vector must serialize"),
+            commit,
         )?;
         Ok(moves.into_iter().map(|(_, time)| time).collect())
     }
@@ -789,25 +1077,19 @@ impl InspectorController {
         target: &InspectorTarget,
         path: &str,
         time: Time,
+        commit: InspectorCommit<'_>,
     ) -> Result<(), String> {
         let (mut timeline, _) = self.vector3_timeline(target, path)?;
-        let TimelineBase::Keyframes(keyframes) = &mut timeline.base else {
+        if !crate::timeline_value::vector::vec3::delete_keyframe(&mut timeline, time, Time::ZERO) {
             return Ok(());
-        };
-        let Some(index) = keyframes
-            .iter()
-            .position(|keyframe| keyframe.time.approx_eq(time))
-        else {
-            return Ok(());
-        };
-        let removed = keyframes.remove(index);
-        if keyframes.is_empty() {
-            timeline.base = TimelineBase::Const(removed.value);
         }
-        self.set_value(
+        self.replace_value_with_commit(
             target,
+            crate::model::EditKind::Structural,
             path,
             serde_json::to_value(timeline).expect("modifier vector must serialize"),
+            crate::refresh::audio_path_change(target, path, crate::model::EditKind::Structural),
+            commit,
         )
     }
 
@@ -816,26 +1098,20 @@ impl InspectorController {
         target: &InspectorTarget,
         path: &str,
         time: Time,
+        commit: InspectorCommit<'_>,
     ) -> Result<(), String> {
         let time = self.canonical_vector_time(target, time)?;
         let (mut timeline, _) = self.vector3_timeline(target, path)?;
-        let current = timeline.value_at(time);
-        if !edit_curve_value(
-            &mut timeline,
-            time,
-            current,
-            |_, _| false,
-            CurveEditPolicy {
-                unchanged_keyframe_is_noop: false,
-                insert: CurveKeyframeInsert::InheritPreviousInterpolation,
-            },
-        ) {
+        if !crate::timeline_value::vector::vec3::add_keyframe(&mut timeline, time) {
             return Ok(());
         }
-        self.set_value(
+        self.replace_value_with_commit(
             target,
+            crate::model::EditKind::Structural,
             path,
             serde_json::to_value(timeline).expect("modifier vector must serialize"),
+            crate::refresh::audio_path_change(target, path, crate::model::EditKind::Structural),
+            commit,
         )
     }
 
@@ -846,32 +1122,22 @@ impl InspectorController {
         selected: &[Time],
     ) -> Result<usize, String> {
         let (timeline, _) = self.vector3_timeline(target, path)?;
-        let Some(mut clipboard) = crate::keyframe_model::copy_keyframes(&timeline, selected) else {
+        let Some(mut clipboard) =
+            crate::timeline_value::vector::vec3::copy_keyframes(&timeline, selected)
+        else {
             self.keyframe_clipboard.replace(None);
             return Ok(0);
         };
         let project = self.project.borrow();
         let address = video_address(target)?;
-        let times = clipboard
-            .times
-            .iter()
-            .map(|time| {
-                project
-                    .keyframe_timeline_time(address, *time)
-                    .unwrap_or(*time)
-                    .snapped(project.frame_step())
-            })
-            .collect::<Vec<_>>();
-        let Some(origin) = times.first().copied() else {
+        if !crate::keyframe_model::normalize_clipboard_times(
+            &project,
+            Some(address),
+            &mut clipboard,
+        ) {
             self.keyframe_clipboard.replace(None);
             return Ok(0);
-        };
-        clipboard.times = times
-            .into_iter()
-            .map(|time| Time {
-                seconds: time.seconds - origin.seconds,
-            })
-            .collect();
+        }
         let count = clipboard.len();
         self.keyframe_clipboard.replace(Some(clipboard));
         Ok(count)
@@ -882,42 +1148,32 @@ impl InspectorController {
         target: &InspectorTarget,
         path: &str,
         time: Time,
+        commit: InspectorCommit<'_>,
     ) -> Result<usize, String> {
         let Some(clipboard) = self.keyframe_clipboard.borrow().clone() else {
             return Ok(0);
         };
         let project = self.project.borrow();
         let address = video_address(target)?;
-        let anchor = project
-            .keyframe_timeline_time(address, time)
-            .unwrap_or(time)
-            .snapped(project.frame_step());
-        let times = clipboard
-            .times
-            .iter()
-            .filter_map(|offset| {
-                project.keyframe_time(
-                    address,
-                    Time {
-                        seconds: anchor.seconds + offset.seconds,
-                    },
-                )
-            })
-            .collect::<Vec<_>>();
+        let times =
+            crate::keyframe_model::clipboard_paste_times(&project, Some(address), &clipboard, time);
         drop(project);
-        if times.len() != clipboard.len() {
+        let Some(times) = times else {
             return Err("modifier keyframes cannot be pasted at this time".to_string());
-        }
+        };
         let (mut timeline, _) = self.vector3_timeline(target, path)?;
         let Some(pasted) =
-            crate::keyframe_model::paste_keyframes(&mut timeline, &clipboard, &times)
+            crate::timeline_value::vector::vec3::paste_keyframes(&mut timeline, &clipboard, &times)
         else {
             return Ok(0);
         };
-        self.set_value(
+        self.replace_value_with_commit(
             target,
+            crate::model::EditKind::Structural,
             path,
             serde_json::to_value(timeline).expect("modifier vector must serialize"),
+            crate::refresh::audio_path_change(target, path, crate::model::EditKind::Structural),
+            commit,
         )?;
         Ok(pasted.len())
     }
@@ -928,29 +1184,24 @@ impl InspectorController {
         path: &str,
         owner_id: uuid::Uuid,
         interpolation_index: usize,
+        commit: InspectorCommit<'_>,
     ) -> Result<(), String> {
-        let interpolation = Interpolation::KEYFRAME
-            .get(interpolation_index)
-            .copied()
-            .ok_or_else(|| "modifier interpolation is invalid".to_string())?;
+        let interpolation = crate::keyframe_model::interpolation(interpolation_index)?;
         let (mut timeline, _) = self.vector3_timeline(target, path)?;
-        let TimelineBase::Keyframes(keyframes) = &mut timeline.base else {
-            return Ok(());
-        };
-        let Some(keyframe) = keyframes
-            .iter_mut()
-            .find(|keyframe| keyframe.id == owner_id)
-        else {
-            return Ok(());
-        };
-        if keyframe.interpolation_to_next == interpolation {
+        if !crate::timeline_value::vector::vec3::set_interpolation(
+            &mut timeline,
+            owner_id,
+            interpolation,
+        ) {
             return Ok(());
         }
-        keyframe.interpolation_to_next = interpolation;
-        self.set_value(
+        self.replace_value_with_commit(
             target,
+            crate::model::EditKind::Structural,
             path,
             serde_json::to_value(timeline).expect("modifier vector must serialize"),
+            crate::refresh::audio_path_change(target, path, crate::model::EditKind::Structural),
+            commit,
         )
     }
 
@@ -1020,6 +1271,15 @@ fn video_address(target: &InspectorTarget) -> Result<&ItemAddress, String> {
         return Err("transform target is not a video item".to_string());
     };
     Ok(address)
+}
+
+fn normalize_vector_timeline(timeline: &mut TimelineValue<Vec2>, field: Vec2Field) {
+    match &mut timeline.base {
+        TimelineBase::Const(value) => *value = field.normalize(*value),
+        TimelineBase::Keyframes(keyframes) => keyframes
+            .iter_mut()
+            .for_each(|keyframe| keyframe.value = field.normalize(keyframe.value)),
+    }
 }
 
 fn transform_item_at<'a>(

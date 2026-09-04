@@ -398,7 +398,7 @@ install: release
 	$(INSTALL) -d "$(DESTDIR)$(RHUBARB_RESOURCE_DIR)/acoustic-model"
 	cp -a $(RHUBARB_ACOUSTIC_MODEL_SOURCE)/. "$(DESTDIR)$(RHUBARB_RESOURCE_DIR)/acoustic-model/"
 	$(INSTALL) -d "$(DESTDIR)$(ICONS_RESOURCE_DIR)"
-    cp -a assets/icons/. "$(DESTDIR)$(ICONS_RESOURCE_DIR)/"
+	cp -a assets/icons/. "$(DESTDIR)$(ICONS_RESOURCE_DIR)/"
 	sed -e 's|^Exec=.*|Exec=$(BINDIR)/$(BIN_NAME) %f|' -e 's|^TryExec=.*|TryExec=$(BINDIR)/$(BIN_NAME)|' $(DESKTOP_FILE) | $(INSTALL) -Dm644 /dev/stdin "$(DESTDIR)$(APPLICATIONSDIR)/dev.shrimply.Shrimply.desktop"
 	$(INSTALL) -Dm644 $(APP_ICON) "$(DESTDIR)$(ICONDIR)/dev.shrimply.Shrimply.svg"
 	@if test -z "$(DESTDIR)"; then \

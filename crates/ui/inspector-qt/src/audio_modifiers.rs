@@ -58,33 +58,10 @@ fn modifier_item(
     for control in shrimply_inspector_core::audio_modifier_controls(&modifier.effect) {
         match control {
             AudioModifierControl::Cache(cache) => {
-                section.add(
-                    InspectorControl::new(ControlKind::AudioCachePreset, "", "Format")
-                        .target(modifier.id)
-                        .value(shrimply_inspector_core::audio_cache_preset(&cache).key())
-                        .choices(
-                            shrimply_inspector_core::AudioCachePreset::OPTIONS
-                                .iter()
-                                .map(|(preset, _)| preset.key().to_string())
-                                .collect(),
-                            shrimply_inspector_core::AudioCachePreset::OPTIONS
-                                .iter()
-                                .map(|(_, label)| (*label).to_string())
-                                .collect(),
-                        ),
-                );
-                let cache = crate::audio_cache_control(modifier.id);
-                section
-                    .controls
-                    .last_mut()
-                    .expect("cache preset was added")
-                    .sensitive = !cache.baking;
-                section.add(
-                    InspectorControl::new(ControlKind::AudioCache, "", "")
-                        .target(modifier.id)
-                        .value(cache.label)
-                        .components(vec![cache.progress.to_string()])
-                        .tooltip(cache.tooltip),
+                section.controls.extend(
+                    shrimply_inspector_core::audio_cache_presentation(&cache, modifier.id)
+                        .section
+                        .controls,
                 );
             }
             AudioModifierControl::Scalar {
@@ -248,7 +225,7 @@ pub(crate) fn scalar_graph(
         return None;
     }
     let static_value = display(timeline.value_at(runtime.local_time.unwrap_or(Time::ZERO)));
-    let shrimply_keyframe_graph_ui::KeyframeGraph::RawValue {
+    let shrimply_inspector_core::keyframe_graph::KeyframeGraph::RawValue {
         points, segments, ..
     } = shrimply_inspector_core::keyframe_model::scalar_graph(timeline, static_value, display)
     else {

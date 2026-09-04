@@ -1,8 +1,31 @@
 use std::time::Duration;
 
+pub const REFRESH_INTERVAL: Duration = Duration::from_millis(500);
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PerformanceRow {
     pub title: String,
     pub subtitle: String,
+}
+
+#[derive(Default)]
+pub struct PerformanceRows {
+    rows: Vec<PerformanceRow>,
+}
+
+impl PerformanceRows {
+    pub fn refresh(&mut self) -> bool {
+        let rows = rows();
+        if rows == self.rows {
+            return false;
+        }
+        self.rows = rows;
+        true
+    }
+
+    pub fn rows(&self) -> &[PerformanceRow] {
+        &self.rows
+    }
 }
 
 pub fn rows() -> Vec<PerformanceRow> {
@@ -32,14 +55,16 @@ pub fn rows() -> Vec<PerformanceRow> {
             .unwrap_or_default();
         rows.push(PerformanceRow {
             title: timing.name.to_string(),
-            subtitle: format!(
-                "Last {} · Avg {} · Min {} · Max {} · {} samples{}",
-                duration_label(timing.last),
-                duration_label(timing.average),
-                duration_label(timing.minimum),
-                duration_label(timing.maximum),
-                timing.samples,
-                percentage,
+            subtitle: shrimply_i18n_core::text_args(
+                "Last %{last} · Avg %{average} · Min %{minimum} · Max %{maximum} · %{samples} samples%{percentage}",
+                &[
+                    ("last", duration_label(timing.last)),
+                    ("average", duration_label(timing.average)),
+                    ("minimum", duration_label(timing.minimum)),
+                    ("maximum", duration_label(timing.maximum)),
+                    ("samples", timing.samples.to_string()),
+                    ("percentage", percentage),
+                ],
             ),
         });
     }

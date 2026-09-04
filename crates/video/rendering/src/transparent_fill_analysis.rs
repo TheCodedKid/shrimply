@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, VecDeque},
     sync::{
         Arc, LazyLock, Mutex,
         atomic::{AtomicBool, Ordering},
@@ -15,10 +15,14 @@ use uuid::Uuid;
 
 use crate::{
     compositor::{EXPORT_ASSETS_LOADING, VideoExportRenderer},
-    modifiers::transparent_fill::{TransparentFillMaskCache, cache_key, encode_mask, frame_count},
+    modifiers::transparent_fill::{
+        AnalysisFrame, TransparentFillMaskCache, analysis_cache_key, analysis_frames, encode_mask,
+        render_input_project,
+    },
 };
 
 const MAXIMUM_MASK_WORKERS: usize = 6;
+const MAX_RETAINED_TERMINAL_JOBS: usize = 256;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Status {
@@ -30,23 +34,88 @@ pub enum Status {
 }
 
 struct Job {
-    signature: u64,
-    cache_key: String,
+    run_id: RunId,
     status: Status,
     cancelled: Arc<AtomicBool>,
 }
 
+#[derive(Default)]
+struct Registry {
+    active: HashMap<AnalysisIdentity, Job>,
+    terminal: HashMap<AnalysisIdentity, (RunId, Status)>,
+    terminal_order: VecDeque<(AnalysisIdentity, RunId)>,
+}
+
+impl Registry {
+    fn insert_terminal(&mut self, identity: AnalysisIdentity, run_id: RunId, status: Status) {
+        self.terminal.insert(identity.clone(), (run_id, status));
+        self.terminal_order.push_back((identity, run_id));
+        let terminal = &self.terminal;
+        self.terminal_order.retain(|(identity, run_id)| {
+            terminal
+                .get(identity)
+                .is_some_and(|(current, _)| current == run_id)
+        });
+        while self.terminal.len() > MAX_RETAINED_TERMINAL_JOBS {
+            let (identity, run_id) = self
+                .terminal_order
+                .pop_front()
+                .expect("terminal analysis order must track every retained job");
+            if self
+                .terminal
+                .get(&identity)
+                .is_some_and(|(current, _)| *current == run_id)
+            {
+                self.terminal.remove(&identity);
+            }
+        }
+    }
+
+    fn terminal_status(&mut self, identity: &AnalysisIdentity) -> Option<Status> {
+        let (run_id, status) = self.terminal.get(identity)?.clone();
+        self.terminal_order.retain(|(stored, _)| stored != identity);
+        self.terminal_order.push_back((identity.clone(), run_id));
+        Some(status)
+    }
+
+    fn terminal_status_for_run(&mut self, run_id: RunId) -> Option<Status> {
+        let (identity, status) =
+            self.terminal
+                .iter()
+                .find_map(|(identity, (stored, status))| {
+                    (*stored == run_id).then(|| (identity.clone(), status.clone()))
+                })?;
+        self.terminal_order
+            .retain(|(stored, _)| stored != &identity);
+        self.terminal_order.push_back((identity, run_id));
+        Some(status)
+    }
+}
+
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+struct AnalysisIdentity {
+    address: ItemAddress,
+    modifier_id: Uuid,
+    prompt_signature: u64,
+    cache_key: String,
+}
+
+#[derive(Clone)]
+pub struct PreparedStatus {
+    identity: AnalysisIdentity,
+    width: u32,
+    height: u32,
+    frames: u64,
+}
+
 struct Input {
     project: Project,
-    item_id: Uuid,
-    modifier_id: Uuid,
-    cache_key: String,
-    start: Time,
-    end: Time,
+    address: ItemAddress,
+    identity: AnalysisIdentity,
+    frames: Vec<AnalysisFrame>,
     points: Vec<shrimply_video_modifiers::transparent_fill::TransparentFillPoint>,
     tolerance: shrimply_core::timeline_value::TimelineValue<f32>,
     maximum_gap: u32,
-    signature: u64,
 }
 
 struct MaskJob {
@@ -61,26 +130,38 @@ struct MaskResult {
     mask: Result<(Vec<u8>, Vec<u8>), String>,
 }
 
-static JOBS: LazyLock<Mutex<HashMap<Uuid, Job>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct RunId(Uuid);
 
-pub fn analyze(project: Project, address: &ItemAddress, modifier_id: Uuid) -> Result<(), String> {
+static JOBS: LazyLock<Mutex<Registry>> = LazyLock::new(|| Mutex::new(Registry::default()));
+
+pub fn analyze(
+    project: Project,
+    address: &ItemAddress,
+    modifier_id: Uuid,
+) -> Result<RunId, String> {
     let input = prepare(project, address, modifier_id)?;
-    let total = frame_total(input.start, input.end, input.project.fps)?;
+    let total = u64::try_from(input.frames.len())
+        .map_err(|_| "transparent fill frame count is too large")?;
     let cancelled = Arc::new(AtomicBool::new(false));
+    let identity = input.identity.clone();
+    let run_id = RunId(Uuid::new_v4());
     {
         let mut jobs = JOBS
             .lock()
             .expect("transparent fill analysis job lock is poisoned");
-        if let Some(previous) = jobs.get(&modifier_id)
-            && matches!(previous.status, Status::Running { .. })
+        if jobs
+            .active
+            .keys()
+            .any(|running| running.cache_key == identity.cache_key)
         {
             return Err("transparent fill analysis is already running".to_string());
         }
-        jobs.insert(
-            modifier_id,
+        jobs.terminal.remove(&identity);
+        jobs.active.insert(
+            identity.clone(),
             Job {
-                signature: input.signature,
-                cache_key: input.cache_key.clone(),
+                run_id,
                 status: Status::Running {
                     completed: 0,
                     total,
@@ -89,77 +170,101 @@ pub fn analyze(project: Project, address: &ItemAddress, modifier_id: Uuid) -> Re
             },
         );
     }
+    let worker_identity = identity.clone();
     let spawn = thread::Builder::new()
         .name(format!("transparent-fill-analysis-{modifier_id}"))
         .spawn(move || {
-            let signature = input.signature;
-            let cache_key = input.cache_key.clone();
-            let result = analyze_inner(input, &cancelled);
+            let result = analyze_inner(input, run_id, &cancelled);
             let mut jobs = JOBS
                 .lock()
                 .expect("transparent fill analysis job lock is poisoned");
-            let Some(job) = jobs.get_mut(&modifier_id) else {
+            let Some(job) = jobs.active.get(&worker_identity) else {
                 return;
             };
-            if job.signature != signature || job.cache_key != cache_key {
+            if job.run_id != run_id {
                 return;
             }
-            job.status = match result {
+            let status = match result {
                 Ok(()) if cancelled.load(Ordering::Acquire) => Status::Cancelled,
                 Ok(()) => Status::Complete,
                 Err(_) if cancelled.load(Ordering::Acquire) => Status::Cancelled,
                 Err(error) => Status::Failed(error),
             };
+            jobs.active.remove(&worker_identity);
+            jobs.insert_terminal(worker_identity, run_id, status);
         });
     if let Err(error) = spawn {
-        JOBS.lock()
-            .expect("transparent fill analysis job lock is poisoned")
-            .remove(&modifier_id);
+        let mut jobs = JOBS
+            .lock()
+            .expect("transparent fill analysis job lock is poisoned");
+        if jobs
+            .active
+            .get(&identity)
+            .is_some_and(|job| job.run_id == run_id)
+        {
+            jobs.active.remove(&identity);
+        }
         return Err(format!("spawn transparent fill analysis: {error}"));
     }
-    Ok(())
+    Ok(run_id)
 }
 
-pub fn cancel(modifier_id: Uuid) -> bool {
+pub fn active_run_prepared(prepared: &PreparedStatus) -> Option<RunId> {
+    JOBS.lock()
+        .expect("transparent fill analysis job lock is poisoned")
+        .active
+        .get(&prepared.identity)
+        .filter(|job| matches!(job.status, Status::Running { .. }))
+        .map(|job| job.run_id)
+}
+
+pub fn cancel(run_id: RunId) -> bool {
     let mut jobs = JOBS
         .lock()
         .expect("transparent fill analysis job lock is poisoned");
-    let Some(job) = jobs.get_mut(&modifier_id) else {
+    let Some(identity) = jobs.active.iter().find_map(|(identity, job)| {
+        (job.run_id == run_id && matches!(job.status, Status::Running { .. }))
+            .then(|| identity.clone())
+    }) else {
         return false;
     };
-    if !matches!(job.status, Status::Running { .. }) {
-        return false;
-    }
+    let job = jobs
+        .active
+        .remove(&identity)
+        .expect("located transparent fill analysis job must exist");
     job.cancelled.store(true, Ordering::Release);
-    job.status = Status::Cancelled;
+    jobs.insert_terminal(identity, run_id, Status::Cancelled);
     true
 }
 
 pub fn status(project: &Project, address: &ItemAddress, modifier_id: Uuid) -> Status {
-    let current = current(project, address, modifier_id);
-    let Ok((signature, key, frames)) = current else {
+    let Ok(prepared) = prepare_status(project, address, modifier_id) else {
         return Status::Missing;
     };
-    if let Some(status) = {
+    status_prepared(&prepared)
+}
+
+pub fn status_prepared(prepared: &PreparedStatus) -> Status {
+    {
         let mut jobs = JOBS
             .lock()
             .expect("transparent fill analysis job lock is poisoned");
-        jobs.get_mut(&modifier_id).and_then(|job| {
-            if job.signature == signature && job.cache_key == key {
-                Some(job.status.clone())
-            } else {
-                job.cancelled.store(true, Ordering::Release);
-                None
-            }
-        })
-    } {
-        return status;
+        if let Some(status) = jobs
+            .active
+            .get(&prepared.identity)
+            .map(|job| job.status.clone())
+        {
+            return status;
+        }
+        if let Some(status) = jobs.terminal_status(&prepared.identity) {
+            return status;
+        }
     }
     if TransparentFillMaskCache::shared().analysis_complete(
-        &key,
-        project.canvas_size.width,
-        project.canvas_size.height,
-        frames,
+        &prepared.identity.cache_key,
+        prepared.width,
+        prepared.height,
+        prepared.frames,
     ) {
         Status::Complete
     } else {
@@ -167,11 +272,21 @@ pub fn status(project: &Project, address: &ItemAddress, modifier_id: Uuid) -> St
     }
 }
 
-fn prepare(
-    mut project: Project,
-    address: &ItemAddress,
-    modifier_id: Uuid,
-) -> Result<Input, String> {
+pub fn status_for_run(run_id: RunId) -> Status {
+    let mut jobs = JOBS
+        .lock()
+        .expect("transparent fill analysis job lock is poisoned");
+    let active = jobs
+        .active
+        .values()
+        .find(|job| job.run_id == run_id)
+        .map(|job| job.status.clone());
+    active
+        .or_else(|| jobs.terminal_status_for_run(run_id))
+        .unwrap_or(Status::Missing)
+}
+
+fn prepare(project: Project, address: &ItemAddress, modifier_id: Uuid) -> Result<Input, String> {
     let item = project
         .video_item(address)
         .ok_or_else(|| "transparent fill item no longer exists".to_string())?;
@@ -189,44 +304,34 @@ fn prepare(
     if fill.points.is_empty() {
         return Err("add at least one transparent fill point before analyzing".to_string());
     }
-    let key = cache_key(&project, item, modifier_id, modifier_index, fill);
-    let input = Input {
-        project: project.clone(),
-        item_id: item.id,
-        modifier_id,
-        cache_key: key,
-        start: item.start,
-        end: item.end,
-        points: fill.points.clone(),
-        tolerance: fill.tolerance.clone(),
-        maximum_gap: fill.maximum_gap,
-        signature: fill.prompt_signature(),
-    };
-    for track in &mut project.video_tracks {
-        for other in &mut track.items {
-            if other
-                .transitions
-                .to_next
-                .as_ref()
-                .is_some_and(|transition| transition.target_item_id == input.item_id)
-            {
-                other.transitions.to_next = None;
-            }
-        }
-    }
-    project
-        .video_item_mut(address)
-        .expect("transparent fill item disappeared from cloned project")
-        .modifiers
-        .truncate(modifier_index);
-    Ok(Input { project, ..input })
+    let frames = analysis_frames(&project, address)?;
+    let signature = fill.prompt_signature();
+    let points = fill.points.clone();
+    let tolerance = fill.tolerance.clone();
+    let maximum_gap = fill.maximum_gap;
+    let project = render_input_project(&project, address, modifier_index)?;
+    let cache_key = analysis_cache_key(&project, address, modifier_id, signature);
+    Ok(Input {
+        project,
+        identity: AnalysisIdentity {
+            address: address.clone(),
+            modifier_id,
+            prompt_signature: signature,
+            cache_key,
+        },
+        address: address.clone(),
+        frames,
+        points,
+        tolerance,
+        maximum_gap,
+    })
 }
 
-fn current(
+pub fn prepare_status(
     project: &Project,
     address: &ItemAddress,
     modifier_id: Uuid,
-) -> Result<(u64, String, u64), String> {
+) -> Result<PreparedStatus, String> {
     let item = project
         .video_item(address)
         .ok_or_else(|| "transparent fill item no longer exists".to_string())?;
@@ -242,29 +347,36 @@ fn current(
     let RasterModifierEffect::TransparentFill(fill) = &**effect else {
         return Err("selected modifier is not Transparent Fill".to_string());
     };
-    Ok((
-        fill.prompt_signature(),
-        cache_key(project, item, modifier_id, index, fill),
-        frame_count(project, item).ok_or("project frame rate must be positive")?,
-    ))
+    let prompt_signature = fill.prompt_signature();
+    let frames = u64::try_from(analysis_frames(project, address)?.len())
+        .map_err(|_| "transparent fill frame count is too large")?;
+    let render_project = render_input_project(project, address, index)?;
+    Ok(PreparedStatus {
+        identity: AnalysisIdentity {
+            address: address.clone(),
+            modifier_id,
+            prompt_signature,
+            cache_key: analysis_cache_key(&render_project, address, modifier_id, prompt_signature),
+        },
+        width: project.canvas_size.width,
+        height: project.canvas_size.height,
+        frames,
+    })
 }
 
-fn analyze_inner(input: Input, cancelled: &AtomicBool) -> Result<(), String> {
+fn analyze_inner(input: Input, run_id: RunId, cancelled: &AtomicBool) -> Result<(), String> {
     let cache = TransparentFillMaskCache::shared();
-    cache.begin_analysis(&input.cache_key, input.modifier_id)?;
+    let staging_key = format!("{}:run:{}", input.identity.cache_key, run_id.0);
+    cache.begin_analysis(&staging_key)?;
     let result = (|| {
         let width = input.project.canvas_size.width.max(1);
         let height = input.project.canvas_size.height.max(1);
-        let frames = shrimply_math_core::frame_range(input.start, input.end, input.project.fps)
-            .ok_or("project frame rate must be positive for transparent fill")?;
-        let total = frames.end.saturating_sub(frames.start);
+        let total = u64::try_from(input.frames.len())
+            .map_err(|_| "transparent fill frame count is too large")?;
         let mut renderer = VideoExportRenderer::new(48_000)?;
         let item = input
             .project
-            .video_tracks
-            .iter()
-            .flat_map(|track| &track.items)
-            .find(|item| item.id == input.item_id)
+            .video_item(&input.address)
             .ok_or("transparent fill source item disappeared")?;
         let worker_count = thread::available_parallelism()
             .map(usize::from)
@@ -324,32 +436,27 @@ fn analyze_inner(input: Input, cancelled: &AtomicBool) -> Result<(), String> {
             let store_result = |result: MaskResult, completed: u64| -> Result<u64, String> {
                 let (mask, png) = result.mask?;
                 cache.insert_staged_encoded(
-                    &input.cache_key,
+                    &staging_key,
                     i64::try_from(result.frame_index)
                         .map_err(|_| "transparent fill frame is too large")?,
                     &mask,
                     png,
                 )?;
                 let completed = completed + 1;
-                update_progress(
-                    input.modifier_id,
-                    input.signature,
-                    &input.cache_key,
-                    completed,
-                    total,
-                );
+                update_progress(&input.identity, run_id, completed, total);
                 Ok(completed)
             };
 
-            for frame_index in frames {
+            for sample in &input.frames {
                 if cancelled.load(Ordering::Acquire) {
                     return Err("transparent fill analysis cancelled".to_string());
                 }
-                let position = shrimply_math_core::time_from_frame(frame_index, input.project.fps)
-                    .ok_or("project frame rate must be positive for transparent fill")?
-                    .max(input.start);
                 let composited = loop {
-                    match renderer.render_cache_item(&input.project, position, input.item_id) {
+                    match renderer.render_transparent_fill_input(
+                        &input.project,
+                        sample.timeline_position,
+                        &input.address,
+                    ) {
                         Ok(frame) => break frame,
                         Err(error) if error == EXPORT_ASSETS_LOADING => {
                             if cancelled.load(Ordering::Acquire) {
@@ -368,8 +475,9 @@ fn analyze_inner(input: Input, cancelled: &AtomicBool) -> Result<(), String> {
                 for row in output.data(0).chunks_exact(stride).take(height as usize) {
                     rgba.extend_from_slice(&row[..row_bytes]);
                 }
-                let local_time = shrimply_project::project::generated_item_time(item, position)
-                    .unwrap_or(Time::ZERO);
+                let local_time =
+                    shrimply_project::project::generated_item_time(item, sample.sequence_position)
+                        .unwrap_or(Time::ZERO);
                 let seeds = input
                     .points
                     .iter()
@@ -386,7 +494,7 @@ fn analyze_inner(input: Input, cancelled: &AtomicBool) -> Result<(), String> {
                     .collect();
                 job_sender
                     .send(MaskJob {
-                        frame_index,
+                        frame_index: sample.cache_index,
                         rgba,
                         seeds,
                         tolerance: input.tolerance.value_at(local_time),
@@ -408,32 +516,43 @@ fn analyze_inner(input: Input, cancelled: &AtomicBool) -> Result<(), String> {
             }
             Ok(())
         })?;
-        cache.complete_analysis(&input.cache_key, width, height, total)
+        let mut jobs = JOBS
+            .lock()
+            .expect("transparent fill analysis job lock is poisoned");
+        let is_current = jobs
+            .active
+            .get(&input.identity)
+            .is_some_and(|job| job.run_id == run_id && !job.cancelled.load(Ordering::Acquire));
+        if !is_current {
+            return Err("transparent fill analysis cancelled".to_string());
+        }
+        cache.publish_analysis(
+            &staging_key,
+            &input.identity.cache_key,
+            width,
+            height,
+            total,
+        )?;
+        jobs.active
+            .get_mut(&input.identity)
+            .expect("current transparent fill analysis job must exist")
+            .status = Status::Complete;
+        Ok(())
     })();
     if result.is_err() {
-        cache.abort_analysis(&input.cache_key);
+        cache.abort_analysis(&staging_key);
     }
     result
 }
 
-fn update_progress(modifier_id: Uuid, signature: u64, cache_key: &str, completed: u64, total: u64) {
+fn update_progress(identity: &AnalysisIdentity, run_id: RunId, completed: u64, total: u64) {
     let mut jobs = JOBS
         .lock()
         .expect("transparent fill analysis job lock is poisoned");
-    if let Some(job) = jobs.get_mut(&modifier_id)
-        && job.signature == signature
-        && job.cache_key == cache_key
+    if let Some(job) = jobs.active.get_mut(identity)
+        && job.run_id == run_id
         && !job.cancelled.load(Ordering::Acquire)
     {
         job.status = Status::Running { completed, total };
     }
-}
-
-fn frame_total(start: Time, end: Time, fps: shrimply_math_core::Fraction) -> Result<u64, String> {
-    let frames = shrimply_math_core::frame_range(start, end, fps)
-        .ok_or("project frame rate must be positive for transparent fill")?;
-    if frames.is_empty() {
-        return Err("cannot analyze an item shorter than one project frame".to_string());
-    }
-    Ok(frames.end - frames.start)
 }

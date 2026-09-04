@@ -2,21 +2,20 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use shrimply_gtk_components::ui::MultilineTextInput;
+use shrimply_inspector_core::generated::text::{
+    TEXT_EDIT_COMMIT, TEXT_EXPRESSION_COMMIT, TEXT_KEYFRAME_COMMITS,
+};
 use shrimply_project::project::{Project, TextItem, Time, VideoItemContent};
 use uuid::Uuid;
 
 use crate::InspectedItem as SelectedItem;
-use crate::keyframe_editor::{
-    self, KeyframeEditorActions, KeyframeGraph, SpeedSegment, TextInterpolationActions,
-};
+use crate::keyframe_editor::{self, KeyframeEditorActions, TextInterpolationActions};
 use crate::player_state::{self, ProjectChange, SharedPlayerState};
 use crate::{InspectorContext, keyframe_model};
 
 use super::{
-    DiscreteEditPolicy, ExpressionOutput, Interpolation, LayeredSections, TextInterpolation,
-    TimelineBase, TimelineKeyframe, TimelineTextKeyframe, TimelineValue, edit_discrete_value,
-    evaluate_expression, expression_section, layered_wide_control, set_expression_enabled,
-    set_keyframes_enabled, text_edit_count,
+    ExpressionOutput, Interpolation, LayeredSections, TextInterpolation, TimelineBase,
+    TimelineValue, evaluate_expression, expression_section, layered_wide_control,
 };
 
 pub(crate) fn text_control(
@@ -24,6 +23,7 @@ pub(crate) fn text_control(
     value: &TimelineValue<String>,
     context: &InspectorContext,
 ) -> gtk::Widget {
+    let timeline_id = value.id;
     let Some(key) = context.selected_item.clone() else {
         let input = MultilineTextInput::builder(value.fallback())
             .min_content_height(86)
@@ -43,23 +43,25 @@ pub(crate) fn text_control(
     let player = context.player_state.clone();
     let commit_project = context.project.clone();
     let input_key = key.clone();
-    let input = MultilineTextInput::builder(value.value_at(time))
-        .min_content_height(86)
-        .on_change(move |text| update_value(&project, &player, input_key.clone(), text))
-        .on_commit(move || {
-            shrimply_project::project::commit_edit(&commit_project.borrow(), "edit-text-item");
-        })
-        .build();
+    let input = MultilineTextInput::builder(shrimply_inspector_core::timeline_text::value_at(
+        value, time,
+    ))
+    .min_content_height(86)
+    .on_change(move |text| update_value(&project, &player, input_key.clone(), timeline_id, text))
+    .on_commit(move || {
+        shrimply_project::project::commit_edit(&commit_project.borrow(), TEXT_EDIT_COMMIT);
+    })
+    .build();
 
     let mut sections = LayeredSections::default();
     if matches!(value.base, TimelineBase::Keyframes(_)) {
         let built = keyframe_editor::build(
             context,
-            text_graph(value),
+            shrimply_inspector_core::timeline_text::keyframe_graph(value),
             visible_area(&context.project.borrow(), key.clone())
                 .unwrap_or((Time::ZERO, Time::ZERO)),
             format!("text:{}", value.id),
-            actions(context, key.clone()),
+            actions(context, key.clone(), timeline_id),
         );
         let graph_project = context.project.clone();
         let graph_key = key.clone();
@@ -67,7 +69,10 @@ pub(crate) fn text_control(
             context,
             "inspector text keyframe graph refresh",
             &built,
-            move || text_value(&graph_project.borrow(), graph_key.clone()).map(text_graph),
+            move || {
+                text_value(&graph_project.borrow(), graph_key.clone(), timeline_id)
+                    .map(shrimply_inspector_core::timeline_text::keyframe_graph)
+            },
         );
         sections.set_keyframe(built.widget);
     }
@@ -76,10 +81,10 @@ pub(crate) fn text_control(
         .as_ref()
         .is_some_and(|expression| expression.enabled)
     {
-        sections.push_expression(expression_editor(context, key.clone()));
+        sections.push_expression(expression_editor(context, key.clone(), timeline_id));
     }
 
-    connect_text_refresh(context, key.clone(), input.set_text_handler());
+    connect_text_refresh(context, key.clone(), timeline_id, input.set_text_handler());
 
     let project = context.project.clone();
     let player = context.player_state.clone();
@@ -95,7 +100,13 @@ pub(crate) fn text_control(
         input.widget().clone(),
         sections,
         move |enabled| {
-            if toggle_keyframes(&project, &player, keyframe_key.clone(), enabled) {
+            if toggle_keyframes(
+                &project,
+                &player,
+                keyframe_key.clone(),
+                timeline_id,
+                enabled,
+            ) {
                 refresh();
             }
         },
@@ -104,6 +115,7 @@ pub(crate) fn text_control(
                 &expression_project,
                 &expression_player,
                 expression_key.clone(),
+                timeline_id,
                 enabled,
             ) {
                 expression_refresh();
@@ -112,7 +124,12 @@ pub(crate) fn text_control(
     )
 }
 
-fn connect_text_refresh(context: &InspectorContext, key: SelectedItem, set_text: Rc<dyn Fn(&str)>) {
+fn connect_text_refresh(
+    context: &InspectorContext,
+    key: SelectedItem,
+    timeline_id: Uuid,
+    set_text: Rc<dyn Fn(&str)>,
+) {
     let project = context.project.clone();
     let player = context.player_state.clone();
     let alive = Rc::downgrade(&context.listener_scope);
@@ -134,15 +151,21 @@ fn connect_text_refresh(context: &InspectorContext, key: SelectedItem, set_text:
             let Some(time) = local_time(&project, key.clone(), position) else {
                 return;
             };
-            if let Some(value) = text_value(&project, key.clone()) {
-                set_text(&value.value_at(time));
+            if let Some(value) = text_value(&project, key.clone(), timeline_id) {
+                set_text(&shrimply_inspector_core::timeline_text::value_at(
+                    value, time,
+                ));
             }
         },
     );
 }
 
-fn expression_editor(context: &InspectorContext, key: SelectedItem) -> gtk::Widget {
-    let source = text_value(&context.project.borrow(), key.clone())
+fn expression_editor(
+    context: &InspectorContext,
+    key: SelectedItem,
+    timeline_id: Uuid,
+) -> gtk::Widget {
+    let source = text_value(&context.project.borrow(), key.clone(), timeline_id)
         .and_then(|value| value.expression_source().map(str::to_string));
     let project = context.project.clone();
     let player = context.player_state.clone();
@@ -156,13 +179,13 @@ fn expression_editor(context: &InspectorContext, key: SelectedItem) -> gtk::Widg
                 source,
                 crate::rhai_editor::ExpressionValue::Text,
                 move |source| {
-                    update_expression(&project, &player, editor_key.clone(), source);
+                    update_expression(&project, &player, editor_key.clone(), timeline_id, source);
                     refresh();
                 },
             )
         },
         move |project, position, audio, cache| {
-            let value = text_value(project, output_key.clone())?;
+            let value = text_value(project, output_key.clone(), timeline_id)?;
             let outcome = evaluate_expression(project, &output_key, position, audio, cache, value)?;
             Some(ExpressionOutput {
                 value: outcome.value,
@@ -172,39 +195,11 @@ fn expression_editor(context: &InspectorContext, key: SelectedItem) -> gtk::Widg
     )
 }
 
-fn text_graph(value: &TimelineValue<String>) -> KeyframeGraph {
-    let TimelineBase::Keyframes(keyframes) = &value.base else {
-        return KeyframeGraph::Speed {
-            segments: Vec::new(),
-            keys: Vec::new(),
-            static_value: 0.0,
-        };
-    };
-    KeyframeGraph::Speed {
-        segments: keyframes
-            .windows(2)
-            .filter_map(|pair| {
-                let seconds = pair[1].time.signed_sub(pair[0].time).as_secs_f64();
-                (seconds > f64::EPSILON).then(|| SpeedSegment {
-                    owner_id: pair[0].id,
-                    start: pair[0].time,
-                    end: pair[1].time,
-                    value: text_edit_count(
-                        &pair[0].value,
-                        &pair[1].value,
-                        pair[0].text_interpolation_to_next,
-                    ) as f64
-                        / seconds,
-                    interpolation: pair[0].interpolation_to_next,
-                })
-            })
-            .collect(),
-        keys: keyframes.iter().map(|keyframe| keyframe.time).collect(),
-        static_value: 0.0,
-    }
-}
-
-fn actions(context: &InspectorContext, key: SelectedItem) -> KeyframeEditorActions {
+fn actions(
+    context: &InspectorContext,
+    key: SelectedItem,
+    timeline_id: Uuid,
+) -> KeyframeEditorActions {
     let project = context.project.clone();
     let player = context.player_state.clone();
     KeyframeEditorActions {
@@ -212,27 +207,30 @@ fn actions(context: &InspectorContext, key: SelectedItem) -> KeyframeEditorActio
             let key = key.clone();
             let project = project.clone();
             let player = player.clone();
-            Rc::new(move |time| add_key(&project, &player, key.clone(), time))
+            Rc::new(move |time| add_key(&project, &player, key.clone(), timeline_id, time))
         },
         delete_at_time: {
             let key = key.clone();
             let project = project.clone();
             let player = player.clone();
-            Rc::new(move |time| delete_key(&project, &player, key.clone(), time))
+            Rc::new(move |time| delete_key(&project, &player, key.clone(), timeline_id, time))
         },
         update_point: {
             let key = key.clone();
             let project = project.clone();
             let player = player.clone();
-            Rc::new(move |old, time, _| move_key(&project, &player, key.clone(), old, time))
+            Rc::new(move |old, time, _| {
+                move_key(&project, &player, key.clone(), timeline_id, old, time)
+            })
         },
         clipboard: crate::keyframe_editor::KeyframeClipboardActions::Local {
             copy: {
                 let key = key.clone();
                 let project = project.clone();
                 Rc::new(move |times| {
-                    text_value(&project.borrow(), key.clone())
-                        .and_then(|value| keyframe_model::copy_keyframes(value, times))
+                    text_value(&project.borrow(), key.clone(), timeline_id).and_then(|value| {
+                        shrimply_inspector_core::timeline_text::copy_keyframes(value, times)
+                    })
                 })
             },
             paste: {
@@ -241,9 +239,11 @@ fn actions(context: &InspectorContext, key: SelectedItem) -> KeyframeEditorActio
                 let player = player.clone();
                 Rc::new(move |clipboard, time| {
                     let mut project = project.borrow_mut();
-                    let value = text_value_mut(&mut project, key.clone())?;
-                    let times = keyframe_model::paste_keyframes(value, clipboard, time)?;
-                    shrimply_project::project::commit_edit(&project, "paste-text-keyframes");
+                    let value = text_value_mut(&mut project, key.clone(), timeline_id)?;
+                    let times = shrimply_inspector_core::timeline_text::paste_keyframes(
+                        value, clipboard, time,
+                    )?;
+                    shrimply_project::project::commit_edit(&project, TEXT_KEYFRAME_COMMITS.paste);
                     drop(project);
                     refresh(&player, true);
                     Some(times)
@@ -255,7 +255,14 @@ fn actions(context: &InspectorContext, key: SelectedItem) -> KeyframeEditorActio
             let project = project.clone();
             let player = player.clone();
             Rc::new(move |id, interpolation| {
-                set_interpolation(&project, &player, key.clone(), id, interpolation)
+                set_interpolation(
+                    &project,
+                    &player,
+                    key.clone(),
+                    timeline_id,
+                    id,
+                    interpolation,
+                )
             })
         }),
         text_interpolation: Some(TextInterpolationActions {
@@ -264,15 +271,10 @@ fn actions(context: &InspectorContext, key: SelectedItem) -> KeyframeEditorActio
                 let project = project.clone();
                 Rc::new(move |id| {
                     let project = project.borrow();
-                    let TimelineBase::Keyframes(keyframes) =
-                        &text_value(&project, key.clone())?.base
-                    else {
-                        return None;
-                    };
-                    keyframes
-                        .iter()
-                        .find(|keyframe| keyframe.id == id)
-                        .map(|keyframe| keyframe.text_interpolation_to_next)
+                    shrimply_inspector_core::timeline_text::text_interpolation(
+                        text_value(&project, key.clone(), timeline_id)?,
+                        id,
+                    )
                 })
             },
             set: {
@@ -280,7 +282,7 @@ fn actions(context: &InspectorContext, key: SelectedItem) -> KeyframeEditorActio
                 let project = project.clone();
                 let player = player.clone();
                 Rc::new(move |id, mode| {
-                    set_text_interpolation(&project, &player, key.clone(), id, mode)
+                    set_text_interpolation(&project, &player, key.clone(), timeline_id, id, mode)
                 })
             },
         }),
@@ -292,6 +294,7 @@ fn update_value(
     project: &Rc<RefCell<Project>>,
     player: &SharedPlayerState,
     key: SelectedItem,
+    timeline_id: Uuid,
     next: String,
 ) -> bool {
     let position = player_state::snapshot(player).position;
@@ -300,19 +303,10 @@ fn update_value(
         return false;
     };
     let step = keyframe_editor::project_frame_step(&project, Some(&key));
-    let Some(value) = text_value_mut(&mut project, key.clone()) else {
+    let Some(value) = text_value_mut(&mut project, key.clone(), timeline_id) else {
         return false;
     };
-    let changed = edit_discrete_value(
-        value,
-        time,
-        next,
-        |left, right| keyframe_model::same_frame(left, right, step),
-        DiscreteEditPolicy {
-            unchanged_is_noop: true,
-            sort_updated_keyframe: true,
-        },
-    );
+    let changed = shrimply_inspector_core::timeline_text::set_value(value, time, next, step);
     drop(project);
     if changed {
         refresh(player, false);
@@ -324,6 +318,7 @@ fn toggle_keyframes(
     project: &Rc<RefCell<Project>>,
     player: &SharedPlayerState,
     key: SelectedItem,
+    timeline_id: Uuid,
     enabled: bool,
 ) -> bool {
     let position = player_state::snapshot(player).position;
@@ -334,14 +329,18 @@ fn toggle_keyframes(
     let Some(keyframe_time) = project.keyframe_time(&key, position) else {
         return false;
     };
-    let Some(value) = text_value_mut(&mut project, key.clone()) else {
+    let Some(value) = text_value_mut(&mut project, key.clone(), timeline_id) else {
         return false;
     };
-    let current = value.value_at(evaluation_time);
-    if !set_keyframes_enabled(value, keyframe_time, current, enabled) {
+    if !shrimply_inspector_core::timeline_text::set_keyframes_enabled(
+        value,
+        evaluation_time,
+        keyframe_time,
+        enabled,
+    ) {
         return false;
     }
-    shrimply_project::project::commit_edit(&project, "text-keyframes");
+    shrimply_project::project::commit_edit(&project, TEXT_KEYFRAME_COMMITS.toggle);
     drop(project);
     refresh(player, true);
     true
@@ -351,17 +350,18 @@ fn toggle_expression(
     project: &Rc<RefCell<Project>>,
     player: &SharedPlayerState,
     key: SelectedItem,
+    timeline_id: Uuid,
     enabled: bool,
 ) -> bool {
     let mut project = project.borrow_mut();
-    let Some(value) = text_value_mut(&mut project, key.clone()) else {
+    let Some(value) = text_value_mut(&mut project, key.clone(), timeline_id) else {
         return false;
     };
-    let changed = set_expression_enabled(value, enabled, "value");
+    let changed = shrimply_inspector_core::timeline_text::set_expression_enabled(value, enabled);
     if !changed {
         return false;
     }
-    shrimply_project::project::commit_edit(&project, "text-expression");
+    shrimply_project::project::commit_edit(&project, TEXT_EXPRESSION_COMMIT);
     drop(project);
     refresh(player, true);
     true
@@ -371,19 +371,17 @@ fn update_expression(
     project: &Rc<RefCell<Project>>,
     player: &SharedPlayerState,
     key: SelectedItem,
+    timeline_id: Uuid,
     source: String,
 ) {
     let mut project = project.borrow_mut();
-    let Some(expression) =
-        text_value_mut(&mut project, key.clone()).and_then(|value| value.expression.as_mut())
-    else {
+    let Some(value) = text_value_mut(&mut project, key.clone(), timeline_id) else {
         return;
     };
-    if expression.source == source {
+    if !shrimply_inspector_core::timeline_text::set_expression_source(value, source) {
         return;
     }
-    expression.source = source;
-    shrimply_project::project::commit_coalesced_edit(&project, "text-expression");
+    shrimply_project::project::commit_coalesced_edit(&project, TEXT_EXPRESSION_COMMIT);
     drop(project);
     refresh(player, false);
 }
@@ -392,27 +390,16 @@ fn add_key(
     project: &Rc<RefCell<Project>>,
     player: &SharedPlayerState,
     key: SelectedItem,
+    timeline_id: Uuid,
     time: Time,
 ) {
     let mut project = project.borrow_mut();
     let step = keyframe_editor::project_frame_step(&project, Some(&key));
-    let Some(value) = text_value_mut(&mut project, key.clone()) else {
+    let Some(value) = text_value_mut(&mut project, key.clone(), timeline_id) else {
         return;
     };
-    let current = value.value_at(time);
-    if matches!(&value.base, TimelineBase::Keyframes(_)) {
-        edit_discrete_value(
-            value,
-            time,
-            current,
-            |left, right| keyframe_model::same_frame(left, right, step),
-            DiscreteEditPolicy {
-                unchanged_is_noop: true,
-                sort_updated_keyframe: true,
-            },
-        );
-    }
-    shrimply_project::project::commit_edit(&project, "add-text-keyframe");
+    shrimply_inspector_core::timeline_text::add_keyframe(value, time, step);
+    shrimply_project::project::commit_edit(&project, TEXT_KEYFRAME_COMMITS.add);
     drop(project);
     refresh(player, true);
 }
@@ -421,26 +408,16 @@ fn delete_key(
     project: &Rc<RefCell<Project>>,
     player: &SharedPlayerState,
     key: SelectedItem,
+    timeline_id: Uuid,
     time: Time,
 ) {
     let mut project = project.borrow_mut();
     let step = keyframe_editor::project_frame_step(&project, Some(&key));
-    let Some(value) = text_value_mut(&mut project, key.clone()) else {
+    let Some(value) = text_value_mut(&mut project, key.clone(), timeline_id) else {
         return;
     };
-    let constant = if let TimelineBase::Keyframes(keyframes) = &mut value.base {
-        keyframes
-            .iter()
-            .position(|item| keyframe_model::same_frame(item.time, time, step))
-            .map(|index| keyframes.remove(index).value)
-            .filter(|_| keyframes.is_empty())
-    } else {
-        None
-    };
-    if let Some(constant) = constant {
-        value.base = TimelineBase::Const(constant);
-    }
-    shrimply_project::project::commit_edit(&project, "delete-text-keyframe");
+    shrimply_inspector_core::timeline_text::delete_keyframe(value, time, step);
+    shrimply_project::project::commit_edit(&project, TEXT_KEYFRAME_COMMITS.delete);
     drop(project);
     refresh(player, true);
 }
@@ -449,25 +426,19 @@ fn move_key(
     project: &Rc<RefCell<Project>>,
     player: &SharedPlayerState,
     key: SelectedItem,
+    timeline_id: Uuid,
     old: Time,
     time: Time,
 ) {
     let mut project = project.borrow_mut();
-    let changed = if let Some(value) = text_value_mut(&mut project, key.clone())
-        && let TimelineBase::Keyframes(keyframes) = &mut value.base
-        && let Some(index) = keyframes.iter().position(|item| item.time.approx_eq(old))
-    {
-        let mut item = keyframes.remove(index);
-        keyframes.retain(|other| !other.time.approx_eq(time));
-        item.time = time;
-        keyframes.push(item);
-        keyframes.sort_by_key(|item| item.time);
-        true
-    } else {
-        false
-    };
+    let changed = text_value_mut(&mut project, key.clone(), timeline_id).is_some_and(|value| {
+        shrimply_inspector_core::timeline_text::move_keyframes(value, &[(old, time)])
+    });
     if changed {
-        shrimply_project::project::commit_coalesced_edit(&project, "move-text-keyframe");
+        shrimply_project::project::commit_coalesced_edit(
+            &project,
+            TEXT_KEYFRAME_COMMITS.move_keyframe,
+        );
     }
     drop(project);
     player_state::refresh_project(
@@ -483,15 +454,19 @@ fn set_interpolation(
     project: &Rc<RefCell<Project>>,
     player: &SharedPlayerState,
     key: SelectedItem,
+    timeline_id: Uuid,
     id: Uuid,
     interpolation: Interpolation,
 ) {
     let mut project = project.borrow_mut();
-    let Some(item) = text_key_mut(&mut project, key.clone(), id) else {
+    let Some(value) = text_value_mut(&mut project, key.clone(), timeline_id) else {
         return;
     };
-    item.interpolation_to_next = interpolation;
-    shrimply_project::project::commit_edit(&project, "text-interpolation");
+    if shrimply_inspector_core::timeline_text::set_interpolation(value, id, interpolation).is_err()
+    {
+        return;
+    }
+    shrimply_project::project::commit_edit(&project, TEXT_KEYFRAME_COMMITS.interpolation);
     drop(project);
     refresh(player, false);
 }
@@ -500,15 +475,20 @@ fn set_text_interpolation(
     project: &Rc<RefCell<Project>>,
     player: &SharedPlayerState,
     key: SelectedItem,
+    timeline_id: Uuid,
     id: Uuid,
     interpolation: TextInterpolation,
 ) {
     let mut project = project.borrow_mut();
-    let Some(item) = text_key_mut(&mut project, key.clone(), id) else {
+    let Some(value) = text_value_mut(&mut project, key.clone(), timeline_id) else {
         return;
     };
-    item.text_interpolation_to_next = interpolation;
-    shrimply_project::project::commit_edit(&project, "text-change-interpolation");
+    if shrimply_inspector_core::timeline_text::set_text_interpolation(value, id, interpolation)
+        .is_err()
+    {
+        return;
+    }
+    shrimply_project::project::commit_edit(&project, TEXT_KEYFRAME_COMMITS.text_interpolation);
     drop(project);
     refresh(player, false);
 }
@@ -524,23 +504,22 @@ fn refresh(player: &SharedPlayerState, inspector: bool) {
     );
 }
 
-fn text_value(project: &Project, key: SelectedItem) -> Option<&TimelineValue<String>> {
-    Some(&selected_text(project, key.clone())?.text)
+fn text_value(
+    project: &Project,
+    key: SelectedItem,
+    timeline_id: Uuid,
+) -> Option<&TimelineValue<String>> {
+    let value = &selected_text(project, key)?.text;
+    (value.id == timeline_id).then_some(value)
 }
 
-fn text_value_mut(project: &mut Project, key: SelectedItem) -> Option<&mut TimelineValue<String>> {
-    Some(&mut selected_text_mut(project, key.clone())?.text)
-}
-
-fn text_key_mut(
+fn text_value_mut(
     project: &mut Project,
     key: SelectedItem,
-    id: Uuid,
-) -> Option<&mut TimelineTextKeyframe> {
-    let TimelineBase::Keyframes(keyframes) = &mut text_value_mut(project, key.clone())?.base else {
-        return None;
-    };
-    keyframes.iter_mut().find(|keyframe| keyframe.id() == id)
+    timeline_id: Uuid,
+) -> Option<&mut TimelineValue<String>> {
+    let value = &mut selected_text_mut(project, key)?.text;
+    (value.id == timeline_id).then_some(value)
 }
 
 fn selected_text(project: &Project, key: SelectedItem) -> Option<&TextItem> {

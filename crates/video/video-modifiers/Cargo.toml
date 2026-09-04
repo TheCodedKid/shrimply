@@ -11,6 +11,7 @@ serde_json.workspace = true
 shrimply-core = { path = "../../core" }
 shrimply-preview-core = { path = "../../preview/preview-core" }
 shrimply-scene-3d-modifiers = { path = "../../3d/scene-3d-modifiers" }
+shrimply-server-client = { path = "../../server-client" }
 strum = { workspace = true, features = ["derive"] }
 shrimply-math-geometry = { path = "../../math/geometry" }
 uuid = { workspace = true, features = ["v4", "serde"] }

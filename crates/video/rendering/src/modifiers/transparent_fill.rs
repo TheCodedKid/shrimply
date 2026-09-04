@@ -1,5 +1,5 @@
 use std::{
-    collections::hash_map::DefaultHasher,
+    collections::{HashSet, hash_map::DefaultHasher},
     fs,
     hash::{Hash, Hasher},
     io::Cursor,
@@ -11,7 +11,10 @@ use std::{
 use cached::{Cached, stores::LruCache};
 use cuda_device::{DisjointSlice, kernel};
 use rusqlite::{Connection, OptionalExtension, params};
-use shrimply_project::project::{Project, Time, VideoItem};
+use shrimply_project::project::{
+    ItemAddress, Project, Time, TrackMut, VideoItem, VideoItemContent, VisualTrack,
+    video_source_time_at,
+};
 use shrimply_video_modifiers::transparent_fill::TransparentFillModifier;
 use uuid::Uuid;
 
@@ -23,7 +26,7 @@ use crate::{
 };
 
 const CACHE_DATABASE: &str = "cache/transparent-fill-masks.sqlite";
-const CACHE_VERSION: i64 = 2;
+const CACHE_VERSION: i64 = 3;
 const MEMORY_FRAMES: usize = 64;
 
 #[kernel]
@@ -57,7 +60,7 @@ impl TransparentFillMaskCache {
     fn open(path: &Path) -> Result<Self, String> {
         fs::create_dir_all(path.parent().unwrap_or_else(|| Path::new(".")))
             .map_err(|error| format!("create transparent fill cache directory: {error}"))?;
-        let connection = Connection::open(path)
+        let mut connection = Connection::open(path)
             .map_err(|error| format!("open transparent fill mask cache: {error}"))?;
         connection
             .busy_timeout(Duration::from_secs(5))
@@ -65,8 +68,15 @@ impl TransparentFillMaskCache {
         connection
             .execute_batch(
                 "PRAGMA journal_mode = WAL;
-                     PRAGMA synchronous = NORMAL;
-                     CREATE TABLE IF NOT EXISTS masks (
+                 PRAGMA synchronous = NORMAL;",
+            )
+            .map_err(|error| format!("configure transparent fill mask cache: {error}"))?;
+        let transaction = connection.transaction().map_err(|error| {
+            format!("begin transparent fill mask cache initialization: {error}")
+        })?;
+        transaction
+            .execute_batch(&format!(
+                "CREATE TABLE IF NOT EXISTS masks (
                          cache_key TEXT NOT NULL,
                          frame INTEGER NOT NULL,
                          png BLOB NOT NULL,
@@ -79,9 +89,26 @@ impl TransparentFillMaskCache {
                          height INTEGER NOT NULL,
                          frame_count INTEGER NOT NULL,
                          completed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-                     ) WITHOUT ROWID;",
-            )
+                     ) WITHOUT ROWID;
+                     DELETE FROM analyses WHERE cache_key NOT LIKE '{CACHE_VERSION}:%' OR cache_key LIKE '%:run:%';
+                     DELETE FROM masks WHERE cache_version != {CACHE_VERSION} OR cache_key LIKE '%:run:%';
+                     DELETE FROM analyses
+                     WHERE width <= 0 OR height <= 0 OR frame_count < 0
+                        OR frame_count != (
+                            SELECT COUNT(*) FROM masks
+                            WHERE masks.cache_key = analyses.cache_key
+                              AND masks.cache_version = {CACHE_VERSION}
+                        );
+                     DELETE FROM masks
+                     WHERE NOT EXISTS (
+                         SELECT 1 FROM analyses
+                         WHERE analyses.cache_key = masks.cache_key
+                     );"
+            ))
             .map_err(|error| format!("initialize transparent fill mask cache: {error}"))?;
+        transaction.commit().map_err(|error| {
+            format!("commit transparent fill mask cache initialization: {error}")
+        })?;
         Ok(Self {
             store: Arc::new(Mutex::new(CacheStore {
                 memory: LruCache::builder()
@@ -129,34 +156,31 @@ impl TransparentFillMaskCache {
         Ok(Some(mask))
     }
 
-    pub(crate) fn begin_analysis(&self, key: &str, modifier_id: Uuid) -> Result<(), String> {
+    pub(crate) fn begin_analysis(&self, staging_key: &str) -> Result<(), String> {
         let mut store = self
             .store
             .lock()
             .expect("transparent fill mask cache lock is poisoned");
-        let prefix = format!("{CACHE_VERSION}:{modifier_id}:");
-        store
-            .memory
-            .retain(|(stored, _), _| !stored.starts_with(&prefix));
+        store.memory.retain(|(stored, _), _| stored != staging_key);
         let transaction = store
             .connection
             .transaction()
             .map_err(|error| format!("begin transparent fill cache reset: {error}"))?;
         transaction
             .execute(
-                "DELETE FROM analyses WHERE cache_key LIKE ?1",
-                params![format!("{prefix}%")],
+                "DELETE FROM analyses WHERE cache_key = ?1",
+                params![staging_key],
             )
             .and_then(|_| {
                 transaction.execute(
-                    "DELETE FROM masks WHERE cache_key LIKE ?1",
-                    params![format!("{prefix}%")],
+                    "DELETE FROM masks WHERE cache_key = ?1",
+                    params![staging_key],
                 )
             })
             .map_err(|error| format!("reset transparent fill mask cache: {error}"))?;
-        transaction
-            .commit()
-            .map_err(|error| format!("commit transparent fill cache reset for {key}: {error}"))
+        transaction.commit().map_err(|error| {
+            format!("commit transparent fill cache reset for {staging_key}: {error}")
+        })
     }
 
     #[cfg(test)]
@@ -176,10 +200,10 @@ impl TransparentFillMaskCache {
         &self,
         key: &str,
         frame: i64,
-        mask: &[u8],
+        _mask: &[u8],
         png: Vec<u8>,
     ) -> Result<(), String> {
-        let mut store = self
+        let store = self
             .store
             .lock()
             .expect("transparent fill mask cache lock is poisoned");
@@ -191,12 +215,10 @@ impl TransparentFillMaskCache {
                 params![key, frame, png, CACHE_VERSION],
             )
             .map_err(|error| format!("write transparent fill mask cache: {error}"))?;
-        store
-            .memory
-            .cache_set((key.to_string(), frame), Arc::<[u8]>::from(mask.to_vec()));
         Ok(())
     }
 
+    #[cfg(test)]
     pub(crate) fn complete_analysis(
         &self,
         key: &str,
@@ -220,11 +242,56 @@ impl TransparentFillMaskCache {
         Ok(())
     }
 
-    pub(crate) fn abort_analysis(&self, key: &str) {
-        let store = self
+    pub(crate) fn publish_analysis(
+        &self,
+        staging_key: &str,
+        key: &str,
+        width: u32,
+        height: u32,
+        frame_count: u64,
+    ) -> Result<(), String> {
+        let frame_count = i64::try_from(frame_count)
+            .map_err(|_| "transparent fill frame count is too large".to_string())?;
+        let mut store = self
             .store
             .lock()
             .expect("transparent fill mask cache lock is poisoned");
+        store.memory.retain(|(stored, _), _| stored != key);
+        let transaction = store
+            .connection
+            .transaction()
+            .map_err(|error| format!("begin transparent fill cache completion: {error}"))?;
+        transaction
+            .execute("DELETE FROM analyses WHERE cache_key = ?1", params![key])
+            .and_then(|_| {
+                transaction.execute("DELETE FROM masks WHERE cache_key = ?1", params![key])
+            })
+            .and_then(|_| {
+                transaction.execute(
+                    "UPDATE masks SET cache_key = ?1 WHERE cache_key = ?2",
+                    params![key, staging_key],
+                )
+            })
+            .and_then(|_| {
+                transaction.execute(
+                    "INSERT INTO analyses
+                 (cache_key, width, height, frame_count, completed_at)
+                 VALUES (?1, ?2, ?3, ?4, CURRENT_TIMESTAMP)",
+                    params![key, width, height, frame_count],
+                )
+            })
+            .map_err(|error| format!("complete transparent fill mask cache: {error}"))?;
+        transaction
+            .commit()
+            .map_err(|error| format!("commit transparent fill mask cache: {error}"))
+    }
+
+    pub(crate) fn abort_analysis(&self, key: &str) {
+        let mut store = self
+            .store
+            .lock()
+            .expect("transparent fill mask cache lock is poisoned");
+        store.memory.retain(|(stored, _), _| stored != key);
         let _ = store
             .connection
             .execute("DELETE FROM masks WHERE cache_key = ?1", params![key]);
@@ -310,6 +377,160 @@ fn decode_mask(encoded: &[u8], width: u32, height: u32) -> Result<Vec<u8>, Strin
     Ok(mask)
 }
 
+pub(crate) fn analysis_cache_key(
+    project: &Project,
+    address: &ItemAddress,
+    modifier_id: Uuid,
+    prompt_signature: u64,
+) -> String {
+    let mut hasher = DefaultHasher::new();
+    serde_json::to_vec(project)
+        .expect("serialize transparent fill render input project")
+        .hash(&mut hasher);
+    let mut assets = project
+        .assets()
+        .into_iter()
+        .map(|asset| (asset.path().to_path_buf(), asset.snapshot().ok()))
+        .collect::<Vec<_>>();
+    assets.sort_unstable_by(|left, right| left.0.cmp(&right.0));
+    assets.hash(&mut hasher);
+    address.hash(&mut hasher);
+    prompt_signature.hash(&mut hasher);
+    format!("{CACHE_VERSION}:{modifier_id}:{:016x}", hasher.finish())
+}
+
+pub(crate) fn render_input_project(
+    project: &Project,
+    address: &ItemAddress,
+    modifier_index: usize,
+) -> Result<Project, String> {
+    let mut render_project = project.clone();
+    render_project.format_version = 0;
+    render_project.name.clear();
+    render_project.expanded_sequence_paths.clear();
+    render_project.cursor_position = None;
+    render_project.timeline_zoom = None;
+    render_project.preview_guides = Box::default();
+    let target_item_id = address.item_id();
+    let TrackMut::Video(track) = render_project
+        .track_mut(&address.track())
+        .ok_or_else(|| "transparent fill track no longer exists".to_string())?
+    else {
+        return Err("transparent fill requires a video track".to_string());
+    };
+    remove_incoming_transition(track, target_item_id);
+    render_project
+        .video_item_mut(address)
+        .ok_or_else(|| "transparent fill item no longer exists".to_string())?
+        .modifiers
+        .truncate(modifier_index);
+    Ok(render_project)
+}
+
+#[derive(Clone, Copy)]
+pub(crate) struct AnalysisFrame {
+    pub(crate) timeline_position: Time,
+    pub(crate) sequence_position: Time,
+    pub(crate) cache_index: u64,
+}
+
+pub(crate) fn analysis_frames(
+    project: &Project,
+    address: &ItemAddress,
+) -> Result<Vec<AnalysisFrame>, String> {
+    let ItemAddress::Video { sequence_path, .. } = address else {
+        return Err("transparent fill requires a video item".to_string());
+    };
+    let item = project
+        .video_item(address)
+        .ok_or_else(|| "transparent fill item no longer exists".to_string())?;
+    let (start, end) = if let Some(host_id) = sequence_path.first() {
+        let host = project
+            .video_tracks
+            .iter()
+            .flat_map(|track| &track.items)
+            .find(|host| host.id == *host_id)
+            .ok_or_else(|| "transparent fill sequence host no longer exists".to_string())?;
+        (host.start, host.end)
+    } else {
+        (item.start, item.end)
+    };
+    let timeline_frames = shrimply_math_core::frame_range(start, end, project.fps)
+        .ok_or("project frame rate must be positive for transparent fill")?;
+    let mut cache_indices = HashSet::new();
+    let mut frames = Vec::new();
+    for timeline_frame in timeline_frames {
+        let timeline_position = shrimply_math_core::time_from_frame(timeline_frame, project.fps)
+            .ok_or("project frame rate must be positive for transparent fill")?
+            .max(start);
+        let Some(sequence_position) = target_sequence_position(project, address, timeline_position)
+        else {
+            continue;
+        };
+        let cache_index = shrimply_math_core::frame_index(
+            snapped_transparent_fill_position(project, item, sequence_position),
+            project.fps,
+        )
+        .and_then(|frame| u64::try_from(frame).ok())
+        .ok_or("transparent fill sequence frame is outside the cache range")?;
+        if cache_indices.insert(cache_index) {
+            frames.push(AnalysisFrame {
+                timeline_position,
+                sequence_position,
+                cache_index,
+            });
+        }
+    }
+    if frames.is_empty() {
+        return Err("cannot analyze an item shorter than one project frame".to_string());
+    }
+    Ok(frames)
+}
+
+fn target_sequence_position(
+    project: &Project,
+    address: &ItemAddress,
+    mut position: Time,
+) -> Option<Time> {
+    let ItemAddress::Video { sequence_path, .. } = address else {
+        return None;
+    };
+    let mut tracks = project.video_tracks.as_slice();
+    for host_id in sequence_path {
+        let host = tracks
+            .iter()
+            .flat_map(|track| &track.items)
+            .find(|host| host.id == *host_id)?;
+        if position < host.start || position >= host.end {
+            return None;
+        }
+        let VideoItemContent::FoldedSequence(reference) = host.content else {
+            return None;
+        };
+        position = video_source_time_at(host, position)?;
+        tracks = &project.folded_sequence(reference.sequence_id)?.video_tracks;
+    }
+    let item = project.video_item(address)?;
+    (position >= item.start && position < item.end).then_some(position)
+}
+
+fn remove_incoming_transition(
+    track: &mut shrimply_project::project::VisualTrack,
+    target_item_id: Uuid,
+) {
+    for item in &mut track.items {
+        if item
+            .transitions
+            .to_next
+            .as_ref()
+            .is_some_and(|transition| transition.target_item_id == target_item_id)
+        {
+            item.transitions.to_next = None;
+        }
+    }
+}
+
+#[cfg(test)]
 pub(crate) fn cache_key(
     project: &Project,
     item: &VideoItem,
@@ -317,26 +538,28 @@ pub(crate) fn cache_key(
     modifier_index: usize,
     modifier: &TransparentFillModifier,
 ) -> String {
-    let mut hasher = DefaultHasher::new();
-    let mut analyzed_item = item.clone();
-    analyzed_item.modifiers.truncate(modifier_index);
-    serde_json::to_string(&analyzed_item)
-        .expect("serialize transparent fill input item")
-        .hash(&mut hasher);
-    project.fps.hash(&mut hasher);
-    project.canvas_size.width.hash(&mut hasher);
-    project.canvas_size.height.hash(&mut hasher);
-    if item.uses_file_asset() {
-        item.file.snapshot().ok().hash(&mut hasher);
-    }
-    modifier.prompt_signature().hash(&mut hasher);
-    format!(
-        "{CACHE_VERSION}:{modifier_id}:{}:{:016x}",
-        modifier.analysis_generation,
-        hasher.finish()
+    let track_id = project
+        .video_tracks
+        .iter()
+        .find(|track| track.items.iter().any(|candidate| candidate.id == item.id))
+        .map(|track| track.id)
+        .expect("transparent fill cache key requires a root video item");
+    let address = ItemAddress::Video {
+        sequence_path: Vec::new(),
+        track_id,
+        item_id: item.id,
+    };
+    let render_project = render_input_project(project, &address, modifier_index)
+        .expect("transparent fill cache input must be available");
+    analysis_cache_key(
+        &render_project,
+        &address,
+        modifier_id,
+        modifier.prompt_signature(),
     )
 }
 
+#[cfg(test)]
 pub(crate) fn frame_count(project: &Project, item: &VideoItem) -> Option<u64> {
     let range = shrimply_math_core::frame_range(item.start, item.end, project.fps)?;
     Some(range.end.saturating_sub(range.start))
@@ -358,6 +581,14 @@ pub(crate) fn render_position(project: &Project, item: &VideoItem, position: Tim
     if !active {
         return position;
     }
+    snapped_transparent_fill_position(project, item, position)
+}
+
+pub(crate) fn snapped_transparent_fill_position(
+    project: &Project,
+    item: &VideoItem,
+    position: Time,
+) -> Time {
     shrimply_math_core::frame_index(position, project.fps)
         .and_then(|frame| u64::try_from(frame).ok())
         .and_then(|frame| shrimply_math_core::time_from_frame(frame, project.fps))
@@ -367,37 +598,92 @@ pub(crate) fn render_position(project: &Project, item: &VideoItem, position: Tim
 
 pub(crate) fn validate_cache(project: &Project) -> Result<(), String> {
     let cache = TransparentFillMaskCache::shared();
-    for item in project.video_tracks.iter().flat_map(|track| &track.items) {
-        for (modifier_index, modifier) in item.modifiers.iter().enumerate() {
-            if !modifier.enabled {
-                continue;
+    validate_track_caches(
+        project,
+        &project.video_tracks,
+        &mut Vec::new(),
+        &mut Vec::new(),
+        &cache,
+    )
+}
+
+fn validate_track_caches(
+    project: &Project,
+    tracks: &[VisualTrack],
+    sequence_path: &mut Vec<Uuid>,
+    sequence_stack: &mut Vec<Uuid>,
+    cache: &TransparentFillMaskCache,
+) -> Result<(), String> {
+    for track in tracks {
+        for item in &track.items {
+            let address = ItemAddress::Video {
+                sequence_path: sequence_path.clone(),
+                track_id: track.id,
+                item_id: item.id,
+            };
+            for (modifier_index, modifier) in item.modifiers.iter().enumerate() {
+                if !modifier.enabled {
+                    continue;
+                }
+                let shrimply_video_modifiers::ModifierEffect::Raster(effect) = &modifier.effect
+                else {
+                    continue;
+                };
+                let shrimply_video_modifiers::RasterModifierEffect::TransparentFill(fill) =
+                    &**effect
+                else {
+                    continue;
+                };
+                if fill.points.is_empty() {
+                    continue;
+                }
+                let count = u64::try_from(analysis_frames(project, &address)?.len())
+                    .map_err(|_| "transparent fill frame count is too large")?;
+                let render_project = render_input_project(project, &address, modifier_index)?;
+                let key = analysis_cache_key(
+                    &render_project,
+                    &address,
+                    modifier.id,
+                    fill.prompt_signature(),
+                );
+                if fill.analysis_generation == 0
+                    || !cache.analysis_complete(
+                        &key,
+                        project.canvas_size.width,
+                        project.canvas_size.height,
+                        count,
+                    )
+                {
+                    return Err(format!(
+                        "Transparent Fill on item {} must be analyzed before export",
+                        item.id
+                    ));
+                }
             }
-            let shrimply_video_modifiers::ModifierEffect::Raster(effect) = &modifier.effect else {
+            let VideoItemContent::FoldedSequence(reference) = item.content else {
                 continue;
             };
-            let shrimply_video_modifiers::RasterModifierEffect::TransparentFill(fill) = &**effect
-            else {
-                continue;
-            };
-            if fill.points.is_empty() {
-                continue;
-            }
-            let count = frame_count(project, item)
-                .ok_or("project frame rate must be positive for transparent fill")?;
-            let key = cache_key(project, item, modifier.id, modifier_index, fill);
-            if fill.analysis_generation == 0
-                || !cache.analysis_complete(
-                    &key,
-                    project.canvas_size.width,
-                    project.canvas_size.height,
-                    count,
-                )
-            {
+            if sequence_stack.contains(&reference.sequence_id) {
                 return Err(format!(
-                    "Transparent Fill on item {} must be analyzed before export",
-                    item.id
+                    "cyclic folded sequence reference involving {}",
+                    reference.sequence_id
                 ));
             }
+            let sequence = project
+                .folded_sequence(reference.sequence_id)
+                .ok_or_else(|| format!("missing folded sequence {}", reference.sequence_id))?;
+            sequence_stack.push(reference.sequence_id);
+            sequence_path.push(item.id);
+            let result = validate_track_caches(
+                project,
+                &sequence.video_tracks,
+                sequence_path,
+                sequence_stack,
+                cache,
+            );
+            sequence_path.pop();
+            sequence_stack.pop();
+            result?;
         }
     }
     Ok(())
@@ -464,13 +750,10 @@ impl RasterModifierRuntime for TransparentFillModifier {
         let frame = shrimply_math_core::frame_index(context.position, context.project.fps)
             .ok_or("project frame rate must be positive for transparent fill")?;
         input.push_pixel(Box::new(Resolved {
-            cache_key: cache_key(
-                context.project,
-                context.item,
-                context.modifier_id,
-                context.modifier_index,
-                self,
-            ),
+            cache_key: context
+                .analysis_cache_key
+                .clone()
+                .ok_or("transparent fill analysis identity was not prepared")?,
             frame,
             require_mask: context.require_complete_assets,
         }));
@@ -629,9 +912,7 @@ mod tests {
         let key = format!("{CACHE_VERSION}:{modifier_id}:test");
         let cache = TransparentFillMaskCache::open(&directory.path().join("masks.sqlite"))
             .expect("open cache round-trip database");
-        cache
-            .begin_analysis(&key, modifier_id)
-            .expect("begin cache round-trip");
+        cache.begin_analysis(&key).expect("begin cache round-trip");
         for frame in 0..FRAMES {
             let mut mask = vec![0_u8; WIDTH.div_ceil(8) as usize * HEIGHT as usize];
             let marker = (frame % u64::from(WIDTH)) as u32;
@@ -667,7 +948,7 @@ mod tests {
         let cache = TransparentFillMaskCache::open(&directory.path().join("masks.sqlite"))
             .expect("open CUDA mask test cache");
         cache
-            .begin_analysis(&key, modifier_id)
+            .begin_analysis(&key)
             .expect("begin CUDA mask test analysis");
         let mut packed = vec![0_u8; WIDTH.div_ceil(8) as usize * HEIGHT as usize];
         for row in packed.chunks_exact_mut(WIDTH.div_ceil(8) as usize) {
@@ -793,7 +1074,7 @@ mod tests {
         let key = cache_key(&project, item, modifier_id, 1, &fill);
         let cache = TransparentFillMaskCache::shared();
         cache
-            .begin_analysis(&key, modifier_id)
+            .begin_analysis(&key)
             .expect("begin preview mask test analysis");
         insert_marker_masks(&cache, &key);
 
@@ -912,7 +1193,7 @@ mod tests {
         let key = cache_key(&project, item, modifier_id, 0, &fill);
         let cache = TransparentFillMaskCache::shared();
         cache
-            .begin_analysis(&key, modifier_id)
+            .begin_analysis(&key)
             .expect("begin test mask analysis");
         insert_marker_masks(&cache, &key);
 

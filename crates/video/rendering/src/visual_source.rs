@@ -254,6 +254,7 @@ pub struct VisualModifierContext<'a> {
     pub evaluation: &'a VisualEvaluation,
     pub expressions: &'a mut TransformExpressionCache,
     pub mask_source: Option<Rc<VisualFrame>>,
+    pub analysis_cache_key: Option<String>,
 }
 
 impl<'a> VisualModifierContext<'a> {
@@ -277,6 +278,7 @@ impl<'a> VisualModifierContext<'a> {
             evaluation,
             expressions,
             mask_source: None,
+            analysis_cache_key: None,
         }
     }
 }

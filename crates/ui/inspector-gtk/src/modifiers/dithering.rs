@@ -1,11 +1,10 @@
 use gtk::prelude::*;
 use shrimply_gtk_components::tr;
+use shrimply_inspector_core::InspectorTarget;
 use uuid::Uuid;
 
 use super::{InspectorContext, ScalarOptions, color_row, integer_scalar_row, scalar_row};
-use crate::player_state::{self, ProjectChange};
-use crate::timeline_value::*;
-use shrimply_project::project::Color;
+use crate::player_state;
 use shrimply_video_modifiers::{
     ModifierEffect, RasterModifierEffect,
     dithering::{DitheringColorMode, DitheringModifier},
@@ -98,41 +97,19 @@ pub fn add_rows(value: &DitheringModifier, out: &gtk::Box, id: Uuid, context: &I
                 .css_classes(["flat"])
                 .build();
             let key = context.selected_item.clone();
-            let project = context.project.clone();
-            let player = context.player_state.clone();
+            let controller = context.inspector_core.clone();
             let refresh = context.refresh.clone();
             let color_id = color.id;
             remove.connect_clicked(move |_| {
                 let Some(key) = key.clone() else { return };
-                let mut project = project.borrow_mut();
-                let Some(effect) = project
-                    .video_item_mut(&key)
-                    .and_then(|item| item.modifiers.iter_mut().find(|modifier| modifier.id == id))
-                    .and_then(|modifier| match &mut modifier.effect {
-                        ModifierEffect::Raster(effect) => match &mut **effect {
-                            RasterModifierEffect::Dithering(effect) => Some(effect),
-                            _ => None,
-                        },
-                        _ => None,
-                    })
-                else {
+                if let Err(error) = controller.remove_dithering_palette_color(
+                    &InspectorTarget::Item(key),
+                    id,
+                    color_id,
+                ) {
+                    tracing::error!(%error, "Could not remove GTK dithering palette color");
                     return;
-                };
-                let Some(index) = effect.palette.iter().position(|color| color.id == color_id)
-                else {
-                    return;
-                };
-                effect.palette.remove(index);
-                shrimply_project::project::commit_edit(&project, "remove-dithering-palette-color");
-                drop(project);
-                player_state::refresh_project(
-                    &player,
-                    ProjectChange {
-                        video: true,
-                        inspector: true,
-                        ..Default::default()
-                    },
-                );
+                }
                 let refresh = refresh.clone();
                 gtk::glib::idle_add_local_once(move || refresh());
             });
@@ -147,38 +124,16 @@ pub fn add_rows(value: &DitheringModifier, out: &gtk::Box, id: Uuid, context: &I
             .css_classes(["flat"])
             .build();
         let key = context.selected_item.clone();
-        let project = context.project.clone();
-        let player = context.player_state.clone();
+        let controller = context.inspector_core.clone();
         let refresh = context.refresh.clone();
         add.connect_clicked(move |_| {
             let Some(key) = key.clone() else { return };
-            let mut project = project.borrow_mut();
-            let Some(effect) = project
-                .video_item_mut(&key)
-                .and_then(|item| item.modifiers.iter_mut().find(|modifier| modifier.id == id))
-                .and_then(|modifier| match &mut modifier.effect {
-                    ModifierEffect::Raster(effect) => match &mut **effect {
-                        RasterModifierEffect::Dithering(effect) => Some(effect),
-                        _ => None,
-                    },
-                    _ => None,
-                })
-            else {
+            if let Err(error) =
+                controller.add_dithering_palette_color(&InspectorTarget::Item(key), id)
+            {
+                tracing::error!(%error, "Could not add GTK dithering palette color");
                 return;
-            };
-            effect
-                .palette
-                .push(TimelineValue::<Color<u8>>::new_const(Color::<u8>::WHITE));
-            shrimply_project::project::commit_edit(&project, "add-dithering-palette-color");
-            drop(project);
-            player_state::refresh_project(
-                &player,
-                ProjectChange {
-                    video: true,
-                    inspector: true,
-                    ..Default::default()
-                },
-            );
+            }
             let refresh = refresh.clone();
             gtk::glib::idle_add_local_once(move || refresh());
         });

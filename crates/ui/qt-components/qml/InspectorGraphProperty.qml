@@ -20,6 +20,13 @@ InspectorProperty {
     property string expressionValue: ""
     property string expressionOutput: ""
     property string expressionError: ""
+    property var expressionDiagnosticProvider: null
+    property var expressionCompletionProvider: null
+    property int expressionDiagnosticDebounce: 250
+    property int expressionCompletionDebounce: expressionDiagnosticDebounce
+    property var textInterpolationLabels: []
+    property var textInterpolationTooltips: []
+    property var textInterpolationIndexForOwner: null
     readonly property int graphComponent: editRouter.activeComponent
     signal graphLoaded()
     signal graphEditFinished()
@@ -31,6 +38,8 @@ InspectorProperty {
     signal graphCopyRequested(int component, var times)
     signal graphPasteRequested(int component, var numerator, var denominator)
     signal graphInterpolationChanged(int component, string ownerId, int interpolation)
+    signal graphTextInterpolationRequested(int component, string ownerId, real x, real y)
+    signal graphTextInterpolationChanged(int component, string ownerId, int interpolation)
     signal expressionEdited(string value)
     signal expressionCommitted(string value)
     signal baseValueEdited(real value)
@@ -126,6 +135,10 @@ InspectorProperty {
     function setGraphExternalClipboard(enabled) {
         if (graphLoader.graph)
             graphLoader.graph.setExternalClipboard(enabled)
+    }
+    function setTextInterpolation(enabled) {
+        if (graphLoader.graph)
+            graphLoader.graph.setTextInterpolation(enabled)
     }
     function copyExternalClipboardMarker() {
         if (root.externalClipboardMarker.length === 0)
@@ -233,12 +246,19 @@ InspectorProperty {
 
     keyframeContent: Loader {
         id: graphLoader
+        property bool loadedOnce: false
         readonly property FrameGraph graph: item as FrameGraph
-        active: root.keyframes
+        active: root.keyframes || loadedOnce
         Layout.fillWidth: true
-        onLoaded: root.graphLoaded()
+        onLoaded: {
+            loadedOnce = true
+            root.graphLoaded()
+        }
         sourceComponent: Component {
             FrameGraph {
+                textInterpolationLabels: root.textInterpolationLabels
+                textInterpolationTooltips: root.textInterpolationTooltips
+                textInterpolationIndexForOwner: root.textInterpolationIndexForOwner
                 onGraphValueChanged: {
                     root.graphValue = graphValue
                     if (!root.graphValueDrivesEditor)
@@ -278,6 +298,12 @@ InspectorProperty {
                 onInterpolationChanged: function(component, ownerId, interpolation) {
                     root.graphInterpolationChanged(component, ownerId, interpolation)
                 }
+                onTextInterpolationRequested: function(component, ownerId, x, y) {
+                    root.graphTextInterpolationRequested(component, ownerId, x, y)
+                }
+                onTextInterpolationChanged: function(component, ownerId, interpolation) {
+                    root.graphTextInterpolationChanged(component, ownerId, interpolation)
+                }
             }
         }
     }
@@ -293,6 +319,10 @@ InspectorProperty {
                 value: root.expressionValue
                 output: root.expressionOutput
                 error: root.expressionError
+                diagnosticProvider: root.expressionDiagnosticProvider
+                completionProvider: root.expressionCompletionProvider
+                diagnosticDebounce: root.expressionDiagnosticDebounce
+                completionDebounce: root.expressionCompletionDebounce
                 onEdited: function(value) { root.expressionEdited(value) }
                 onCommitted: function(value) { root.expressionCommitted(value) }
             }

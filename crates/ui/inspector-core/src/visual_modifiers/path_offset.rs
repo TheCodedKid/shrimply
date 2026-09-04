@@ -1,3 +1,4 @@
+use shrimply_core::timeline_value::TimelineValue;
 use shrimply_video_modifiers::path_offset::PathOffsetModifier;
 
 use crate::{InspectorRuntime, InspectorSection, NumberSpec};
@@ -5,6 +6,7 @@ use crate::{InspectorRuntime, InspectorSection, NumberSpec};
 pub(super) fn presentation(
     value: &PathOffsetModifier,
     index: usize,
+    modifier_id: uuid::Uuid,
     runtime: InspectorRuntime,
 ) -> InspectorSection {
     let base = format!("/modifiers/{index}/effect/effect/config");
@@ -28,14 +30,31 @@ pub(super) fn presentation(
         if let Some(minimum) = minimum {
             number.minimum = minimum;
         }
-        section.add(super::modifier_scalar_control(
+        let control = super::modifier_scalar_control(
             format!("{base}/{field}"),
             label,
             timeline,
             runtime,
             number,
             false,
-        ));
+        );
+        section.add(if integer { control.integer() } else { control });
     }
+    section.set_target(modifier_id);
     section
+}
+
+pub(super) fn number<'a>(
+    value: &'a PathOffsetModifier,
+    field: &str,
+    timeline_id: uuid::Uuid,
+) -> Option<&'a TimelineValue<f32>> {
+    let timeline = match field {
+        "effect/effect/config/amplitude" => &value.amplitude,
+        "effect/effect/config/spacing" => &value.spacing,
+        "effect/effect/config/seed" => &value.seed,
+        "effect/effect/config/evolution" => &value.evolution,
+        _ => return None,
+    };
+    (timeline.id == timeline_id).then_some(timeline)
 }

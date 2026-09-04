@@ -1,34 +1,6 @@
 const DEFAULT_MINIMUM: f64 = -1_000_000.0;
 const DEFAULT_MAXIMUM: f64 = 1_000_000.0;
 
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct GraphPoint {
-    pub time: shrimply_project::project::Time,
-    pub value: f64,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct GraphSegment {
-    pub owner_id: uuid::Uuid,
-    pub start: shrimply_project::project::Time,
-    pub end: shrimply_project::project::Time,
-    pub start_value: f64,
-    pub end_value: f64,
-    pub interpolation: usize,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct ScalarGraph {
-    pub points: Vec<GraphPoint>,
-    pub segments: Vec<GraphSegment>,
-    pub range: (
-        shrimply_project::project::Time,
-        shrimply_project::project::Time,
-    ),
-    pub frame_step: shrimply_project::project::Time,
-    pub playhead: shrimply_project::project::Time,
-}
-
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ControlKind {
     Boolean,
@@ -40,6 +12,8 @@ pub enum ControlKind {
     Color,
     LayeredColor,
     LayeredText,
+    LayeredDrawing,
+    FontFamilies,
     Selector,
     OptionalSelector,
     OptionalNumberSelector,
@@ -52,6 +26,7 @@ pub enum ControlKind {
     AudioCachePreset,
     VisualCache,
     VisualCacheQuality,
+    Analysis,
     AudioModifierMenu,
     VisualModifierMenu,
     TtsEditor,
@@ -67,9 +42,72 @@ pub enum ControlKind {
     Action,
 }
 
+impl ControlKind {
+    pub const fn default_expression(self) -> &'static str {
+        match self {
+            Self::LayeredVector2 => crate::timeline_value::VECTOR2_EXPRESSION_DEFAULT,
+            Self::LayeredVector3 => crate::timeline_value::VECTOR3_EXPRESSION_DEFAULT,
+            _ => crate::timeline_value::SCALAR_EXPRESSION_DEFAULT,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum ControlRowRole {
+    #[default]
+    Standalone,
+    Primary,
+    Auxiliary,
+    TrailingAction,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct AnalysisControlPresentation {
+    pub label: String,
+    pub progress: f64,
+    pub tooltip: AnalysisTooltip,
+    pub sensitive: bool,
+    pub running: bool,
+    pub cancelling: bool,
+    pub terminal: bool,
+    pub suggested: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum AnalysisTooltip {
+    MessageKey(&'static str),
+    RawError(String),
+}
+
+impl AnalysisTooltip {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::MessageKey(message) => message,
+            Self::RawError(error) => error,
+        }
+    }
+}
+
+impl AnalysisControlPresentation {
+    pub fn active(&self) -> bool {
+        self.running || self.cancelling
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum InspectorControlAction {
     RebuildVideoStabilization,
+    ClearMaskSource {
+        modifier_id: uuid::Uuid,
+    },
+    SelectObject3dModel {
+        modifier_id: uuid::Uuid,
+    },
+    ClearObject3dModel {
+        modifier_id: uuid::Uuid,
+    },
+    SelectScene3dEnvironment,
+    ClearScene3dEnvironment,
     AddDitheringPaletteColor {
         modifier_id: uuid::Uuid,
     },
@@ -77,6 +115,49 @@ pub enum InspectorControlAction {
         modifier_id: uuid::Uuid,
         color_id: uuid::Uuid,
     },
+    AddPaintPaletteColor,
+    RemovePaintPaletteColor {
+        color_id: uuid::Uuid,
+    },
+    SelectPaintTexture {
+        color_id: uuid::Uuid,
+    },
+    ClearPaintTexture {
+        color_id: uuid::Uuid,
+    },
+    RemoveSam2Point {
+        modifier_id: uuid::Uuid,
+        point_id: uuid::Uuid,
+    },
+    SetSam2PointLabel {
+        modifier_id: uuid::Uuid,
+        point_id: uuid::Uuid,
+    },
+    SetSam2Model {
+        modifier_id: uuid::Uuid,
+    },
+    SetSam2PointPosition {
+        modifier_id: uuid::Uuid,
+        point_id: uuid::Uuid,
+    },
+    RemoveSam2Box {
+        modifier_id: uuid::Uuid,
+        box_id: uuid::Uuid,
+    },
+    ToggleSam2Analysis {
+        modifier_id: uuid::Uuid,
+        generation: u64,
+        prompt_signature: u64,
+        can_analyze: bool,
+    },
+    RemoveTransparentFillPoint {
+        modifier_id: uuid::Uuid,
+        point_id: uuid::Uuid,
+    },
+    ToggleTransparentFillAnalysis {
+        modifier_id: uuid::Uuid,
+    },
+    ToggleCameraAnalysis,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -86,6 +167,28 @@ pub struct NumberSpec {
     pub drag_step: f64,
     pub digits: i32,
     pub unit: &'static str,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct NumberConstraint {
+    pub minimum: Option<f64>,
+    pub maximum: Option<f64>,
+    pub integer: bool,
+}
+
+impl NumberConstraint {
+    pub fn clamp(self, value: f64) -> f64 {
+        if !value.is_finite() {
+            return value;
+        }
+        let value = if self.integer { value.round() } else { value };
+        let value = self.minimum.map_or(value, |minimum| value.max(minimum));
+        self.maximum.map_or(value, |maximum| value.min(maximum))
+    }
+
+    pub fn clamp_f32(self, value: f32) -> f32 {
+        self.clamp(f64::from(value)) as f32
+    }
 }
 
 impl Default for NumberSpec {
@@ -100,7 +203,61 @@ impl Default for NumberSpec {
     }
 }
 
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum NumberMapping {
+    #[default]
+    Linear,
+    FocalLengthMillimeters,
+}
+
+impl NumberMapping {
+    pub fn display(self, stored: f64, store_multiplier: f64) -> f64 {
+        match self {
+            Self::Linear => {
+                stored
+                    / if store_multiplier == 0.0 {
+                        1.0
+                    } else {
+                        store_multiplier
+                    }
+            }
+            Self::FocalLengthMillimeters => {
+                assert_eq!(
+                    store_multiplier, 1.0,
+                    "focal-length mapping cannot be scaled"
+                );
+                shrimply_3dgs::focal_length_mm(stored)
+            }
+        }
+    }
+
+    pub fn store(self, displayed: f64, store_multiplier: f64) -> f64 {
+        match self {
+            Self::Linear => displayed * store_multiplier,
+            Self::FocalLengthMillimeters => {
+                assert_eq!(
+                    store_multiplier, 1.0,
+                    "focal-length mapping cannot be scaled"
+                );
+                f64::from(shrimply_3dgs::vertical_fov_degrees(displayed))
+            }
+        }
+    }
+}
+
 use crate::LayeredState;
+use crate::keyframe_graph::ScalarGraph;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct TextKeyframeCommits {
+    pub toggle: &'static str,
+    pub add: &'static str,
+    pub delete: &'static str,
+    pub move_keyframe: &'static str,
+    pub paste: &'static str,
+    pub interpolation: &'static str,
+    pub text_interpolation: &'static str,
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct InspectorControl {
@@ -116,6 +273,7 @@ pub struct InspectorControl {
     pub sensitive: bool,
     pub visible: bool,
     pub number: NumberSpec,
+    pub number_constraint: NumberConstraint,
     pub accepted_range: Option<(f64, f64)>,
     pub integer: bool,
     pub width_characters: i32,
@@ -132,14 +290,27 @@ pub struct InspectorControl {
     pub lock: bool,
     pub with_alpha: bool,
     pub store_multiplier: f64,
+    pub number_mapping: NumberMapping,
     pub target_id: Option<uuid::Uuid>,
     pub audio_modifier: bool,
     pub commit_name: String,
     pub commit_immediately: bool,
+    pub keyframe_commit_name: String,
+    pub expression_commit_name: String,
+    pub text_keyframe_commits: Option<TextKeyframeCommits>,
     pub timeline_id: Option<uuid::Uuid>,
     pub scalar_graph: Option<ScalarGraph>,
+    pub analysis: Option<AnalysisControlPresentation>,
     pub action: Option<InspectorControlAction>,
+    pub action_sensitive: bool,
+    pub secondary_action: Option<InspectorControlAction>,
+    pub action_icon: String,
+    pub action_tooltip: String,
+    pub drag_payload: String,
+    pub row_group: Option<uuid::Uuid>,
+    pub row_role: ControlRowRole,
     pub busy: bool,
+    pub preview_focus: Option<crate::item::ControlPreviewFocus>,
 }
 
 impl InspectorControl {
@@ -157,6 +328,7 @@ impl InspectorControl {
             sensitive: true,
             visible: true,
             number: NumberSpec::default(),
+            number_constraint: NumberConstraint::default(),
             accepted_range: None,
             integer: false,
             width_characters: 8,
@@ -173,14 +345,27 @@ impl InspectorControl {
             lock: false,
             with_alpha: true,
             store_multiplier: 1.0,
+            number_mapping: NumberMapping::Linear,
             target_id: None,
             audio_modifier: false,
             commit_name: String::new(),
             commit_immediately: false,
+            keyframe_commit_name: String::new(),
+            expression_commit_name: String::new(),
+            text_keyframe_commits: None,
             timeline_id: None,
             scalar_graph: None,
+            analysis: None,
             action: None,
+            action_sensitive: true,
+            secondary_action: None,
+            action_icon: String::new(),
+            action_tooltip: String::new(),
+            drag_payload: String::new(),
+            row_group: None,
+            row_role: ControlRowRole::Standalone,
             busy: false,
+            preview_focus: None,
         }
     }
 
@@ -190,19 +375,73 @@ impl InspectorControl {
     }
 
     pub fn immediate_commit(mut self, name: impl Into<String>) -> Self {
-        self.commit_name = name.into();
+        let name = name.into();
+        self.keyframe_commit_name.clone_from(&name);
+        self.expression_commit_name.clone_from(&name);
+        self.commit_name = name;
         self.commit_immediately = true;
         self
     }
 
     pub fn live_commit(mut self, name: impl Into<String>) -> Self {
-        self.commit_name = name.into();
+        let name = name.into();
+        self.keyframe_commit_name.clone_from(&name);
+        self.expression_commit_name.clone_from(&name);
+        self.commit_name = name;
         self.commit_immediately = false;
+        self
+    }
+
+    pub fn timeline_commits(
+        mut self,
+        keyframes: impl Into<String>,
+        expression: impl Into<String>,
+    ) -> Self {
+        self.keyframe_commit_name = keyframes.into();
+        self.expression_commit_name = expression.into();
+        self
+    }
+
+    pub fn text_keyframe_commits(mut self, commits: TextKeyframeCommits) -> Self {
+        self.keyframe_commit_name = commits.toggle.to_string();
+        self.text_keyframe_commits = Some(commits);
         self
     }
 
     pub fn action(mut self, action: InspectorControlAction) -> Self {
         self.action = Some(action);
+        self
+    }
+
+    pub fn action_sensitive(mut self, sensitive: bool) -> Self {
+        self.action_sensitive = sensitive;
+        self
+    }
+
+    pub fn secondary_action(mut self, action: InspectorControlAction) -> Self {
+        self.secondary_action = Some(action);
+        self
+    }
+
+    pub fn action_icon(mut self, icon: impl Into<String>, tooltip: impl Into<String>) -> Self {
+        self.action_icon = icon.into();
+        self.action_tooltip = tooltip.into();
+        self
+    }
+
+    pub fn drag_payload(mut self, payload: impl Into<String>) -> Self {
+        self.drag_payload = payload.into();
+        self
+    }
+
+    pub fn row_group(mut self, group: uuid::Uuid, role: ControlRowRole) -> Self {
+        assert_ne!(
+            role,
+            ControlRowRole::Standalone,
+            "grouped control needs a row role"
+        );
+        self.row_group = Some(group);
+        self.row_role = role;
         self
     }
 
@@ -249,6 +488,18 @@ impl InspectorControl {
     pub fn accepted_range(mut self, minimum: f64, maximum: f64) -> Self {
         assert!(minimum <= maximum, "accepted range must be ordered");
         self.accepted_range = Some((minimum, maximum));
+        self
+    }
+
+    pub fn number_constraint(mut self, constraint: NumberConstraint) -> Self {
+        assert!(
+            match (constraint.minimum, constraint.maximum) {
+                (Some(minimum), Some(maximum)) => minimum <= maximum,
+                _ => true,
+            },
+            "stored number constraint must be ordered",
+        );
+        self.number_constraint = constraint;
         self
     }
 
@@ -337,6 +588,24 @@ impl InspectorControl {
         self
     }
 
+    pub fn number_mapping(mut self, mapping: NumberMapping) -> Self {
+        self.number_mapping = mapping;
+        self
+    }
+
+    pub fn display_number(&self, stored: f64) -> f64 {
+        self.number_mapping.display(stored, self.store_multiplier)
+    }
+
+    pub fn map_number_for_storage(&self, displayed: f64) -> f64 {
+        self.number_mapping.store(displayed, self.store_multiplier)
+    }
+
+    pub fn store_number(&self, displayed: f64) -> f64 {
+        self.number_constraint
+            .clamp(self.map_number_for_storage(displayed))
+    }
+
     pub fn target(mut self, id: uuid::Uuid) -> Self {
         self.target_id = Some(id);
         self
@@ -362,6 +631,18 @@ pub struct InspectorSection {
 impl InspectorSection {
     pub fn add(&mut self, control: InspectorControl) {
         self.controls.push(control);
+    }
+
+    pub fn set_target(&mut self, target_id: uuid::Uuid) {
+        self.controls
+            .iter_mut()
+            .for_each(|control| control.target_id = Some(target_id));
+    }
+
+    pub fn set_preview_focus(&mut self, focus: crate::item::ControlPreviewFocus) {
+        self.controls
+            .iter_mut()
+            .for_each(|control| control.preview_focus = Some(focus.clone()));
     }
 
     pub fn set_sensitive(&mut self, sensitive: bool) {

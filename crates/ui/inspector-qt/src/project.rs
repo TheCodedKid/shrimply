@@ -50,11 +50,7 @@ pub(crate) fn categories(project: &ProjectPresentation) -> Vec<InspectorCategory
             value: project.file.to_string_lossy().into_owned(),
         },
     ];
-    let performance = InspectorSection {
-        controls: vec![
-            InspectorControl::new(ControlKind::Performance, "", "Performance").read_only(),
-        ],
-    };
+    let performance = shrimply_inspector_core::benchmarking::section();
     vec![
         InspectorCategory {
             key: "config",

@@ -1,6 +1,6 @@
 use shrimply_inspector_core::{VideoCard, VideoPresentation};
 
-use crate::item::{InspectorAction, InspectorItem, InspectorListItem};
+use crate::item::{HeaderButtonToggle, InspectorAction, InspectorItem, InspectorListItem};
 use crate::list::InspectorCategory;
 use crate::section::InspectorSection;
 
@@ -66,9 +66,29 @@ pub(crate) fn categories(
 }
 
 pub(super) fn item(card: VideoCard) -> InspectorListItem {
-    let mut item = InspectorItem::new(card.key, card.title, card.section);
+    let mut section = card.section;
+    if let Some(mask) = &card.alpha_mask {
+        section
+            .controls
+            .extend(mask.section.controls.iter().cloned());
+    }
+    let mut item = InspectorItem::new(card.key, card.title, section);
     if let Some(reset) = card.reset {
         item = item.reset(InspectorAction::ResetVideo { reset });
+    }
+    if let Some(mask) = card.alpha_mask {
+        item = item.button_toggle(HeaderButtonToggle {
+            icon: "select-symbolic",
+            active: mask.active,
+            tooltip: "Mask",
+            activate: InspectorAction::SetAlphaMask {
+                target: shrimply_project::project::VisualAlphaMaskTarget::Compositing,
+                enabled: !mask.active,
+            },
+        });
+    }
+    if let Some(facet) = card.preview_facet {
+        item = item.preview_facet(facet);
     }
     item.boxed()
 }

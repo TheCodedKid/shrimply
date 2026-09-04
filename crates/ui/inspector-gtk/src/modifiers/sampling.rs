@@ -1,67 +1,39 @@
-use crate::InspectedItem as SelectedItem;
-use crate::{
-    InspectorContext,
-    player_state::ProjectChange,
-    timeline_value::step::{StepTarget, step_control},
-};
-use gtk::prelude::BoxExt;
-use shrimply_core::timeline_value::TimelineValue;
-use shrimply_project::project::{Project, VideoSampleMethod};
-use shrimply_video_modifiers::{ModifierEffect, RasterModifierEffect, sampling::SamplingModifier};
+use gtk::prelude::{BoxExt, WidgetExt};
+use shrimply_inspector_core::InspectorTarget;
+use shrimply_video_modifiers::sampling::SamplingModifier;
 use uuid::Uuid;
 
-pub fn add_rows(value: &SamplingModifier, out: &gtk::Box, id: Uuid, context: &InspectorContext) {
-    out.append(&step_control(
-        "Method",
+use crate::InspectorContext;
+
+pub fn add_rows(
+    value: &SamplingModifier,
+    out: &gtk::Box,
+    modifier_id: Uuid,
+    context: &InspectorContext,
+) {
+    let Some(key) = context.selected_item.clone() else {
+        return;
+    };
+    let section = context
+        .inspector_core
+        .sampling_presentation(&InspectorTarget::Item(key), modifier_id)
+        .expect("live Sampling modifier must have a shared presentation");
+    let [method] = section
+        .controls
+        .try_into()
+        .expect("Sampling presentation must contain exactly one control");
+    let method_row = super::shared_step_row(
+        &method,
+        "method",
         &value.method,
+        modifier_id,
         context,
-        StepTarget::new(
-            move |project, key| sampling_method(project, key.clone(), id),
-            move |project, key| sampling_method_mut(project, key.clone(), id),
-            "edit-raster-sampling",
-            ProjectChange {
-                video: true,
-                inspector: true,
-                ..Default::default()
-            },
-        ),
-    ));
-}
-
-fn sampling_method(
-    project: &Project,
-    key: SelectedItem,
-    id: Uuid,
-) -> Option<&TimelineValue<VideoSampleMethod>> {
-    project
-        .video_item(&key)?
-        .modifiers
-        .iter()
-        .find(|modifier| modifier.id == id)
-        .and_then(|modifier| match &modifier.effect {
-            ModifierEffect::Raster(raster) => match &**raster {
-                RasterModifierEffect::Sampling(effect) => Some(&effect.method),
-                _ => None,
-            },
-            _ => None,
-        })
-}
-
-fn sampling_method_mut(
-    project: &mut Project,
-    key: SelectedItem,
-    id: Uuid,
-) -> Option<&mut TimelineValue<VideoSampleMethod>> {
-    project
-        .video_item_mut(&key)?
-        .modifiers
-        .iter_mut()
-        .find(|modifier| modifier.id == id)
-        .and_then(|modifier| match &mut modifier.effect {
-            ModifierEffect::Raster(raster) => match &mut **raster {
-                RasterModifierEffect::Sampling(effect) => Some(&mut effect.method),
-                _ => None,
-            },
-            _ => None,
-        })
+        shrimply_inspector_core::visual_modifiers::SAMPLING_METHOD_COMMIT,
+        shrimply_inspector_core::visual_modifiers::sampling_method,
+        shrimply_inspector_core::visual_modifiers::sampling_method_mut,
+    );
+    method_row.set_sensitive(method.sensitive);
+    if method.visible {
+        out.append(&method_row);
+    }
 }

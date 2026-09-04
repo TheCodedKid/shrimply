@@ -18,13 +18,7 @@ pub(crate) fn fraction_value(control: &InspectorControl) -> f64 {
 
 pub(crate) fn timeline_value(control: &InspectorControl) -> Result<serde_json::Value, String> {
     match control.kind {
-        ControlKind::LayeredNumber => number_value(
-            control
-                .value
-                .parse::<f64>()
-                .map_err(|_| format!("invalid timeline value: {}", control.value))?
-                * control.store_multiplier,
-        ),
+        ControlKind::LayeredNumber => control_number_value(control, &control.value),
         ControlKind::LayeredVector2 | ControlKind::LayeredVector3 => {
             let expected = if control.kind == ControlKind::LayeredVector2 {
                 2
@@ -81,11 +75,7 @@ pub(crate) fn control_value(
     value: &str,
 ) -> Result<serde_json::Value, String> {
     match control.kind {
-        ControlKind::LayeredNumber => value
-            .parse::<f64>()
-            .map(|value| value * control.store_multiplier)
-            .map_err(|_| format!("invalid timeline value: {value}"))
-            .and_then(number_value),
+        ControlKind::LayeredNumber => control_number_value(control, value),
         ControlKind::LayeredBoolean => value
             .parse::<bool>()
             .map(shrimply_core::timeline_value::TimelineBool::from)
@@ -105,12 +95,24 @@ fn number_value(value: f64) -> Result<serde_json::Value, String> {
         .ok_or_else(|| "timeline value must be finite".to_string())
 }
 
-pub(crate) fn default_expression(control: &InspectorControl) -> &'static str {
-    match control.kind {
-        ControlKind::LayeredVector2 => "[x, y]",
-        ControlKind::LayeredVector3 => "[x, y, z]",
-        _ => "value",
+fn control_number_value(
+    control: &InspectorControl,
+    value: &str,
+) -> Result<serde_json::Value, String> {
+    let value = value
+        .parse::<f64>()
+        .map(|value| control.store_number(value))
+        .map_err(|_| format!("invalid timeline value: {value}"))?;
+    if control.integer {
+        if !value.is_finite()
+            || value.fract() != 0.0
+            || !(0.0..=f64::from(u32::MAX)).contains(&value)
+        {
+            return Err(format!("invalid unsigned integer timeline value: {value}"));
+        }
+        return Ok(serde_json::Value::from(value as u32));
     }
+    number_value(value)
 }
 
 pub(crate) fn boolean_action(action: InspectorAction, active: bool) -> InspectorAction {
@@ -119,12 +121,10 @@ pub(crate) fn boolean_action(action: InspectorAction, active: bool) -> Inspector
             path,
             value: active,
         },
-        InspectorAction::SetVisualModifierAlphaMask { id, .. } => {
-            InspectorAction::SetVisualModifierAlphaMask {
-                id,
-                enabled: active,
-            }
-        }
+        InspectorAction::SetAlphaMask { target, .. } => InspectorAction::SetAlphaMask {
+            target,
+            enabled: active,
+        },
         action => action,
     }
 }

@@ -496,7 +496,7 @@ fn toggle_keyframes(
         return false;
     };
     let current = value.value_at(evaluation_time);
-    if !set_keyframes_enabled(value, keyframe_time, current, enabled) {
+    if !keyframe_model::set_keyframes_enabled(value, keyframe_time, current, enabled) {
         return false;
     }
     target.did_mutate(&mut project, key);
@@ -525,7 +525,11 @@ fn set_expression_enabled(
     let Some(value) = target.get_mut(&mut project, key.clone(), source_value) else {
         return false;
     };
-    let changed = shrimply_core::timeline_value::set_expression_enabled(value, enabled, "value");
+    let changed = keyframe_model::set_expression_enabled(
+        value,
+        enabled,
+        shrimply_inspector_core::timeline_value::SCALAR_EXPRESSION_DEFAULT,
+    );
     if !changed {
         return false;
     }

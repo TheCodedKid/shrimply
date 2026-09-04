@@ -128,6 +128,17 @@ impl TextInterpolation {
             Self::Decode => "Decode",
         }
     }
+
+    pub const fn tooltip(self) -> &'static str {
+        match self {
+            Self::Jump => "Change all at once",
+            Self::Type => "Clear and rewrite the whole text",
+            Self::Append => "Edit after the shared beginning",
+            Self::Insert => "Edit between the shared ends",
+            Self::Diff => "Edit only the changed characters",
+            Self::Decode => "Scramble, resize, then reveal the new text",
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]

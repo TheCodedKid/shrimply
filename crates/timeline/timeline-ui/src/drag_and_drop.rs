@@ -8,7 +8,6 @@ use gtk::{gdk, gio, glib};
 use crate::player_state::SharedPlayerState;
 use crate::project::{Project, Time};
 use crate::selection_state::SharedSelectionState;
-use shrimply_video_modifiers::{ModifierEffect, RasterModifierEffect};
 use uuid::Uuid;
 
 use super::external_content::{self, Content, Origin, Placement};
@@ -61,6 +60,42 @@ pub(super) fn setup(
         )
     });
     area.add_controller(mask_drop);
+
+    let mask_text_drop = gtk::DropTarget::new(String::static_type(), gdk::DragAction::COPY);
+    mask_text_drop.set_preload(true);
+    let mask_motion_project = project.clone();
+    let mask_motion_runtime = runtime.clone();
+    mask_text_drop.connect_motion(move |_, x, y| {
+        mask_target_at(
+            &mask_motion_project.borrow(),
+            mask_motion_runtime.borrow().view,
+            x,
+            y,
+        )
+        .map_or(gdk::DragAction::empty(), |_| gdk::DragAction::COPY)
+    });
+    let mask_area = area.clone();
+    let mask_project = project.clone();
+    let mask_player_state = player_state.clone();
+    let mask_runtime = runtime.clone();
+    mask_text_drop.connect_drop(move |_, value, x, y| {
+        let Ok(text) = value.get::<String>() else {
+            return false;
+        };
+        let Ok(modifier_id) = Uuid::parse_str(&text) else {
+            return false;
+        };
+        assign_mask_source(
+            &mask_area,
+            &mask_project,
+            &mask_player_state,
+            &mask_runtime,
+            modifier_id,
+            x,
+            y,
+        )
+    });
+    area.add_controller(mask_text_drop);
 
     let formats = gdk::ContentFormats::for_type(gdk::FileList::static_type())
         .union(&gdk::ContentFormats::for_type(gio::File::static_type()))
@@ -172,40 +207,36 @@ fn assign_mask_source(
     x: f64,
     y: f64,
 ) -> bool {
+    let source = {
+        let project = project.borrow();
+        let Some(target) = mask_target_at(&project, runtime.borrow().view, x, y) else {
+            return false;
+        };
+        let Some(track) = project.video_tracks.get(target.track_index) else {
+            return false;
+        };
+        let Some(item) = track.items.get(target.item_index) else {
+            return false;
+        };
+        shrimply_project::project::ItemAddress::Video {
+            sequence_path: Vec::new(),
+            track_id: track.id,
+            item_id: item.id,
+        }
+    };
     let mut project = project.borrow_mut();
-    let Some(target) = mask_target_at(&project, runtime.borrow().view, x, y) else {
-        return false;
+    let changed = match shrimply_inspector_core::visual_modifiers::set_mask_source(
+        &mut project,
+        &source,
+        modifier_id,
+    ) {
+        Ok(changed) => changed,
+        Err(_) => return false,
     };
-    let Some(target_id) = project
-        .video_tracks
-        .get(target.track_index)
-        .and_then(|track| track.items.get(target.item_index))
-        .map(|item| item.id)
-    else {
-        return false;
-    };
-    let Some((owner_id, mask)) = project.video_tracks.iter_mut().find_map(|track| {
-        track.items.iter_mut().find_map(|item| {
-            item.modifiers
-                .iter_mut()
-                .find(|modifier| modifier.id == modifier_id)
-                .and_then(|modifier| match &mut modifier.effect {
-                    ModifierEffect::Raster(effect) => match &mut **effect {
-                        RasterModifierEffect::Mask(mask) => Some((item.id, mask)),
-                        _ => None,
-                    },
-                    _ => None,
-                })
-        })
-    }) else {
-        return false;
-    };
-    if owner_id == target_id {
-        return false;
-    }
-    mask.item_id = Some(target_id);
-    crate::project::commit_edit(&project, "edit-mask-source");
     drop(project);
+    if !changed {
+        return true;
+    }
     crate::player_state::refresh_project(
         player_state,
         crate::player_state::ProjectChange {

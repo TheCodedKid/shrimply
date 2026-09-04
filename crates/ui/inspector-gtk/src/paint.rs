@@ -4,17 +4,15 @@ use std::path::PathBuf;
 use std::rc::Rc;
 
 use gtk::prelude::*;
-use shrimply_core::{
-    Color,
-    timeline_value::{
-        TimelineBase, TimelineBool, TimelineExpression, TimelineValue, TimelineValueType,
-    },
+use shrimply_core::timeline_value::{TimelineBase, TimelineBool, TimelineValue};
+use shrimply_inspector_core::{
+    ControlKind, InspectorControl, InspectorControlAction, InspectorTarget, NumberSpec, VideoCard,
+    paint as paint_core,
 };
 use shrimply_project::project::{
-    PaintDrawing, PaintItem, PaintPaletteEntry, PaintStrokeOptions, PaintTaper,
-    PaintTextureOptions, PaintTransform, Project, ResolvedTransform, Time, VideoItemContent,
+    PaintDrawing, PaintItem, PaintPaletteEntry, PaintStrokeOptions, PaintTaper, PaintTransform,
+    Project, ResolvedTransform, Time, VideoItemContent,
 };
-use uuid::Uuid;
 
 use crate::{
     InspectedItem as SelectedItem, InspectorContext,
@@ -26,62 +24,48 @@ use crate::{
         scalar::{ScalarAccess, ScalarSpec, ScalarTarget, scalar_control},
         step::{StepTarget, step_control},
     },
-    transform::{self, TransformTarget},
+    transform,
     ui::control_row,
 };
 
-const MIN_TEXTURE_SCALE: f64 = 0.01;
-
 pub(super) fn items(paint: &PaintItem) -> Vec<InspectorListItem> {
+    let palette_card = paint_core::PALETTE_CARD;
+    let stroke_card = paint_core::STROKE_CARD;
+    let stroke_transform_card = paint_core::STROKE_TRANSFORM_CARD;
     vec![
         DefaultInspectorItem::new(
-            "paint-palette",
-            "Textures",
+            palette_card.key,
+            palette_card.title,
             PaintPalette(paint.palette.clone()),
             palette_controls,
-            |context, palette: PaintPalette| {
-                update_discrete(context, "reset-paint-palette", move |paint| {
-                    paint.palette = palette.0;
-                    let last = paint.palette.len() - 1;
-                    visit_drawings_mut(&mut paint.drawing, |drawing| {
-                        for stroke in &mut drawing.strokes {
-                            stroke.color_index = stroke.color_index.min(last);
-                        }
-                        for fill in &mut drawing.fills {
-                            fill.color_index = fill.color_index.min(last);
-                        }
-                    });
-                    true
-                });
+            move |context, _: PaintPalette| {
+                reset_shared_card(context, palette_card);
             },
         )
         .boxed(),
         DefaultInspectorItem::new(
-            "paint-strokes",
-            "Strokes",
+            stroke_card.key,
+            stroke_card.title,
             paint.stroke.clone(),
             {
                 let drawing = paint.drawing.clone();
                 move |stroke, context| stroke_controls(stroke, &drawing, context)
             },
-            |context, stroke: PaintStrokeOptions| {
-                update_discrete(context, "reset-paint-strokes", move |paint| {
-                    paint.stroke = stroke;
-                    true
-                });
+            move |context, _: PaintStrokeOptions| {
+                reset_shared_card(context, stroke_card);
             },
         )
         .boxed(),
         DefaultInspectorItem::new(
-            "paint-stroke-transform",
-            "Stroke Transform",
+            stroke_transform_card.key,
+            stroke_transform_card.title,
             StrokeTransform(paint.stroke_transform.clone()),
-            |value, context| transform::controls(&value.0, context, TransformTarget::PaintStroke),
-            |context, value: StrokeTransform| {
-                update_discrete(context, "reset-paint-stroke-transform", move |paint| {
-                    paint.stroke_transform = value.0;
-                    true
-                });
+            move |value, context| {
+                let presentation = shared_card(context, stroke_transform_card);
+                transform::paint_stroke_controls(&value.0, &presentation.section.controls, context)
+            },
+            move |context, _: StrokeTransform| {
+                reset_shared_card(context, stroke_transform_card);
             },
         )
         .default_with(|context| {
@@ -89,6 +73,44 @@ pub(super) fn items(paint: &PaintItem) -> Vec<InspectorListItem> {
         })
         .boxed(),
     ]
+}
+
+fn shared_card(context: &InspectorContext, metadata: paint_core::PaintCardMetadata) -> VideoCard {
+    shared_cards(context)
+        .into_iter()
+        .find(|card| card.key == metadata.key)
+        .expect("paint card presentation must exist")
+}
+
+fn shared_cards(context: &InspectorContext) -> Vec<VideoCard> {
+    let Some(key) = context.selected_item.clone() else {
+        return Vec::new();
+    };
+    let runtime = context.inspector_core.snapshot().runtime;
+    let project = context.project.borrow();
+    let Some(paint) = selected_paint(&project, key) else {
+        return Vec::new();
+    };
+    shrimply_inspector_core::paint::cards(paint, project.canvas_size, runtime)
+}
+
+fn reset_shared_card(context: &InspectorContext, metadata: paint_core::PaintCardMetadata) {
+    let Some(key) = context.selected_item.clone() else {
+        return;
+    };
+    let Some(reset) = shared_cards(context)
+        .into_iter()
+        .find(|card| card.key == metadata.key)
+        .and_then(|card| card.reset)
+    else {
+        return;
+    };
+    if let Err(error) = context
+        .inspector_core
+        .reset_video(&shrimply_inspector_core::InspectorTarget::Item(key), &reset)
+    {
+        tracing::error!(%error, "Could not reset GTK paint card");
+    }
 }
 
 #[derive(Clone)]
@@ -102,94 +124,125 @@ impl Default for PaintPalette {
 
 fn palette_controls(value: &PaintPalette, context: &InspectorContext) -> Vec<gtk::Widget> {
     let section = crate::section::InspectorSection::controls();
-    for (display_index, entry) in value.0.iter().enumerate() {
-        let color = &entry.color;
-        let row = gtk::Box::new(gtk::Orientation::Horizontal, 6);
-        let color_control = color_control(
-            &shrimply_gtk_components::i18n::text_args(
-                "Color %{number}",
-                &[("number", (display_index + 1).to_string())],
-            ),
-            color,
-            context,
-            ColorTarget {
-                access: ColorAccess::PaintPalette { value_id: color.id },
-                scope_id: Some(color.id),
-                local_time: crate::video::visual_local_time,
-                duration: crate::video::visual_duration,
-                refresh: paint_refresh(),
-                commit_name: "paint-palette-color",
-            },
-        );
-        color_control.set_hexpand(true);
-        row.append(&color_control);
-
-        let remove = gtk::Button::builder()
-            .icon_name("user-trash-symbolic")
-            .tooltip_text(tr!("Remove color").as_ref())
-            .css_classes(["flat"])
-            .sensitive(value.0.len() > 1)
-            .build();
-        let remove_context = context.clone();
-        let color_id = color.id;
-        remove.connect_clicked(move |_| {
-            update_discrete(
-                &remove_context,
-                "remove-paint-palette-color",
-                move |paint| {
-                    let Some(index) = paint
-                        .palette
+    let presentation = shared_card(context, paint_core::PALETTE_CARD);
+    for control in presentation.section.controls {
+        match control.kind {
+            ControlKind::LayeredColor => {
+                let entry = value
+                    .0
+                    .iter()
+                    .find(|entry| Some(entry.color.id) == control.timeline_id)
+                    .expect("shared paint palette color changed");
+                section.add_wide_control(&palette_color_control(entry, &control, context));
+            }
+            ControlKind::Action => match control.action {
+                Some(InspectorControlAction::SelectPaintTexture { color_id }) => {
+                    let entry = value
+                        .0
                         .iter()
-                        .position(|entry| entry.color.id == color_id)
-                        .filter(|_| paint.palette.len() > 1)
-                    else {
-                        return false;
-                    };
-                    paint.palette.remove(index);
-                    let replacement = index.min(paint.palette.len() - 1);
-                    visit_drawings_mut(&mut paint.drawing, |drawing| {
-                        for stroke in &mut drawing.strokes {
-                            stroke.color_index = match stroke.color_index.cmp(&index) {
-                                std::cmp::Ordering::Less => stroke.color_index,
-                                std::cmp::Ordering::Equal => replacement,
-                                std::cmp::Ordering::Greater => stroke.color_index - 1,
-                            };
-                        }
-                        for fill in &mut drawing.fills {
-                            fill.color_index = match fill.color_index.cmp(&index) {
-                                std::cmp::Ordering::Less => fill.color_index,
-                                std::cmp::Ordering::Equal => replacement,
-                                std::cmp::Ordering::Greater => fill.color_index - 1,
-                            };
-                        }
-                    });
-                    true
-                },
-            );
-        });
-        row.append(&remove);
-        section.add_wide_control(&row);
-        add_texture_controls(&section, entry, context);
+                        .find(|entry| entry.color.id == color_id)
+                        .expect("shared paint texture changed");
+                    section.add_wide_control(&texture_picker(entry, &control, context));
+                }
+                Some(InspectorControlAction::AddPaintPaletteColor) => {
+                    section.add_wide_control(&add_palette_button(&control, context));
+                }
+                action => panic!("unsupported shared paint palette action: {action:?}"),
+            },
+            ControlKind::LayeredNumber => {
+                let timeline_id = control
+                    .timeline_id
+                    .expect("shared paint texture number needs a timeline ID");
+                let (value, expected_commit) = value
+                    .0
+                    .iter()
+                    .filter_map(|entry| entry.texture.as_ref())
+                    .flat_map(|texture| {
+                        [
+                            (&texture.repeat_scale, paint_core::TEXTURE_SCALE_COMMIT),
+                            (
+                                &texture.rotation_degrees,
+                                paint_core::TEXTURE_ROTATION_COMMIT,
+                            ),
+                        ]
+                    })
+                    .find(|(value, _)| value.id == timeline_id)
+                    .expect("shared paint texture number changed");
+                add_palette_scalar(&section, value, context, &control, expected_commit);
+            }
+            kind => panic!("unsupported shared paint palette control: {kind:?}"),
+        }
     }
+    vec![section.into_widget()]
+}
 
+fn palette_color_control(
+    entry: &PaintPaletteEntry,
+    control: &InspectorControl,
+    context: &InspectorContext,
+) -> gtk::Widget {
+    let color = &entry.color;
+    let row = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+    let native = color_control(
+        &control.label,
+        color,
+        context,
+        ColorTarget {
+            access: ColorAccess::PaintPalette { value_id: color.id },
+            scope_id: Some(color.id),
+            local_time: crate::video::visual_local_time,
+            duration: crate::video::visual_duration,
+            refresh: paint_refresh(),
+            commit_name: static_control_commit(control, paint_core::PALETTE_COLOR_COMMIT),
+        },
+    );
+    native.set_hexpand(true);
+    row.append(&native);
+    let Some(InspectorControlAction::RemovePaintPaletteColor { color_id }) = control.action else {
+        panic!("shared paint palette color needs a remove action");
+    };
+    let remove = gtk::Button::builder()
+        .icon_name(&control.prefix_icon)
+        .tooltip_text(&control.tooltip)
+        .css_classes(["flat"])
+        .sensitive(control.action_sensitive)
+        .build();
+    let context = context.clone();
+    remove.connect_clicked(move |_| {
+        let Some(key) = context.selected_item.clone() else {
+            return;
+        };
+        if let Err(error) = context
+            .inspector_core
+            .remove_paint_palette_color(&InspectorTarget::Item(key), color_id)
+        {
+            tracing::error!(%error, "Could not remove GTK paint palette color");
+        }
+    });
+    row.append(&remove);
+    row.upcast()
+}
+
+fn add_palette_button(control: &InspectorControl, context: &InspectorContext) -> gtk::Widget {
     let add = gtk::Button::builder()
-        .icon_name("list-add-symbolic")
-        .label(tr!("Add").as_ref())
+        .icon_name(&control.prefix_icon)
+        .label(&control.value)
         .halign(gtk::Align::End)
         .css_classes(["flat"])
         .build();
     let context = context.clone();
     add.connect_clicked(move |_| {
-        update_discrete(&context, "add-paint-palette-color", |paint| {
-            paint.palette.push(PaintPaletteEntry {
-                color: TimelineValue::new_const(Color::<u8>::WHITE),
-                texture: None,
-            });
-            true
-        });
+        let Some(key) = context.selected_item.clone() else {
+            return;
+        };
+        if let Err(error) = context
+            .inspector_core
+            .add_paint_palette_color(&InspectorTarget::Item(key))
+        {
+            tracing::error!(%error, "Could not add GTK paint palette color");
+        }
     });
-    section.add_wide_control(&add);
-    vec![section.into_widget()]
+    add.upcast()
 }
 
 fn stroke_controls(
@@ -198,148 +251,198 @@ fn stroke_controls(
     context: &InspectorContext,
 ) -> Vec<gtk::Widget> {
     let section = crate::section::InspectorSection::controls();
-    section.add_wide_control(&drawing_control(drawing, context));
-    add_scalar(
-        &section,
-        "Width",
-        &value.width,
-        context,
-        ScalarKind::Pixels,
-        "paint-stroke-width",
-        stroke_width,
-        stroke_width_mut,
-    );
-    add_scalar(
-        &section,
-        "Thinning",
-        &value.thinning,
-        context,
-        ScalarKind::Factor,
-        "paint-stroke-thinning",
-        stroke_thinning,
-        stroke_thinning_mut,
-    );
-    add_scalar(
-        &section,
-        "Smoothing",
-        &value.smoothing,
-        context,
-        ScalarKind::Factor,
-        "paint-stroke-smoothing",
-        stroke_smoothing,
-        stroke_smoothing_mut,
-    );
-    add_scalar(
-        &section,
-        "Streamline",
-        &value.streamline,
-        context,
-        ScalarKind::Factor,
-        "paint-stroke-streamline",
-        stroke_streamline,
-        stroke_streamline_mut,
-    );
-    add_scalar(
-        &section,
-        "Simplify tolerance",
-        &value.simplification_tolerance,
-        context,
-        ScalarKind::Pixels,
-        "paint-stroke-simplification",
-        stroke_simplification,
-        stroke_simplification_mut,
-    );
-    add_scalar(
-        &section,
-        "Subdivision spacing",
-        &value.maximum_subdivision_spacing,
-        context,
-        ScalarKind::Pixels,
-        "paint-stroke-subdivision",
-        stroke_subdivision,
-        stroke_subdivision_mut,
-    );
-    section.add_wide_control(&bool_control(
-        "Start cap",
-        &value.start.cap,
-        value.start.cap.fallback().get(),
-        context,
-        BoolTarget::ItemValue {
-            get: stroke_start_cap,
-            get_mut: stroke_start_cap_mut,
-            scope: "paint-stroke-start-cap",
-            mutated: bump_revision_for_key,
-        },
-    ));
-    section.add_wide_control(&taper_control(
-        "Start taper",
-        &value.start.taper,
-        true,
-        context,
-    ));
-    if value.start.taper.value_at(local_time(context)) == PaintTaper::Distance {
-        add_scalar(
-            &section,
-            "Start taper distance",
-            &value.start.taper_distance,
-            context,
-            ScalarKind::Pixels,
-            "paint-stroke-start-taper-distance",
-            stroke_start_taper_distance,
-            stroke_start_taper_distance_mut,
-        );
-    }
-    section.add_wide_control(&bool_control(
-        "End cap",
-        &value.end.cap,
-        value.end.cap.fallback().get(),
-        context,
-        BoolTarget::ItemValue {
-            get: stroke_end_cap,
-            get_mut: stroke_end_cap_mut,
-            scope: "paint-stroke-end-cap",
-            mutated: bump_revision_for_key,
-        },
-    ));
-    section.add_wide_control(&taper_control(
-        "End taper",
-        &value.end.taper,
-        false,
-        context,
-    ));
-    if value.end.taper.value_at(local_time(context)) == PaintTaper::Distance {
-        add_scalar(
-            &section,
-            "End taper distance",
-            &value.end.taper_distance,
-            context,
-            ScalarKind::Pixels,
-            "paint-stroke-end-taper-distance",
-            stroke_end_taper_distance,
-            stroke_end_taper_distance_mut,
-        );
+    let presentation = shared_card(context, paint_core::STROKE_CARD);
+    for control in presentation.section.controls {
+        match control.kind {
+            ControlKind::LayeredDrawing => {
+                assert_eq!(control.timeline_id, Some(drawing.id));
+                section.add_wide_control(&drawing_control(drawing, &control, context));
+            }
+            ControlKind::LayeredNumber => {
+                let (timeline, get, get_mut, expected_commit) = stroke_scalar(value, &control);
+                add_scalar(
+                    &section,
+                    timeline,
+                    context,
+                    &control,
+                    get,
+                    get_mut,
+                    expected_commit,
+                );
+            }
+            ControlKind::LayeredBoolean => {
+                let (timeline, get, get_mut, expected_commit) = stroke_boolean(value, &control);
+                section.add_wide_control(&bool_control(
+                    &control.label,
+                    timeline,
+                    timeline.fallback().get(),
+                    context,
+                    BoolTarget::ItemValue {
+                        get,
+                        get_mut,
+                        scope: static_control_commit(&control, expected_commit),
+                        mutated: bump_revision_for_key,
+                    },
+                ));
+            }
+            ControlKind::LayeredSelector => {
+                let start = control.timeline_id == Some(value.start.taper.id);
+                let timeline = if start {
+                    &value.start.taper
+                } else {
+                    assert_eq!(control.timeline_id, Some(value.end.taper.id));
+                    &value.end.taper
+                };
+                section.add_wide_control(&taper_control(
+                    &control.label,
+                    timeline,
+                    start,
+                    context,
+                    static_control_commit(
+                        &control,
+                        if start {
+                            paint_core::STROKE_START_TAPER_COMMIT
+                        } else {
+                            paint_core::STROKE_END_TAPER_COMMIT
+                        },
+                    ),
+                ));
+            }
+            kind => panic!("unsupported shared paint stroke control: {kind:?}"),
+        }
     }
     vec![section.into_widget()]
 }
 
-fn drawing_control(value: &TimelineValue<PaintDrawing>, context: &InspectorContext) -> gtk::Widget {
-    let time = local_time(context);
-    let drawing = value.value_at(time);
+fn stroke_scalar<'a>(
+    value: &'a PaintStrokeOptions,
+    control: &InspectorControl,
+) -> (
+    &'a TimelineValue<f32>,
+    ScalarGet,
+    ScalarGetMut,
+    &'static str,
+) {
+    let id = control
+        .timeline_id
+        .expect("shared paint stroke number needs a timeline ID");
+    for (timeline, get, get_mut, commit) in [
+        (
+            &value.width,
+            stroke_width as ScalarGet,
+            stroke_width_mut as ScalarGetMut,
+            paint_core::STROKE_WIDTH_COMMIT,
+        ),
+        (
+            &value.thinning,
+            stroke_thinning,
+            stroke_thinning_mut,
+            paint_core::STROKE_THINNING_COMMIT,
+        ),
+        (
+            &value.smoothing,
+            stroke_smoothing,
+            stroke_smoothing_mut,
+            paint_core::STROKE_SMOOTHING_COMMIT,
+        ),
+        (
+            &value.streamline,
+            stroke_streamline,
+            stroke_streamline_mut,
+            paint_core::STROKE_STREAMLINE_COMMIT,
+        ),
+        (
+            &value.simplification_tolerance,
+            stroke_simplification,
+            stroke_simplification_mut,
+            paint_core::STROKE_SIMPLIFICATION_COMMIT,
+        ),
+        (
+            &value.maximum_subdivision_spacing,
+            stroke_subdivision,
+            stroke_subdivision_mut,
+            paint_core::STROKE_SUBDIVISION_COMMIT,
+        ),
+        (
+            &value.start.taper_distance,
+            stroke_start_taper_distance,
+            stroke_start_taper_distance_mut,
+            paint_core::STROKE_START_TAPER_DISTANCE_COMMIT,
+        ),
+        (
+            &value.end.taper_distance,
+            stroke_end_taper_distance,
+            stroke_end_taper_distance_mut,
+            paint_core::STROKE_END_TAPER_DISTANCE_COMMIT,
+        ),
+    ] {
+        if timeline.id == id {
+            return (timeline, get, get_mut, commit);
+        }
+    }
+    panic!("shared paint stroke number changed")
+}
+
+type BoolGet = for<'a> fn(&'a Project, SelectedItem) -> Option<&'a TimelineValue<TimelineBool>>;
+type BoolGetMut =
+    for<'a> fn(&'a mut Project, SelectedItem) -> Option<&'a mut TimelineValue<TimelineBool>>;
+
+fn stroke_boolean<'a>(
+    value: &'a PaintStrokeOptions,
+    control: &InspectorControl,
+) -> (
+    &'a TimelineValue<TimelineBool>,
+    BoolGet,
+    BoolGetMut,
+    &'static str,
+) {
+    match control.timeline_id {
+        Some(id) if id == value.start.cap.id => (
+            &value.start.cap,
+            stroke_start_cap,
+            stroke_start_cap_mut,
+            paint_core::STROKE_START_CAP_COMMIT,
+        ),
+        Some(id) if id == value.end.cap.id => (
+            &value.end.cap,
+            stroke_end_cap,
+            stroke_end_cap_mut,
+            paint_core::STROKE_END_CAP_COMMIT,
+        ),
+        _ => panic!("shared paint stroke boolean changed"),
+    }
+}
+
+fn static_control_commit(control: &InspectorControl, expected: &'static str) -> &'static str {
+    assert_eq!(control.commit_name, expected);
+    assert_eq!(control.keyframe_commit_name, expected);
+    assert_eq!(control.expression_commit_name, expected);
+    expected
+}
+
+fn drawing_control(
+    value: &TimelineValue<PaintDrawing>,
+    control: &InspectorControl,
+    context: &InspectorContext,
+) -> gtk::Widget {
+    assert_eq!(control.commit_name, paint_core::DRAWING_LIVE_COMMIT);
+    assert_eq!(
+        control.keyframe_commit_name,
+        paint_core::DRAWING_KEYFRAME_COMMIT
+    );
+    assert_eq!(
+        control.expression_commit_name,
+        paint_core::DRAWING_EXPRESSION_COMMIT
+    );
     let summary = gtk::Label::builder()
-        .label(shrimply_gtk_components::i18n::text_args(
-            "%{strokes} strokes, %{fills} fills",
-            &[
-                ("strokes", drawing.strokes.len().to_string()),
-                ("fills", drawing.fills.len().to_string()),
-            ],
-        ))
+        .label(&control.value)
         .halign(gtk::Align::Start)
         .xalign(0.0)
         .css_classes(["dim-label"])
         .build();
     let mut sections = crate::timeline_value::LayeredSections::default();
     if matches!(&value.base, TimelineBase::Keyframes(_)) {
-        sections.set_keyframe(drawing_keyframe_graph(value, context));
+        sections.set_keyframe(drawing_keyframe_graph(value, &control.path, context));
     }
     if value
         .expression
@@ -350,48 +453,91 @@ fn drawing_control(value: &TimelineValue<PaintDrawing>, context: &InspectorConte
     }
     let keyframe_context = context.detached();
     let expression_context = context.detached();
+    let timeline_id = value.id;
     crate::timeline_value::layered_wide_control(
-        "Drawing",
+        &control.label,
         value,
         summary.upcast(),
         sections,
-        move |enabled| toggle_drawing_keyframes(&keyframe_context, enabled),
-        move |enabled| toggle_drawing_expression(&expression_context, enabled),
+        move |enabled| {
+            let Some(key) = keyframe_context.selected_item.clone() else {
+                return;
+            };
+            if let Err(error) = keyframe_context
+                .inspector_core
+                .set_paint_drawing_keyframes_enabled(
+                    &shrimply_inspector_core::InspectorTarget::Item(key),
+                    timeline_id,
+                    enabled,
+                )
+            {
+                tracing::error!(%error, "Could not toggle GTK paint drawing keyframes");
+            }
+            (keyframe_context.refresh)();
+        },
+        move |enabled| {
+            let Some(key) = expression_context.selected_item.clone() else {
+                return;
+            };
+            if let Err(error) = expression_context
+                .inspector_core
+                .set_paint_drawing_expression_enabled(
+                    &shrimply_inspector_core::InspectorTarget::Item(key),
+                    timeline_id,
+                    enabled,
+                )
+            {
+                tracing::error!(%error, "Could not toggle GTK paint drawing expression");
+            }
+            (expression_context.refresh)();
+        },
     )
 }
 
 fn drawing_keyframe_graph(
     value: &TimelineValue<PaintDrawing>,
+    path: &str,
     context: &InspectorContext,
 ) -> gtk::Widget {
     let Some(key) = context.selected_item.clone() else {
         return gtk::Box::new(gtk::Orientation::Horizontal, 0).upcast();
     };
-    let graph = drawing_graph(value);
+    let graph = gtk_drawing_graph(shrimply_inspector_core::paint::drawing_graph(
+        value,
+        context.inspector_core.snapshot().runtime,
+    ));
     let duration =
         crate::video::visual_duration(&context.project.borrow(), key.clone()).unwrap_or(Time::ZERO);
     let built = crate::keyframe_editor::build(
         context,
         graph,
         (Time::ZERO, duration),
-        format!("paint-drawing:{}", value.id),
+        format!("{path}:{}", value.id),
         drawing_graph_actions(context, key.clone()),
     );
     let project = context.project.clone();
+    let controller = context.inspector_core.clone();
     crate::keyframe_editor::connect_graph_refresh(
         context,
         "inspector paint drawing keyframe graph refresh",
         &built,
         move || {
-            selected_paint(&project.borrow(), key.clone())
-                .map(|paint| drawing_graph(&paint.drawing))
+            let runtime = controller.snapshot().runtime;
+            selected_paint(&project.borrow(), key.clone()).map(|paint| {
+                gtk_drawing_graph(shrimply_inspector_core::paint::drawing_graph(
+                    &paint.drawing,
+                    runtime,
+                ))
+            })
         },
     );
     built.widget
 }
 
-fn drawing_graph(value: &TimelineValue<PaintDrawing>) -> crate::keyframe_editor::KeyframeGraph {
-    let TimelineBase::Keyframes(keyframes) = &value.base else {
+fn gtk_drawing_graph(
+    graph: Option<shrimply_inspector_core::ScalarGraph>,
+) -> crate::keyframe_editor::KeyframeGraph {
+    let Some(graph) = graph else {
         return crate::keyframe_editor::KeyframeGraph::Speed {
             segments: Vec::new(),
             keys: Vec::new(),
@@ -399,20 +545,19 @@ fn drawing_graph(value: &TimelineValue<PaintDrawing>) -> crate::keyframe_editor:
         };
     };
     crate::keyframe_editor::KeyframeGraph::Speed {
-        segments: keyframes
-            .windows(2)
-            .filter_map(|pair| {
-                let seconds = pair[1].time.signed_sub(pair[0].time).as_secs_f64();
-                (seconds > f64::EPSILON).then(|| crate::keyframe_editor::SpeedSegment {
-                    owner_id: pair[0].id,
-                    start: pair[0].time,
-                    end: pair[1].time,
-                    value: 1.0 / seconds,
-                    interpolation: pair[0].interpolation_to_next,
-                })
+        segments: graph
+            .segments
+            .into_iter()
+            .map(|segment| crate::keyframe_editor::SpeedSegment {
+                owner_id: segment.owner_id,
+                start: segment.start,
+                end: segment.end,
+                value: segment.start_value,
+                interpolation: shrimply_core::timeline_value::Interpolation::KEYFRAME
+                    [segment.interpolation],
             })
             .collect(),
-        keys: keyframes.iter().map(|keyframe| keyframe.time).collect(),
+        keys: graph.points.into_iter().map(|point| point.time).collect(),
         static_value: 0.0,
     }
 }
@@ -421,79 +566,84 @@ fn drawing_graph_actions(
     context: &InspectorContext,
     key: SelectedItem,
 ) -> crate::keyframe_editor::KeyframeEditorActions {
-    let project = context.project.clone();
+    let timeline_id = selected_paint(&context.project.borrow(), key.clone())
+        .expect("paint drawing graph requires a paint item")
+        .drawing
+        .id;
+    let target = shrimply_inspector_core::InspectorTarget::Item(key);
+    let controller = context.inspector_core.clone();
     let player = context.player_state.clone();
     crate::keyframe_editor::KeyframeEditorActions {
         add_at_time: {
-            let context = context.detached();
-            Rc::new(move |time| add_drawing_key_at(&context, time))
+            let controller = controller.clone();
+            let target = target.clone();
+            Rc::new(move |time| {
+                if let Err(error) =
+                    controller.add_paint_drawing_keyframe(&target, timeline_id, time)
+                {
+                    tracing::error!(%error, "Could not add GTK paint drawing keyframe");
+                }
+            })
         },
         delete_at_time: {
-            let context = context.detached();
-            Rc::new(move |time| delete_drawing_key_at(&context, time))
+            let controller = controller.clone();
+            let target = target.clone();
+            Rc::new(move |time| {
+                if let Err(error) =
+                    controller.delete_paint_drawing_keyframe(&target, timeline_id, time)
+                {
+                    tracing::error!(%error, "Could not delete GTK paint drawing keyframe");
+                }
+            })
         },
         update_point: {
-            let context = context.detached();
-            Rc::new(move |old, time, _| move_drawing_key(&context, old, time))
+            let controller = controller.clone();
+            let target = target.clone();
+            Rc::new(move |old, time, _| {
+                if let Err(error) =
+                    controller.move_paint_drawing_keyframes(&target, timeline_id, &[(old, time)])
+                {
+                    tracing::error!(%error, "Could not move GTK paint drawing keyframe");
+                }
+            })
         },
-        clipboard: crate::keyframe_editor::KeyframeClipboardActions::Local {
+        clipboard: crate::keyframe_editor::KeyframeClipboardActions::Managed {
             copy: {
-                let project = project.clone();
-                let key = key.clone();
+                let controller = controller.clone();
+                let target = target.clone();
                 Rc::new(move |times| {
-                    selected_paint(&project.borrow(), key.clone()).and_then(|paint| {
-                        crate::keyframe_model::copy_keyframes(&paint.drawing, times)
-                    })
+                    controller
+                        .copy_paint_drawing_keyframes(&target, timeline_id, times)
+                        .ok()
+                        .filter(|count| *count > 0)
                 })
             },
             paste: {
-                let project = project.clone();
-                let player = player.clone();
-                let key = key.clone();
-                Rc::new(move |clipboard, time| {
-                    let mut project = project.borrow_mut();
-                    let paint = selected_paint_mut(&mut project, key.clone())?;
-                    let times = crate::keyframe_model::paste_keyframes(
-                        &mut paint.drawing,
-                        clipboard,
-                        time,
-                    )?;
-                    if let TimelineBase::Keyframes(keyframes) = &mut paint.drawing.base {
-                        for keyframe in keyframes
-                            .iter_mut()
-                            .filter(|keyframe| times.contains(&keyframe.time))
-                        {
-                            regenerate_drawing_edit_ids(&mut keyframe.value);
-                        }
-                    }
-                    bump_revision(paint);
-                    shrimply_project::project::commit_edit(
-                        &project,
-                        "paste-paint-drawing-keyframes",
-                    );
-                    drop(project);
-                    player_state::refresh_project(&player, paint_refresh());
-                    Some(times)
+                let controller = controller.clone();
+                let target = target.clone();
+                Rc::new(move |time| {
+                    controller
+                        .paste_paint_drawing_keyframes(&target, timeline_id, time)
+                        .ok()
+                        .filter(|count| *count > 0)
                 })
             },
         },
         set_interpolation: Some({
-            let context = context.detached();
+            let controller = controller.clone();
+            let target = target.clone();
             Rc::new(move |id, interpolation| {
-                update_drawing(&context, "paint-drawing-easing", false, move |value| {
-                    let TimelineBase::Keyframes(keyframes) = &mut value.base else {
-                        return false;
-                    };
-                    let Some(keyframe) = keyframes.iter_mut().find(|keyframe| keyframe.id == id)
-                    else {
-                        return false;
-                    };
-                    if keyframe.interpolation_to_next == interpolation {
-                        return false;
-                    }
-                    keyframe.interpolation_to_next = interpolation;
-                    true
-                });
+                let Some(index) = shrimply_core::timeline_value::Interpolation::KEYFRAME
+                    .iter()
+                    .position(|candidate| *candidate == interpolation)
+                else {
+                    return;
+                };
+                if let Err(error) =
+                    controller.set_paint_drawing_interpolation(&target, timeline_id, id, index)
+                {
+                    tracing::error!(%error, "Could not set GTK paint drawing interpolation");
+                }
             })
         }),
         text_interpolation: None,
@@ -506,234 +656,24 @@ fn drawing_expression_editor(
     context: &InspectorContext,
 ) -> gtk::Widget {
     let source = value.expression_source().map(str::to_string);
-    let context = context.detached();
+    let Some(key) = context.selected_item.clone() else {
+        return gtk::Box::new(gtk::Orientation::Horizontal, 0).upcast();
+    };
+    let controller = context.inspector_core.clone();
+    let timeline_id = value.id;
     crate::rhai_editor::editor(
         source,
         crate::rhai_editor::ExpressionValue::Drawing,
-        move |source| update_drawing_expression(&context, source),
+        move |source| {
+            if let Err(error) = controller.set_paint_drawing_expression_source(
+                &shrimply_inspector_core::InspectorTarget::Item(key.clone()),
+                timeline_id,
+                &source,
+            ) {
+                tracing::error!(%error, "Could not edit GTK paint drawing expression");
+            }
+        },
     )
-}
-
-fn toggle_drawing_keyframes(context: &InspectorContext, enabled: bool) {
-    let evaluation_time = local_time(context);
-    let position = player_state::snapshot(&context.player_state).position;
-    let time = context
-        .selected_item
-        .as_ref()
-        .and_then(|key| context.project.borrow().keyframe_time(key, position))
-        .unwrap_or(Time::ZERO);
-    update_drawing(context, "paint-drawing-keyframes", true, move |value| {
-        let current = value.value_at(evaluation_time);
-        match (&mut value.base, enabled) {
-            (TimelineBase::Const(_), false) | (TimelineBase::Keyframes(_), true) => false,
-            (base @ TimelineBase::Const(_), true) => {
-                *base = TimelineBase::Keyframes(vec![PaintDrawing::keyframe(time, current)]);
-                true
-            }
-            (base @ TimelineBase::Keyframes(_), false) => {
-                *base = TimelineBase::Const(current);
-                true
-            }
-        }
-    });
-}
-
-fn toggle_drawing_expression(context: &InspectorContext, enabled: bool) {
-    update_drawing(
-        context,
-        "paint-drawing-expression",
-        true,
-        move |value| match &mut value.expression {
-            Some(expression) if expression.enabled != enabled => {
-                expression.enabled = enabled;
-                true
-            }
-            Some(_) => false,
-            None if enabled => {
-                value.expression = Some(TimelineExpression {
-                    id: Uuid::new_v4(),
-                    enabled: true,
-                    source: "value".to_string(),
-                });
-                true
-            }
-            None => false,
-        },
-    );
-}
-
-fn add_drawing_key_at(context: &InspectorContext, time: Time) {
-    let step = crate::keyframe_editor::project_frame_step(
-        &context.project.borrow(),
-        context.selected_item.as_ref(),
-    );
-    update_drawing(context, "add-paint-drawing-keyframe", true, move |value| {
-        let TimelineBase::Keyframes(keyframes) = &mut value.base else {
-            return false;
-        };
-        if let Some(keyframe) = keyframes
-            .iter_mut()
-            .find(|keyframe| crate::keyframe_model::same_frame(keyframe.time, time, step))
-        {
-            if keyframe.time == time {
-                return false;
-            }
-            keyframe.time = time;
-            keyframes.sort_by_key(|keyframe| keyframe.time);
-            return true;
-        }
-        keyframes.push(PaintDrawing::keyframe(time, PaintDrawing::default()));
-        keyframes.sort_by_key(|keyframe| keyframe.time);
-        true
-    });
-}
-
-fn delete_drawing_key_at(context: &InspectorContext, time: Time) {
-    let step = crate::keyframe_editor::project_frame_step(
-        &context.project.borrow(),
-        context.selected_item.as_ref(),
-    );
-    update_drawing(
-        context,
-        "delete-paint-drawing-keyframe",
-        true,
-        move |value| {
-            let TimelineBase::Keyframes(keyframes) = &mut value.base else {
-                return false;
-            };
-            let Some(index) = keyframes
-                .iter()
-                .position(|keyframe| crate::keyframe_model::same_frame(keyframe.time, time, step))
-            else {
-                return false;
-            };
-            let removed = keyframes.remove(index).value;
-            if keyframes.is_empty() {
-                value.base = TimelineBase::Const(removed);
-            }
-            true
-        },
-    );
-}
-
-fn move_drawing_key(context: &InspectorContext, old: Time, time: Time) {
-    update_drawing(
-        context,
-        "move-paint-drawing-keyframe",
-        false,
-        move |value| {
-            let TimelineBase::Keyframes(keyframes) = &mut value.base else {
-                return false;
-            };
-            let Some(index) = keyframes
-                .iter()
-                .position(|keyframe| keyframe.time.approx_eq(old))
-            else {
-                return false;
-            };
-            let mut keyframe = keyframes.remove(index);
-            keyframes.retain(|other| !other.time.approx_eq(time));
-            keyframe.time = time;
-            keyframes.push(keyframe);
-            keyframes.sort_by_key(|keyframe| keyframe.time);
-            true
-        },
-    );
-}
-
-fn update_drawing_expression(context: &InspectorContext, source: String) {
-    update_drawing(context, "paint-drawing-expression", false, move |value| {
-        let Some(expression) = &mut value.expression else {
-            return false;
-        };
-        if expression.source == source {
-            return false;
-        }
-        expression.source = source;
-        true
-    });
-}
-
-fn update_drawing(
-    context: &InspectorContext,
-    commit_name: &'static str,
-    refresh_inspector: bool,
-    update: impl FnOnce(&mut TimelineValue<PaintDrawing>) -> bool,
-) {
-    let Some(key) = context.selected_item.clone() else {
-        return;
-    };
-    let mut project = context.project.borrow_mut();
-    let Some(paint) = selected_paint_mut(&mut project, key) else {
-        return;
-    };
-    if !update(&mut paint.drawing) {
-        return;
-    }
-    bump_revision(paint);
-    shrimply_project::project::commit_edit(&project, commit_name);
-    drop(project);
-    player_state::refresh_project(
-        &context.player_state,
-        ProjectChange {
-            video: true,
-            inspector: refresh_inspector,
-            ..ProjectChange::default()
-        },
-    );
-    if refresh_inspector {
-        (context.refresh)();
-    }
-}
-
-fn regenerate_drawing_edit_ids(drawing: &mut PaintDrawing) {
-    for stroke in &mut drawing.strokes {
-        stroke.id = Uuid::new_v4();
-    }
-    for fill in &mut drawing.fills {
-        fill.id = Uuid::new_v4();
-    }
-}
-
-fn visit_drawings_mut(
-    value: &mut TimelineValue<PaintDrawing>,
-    mut visit: impl FnMut(&mut PaintDrawing),
-) {
-    match &mut value.base {
-        TimelineBase::Const(drawing) => visit(drawing),
-        TimelineBase::Keyframes(keyframes) => {
-            for keyframe in keyframes {
-                visit(&mut keyframe.value);
-            }
-        }
-    }
-}
-
-fn add_texture_controls(
-    section: &crate::section::InspectorSection,
-    entry: &PaintPaletteEntry,
-    context: &InspectorContext,
-) {
-    section.add_wide_control(&texture_picker(entry, context));
-    let Some(texture) = &entry.texture else {
-        return;
-    };
-    add_palette_scalar(
-        section,
-        "Texture scale",
-        &texture.repeat_scale,
-        context,
-        ScalarKind::TextureScale,
-        "paint-texture-scale",
-    );
-    add_palette_scalar(
-        section,
-        "Texture rotation",
-        &texture.rotation_degrees,
-        context,
-        ScalarKind::Degrees,
-        "paint-texture-rotation",
-    );
 }
 
 fn taper_control(
@@ -741,18 +681,17 @@ fn taper_control(
     value: &TimelineValue<PaintTaper>,
     start: bool,
     context: &InspectorContext,
+    commit_name: &'static str,
 ) -> gtk::Widget {
-    let (get, get_mut, commit_name) = if start {
+    let (get, get_mut) = if start {
         (
             stroke_start_taper as TaperGet,
             stroke_start_taper_mut as TaperGetMut,
-            "paint-stroke-start-taper",
         )
     } else {
         (
             stroke_end_taper as TaperGet,
             stroke_end_taper_mut as TaperGetMut,
-            "paint-stroke-end-taper",
         )
     };
     step_control(
@@ -765,15 +704,24 @@ fn taper_control(
     )
 }
 
-fn texture_picker(entry: &PaintPaletteEntry, context: &InspectorContext) -> gtk::Widget {
-    let texture = entry.texture.as_ref();
+fn texture_picker(
+    entry: &PaintPaletteEntry,
+    control: &InspectorControl,
+    context: &InspectorContext,
+) -> gtk::Widget {
     let color_id = entry.color.id;
+    let Some(InspectorControlAction::ClearPaintTexture {
+        color_id: clear_color_id,
+    }) = control.secondary_action
+    else {
+        panic!("shared paint texture needs a clear action");
+    };
+    assert_eq!(clear_color_id, color_id);
+    let [filename, choose_label] = control.components.as_slice() else {
+        panic!("shared paint texture needs filename and chooser labels");
+    };
     let row = gtk::Box::new(gtk::Orientation::Horizontal, 6);
     row.set_hexpand(true);
-    let filename = texture
-        .and_then(|texture| texture.image_path.file_name())
-        .and_then(|filename| filename.to_str())
-        .unwrap_or("None");
     let filename_label = gtk::Label::builder()
         .label(filename)
         .hexpand(true)
@@ -782,20 +730,17 @@ fn texture_picker(entry: &PaintPaletteEntry, context: &InspectorContext) -> gtk:
         .ellipsize(gtk::pango::EllipsizeMode::Middle)
         .css_classes(["dim-label"])
         .build();
-    filename_label.set_tooltip_text(texture.and_then(|texture| texture.image_path.to_str()));
+    filename_label
+        .set_tooltip_text((!control.tooltip.is_empty()).then_some(control.tooltip.as_str()));
     row.append(&filename_label);
 
     let actions = gtk::Box::new(gtk::Orientation::Horizontal, 0);
     actions.add_css_class("linked");
-    let choose = gtk::Button::with_label(if texture.is_some() {
-        "Replace"
-    } else {
-        "Select"
-    });
+    let choose = gtk::Button::with_label(choose_label);
     let clear = gtk::Button::builder()
-        .icon_name("window-close-symbolic")
-        .tooltip_text(tr!("Clear texture").as_ref())
-        .sensitive(texture.is_some())
+        .icon_name(&control.action_icon)
+        .tooltip_text(&control.action_tooltip)
+        .sensitive(!control.action_icon.is_empty())
         .build();
     actions.append(&choose);
     actions.append(&clear);
@@ -827,42 +772,30 @@ fn texture_picker(entry: &PaintPaletteEntry, context: &InspectorContext) -> gtk:
     });
     let context = context.detached();
     clear.connect_clicked(move |_| {
-        update_discrete(&context, "paint-texture-clear", move |paint| {
-            let Some(texture) = paint
-                .palette
-                .iter_mut()
-                .find(|entry| entry.color.id == color_id)
-                .map(|entry| &mut entry.texture)
-            else {
-                return false;
-            };
-            if texture.is_none() {
-                return false;
-            }
-            *texture = None;
-            true
-        });
+        let Some(key) = context.selected_item.clone() else {
+            return;
+        };
+        if let Err(error) = context.inspector_core.clear_paint_texture(
+            &shrimply_inspector_core::InspectorTarget::Item(key),
+            clear_color_id,
+        ) {
+            tracing::error!(%error, "Could not clear GTK paint texture");
+        }
     });
-    control_row("Texture", &row)
+    control_row(&control.label, &row)
 }
 
 fn update_texture_path(context: &InspectorContext, color_id: uuid::Uuid, path: PathBuf) {
-    update_discrete(context, "paint-texture-path", move |paint| {
-        let Some(texture) = paint
-            .palette
-            .iter_mut()
-            .find(|entry| entry.color.id == color_id)
-            .map(|entry| &mut entry.texture)
-        else {
-            return false;
-        };
-        match texture {
-            Some(texture) if texture.image_path.path() == path => return false,
-            Some(texture) => texture.image_path = path.into(),
-            texture @ None => *texture = Some(PaintTextureOptions::new(path)),
-        }
-        true
-    });
+    let Some(key) = context.selected_item.clone() else {
+        return;
+    };
+    if let Err(error) = context.inspector_core.set_paint_texture(
+        &shrimply_inspector_core::InspectorTarget::Item(key),
+        color_id,
+        &path,
+    ) {
+        tracing::error!(%error, "Could not set GTK paint texture");
+    }
 }
 
 type ScalarGet = for<'a> fn(&'a Project, SelectedItem) -> Option<&'a TimelineValue<f32>>;
@@ -871,19 +804,17 @@ type TaperGet = for<'a> fn(&'a Project, SelectedItem) -> Option<&'a TimelineValu
 type TaperGetMut =
     for<'a> fn(&'a mut Project, SelectedItem) -> Option<&'a mut TimelineValue<PaintTaper>>;
 
-#[allow(clippy::too_many_arguments)]
 fn add_scalar(
     section: &crate::section::InspectorSection,
-    label: &str,
     value: &TimelineValue<f32>,
     context: &InspectorContext,
-    kind: ScalarKind,
-    commit_name: &'static str,
+    control: &InspectorControl,
     get: ScalarGet,
     get_mut: ScalarGetMut,
+    expected_commit: &'static str,
 ) {
     section.add_wide_control(&scalar_control(
-        label,
+        &control.label,
         value,
         context,
         ScalarTarget {
@@ -896,22 +827,21 @@ fn add_scalar(
             local_time: crate::video::visual_local_time,
             duration: crate::video::visual_duration,
             refresh: paint_refresh(),
-            commit_name,
+            commit_name: static_control_commit(control, expected_commit),
         },
-        kind.spec(),
+        scalar_spec(control),
     ));
 }
 
 fn add_palette_scalar(
     section: &crate::section::InspectorSection,
-    label: &str,
     value: &TimelineValue<f32>,
     context: &InspectorContext,
-    kind: ScalarKind,
-    commit_name: &'static str,
+    control: &InspectorControl,
+    expected_commit: &'static str,
 ) {
     section.add_wide_control(&scalar_control(
-        label,
+        &control.label,
         value,
         context,
         ScalarTarget {
@@ -920,64 +850,46 @@ fn add_palette_scalar(
             local_time: crate::video::visual_local_time,
             duration: crate::video::visual_duration,
             refresh: paint_refresh(),
-            commit_name,
+            commit_name: static_control_commit(control, expected_commit),
         },
-        kind.spec(),
+        scalar_spec(control),
     ));
 }
 
-#[derive(Clone, Copy)]
-enum ScalarKind {
-    Pixels,
-    Factor,
-    TextureScale,
-    Degrees,
-}
-
-impl ScalarKind {
-    fn spec(self) -> ScalarSpec {
-        let (drag_step, digits, minimum, maximum, unit_name, rotating_icon) = match self {
-            Self::Pixels => (1.0, 1, Some(0.0), None, Some("px"), None),
-            Self::Factor => (0.01, 2, Some(0.0), Some(1.0), None, None),
-            Self::TextureScale => (0.01, 2, Some(MIN_TEXTURE_SCALE), None, None, None),
-            Self::Degrees => (
-                0.1,
-                1,
-                None,
-                None,
-                Some("°"),
-                Some(("arrow3-up-symbolic", 0.0)),
-            ),
-        };
-        ScalarSpec {
-            drag_step,
-            digits,
-            integer: false,
-            width_chars: 9,
-            minimum,
-            maximum,
-            unit_name,
-            rotating_icon,
-            display: f64::from,
-            store: |value| value as f32,
-            clamp: match self {
-                Self::Pixels => |value| value.max(0.0),
-                Self::Factor => |value| value.clamp(0.0, 1.0),
-                Self::TextureScale => |value| value.max(MIN_TEXTURE_SCALE as f32),
-                Self::Degrees => |value| value,
+fn scalar_spec(control: &InspectorControl) -> ScalarSpec {
+    let defaults = NumberSpec::default();
+    ScalarSpec {
+        drag_step: control.number.drag_step,
+        digits: usize::try_from(control.number.digits)
+            .expect("paint scalar digits must be nonnegative"),
+        integer: control.integer,
+        width_chars: control.width_characters,
+        minimum: (control.number.minimum != defaults.minimum).then_some(control.number.minimum),
+        maximum: (control.number.maximum != defaults.maximum).then_some(control.number.maximum),
+        unit_name: (!control.number.unit.is_empty()).then_some(control.number.unit),
+        rotating_icon: control.prefix_icon_rotates.then(|| {
+            (
+                match control.prefix_icon.as_str() {
+                    "arrow3-up-symbolic" => "arrow3-up-symbolic",
+                    icon => panic!("unsupported shared paint rotating icon: {icon}"),
+                },
+                control.prefix_icon_rotation_offset_degrees,
+            )
+        }),
+        display: f64::from,
+        store: |value| value as f32,
+        clamp: crate::timeline_value::scalar::ScalarClamp::Function(
+            if control.number.minimum == 0.0 && control.number.maximum == 1.0 {
+                |value| value.clamp(0.0, 1.0)
+            } else if control.number.minimum == 0.0 {
+                |value| value.max(0.0)
+            } else if control.number.minimum == 0.01 {
+                |value| value.max(0.01)
+            } else {
+                |value| value
             },
-        }
+        ),
     }
-}
-
-fn local_time(context: &InspectorContext) -> Time {
-    let position = player_state::snapshot(&context.player_state).position;
-    let project = context.project.borrow();
-    context
-        .selected_item
-        .clone()
-        .and_then(|key| crate::video::visual_local_time(&project, key, position))
-        .unwrap_or(Time::ZERO)
 }
 
 fn paint_refresh() -> ProjectChange {
@@ -986,28 +898,6 @@ fn paint_refresh() -> ProjectChange {
         inspector: true,
         ..ProjectChange::default()
     }
-}
-
-fn update_discrete(
-    context: &InspectorContext,
-    commit_name: &'static str,
-    update: impl FnOnce(&mut PaintItem) -> bool,
-) {
-    let Some(key) = context.selected_item.clone() else {
-        return;
-    };
-    let mut project = context.project.borrow_mut();
-    let Some(paint) = selected_paint_mut(&mut project, key) else {
-        return;
-    };
-    if !update(paint) {
-        return;
-    }
-    bump_revision(paint);
-    shrimply_project::project::commit_edit(&project, commit_name);
-    drop(project);
-    player_state::refresh_project(&context.player_state, paint_refresh());
-    (context.refresh)();
 }
 
 pub(super) fn selected_paint(project: &Project, key: SelectedItem) -> Option<&PaintItem> {

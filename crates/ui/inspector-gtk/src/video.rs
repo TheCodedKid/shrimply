@@ -177,65 +177,63 @@ impl Inspectable for VideoItem {
         if let VideoItemContent::Pdf(pdf) = &self.content {
             visual_items.push(pdf::item(pdf, self.file.clone(), context));
         }
-        match &self.content {
-            shrimply_project::project::VideoItemContent::Text(text) => {
-                visual_items.extend(super::generated::text_items(text, context));
-            }
-            shrimply_project::project::VideoItemContent::Shape(shape) => {
-                visual_items.extend(super::generated::shape_items(shape, context));
-            }
-            shrimply_project::project::VideoItemContent::Paint(paint) => {
-                visual_items.extend(super::paint::items(paint));
-            }
-            shrimply_project::project::VideoItemContent::Background(background) => {
-                visual_items.push(super::background::item(background));
-            }
-            shrimply_project::project::VideoItemContent::Obj(scene) => {
-                visual_items.extend(super::scene_3d::items(scene, context));
-            }
-            shrimply_project::project::VideoItemContent::Gaussian(scene) => {
-                visual_items.extend(super::gaussian_3d::items(scene, context));
-            }
-            shrimply_project::project::VideoItemContent::Media
-            | shrimply_project::project::VideoItemContent::Image
-            | shrimply_project::project::VideoItemContent::Gif
-            | shrimply_project::project::VideoItemContent::Svg
-            | shrimply_project::project::VideoItemContent::Pdf(_)
-            | shrimply_project::project::VideoItemContent::Manim(_)
-            | shrimply_project::project::VideoItemContent::Blender(_)
-            | shrimply_project::project::VideoItemContent::LayeredImage(_)
-            | shrimply_project::project::VideoItemContent::FoldedSequence(_) => {
-                if !self.is_static_visual_media() {
-                    playback_items.push(playback::speed_item(self));
+        if let Some(items) = super::generated::items(self, context) {
+            visual_items.extend(items);
+        } else {
+            match &self.content {
+                shrimply_project::project::VideoItemContent::Paint(paint) => {
+                    visual_items.extend(super::paint::items(paint));
                 }
-                if matches!(
-                    self.content,
-                    shrimply_project::project::VideoItemContent::Svg
-                ) {
-                    visual_items.push(
-                        DefaultInspectorItem::new(
-                            "svg-colors",
-                            "SVG Colors",
-                            SvgColors(Some(self.clone())),
-                            |value, context| {
-                                value
-                                    .0
-                                    .as_ref()
-                                    .map_or_else(Vec::new, |item| svg_color_controls(item, context))
-                            },
-                            |context, _: SvgColors| {
-                                apply_video_reset(context, "reset-svg-colors", |item| {
-                                    item.svg_color_overrides.clear()
-                                });
-                            },
-                        )
-                        .boxed(),
-                    );
+                shrimply_project::project::VideoItemContent::Background(background) => {
+                    visual_items.push(super::background::item(background));
                 }
-                if let shrimply_project::project::VideoItemContent::LayeredImage(image) =
-                    &self.content
-                {
-                    visual_items.push(
+                shrimply_project::project::VideoItemContent::Obj(scene) => {
+                    visual_items.extend(super::scene_3d::items(scene, context));
+                }
+                shrimply_project::project::VideoItemContent::Gaussian(scene) => {
+                    visual_items.extend(super::gaussian_3d::items(scene, context));
+                }
+                shrimply_project::project::VideoItemContent::Text(_)
+                | shrimply_project::project::VideoItemContent::Shape(_)
+                | shrimply_project::project::VideoItemContent::Media
+                | shrimply_project::project::VideoItemContent::Image
+                | shrimply_project::project::VideoItemContent::Gif
+                | shrimply_project::project::VideoItemContent::Svg
+                | shrimply_project::project::VideoItemContent::Pdf(_)
+                | shrimply_project::project::VideoItemContent::Manim(_)
+                | shrimply_project::project::VideoItemContent::Blender(_)
+                | shrimply_project::project::VideoItemContent::LayeredImage(_)
+                | shrimply_project::project::VideoItemContent::FoldedSequence(_) => {
+                    if !self.is_static_visual_media() {
+                        playback_items.push(playback::speed_item(self));
+                    }
+                    if matches!(
+                        self.content,
+                        shrimply_project::project::VideoItemContent::Svg
+                    ) {
+                        visual_items.push(
+                            DefaultInspectorItem::new(
+                                "svg-colors",
+                                "SVG Colors",
+                                SvgColors(Some(self.clone())),
+                                |value, context| {
+                                    value.0.as_ref().map_or_else(Vec::new, |item| {
+                                        svg_color_controls(item, context)
+                                    })
+                                },
+                                |context, _: SvgColors| {
+                                    apply_video_reset(context, "reset-svg-colors", |item| {
+                                        item.svg_color_overrides.clear()
+                                    });
+                                },
+                            )
+                            .boxed(),
+                        );
+                    }
+                    if let shrimply_project::project::VideoItemContent::LayeredImage(image) =
+                        &self.content
+                    {
+                        visual_items.push(
                         DefaultInspectorItem::new(
                             "layered-image-layers",
                             "Layers",
@@ -256,6 +254,7 @@ impl Inspectable for VideoItem {
                         )
                         .boxed(),
                     );
+                    }
                 }
             }
         }
@@ -333,13 +332,7 @@ impl Inspectable for VideoItem {
                     "transform",
                     "Transform",
                     MediaTransform(self.transform.clone()),
-                    |value, context| {
-                        super::transform::controls(
-                            &value.0,
-                            context,
-                            super::transform::TransformTarget::Item,
-                        )
-                    },
+                    |value, context| super::transform::controls(&value.0, context),
                     |context, value: MediaTransform| {
                         apply_video_reset(context, "reset-transform", move |item| {
                             item.transform = value.0
@@ -1397,7 +1390,9 @@ fn compositing_controls(value: &CompositingCard, context: &InspectorContext) -> 
             rotating_icon: None,
             display: |value| f64::from(value) * 100.0,
             store: |value| (value / 100.0) as f32,
-            clamp: |value| value.clamp(0.0, 1.0),
+            clamp: crate::timeline_value::scalar::ScalarClamp::Function(|value| {
+                value.clamp(0.0, 1.0)
+            }),
         },
     ));
     section.add_wide_control(&blend_mode_control(&value.compositing.blend_mode, context));
