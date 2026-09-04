@@ -76,6 +76,7 @@ impl GpuModifier for Resolved {
                         transform: self.transform,
                         luminance: self.luminance,
                         invert: self.invert,
+                        _padding_0: [0; 6],
                     },
                     slice_mut(pass.output_buffer())
                 ]

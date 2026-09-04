@@ -7,6 +7,7 @@ import abi;
     uniform BulgePinchParams bulge_pinch,
     uniform ChannelMixerParams channel_mixer,
     uniform ChromaticAberrationParams chromatic_aberration,
+    uniform ColorCorrectionParams color_correction,
     uniform ColorizeDuotoneParams colorize_duotone,
     uniform RadialBlurParams radial_blur, uniform ZoomBlurParams zoom_blur,
     uniform DitheringParams dithering, uniform DropShadowParams drop_shadow,
@@ -21,5 +22,7 @@ import abi;
     uniform VisualTransitionMaskParams visual_transition,
     uniform Sam2ProxyParams sam2_proxy, uniform Sam2MaskParams sam2_mask,
     uniform TransparentFillMaskParams transparent_fill,
+    [RustType("shrimply_math_color::LayerBlendMode")]
+    uniform LayerBlendMode layer_blend_mode,
     uniform ImageDescriptor image, uniform ConvolutionTerm convolution_term,
     uniform ConvolutionParams convolution, uniform AlphaParams alpha) {}

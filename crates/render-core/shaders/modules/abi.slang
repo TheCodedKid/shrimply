@@ -1,5 +1,6 @@
-[__AttributeUsage(_AttributeTargets.Struct)][__AttributeUsage(
-    _AttributeTargets.Enum)] struct RustTypeAttribute { string name; };
+[__AttributeUsage(_AttributeTargets.Struct)]
+[__AttributeUsage(_AttributeTargets.Param)]
+struct RustTypeAttribute { string name; };
 
 [RustType("glam::Vec2")] struct Vec2 {
   float x;
@@ -32,8 +33,7 @@
       float value;
     };
 
-[RustType(
-    "shrimply_math_color::LayerBlendMode")] enum LayerBlendMode : uint8_t {
+enum LayerBlendMode : uint8_t {
   Normal = 1,
   PassThrough = 0,
   Dissolve = 2,

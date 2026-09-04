@@ -18,69 +18,55 @@ static const char* scalar_name(slang::TypeReflection::ScalarType scalar)
         return "uint32";
     case slang::TypeReflection::UInt8:
         return "uint8";
+    case slang::TypeReflection::Float32:
+        return "float32";
     default:
         return nullptr;
     }
 }
 
-static bool reflect_type(
+static slang::Attribute* find_attribute(
+    slang::VariableReflection* variable,
+    const char* name)
+{
+    for (unsigned int index = 0; index < variable->getUserAttributeCount(); ++index)
+    {
+        auto attribute = variable->getUserAttributeByIndex(index);
+        if (attribute && std::string(attribute->getName()) == name)
+            return attribute;
+    }
+    return nullptr;
+}
+
+static bool reflect_variable_rust_type(
+    slang::VariableReflection* variable,
+    std::ostream& output)
+{
+    auto attribute = find_attribute(variable, "RustType");
+    if (!attribute)
+        return true;
+    auto type = variable->getType();
+    size_t size = 0;
+    auto value = attribute->getArgumentValueString(0, &size);
+    if (!value || !type || !type->getName())
+    {
+        std::cerr << "RustType requires one string argument and a named parameter type\n";
+        return false;
+    }
+    output << "rust-type\t" << type->getName() << '\t'
+           << std::string(value, size) << '\n';
+    return true;
+}
+
+static bool reflect_enum(
     slang::TypeReflection* type,
     std::ostream& output,
-    std::set<std::string>& reflected_structs,
     std::set<std::string>& reflected_enums)
 {
-    if (!type)
+    if (!reflected_enums.insert(type->getName()).second)
         return true;
-    if (type->getKind() == slang::TypeReflection::Kind::ConstantBuffer
-        || type->getKind() == slang::TypeReflection::Kind::ParameterBlock)
-        return reflect_type(type->getElementType(), output, reflected_structs, reflected_enums);
-    if (type->getKind() == slang::TypeReflection::Kind::Struct)
-    {
-        if (!reflected_structs.insert(type->getName()).second)
-            return true;
-        if (auto attribute = type->findUserAttributeByName("RustType"))
-        {
-            size_t size = 0;
-            auto value = attribute->getArgumentValueString(0, &size);
-            if (!value)
-            {
-                std::cerr << "RustType requires one string argument: " << type->getName() << '\n';
-                return false;
-            }
-            output << "rust-type\t" << type->getName() << '\t'
-                   << std::string(value, size) << '\n';
-        }
-        for (unsigned int field_index = 0; field_index < type->getFieldCount(); ++field_index)
-        {
-            auto field = type->getFieldByIndex(field_index);
-            auto field_type = field->getType();
-            if (field_type->getKind() == slang::TypeReflection::Kind::Enum)
-                output << "enum-field\t" << type->getName() << '\t'
-                       << field->getName() << '\t' << field_type->getName() << '\n';
-            if (!reflect_type(field_type, output, reflected_structs, reflected_enums))
-                return false;
-        }
-        return true;
-    }
-    if (type->getKind() != slang::TypeReflection::Kind::Enum
-        || !reflected_enums.insert(type->getName()).second)
-        return true;
-
-    if (auto attribute = type->findUserAttributeByName("RustType"))
-    {
-        size_t size = 0;
-        auto value = attribute->getArgumentValueString(0, &size);
-        if (!value)
-        {
-            std::cerr << "RustType requires one string argument: " << type->getName() << '\n';
-            return false;
-        }
-        output << "rust-type\t" << type->getName() << '\t'
-               << std::string(value, size) << '\n';
-    }
-
     auto scalar = scalar_name(type->getElementType()->getScalarType());
-    if (!scalar)
+    if (!scalar || std::string(scalar) == "float32")
     {
         std::cerr << "unsupported enum representation: " << type->getName() << '\n';
         return false;
@@ -110,6 +96,97 @@ static bool reflect_type(
                << enum_case->getName() << '\t' << value << '\n';
     }
     return true;
+}
+
+static bool reflect_type(
+    slang::TypeLayoutReflection* layout,
+    std::ostream& output,
+    std::set<std::string>& reflected_structs,
+    std::set<std::string>& reflected_enums)
+{
+    auto type = layout ? layout->getType() : nullptr;
+    if (!type)
+        return true;
+    if (type->getKind() == slang::TypeReflection::Kind::ConstantBuffer
+        || type->getKind() == slang::TypeReflection::Kind::ParameterBlock)
+        return reflect_type(
+            layout->getElementTypeLayout(), output, reflected_structs, reflected_enums);
+    if (type->getKind() == slang::TypeReflection::Kind::Struct)
+    {
+        if (!reflected_structs.insert(type->getName()).second)
+            return true;
+        if (auto attribute = type->findUserAttributeByName("RustType"))
+        {
+            size_t size = 0;
+            auto value = attribute->getArgumentValueString(0, &size);
+            if (!value)
+            {
+                std::cerr << "RustType requires one string argument: " << type->getName() << '\n';
+                return false;
+            }
+            output << "rust-type\t" << type->getName() << '\t'
+                   << std::string(value, size) << '\n';
+        }
+        for (unsigned int field_index = 0; field_index < layout->getFieldCount(); ++field_index)
+        {
+            auto field_layout = layout->getFieldByIndex(field_index);
+            auto field = field_layout->getVariable();
+            auto field_type = field->getType();
+            if (field_type->getKind() == slang::TypeReflection::Kind::Enum)
+            {
+                output << "enum-field\t" << type->getName() << '\t'
+                       << field->getName() << '\t' << field_type->getName() << '\n';
+                if (!reflect_enum(field_type, output, reflected_enums))
+                    return false;
+            }
+            if (field_type->getKind() == slang::TypeReflection::Kind::Pointer)
+            {
+                auto value_layout = field_layout->getTypeLayout()->getElementTypeLayout();
+                auto value_type = value_layout ? value_layout->getType() : nullptr;
+                output << "pointer-field\t" << type->getName() << '\t'
+                       << field->getName() << '\t';
+                if (!value_type)
+                {
+                    std::cerr << "cannot reflect pointer target: " << type->getName()
+                              << '.' << field->getName() << '\n';
+                    return false;
+                }
+                if (value_type->getKind() == slang::TypeReflection::Kind::Scalar)
+                {
+                    auto scalar = scalar_name(value_type->getScalarType());
+                    if (!scalar)
+                        return false;
+                    output << "scalar\t" << scalar << '\n';
+                }
+                else if (value_type->getKind() == slang::TypeReflection::Kind::Vector)
+                {
+                    auto scalar = scalar_name(value_type->getElementType()->getScalarType());
+                    if (!scalar)
+                        return false;
+                    output << "vector\t" << scalar << '\t'
+                           << value_type->getElementCount() << '\n';
+                }
+                else if (value_type->getKind() == slang::TypeReflection::Kind::Struct)
+                    output << "struct\t" << value_type->getName() << '\n';
+                else
+                {
+                    std::cerr << "unsupported pointer target: " << type->getName()
+                              << '.' << field->getName() << '\n';
+                    return false;
+                }
+            }
+            if (!reflect_type(
+                    field_layout->getTypeLayout(),
+                    output,
+                    reflected_structs,
+                    reflected_enums))
+                return false;
+        }
+        return true;
+    }
+    if (type->getKind() != slang::TypeReflection::Kind::Enum)
+        return true;
+    return reflect_enum(type, output, reflected_enums);
 }
 
 int main(int argc, char** argv)
@@ -196,22 +273,23 @@ int main(int argc, char** argv)
          ++parameter_index)
     {
         auto parameter = layout->getParameterByIndex(parameter_index);
-        if (!reflect_type(parameter->getType(), output, reflected_structs, reflected_enums))
+        if (!reflect_type(
+                parameter->getTypeLayout(), output, reflected_structs, reflected_enums))
             return 1;
     }
     for (unsigned int entry_index = 0; entry_index < layout->getEntryPointCount(); ++entry_index)
     {
         auto entry = layout->getEntryPointByIndex(entry_index);
-        auto function = entry->getFunction();
-        if (!function)
-            return 1;
         for (unsigned int parameter_index = 0;
-             parameter_index < function->getParameterCount();
+             parameter_index < entry->getParameterCount();
              ++parameter_index)
         {
-            auto parameter = function->getParameterByIndex(parameter_index);
+            auto parameter_layout = entry->getParameterByIndex(parameter_index);
+            auto parameter = parameter_layout->getVariable();
+            if (!reflect_variable_rust_type(parameter, output))
+                return 1;
             if (!reflect_type(
-                    parameter->getType(),
+                    parameter_layout->getTypeLayout(),
                     output,
                     reflected_structs,
                     reflected_enums))

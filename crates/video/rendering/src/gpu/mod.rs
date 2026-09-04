@@ -1155,6 +1155,7 @@ impl CudaVideoCompositor {
                             opacity: layer.opacity,
                             clipping_base_opacity,
                             noise_seed: layer.noise_seed,
+                            _padding_0: [0; 7],
                         },
                         &mut output,
                     )

@@ -157,6 +157,7 @@ pub(super) fn prepare(
                     crop,
                     padding,
                     address_mode: super::kernels::address_mode(address_mode),
+                    _padding_0: [0; 4],
                 });
             }
             VideoLayer::Rgba { layer, .. } => {
@@ -182,6 +183,7 @@ pub(super) fn prepare(
                     crop,
                     padding,
                     address_mode: super::kernels::address_mode(address_mode),
+                    _padding_0: [0; 4],
                 });
             }
         }

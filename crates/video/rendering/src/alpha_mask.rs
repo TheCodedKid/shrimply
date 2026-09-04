@@ -174,6 +174,7 @@ impl GpuModifier for ResolvedShape {
                         }),
                         vertex_count,
                         invert: self.mask.invert,
+                        _padding_0: [0; 3],
                     },
                     slice_mut(pass.output_buffer())
                 ]

@@ -12,9 +12,17 @@ struct ReflectedEnum<'a> {
     variants: Vec<(&'a str, i64)>,
 }
 
+#[derive(Clone, Copy)]
+enum ReflectedPointer<'a> {
+    Scalar(&'a str),
+    Vector(&'a str, usize),
+    Struct(&'a str),
+}
+
 struct AbiReflection<'a> {
     enums: Vec<ReflectedEnum<'a>>,
     enum_fields: HashMap<&'a str, HashMap<&'a str, &'a str>>,
+    pointer_fields: HashMap<&'a str, HashMap<&'a str, ReflectedPointer<'a>>>,
     rust_types: HashMap<&'a str, &'a str>,
 }
 
@@ -70,8 +78,7 @@ pub fn generate_module(
             generate_structs(
                 element,
                 size,
-                &abi.enum_fields,
-                &abi.rust_types,
+                &abi,
                 StructOptions {
                     alignment_override: Some(CONSTANT_BUFFER_ALIGNMENT),
                     device_copy: false,
@@ -111,8 +118,7 @@ pub fn generate_cuda_abi(reflection: &Value, abi_reflection: &[u8]) -> String {
             generate_structs(
                 ty,
                 required_usize(required(parameter, "binding"), "size"),
-                &abi.enum_fields,
-                &abi.rust_types,
+                &abi,
                 StructOptions {
                     alignment_override: None,
                     device_copy: true,
@@ -129,6 +135,7 @@ fn parse_abi(reflection: &[u8]) -> AbiReflection<'_> {
     let reflection = std::str::from_utf8(reflection).expect("Slang ABI reflection must be UTF-8");
     let mut enums = Vec::<ReflectedEnum>::new();
     let mut enum_fields = HashMap::new();
+    let mut pointer_fields = HashMap::new();
     let mut rust_types = HashMap::new();
     for line in reflection.lines() {
         let mut columns = line.split('\t');
@@ -158,6 +165,33 @@ fn parse_abi(reflection: &[u8]) -> AbiReflection<'_> {
                     .insert(field, enumeration)
                     .is_none(),
                 "duplicate reflected enum field `{structure}.{field}`"
+            );
+            continue;
+        }
+        if kind == "pointer-field" {
+            let structure = rust_identifier(columns.next().expect("struct name"));
+            let field = rust_identifier(columns.next().expect("field name"));
+            let pointer = match columns.next().expect("pointer target kind") {
+                "scalar" => ReflectedPointer::Scalar(columns.next().expect("scalar type")),
+                "vector" => ReflectedPointer::Vector(
+                    columns.next().expect("vector scalar type"),
+                    columns
+                        .next()
+                        .expect("vector element count")
+                        .parse()
+                        .expect("vector element count must be an integer"),
+                ),
+                "struct" => ReflectedPointer::Struct(columns.next().expect("struct type")),
+                kind => panic!("unsupported reflected pointer target `{kind}`"),
+            };
+            assert!(columns.next().is_none(), "malformed Slang pointer field");
+            assert!(
+                pointer_fields
+                    .entry(structure)
+                    .or_insert_with(HashMap::new)
+                    .insert(field, pointer)
+                    .is_none(),
+                "duplicate reflected pointer field `{structure}.{field}`"
             );
             continue;
         }
@@ -195,6 +229,7 @@ fn parse_abi(reflection: &[u8]) -> AbiReflection<'_> {
     AbiReflection {
         enums,
         enum_fields,
+        pointer_fields,
         rust_types,
     }
 }
@@ -312,8 +347,7 @@ fn generate_entry_points(entry_points: &[Value], output: &mut String) {
 fn generate_struct(
     layout: &Value,
     size: usize,
-    enum_fields: &HashMap<&str, HashMap<&str, &str>>,
-    rust_types: &HashMap<&str, &str>,
+    abi: &AbiReflection<'_>,
     alignment_override: Option<usize>,
     device_copy: bool,
 ) -> String {
@@ -350,19 +384,27 @@ fn generate_struct(
         let offset = required_usize(binding, "offset");
         let field_size = required_usize(binding, "size");
         assert!(offset >= end, "overlapping reflected fields in {name}");
-        if !device_copy && offset > end {
+        if offset > end {
             output.push_str(&format!(
-                "        _padding_{padding}: [u8; {}],\n",
+                "        {}_padding_{padding}: [u8; {}],\n",
+                if device_copy { "pub " } else { "" },
                 offset - end
             ));
             padding += 1;
         }
-        let rust_type = enum_fields
+        let rust_type = abi
+            .pointer_fields
             .get(name)
             .and_then(|fields| fields.get(field_name))
-            .map(|name| (*name).to_owned())
+            .map(|pointer| reflected_pointer_rust_type(*pointer, &abi.rust_types))
+            .or_else(|| {
+                abi.enum_fields
+                    .get(name)
+                    .and_then(|fields| fields.get(field_name))
+                    .map(|name| (*name).to_owned())
+            })
             .unwrap_or_else(|| {
-                reflected_rust_type(required(field, "type"), field_size, rust_types)
+                reflected_rust_type(required(field, "type"), field_size, &abi.rust_types)
             });
         output.push_str(&format!("        pub {field_name}: {rust_type},\n"));
         assertions.push_str(&format!(
@@ -374,9 +416,10 @@ fn generate_struct(
         size >= end,
         "reflected size of {name} is smaller than its fields"
     );
-    if !device_copy && size > end {
+    if size > end {
         output.push_str(&format!(
-            "        _padding_{padding}: [u8; {}],\n",
+            "        {}_padding_{padding}: [u8; {}],\n",
+            if device_copy { "pub " } else { "" },
             size - end
         ));
     }
@@ -395,8 +438,7 @@ fn generate_struct(
 fn generate_structs(
     layout: &Value,
     size: usize,
-    enum_fields: &HashMap<&str, HashMap<&str, &str>>,
-    rust_types: &HashMap<&str, &str>,
+    abi: &AbiReflection<'_>,
     options: StructOptions,
     generated: &mut HashSet<String>,
     output: &mut String,
@@ -410,9 +452,9 @@ fn generate_structs(
     if generated.contains(name) {
         return;
     }
-    if rust_types.contains_key(name) {
+    if abi.rust_types.contains_key(name) {
         generated.insert(name.to_owned());
-        let rust_type = rust_types[name];
+        let rust_type = abi.rust_types[name];
         let alignment = options
             .alignment_override
             .unwrap_or_else(|| reflected_alignment(layout));
@@ -441,8 +483,7 @@ fn generate_structs(
             "struct" => generate_structs(
                 field_type,
                 required_usize(required(field, "binding"), "size"),
-                enum_fields,
-                rust_types,
+                abi,
                 options,
                 generated,
                 output,
@@ -453,8 +494,7 @@ fn generate_structs(
                     generate_structs(
                         element,
                         required_usize(field_type, "uniformStride"),
-                        enum_fields,
-                        rust_types,
+                        abi,
                         options,
                         generated,
                         output,
@@ -471,8 +511,7 @@ fn generate_structs(
     output.push_str(&generate_struct(
         layout,
         size,
-        enum_fields,
-        rust_types,
+        abi,
         options.alignment_override,
         options.device_copy,
     ));
@@ -583,6 +622,20 @@ fn reflected_pointer_type(ty: &Value, rust_types: &HashMap<&str, &str>) -> Strin
         }
         kind => panic!("unsupported reflected Slang pointer target `{kind}`"),
     }
+}
+
+fn reflected_pointer_rust_type(
+    pointer: ReflectedPointer<'_>,
+    rust_types: &HashMap<&str, &str>,
+) -> String {
+    let target = match pointer {
+        ReflectedPointer::Scalar(scalar) => rust_scalar(scalar).0.to_owned(),
+        ReflectedPointer::Vector(scalar, count) => {
+            format!("[{}; {count}]", rust_scalar(scalar).0)
+        }
+        ReflectedPointer::Struct(name) => rust_types.get(name).copied().unwrap_or(name).to_owned(),
+    };
+    format!("*const {target}")
 }
 
 fn reflected_scalar(ty: &Value) -> (&'static str, usize) {

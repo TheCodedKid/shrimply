@@ -299,6 +299,7 @@ impl GpuModifier for Resolved {
                     softness: self.softness,
                     invert: self.invert,
                     quantization_scale: MASK_LOGIT_QUANTIZATION_SCALE,
+                    _padding_0: [0; 3],
                 }]
             }
         }

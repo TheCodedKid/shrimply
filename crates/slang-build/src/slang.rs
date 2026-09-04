@@ -66,6 +66,14 @@ impl Compiler {
             );
         }
         drop(lock);
+        println!("cargo:rerun-if-changed={}", executable.display());
+        println!(
+            "cargo:rerun-if-changed={}",
+            build
+                .join(CONFIGURATION)
+                .join("lib/libslang-compiler.so.0.0.0.0")
+                .display()
+        );
         let reflector = output.join("slang-reflect");
         build_reflector(
             &PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("reflect.cpp"),

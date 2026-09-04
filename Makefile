@@ -18,6 +18,10 @@ RUST_LIBDIR := $(shell $(RUSTUP) run $(RUST_TOOLCHAIN) rustc --print target-libd
 DEV_RUSTFLAGS ?= -C prefer-dynamic -C link-arg=-fuse-ld=lld -C link-arg=-Wl,-rpath,$(RUST_LIBDIR)
 DEV_BUILD_ENV := $(BUILD_ENV) RUSTFLAGS="$(DEV_RUSTFLAGS)"
 SLANGC := $(SLANG_BUILD_DIR)/Release/bin/slangc
+SLANG_COMPILER_STAMP := $(SLANG_BUILD_DIR)/.shrimply-compiler
+SLANG_CONFIGURE_STAMP := $(SLANG_BUILD_DIR)/.shrimply-configure
+SLANG_GIT_HEAD := $(shell git -C $(SLANG_SOURCE_DIR) rev-parse --git-path HEAD 2>/dev/null)
+SLANG_GIT_REF := $(shell ref=$$(git -C $(SLANG_SOURCE_DIR) symbolic-ref -q HEAD 2>/dev/null); test -z "$$ref" || git -C $(SLANG_SOURCE_DIR) rev-parse --git-path "$$ref")
 NVCC := $(CUDA_HOME)/bin/nvcc
 CUDA_HOST_CXX ?= g++-15
 CUDA_ARTIFACT_DIR := $(CURDIR)/.slang-artifacts/cuda/$(CUDA_TARGET)
@@ -31,7 +35,7 @@ STABILIZATION_CUBIN := $(CUDA_ARTIFACT_DIR)/stabilization.cubin
 EXPORT_CUBIN := $(CUDA_ARTIFACT_DIR)/export.cubin
 CUDA_CUBINS := $(PREVIEW_CUBIN) $(ANIME4K_CUBIN) $(MODIFIERS_CUBIN) $(MODIFIERS_BLUR_CUBIN) $(MODIFIERS_GEOMETRY_CUBIN) $(MODIFIERS_MATTE_CUBIN) $(STABILIZATION_CUBIN) $(EXPORT_CUBIN)
 COMPOSITOR_SHADER_DIR := crates/render-core/shaders
-COMPOSITOR_SHADER_SOURCES := $(shell find $(COMPOSITOR_SHADER_DIR) -type f -name '*.slang')
+COMPOSITOR_SHADER_MODULES := $(shell find $(COMPOSITOR_SHADER_DIR)/modules -type f -name '*.slang')
 $(PREVIEW_CUBIN): SLANG_ENTRIES := composite_layered_image_layer composite_nv12_layers tone_map_hdr
 $(ANIME4K_CUBIN): SLANG_ENTRIES := rgba_to_float nv12_to_float convolution depth_to_space_x2 float_to_rgba_opaque float_to_rgba_alpha
 $(MODIFIERS_CUBIN): SLANG_ENTRIES := invert posterize channel_mixer color_correction colorize_duotone chromatic_aberration edge_detection emboss film_grain scanlines_crt threshold vignette alpha_outline_horizontal alpha_outline_vertical dithering drop_shadow_horizontal drop_shadow_vertical halftone
@@ -109,7 +113,7 @@ FEDORA_PACKAGES := \
 	qt6-qtbase-devel \
 	qt6-qtdeclarative-devel
 
-.PHONY: native-deps qt-native-deps slang-compiler qt-desktop-file cuda-target-check cuda-artifacts dev qt-build dev-qt dev-server docs docs-check run run-qt build release check components-check gtk-components-showcase qt-components-showcase server-python-check manim manim-python-check manim-parameter-check cargo-check fmt fmt-check lint test frame-rate-test video-lifecycle-test transparent-fill-frame-range-test transparent-fill-decoder-test transparent-fill-kernel-test transparent-fill-compositor-test transparent-fill-playback-test transparent-fill-e2e-fixture transparent-fill-e2e-test decode-ahead-benchmark paint-interpolation-test crash-report clean-dev clean deps-fedora deps-fedora-qt qt-release install install-qt install-codex-mcp-dev install-agy-mcp-dev uninstall uninstall-qt dist-image dist
+.PHONY: native-deps qt-native-deps qt-desktop-file cuda-target-check cuda-artifacts dev qt-build dev-qt dev-server docs docs-check run run-qt build release check components-check gtk-components-showcase qt-components-showcase server-python-check manim manim-python-check manim-parameter-check cargo-check fmt fmt-check lint test frame-rate-test video-lifecycle-test transparent-fill-frame-range-test transparent-fill-decoder-test transparent-fill-kernel-test transparent-fill-compositor-test transparent-fill-playback-test transparent-fill-e2e-fixture transparent-fill-e2e-test decode-ahead-benchmark paint-interpolation-test crash-report clean-dev clean deps-fedora deps-fedora-qt qt-release install install-qt install-codex-mcp-dev install-agy-mcp-dev uninstall uninstall-qt dist-image dist
 native-deps:
 	@$(PKG_CONFIG) --exists rubberband || { echo "Missing Rubber Band development files (pkg-config: rubberband)" >&2; exit 1; }
 	@$(PKG_CONFIG) --exists libpipewire-0.3 || { echo "Missing PipeWire development files (pkg-config: libpipewire-0.3)" >&2; exit 1; }
@@ -120,15 +124,22 @@ qt-native-deps:
 	@version="$$($(QT_QMAKE) -query QT_VERSION)"; case "$$version" in 6.*) echo "Using Qt $$version via $(QT_QMAKE)" ;; *) echo "$(QT_QMAKE) selected unsupported Qt $$version; Qt 6 is required" >&2; exit 1 ;; esac
 	@$(PKG_CONFIG) --exists Qt6Core Qt6Gui Qt6Qml Qt6Quick Qt6QuickControls2 Qt6OpenGL || { echo "Missing Qt 6 Quick/OpenGL development files" >&2; exit 1; }
 
-slang-compiler:
+slang-compiler: $(SLANG_COMPILER_STAMP)
+
+$(SLANG_CONFIGURE_STAMP): $(SLANG_SOURCE_DIR)/CMakeLists.txt
+	cmake -S $(SLANG_SOURCE_DIR) -B $(SLANG_BUILD_DIR) -G "Ninja Multi-Config" -DSLANG_ENABLE_SLANGC=ON -DSLANG_ENABLE_SLANG_RHI=OFF -DSLANG_ENABLE_GFX=OFF -DSLANG_ENABLE_TESTS=OFF -DSLANG_ENABLE_EXAMPLES=OFF -DSLANG_ENABLE_SLANGD=OFF -DSLANG_ENABLE_SLANGI=OFF -DSLANG_ENABLE_SLANGRT=OFF -DSLANG_ENABLE_SPLIT_DEBUG_INFO=OFF -DSLANG_ENABLE_SLANG_GLSLANG=ON -DSLANG_ENABLE_REPLAYER=OFF -DSLANG_SLANG_LLVM_FLAVOR=DISABLE -DSLANG_ENABLE_DXIL=OFF
+	@touch $@
+
+$(SLANG_COMPILER_STAMP): $(SLANG_CONFIGURE_STAMP) $(SLANG_GIT_HEAD) $(SLANG_GIT_REF)
 	cmake --build $(SLANG_BUILD_DIR) --config Release --target slangc slang-glslang
+	@touch $@
 
 cuda-target-check:
 	@test "$(CUDA_TARGET)" = sm_86 || { echo "CUDA_TARGET=$(CUDA_TARGET) is unsupported: host binaries embed sm_86 CUDA artifacts" >&2; exit 1; }
 
 cuda-artifacts: cuda-target-check $(CUDA_CUBINS)
 
-$(CUDA_ARTIFACT_DIR)/%.cubin: $(COMPOSITOR_SHADER_DIR)/%.slang $(COMPOSITOR_SHADER_SOURCES) | cuda-target-check slang-compiler
+$(CUDA_ARTIFACT_DIR)/%.cubin: $(COMPOSITOR_SHADER_DIR)/%.slang $(COMPOSITOR_SHADER_MODULES) $(SLANG_COMPILER_STAMP) | cuda-target-check
 	@mkdir -p $(CUDA_ARTIFACT_DIR)
 	$(SLANGC) $< -I $(COMPOSITOR_SHADER_DIR)/modules -target cuda -capability cuda_sm_8_0 -O2 -fp-mode precise $(foreach entry,$(SLANG_ENTRIES),-entry $(entry) -stage compute) -o $(CUDA_ARTIFACT_DIR)/$*.cu
 	$(NVCC) --compiler-bindir=$(CUDA_HOST_CXX) --cubin --gpu-architecture=$(CUDA_TARGET) -O2 -w $(CUDA_ARTIFACT_DIR)/$*.cu -o $@

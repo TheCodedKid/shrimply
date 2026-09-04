@@ -47,6 +47,7 @@ impl GpuModifier for Resolved {
             amount: self.amount,
             palette: palette_ptr,
             palette_len,
+            _padding_0: [0; 4],
         };
         unsafe {
             shrimply_cuda::cuda_launch! {

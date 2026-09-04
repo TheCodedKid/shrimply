@@ -46,6 +46,7 @@ impl GpuModifier for Resolved {
                     width,
                     height,
                     source_transform: self.source_transform,
+                    _padding_0: [0; 4],
                 }, slice_mut(pass.output_buffer())]
             }
         }
