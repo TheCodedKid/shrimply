@@ -4,8 +4,7 @@ pub fn register_bundled() {
     let Some(display) = gtk::gdk::Display::default() else {
         return;
     };
-    gtk::IconTheme::for_display(&display)
-        .add_search_path(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../assets/icons"));
+    gtk::IconTheme::for_display(&display).add_search_path(bundled_icons_dir());
 }
 
 fn bundled_icons_dir() -> PathBuf {
