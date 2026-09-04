@@ -2,7 +2,7 @@ use std::ffi::{c_char, c_int, c_void};
 use std::ptr::{self, NonNull};
 use std::sync::Arc;
 
-use cuda_core::{CudaContext, CudaStream};
+use shrimply_cuda::{CudaContext, CudaStream};
 
 const ERROR_CAPACITY: usize = 1024;
 

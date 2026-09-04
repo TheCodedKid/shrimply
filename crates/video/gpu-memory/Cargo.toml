@@ -5,7 +5,7 @@ edition = "2024"
 build = "build.rs"
 
 [dependencies]
-cuda-core.workspace = true
+shrimply-cuda.workspace = true
 hashbrown.workspace = true
 libc.workspace = true
 shrimply-benchmarking = { path = "../../benchmarking" }

@@ -4,9 +4,9 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
 
-use cuda_core::sys as cuda_sys;
 use ffmpeg::sys;
 use ffmpeg_next as ffmpeg;
+use shrimply_cuda::sys as cuda_sys;
 use shrimply_math_core::{Fraction, fraction_ratio_i128};
 use shrimply_project::project::Time;
 use shrimply_visual_frame::{GPU_FRAME_ALLOCATION_EXHAUSTED, VisualFrame, ffmpeg_cuda_context};

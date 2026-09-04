@@ -2,13 +2,10 @@ use super::RasterModifierRuntime;
 use crate::gpu::modifiers::{CanvasRgbaFrame, GpuModifier, ModifierContext};
 use crate::layer::RasterVisual;
 use crate::visual_source::VisualModifierContext;
-use cuda_core::LaunchConfig;
-use cuda_device::{DisjointSlice, kernel};
+use shrimply_cuda::LaunchConfig;
 use shrimply_evaluation::{resolve_scalar, resolve_vec2};
 use shrimply_render_core::BulgePinchParams;
 use shrimply_video_modifiers::bulge_pinch::BulgePinchModifier;
-#[kernel]
-fn bulge_pinch(_: *const u32, _: u32, _: u32, _: DisjointSlice<u32>, _: BulgePinchParams) {}
 struct Resolved {
     center: glam::Vec2,
     radius: f32,
@@ -34,7 +31,7 @@ impl GpuModifier for Resolved {
             strength: self.strength,
         };
         unsafe {
-            cuda_host::cuda_launch! {
+            shrimply_cuda::cuda_launch! {
                 kernel: bulge_pinch,
                 stream: c.stream(),
                 module: &m,

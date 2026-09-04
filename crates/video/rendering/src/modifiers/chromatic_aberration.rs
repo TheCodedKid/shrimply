@@ -2,20 +2,10 @@ use super::RasterModifierRuntime;
 use crate::gpu::modifiers::{CanvasRgbaFrame, GpuModifier, ModifierContext};
 use crate::layer::RasterVisual;
 use crate::visual_source::VisualModifierContext;
-use cuda_core::LaunchConfig;
-use cuda_device::{DisjointSlice, kernel};
+use shrimply_cuda::LaunchConfig;
 use shrimply_evaluation::resolve_scalar;
 use shrimply_render_core::ChromaticAberrationParams;
 use shrimply_video_modifiers::chromatic_aberration::ChromaticAberrationModifier;
-#[kernel]
-fn chromatic_aberration(
-    _: *const u32,
-    _: u32,
-    _: u32,
-    _: DisjointSlice<u32>,
-    _: ChromaticAberrationParams,
-) {
-}
 struct Resolved([f32; 4]);
 impl GpuModifier for Resolved {
     fn name(&self) -> &'static str {
@@ -32,7 +22,7 @@ impl GpuModifier for Resolved {
         let m = c.modifier_module(crate::gpu::modifiers::ModifierModule::General)?;
         let params = ChromaticAberrationParams { offsets: self.0 };
         unsafe {
-            cuda_host::cuda_launch! {
+            shrimply_cuda::cuda_launch! {
                 kernel: chromatic_aberration,
                 stream: c.stream(),
                 module: &m,

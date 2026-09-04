@@ -26,7 +26,7 @@ pub struct Color<T = f32> {
 }
 
 #[cfg(feature = "cuda")]
-unsafe impl<T: cuda_core::DeviceCopy> cuda_core::DeviceCopy for Color<T> {}
+unsafe impl<T: shrimply_cuda::DeviceCopy> shrimply_cuda::DeviceCopy for Color<T> {}
 
 pub trait ColorChannel: Copy + ConstZero {
     const OPAQUE: Self;

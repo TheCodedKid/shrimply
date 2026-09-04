@@ -1,5 +1,4 @@
-use cuda_core::LaunchConfig;
-use cuda_device::{DisjointSlice, kernel};
+use shrimply_cuda::LaunchConfig;
 use shrimply_render_core::{
     DitheringColorMode as GpuDitheringColorMode, DitheringParams,
     DitheringPattern as GpuDitheringPattern,
@@ -13,9 +12,6 @@ use shrimply_evaluation::{resolve_color, resolve_scalar};
 use shrimply_video_modifiers::dithering::{
     DitheringColorMode, DitheringModifier, DitheringPattern,
 };
-
-#[kernel]
-fn dithering(_: *const u32, _: u32, _: DisjointSlice<u32>, _: DitheringParams) {}
 
 struct Resolved {
     pattern: GpuDitheringPattern,
@@ -53,7 +49,7 @@ impl GpuModifier for Resolved {
             palette_len,
         };
         unsafe {
-            cuda_host::cuda_launch! {
+            shrimply_cuda::cuda_launch! {
                 kernel: dithering,
                 stream: context.stream(),
                 module: &module,

@@ -4,7 +4,7 @@ use std::{
 };
 
 use cached::{Cached, UnboundCache};
-use cuda_core::{CudaContext, CudaStream, DeviceCopy, memory};
+use shrimply_cuda::{CudaContext, CudaStream, DeviceCopy, memory};
 use shrimply_gpu_memory::GpuBuffer as DeviceBuffer;
 
 use super::{CompositedVideoFrame, VisualFrame};
@@ -139,7 +139,7 @@ impl ModifierContext<'_> {
     pub(crate) fn modifier_module(
         &mut self,
         kind: ModifierModule,
-    ) -> Result<Arc<cuda_core::CudaModule>, String> {
+    ) -> Result<Arc<shrimply_cuda::CudaModule>, String> {
         let module = self.modules.slot(kind);
         if module.is_none() {
             let started = std::time::Instant::now();
@@ -293,10 +293,10 @@ impl ModifierContext<'_> {
         let proxy: DeviceBuffer<u32> = self.allocate(pixels, "SAM2 proxy frame")?;
         let module = self.modifier_module(ModifierModule::Matte)?;
         unsafe {
-            cuda_host::cuda_launch! {
+            shrimply_cuda::cuda_launch! {
                 kernel: crate::modifiers::sam2::sam2_proxy,
                 stream: self.stream, module: &module,
-                config: cuda_core::LaunchConfig::for_num_elems(crate::modifiers::sam2::MODEL_SIZE.pow(2)),
+                config: shrimply_cuda::LaunchConfig::for_num_elems(crate::modifiers::sam2::MODEL_SIZE.pow(2)),
                 args: [input.device_ptr(), proxy.cu_deviceptr() as usize as *mut u32, shrimply_render_core::Sam2ProxyParams {
                     input_width: input.width(),
                     input_height: input.height(),
@@ -375,15 +375,15 @@ pub(crate) struct ModifierWorkspace {
 
 #[derive(Default)]
 struct ModifierModules {
-    general: Option<Arc<cuda_core::CudaModule>>,
-    blur: Option<Arc<cuda_core::CudaModule>>,
-    geometry: Option<Arc<cuda_core::CudaModule>>,
-    matte: Option<Arc<cuda_core::CudaModule>>,
-    stabilization: Option<Arc<cuda_core::CudaModule>>,
+    general: Option<Arc<shrimply_cuda::CudaModule>>,
+    blur: Option<Arc<shrimply_cuda::CudaModule>>,
+    geometry: Option<Arc<shrimply_cuda::CudaModule>>,
+    matte: Option<Arc<shrimply_cuda::CudaModule>>,
+    stabilization: Option<Arc<shrimply_cuda::CudaModule>>,
 }
 
 impl ModifierModules {
-    fn slot(&mut self, kind: ModifierModule) -> &mut Option<Arc<cuda_core::CudaModule>> {
+    fn slot(&mut self, kind: ModifierModule) -> &mut Option<Arc<shrimply_cuda::CudaModule>> {
         match kind {
             ModifierModule::General => &mut self.general,
             ModifierModule::Blur => &mut self.blur,
@@ -399,23 +399,23 @@ impl ModifierModule {
         match self {
             Self::General => include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/../../../.oxide-artifacts/cuda/sm_86/modifiers.cubin"
+                "/../../../.slang-artifacts/cuda/sm_86/modifiers.cubin"
             )),
             Self::Blur => include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/../../../.oxide-artifacts/cuda/sm_86/modifiers-blur.cubin"
+                "/../../../.slang-artifacts/cuda/sm_86/modifiers_blur.cubin"
             )),
             Self::Geometry => include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/../../../.oxide-artifacts/cuda/sm_86/modifiers-geometry.cubin"
+                "/../../../.slang-artifacts/cuda/sm_86/modifiers_geometry.cubin"
             )),
             Self::Matte => include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/../../../.oxide-artifacts/cuda/sm_86/modifiers-matte.cubin"
+                "/../../../.slang-artifacts/cuda/sm_86/modifiers_matte.cubin"
             )),
             Self::Stabilization => include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/../../../.oxide-artifacts/cuda/sm_86/stabilization.cubin"
+                "/../../../.slang-artifacts/cuda/sm_86/stabilization.cubin"
             )),
         }
     }

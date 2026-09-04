@@ -2,25 +2,9 @@ use super::RasterModifierRuntime;
 use crate::gpu::modifiers::{CanvasRgbaFrame, GpuModifier, ModifierContext};
 use crate::layer::RasterVisual;
 use crate::visual_source::VisualModifierContext;
-use cuda_core::LaunchConfig;
-use cuda_device::{DisjointSlice, kernel};
+use shrimply_cuda::LaunchConfig;
 use shrimply_evaluation::{resolve_color, resolve_scalar};
 use shrimply_video_modifiers::alpha_outline::AlphaOutlineModifier;
-
-#[kernel]
-fn alpha_outline_horizontal(_: *const u32, _: u32, _: DisjointSlice<f32>, _: u32) {}
-
-#[kernel]
-fn alpha_outline_vertical(
-    _: *const u32,
-    _: *const f32,
-    _: u32,
-    _: u32,
-    _: DisjointSlice<u32>,
-    _: u32,
-    _: u32,
-) {
-}
 
 struct Resolved {
     radius: u32,
@@ -44,7 +28,7 @@ impl GpuModifier for Resolved {
         let mut alpha = c.take_typed_scratch::<f32>(count)?;
         let module = c.modifier_module(crate::gpu::modifiers::ModifierModule::General)?;
         unsafe {
-            cuda_host::cuda_launch! {
+            shrimply_cuda::cuda_launch! {
                 kernel: alpha_outline_horizontal,
                 stream: c.stream(), module: &module, config: launch,
                 args: [pass.input_ptr(), width, slice_mut(&mut alpha), self.radius]
@@ -53,7 +37,7 @@ impl GpuModifier for Resolved {
         .map_err(|error| format!("launch horizontal CUDA kernel: {error:?}"))?;
         let alpha_ptr = alpha.cu_deviceptr() as usize as *const f32;
         unsafe {
-            cuda_host::cuda_launch! {
+            shrimply_cuda::cuda_launch! {
                 kernel: alpha_outline_vertical,
                 stream: c.stream(), module: &module, config: launch,
                 args: [

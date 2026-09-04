@@ -2,13 +2,10 @@ use super::RasterModifierRuntime;
 use crate::gpu::modifiers::{CanvasRgbaFrame, GpuModifier, ModifierContext};
 use crate::layer::RasterVisual;
 use crate::visual_source::VisualModifierContext;
-use cuda_core::LaunchConfig;
-use cuda_device::{DisjointSlice, kernel};
+use shrimply_cuda::LaunchConfig;
 use shrimply_evaluation::resolve_scalar;
 use shrimply_render_core::ScanlinesCrtParams;
 use shrimply_video_modifiers::scanlines_crt::ScanlinesCrtModifier;
-#[kernel]
-fn scanlines_crt(_: *const u32, _: u32, _: u32, _: DisjointSlice<u32>, _: ScanlinesCrtParams) {}
 struct Resolved {
     spacing: f32,
     intensity: f32,
@@ -35,7 +32,7 @@ impl GpuModifier for Resolved {
             mask: self.mask,
         };
         unsafe {
-            cuda_host::cuda_launch! {
+            shrimply_cuda::cuda_launch! {
                 kernel: scanlines_crt,
                 stream: c.stream(),
                 module: &m,

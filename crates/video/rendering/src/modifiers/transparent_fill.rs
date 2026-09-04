@@ -9,7 +9,6 @@ use std::{
 };
 
 use cached::{Cached, stores::LruCache};
-use cuda_device::{DisjointSlice, kernel};
 use rusqlite::{Connection, OptionalExtension, params};
 use shrimply_project::project::{
     ItemAddress, Project, Time, TrackMut, VideoItem, VideoItemContent, VisualTrack,
@@ -28,15 +27,6 @@ use crate::{
 const CACHE_DATABASE: &str = "cache/transparent-fill-masks.sqlite";
 const CACHE_VERSION: i64 = 3;
 const MEMORY_FRAMES: usize = 64;
-
-#[kernel]
-fn transparent_fill_apply_mask(
-    _: *const u32,
-    _: *const u8,
-    _: DisjointSlice<u32>,
-    _: shrimply_render_core::TransparentFillMaskParams,
-) {
-}
 
 struct CacheStore {
     memory: LruCache<(String, i64), Arc<[u8]>>,
@@ -722,10 +712,10 @@ impl GpuModifier for Resolved {
         let mut pass = input.into_pass(context)?;
         let module = context.modifier_module(ModifierModule::Matte)?;
         unsafe {
-            cuda_host::cuda_launch! {
+            shrimply_cuda::cuda_launch! {
                 kernel: transparent_fill_apply_mask,
                 stream: context.stream(), module: &module,
-                config: cuda_core::LaunchConfig::for_num_elems(u32::try_from(count).map_err(|_| "canvas is too large")?),
+                config: shrimply_cuda::LaunchConfig::for_num_elems(u32::try_from(count).map_err(|_| "canvas is too large")?),
                 args: [pass.input_ptr(), mask, slice_mut(pass.output_buffer()), shrimply_render_core::TransparentFillMaskParams {
                     width,
                     height,
@@ -772,10 +762,10 @@ mod tests {
         time::{Duration, Instant},
     };
 
-    use cuda_core::CudaContext;
     use glam::Vec2;
     use shrimply_asset::Asset;
     use shrimply_core::timeline_value::TimelineValue;
+    use shrimply_cuda::CudaContext;
     use shrimply_gpu_memory::AllocationClass;
     use shrimply_math_core::{Time, fraction_new};
     use shrimply_project::project::{
@@ -1003,11 +993,11 @@ mod tests {
             )
             .expect("allocate CUDA mask output");
         unsafe {
-            cuda_host::cuda_launch! {
+            shrimply_cuda::cuda_launch! {
                 kernel: transparent_fill_apply_mask,
                 stream: &stream,
                 module: &module,
-                config: cuda_core::LaunchConfig::for_num_elems(pixels as u32),
+                config: shrimply_cuda::LaunchConfig::for_num_elems(pixels as u32),
                 args: [
                     input.cu_deviceptr() as usize as *const u32,
                     device_mask.cu_deviceptr() as usize as *const u8,

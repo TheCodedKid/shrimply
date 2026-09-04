@@ -2,12 +2,9 @@ use super::RasterModifierRuntime;
 use crate::gpu::modifiers::{CanvasRgbaFrame, GpuModifier, ModifierContext};
 use crate::layer::RasterVisual;
 use crate::visual_source::VisualModifierContext;
-use cuda_core::LaunchConfig;
-use cuda_device::{DisjointSlice, kernel};
+use shrimply_cuda::LaunchConfig;
 use shrimply_evaluation::resolve_scalar;
 use shrimply_video_modifiers::invert::InvertModifier;
-#[kernel]
-fn invert(_: *const u32, _: DisjointSlice<u32>, _: f32) {}
 struct Resolved(f32);
 impl GpuModifier for Resolved {
     fn name(&self) -> &'static str {
@@ -22,7 +19,7 @@ impl GpuModifier for Resolved {
         let mut p = input.into_pass(c)?;
         let m = c.modifier_module(crate::gpu::modifiers::ModifierModule::General)?;
         unsafe {
-            cuda_host::cuda_launch! {
+            shrimply_cuda::cuda_launch! {
                 kernel: invert,
                 stream: c.stream(),
                 module: &m,

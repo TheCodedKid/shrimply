@@ -17,6 +17,11 @@ pub struct Artifacts {
     pub abi: Vec<u8>,
 }
 
+pub struct CudaReflection {
+    pub reflection: Vec<u8>,
+    pub abi: Vec<u8>,
+}
+
 pub struct Compiler {
     executable: PathBuf,
     reflector: PathBuf,
@@ -122,6 +127,62 @@ impl Compiler {
                 .unwrap_or_else(|error| panic!("read Slang ABI for {module}: {error}")),
         }
     }
+
+    pub fn reflect_cuda(
+        &self,
+        directory: &Path,
+        source: &Path,
+        output: &Path,
+        entry_point: &str,
+    ) -> CudaReflection {
+        let module = source
+            .file_stem()
+            .and_then(|name| name.to_str())
+            .expect("Slang module filename must be UTF-8");
+        let cuda = output.join(format!("{module}.cu"));
+        let reflection = output.join(format!("{module}.cuda-reflection.json"));
+        let abi = output.join(format!("{module}.cuda-abi"));
+        run(
+            Command::new(&self.executable)
+                .arg(source)
+                .arg("-I")
+                .arg(directory)
+                .arg("-I")
+                .arg(directory.join("modules"))
+                .args([
+                    "-target",
+                    "cuda",
+                    "-capability",
+                    "cuda_sm_8_0",
+                    "-stage",
+                    "compute",
+                    "-entry",
+                    entry_point,
+                    "-fp-mode",
+                    "precise",
+                    "-O2",
+                    "-reflection-json",
+                ])
+                .arg(&reflection)
+                .arg("-o")
+                .arg(&cuda),
+            &format!("reflect Slang CUDA module `{module}`"),
+        );
+        run(
+            Command::new(&self.reflector)
+                .arg(directory)
+                .arg(module)
+                .arg(&abi)
+                .arg("cuda"),
+            &format!("reflect Slang CUDA ABI declarations in module `{module}`"),
+        );
+        CudaReflection {
+            reflection: fs::read(&reflection)
+                .unwrap_or_else(|error| panic!("read Slang CUDA reflection for {module}: {error}")),
+            abi: fs::read(&abi)
+                .unwrap_or_else(|error| panic!("read Slang CUDA ABI for {module}: {error}")),
+        }
+    }
 }
 
 fn build_reflector(source: &Path, slang: &Path, build: &Path, output: &Path) {
@@ -197,6 +258,7 @@ fn configure(source: &Path, build: &Path) {
                 "-DSLANG_ENABLE_SLANGD=OFF",
                 "-DSLANG_ENABLE_SLANGI=OFF",
                 "-DSLANG_ENABLE_SLANGRT=OFF",
+                "-DSLANG_ENABLE_SPLIT_DEBUG_INFO=OFF",
                 "-DSLANG_ENABLE_SLANG_GLSLANG=ON",
                 "-DSLANG_ENABLE_REPLAYER=OFF",
                 "-DSLANG_SLANG_LLVM_FLAVOR=DISABLE",

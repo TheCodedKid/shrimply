@@ -1,5 +1,4 @@
-use cuda_core::LaunchConfig;
-use cuda_device::{DisjointSlice, kernel};
+use shrimply_cuda::LaunchConfig;
 use shrimply_render_core::ColorCorrectionParams;
 
 use super::RasterModifierRuntime;
@@ -8,9 +7,6 @@ use crate::layer::RasterVisual;
 use crate::visual_source::VisualModifierContext;
 use shrimply_evaluation::resolve_scalar;
 use shrimply_video_modifiers::color_correction::ColorCorrectionModifier;
-
-#[kernel]
-fn color_correction(_: *const u32, _: DisjointSlice<u32>, _: ColorCorrectionParams) {}
 
 struct Resolved(ColorCorrectionParams);
 
@@ -30,7 +26,7 @@ impl GpuModifier for Resolved {
         let mut pass = input.into_pass(context)?;
         let module = context.modifier_module(crate::gpu::modifiers::ModifierModule::General)?;
         unsafe {
-            cuda_host::cuda_launch! {
+            shrimply_cuda::cuda_launch! {
                 kernel: color_correction,
                 stream: context.stream(),
                 module: &module,

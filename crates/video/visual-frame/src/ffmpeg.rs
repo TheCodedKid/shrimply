@@ -2,8 +2,8 @@ use std::ffi::c_void;
 use std::ptr;
 use std::sync::OnceLock;
 
-use cuda_core::{CudaContext, sys as cuda_sys};
 use ffmpeg_next::sys;
+use shrimply_cuda::{CudaContext, sys as cuda_sys};
 
 use crate::{VisualFormat, VisualFrame};
 

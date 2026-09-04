@@ -7,7 +7,6 @@ use std::{
 };
 
 use cached::{Cached, stores::LruCache};
-use cuda_device::{DisjointSlice, kernel};
 use rusqlite::{Connection, OptionalExtension, params};
 use shrimply_project::project::{Project, Time, VideoItem};
 use shrimply_video_modifiers::sam2::Sam2Modifier;
@@ -28,18 +27,6 @@ const MASK_CACHE_DIRECTORY: &str = "cache";
 const MASK_CACHE_DATABASE: &str = "cache/sam2-masks.sqlite";
 const MASK_CACHE_VERSION: i64 = 5;
 const MASK_MEMORY_FRAMES: usize = 64;
-
-#[kernel]
-pub(crate) fn sam2_proxy(_: *const u32, _: *mut u32, _: shrimply_render_core::Sam2ProxyParams) {}
-
-#[kernel]
-fn sam2_apply_mask(
-    _: *const u32,
-    _: *const i8,
-    _: DisjointSlice<u32>,
-    _: shrimply_render_core::Sam2MaskParams,
-) {
-}
 
 struct MaskCacheStore {
     memory: LruCache<(String, i64), Arc<[i8]>>,
@@ -300,10 +287,10 @@ impl GpuModifier for Resolved {
         let mut pass = input.into_pass(context)?;
         let module = context.modifier_module(ModifierModule::Matte)?;
         unsafe {
-            cuda_host::cuda_launch! {
+            shrimply_cuda::cuda_launch! {
                 kernel: sam2_apply_mask,
                 stream: context.stream(), module: &module,
-                config: cuda_core::LaunchConfig::for_num_elems(u32::try_from(count).map_err(|_| "canvas is too large")?),
+                config: shrimply_cuda::LaunchConfig::for_num_elems(u32::try_from(count).map_err(|_| "canvas is too large")?),
                 args: [pass.input_ptr(), mask, slice_mut(pass.output_buffer()), shrimply_render_core::Sam2MaskParams {
                     output_width: width,
                     output_height: height,

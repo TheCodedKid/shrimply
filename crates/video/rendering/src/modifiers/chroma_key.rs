@@ -1,5 +1,4 @@
-use cuda_core::LaunchConfig;
-use cuda_device::{DisjointSlice, kernel};
+use shrimply_cuda::LaunchConfig;
 
 use super::RasterModifierRuntime;
 use crate::gpu::modifiers::{CanvasRgbaFrame, GpuModifier, ModifierContext};
@@ -7,9 +6,6 @@ use crate::layer::RasterVisual;
 use crate::visual_source::VisualModifierContext;
 use shrimply_evaluation::{resolve_color, resolve_scalar};
 use shrimply_video_modifiers::chroma_key::ChromaKeyModifier;
-
-#[kernel]
-fn chroma_key(_: *const u32, _: DisjointSlice<u32>, _: shrimply_render_core::ChromaKeyParams) {}
 
 struct Resolved {
     key: shrimply_math_color::Color,
@@ -30,7 +26,7 @@ impl GpuModifier for Resolved {
         let mut pass = input.into_pass(context)?;
         let module = context.modifier_module(crate::gpu::modifiers::ModifierModule::Matte)?;
         unsafe {
-            cuda_host::cuda_launch! {
+            shrimply_cuda::cuda_launch! {
                 kernel: chroma_key,
                 stream: context.stream(), module: &module,
                 config: LaunchConfig::for_num_elems(u32::try_from(count).map_err(|_| "canvas is too large")?),

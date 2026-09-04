@@ -1,5 +1,4 @@
-use cuda_core::LaunchConfig;
-use cuda_device::{DisjointSlice, kernel};
+use shrimply_cuda::LaunchConfig;
 
 use super::RasterModifierRuntime;
 use crate::gpu::modifiers::{CanvasRgbaFrame, GpuModifier, ModifierContext};
@@ -7,18 +6,6 @@ use crate::layer::RasterVisual;
 use crate::visual_source::VisualModifierContext;
 use shrimply_evaluation::resolve_scalar;
 use shrimply_video_modifiers::erode_dilate::{ErodeDilateModifier, ErodeDilateOperation};
-
-#[kernel]
-fn erode_horizontal(_: *const u32, _: u32, _: DisjointSlice<f32>, _: u32) {}
-
-#[kernel]
-fn dilate_horizontal(_: *const u32, _: u32, _: DisjointSlice<f32>, _: u32) {}
-
-#[kernel]
-fn erode_vertical(_: *const u32, _: *const f32, _: u32, _: u32, _: DisjointSlice<u32>, _: u32) {}
-
-#[kernel]
-fn dilate_vertical(_: *const u32, _: *const f32, _: u32, _: u32, _: DisjointSlice<u32>, _: u32) {}
 
 struct Resolved {
     operation: ErodeDilateOperation,
@@ -46,7 +33,7 @@ impl GpuModifier for Resolved {
 
         match self.operation {
             ErodeDilateOperation::Erode => unsafe {
-                cuda_host::cuda_launch! {
+                shrimply_cuda::cuda_launch! {
                     kernel: erode_horizontal,
                     stream: context.stream(),
                     module: &module,
@@ -60,7 +47,7 @@ impl GpuModifier for Resolved {
                 }
             },
             ErodeDilateOperation::Dilate => unsafe {
-                cuda_host::cuda_launch! {
+                shrimply_cuda::cuda_launch! {
                     kernel: dilate_horizontal,
                     stream: context.stream(),
                     module: &module,
@@ -79,7 +66,7 @@ impl GpuModifier for Resolved {
         let horizontal = scratch.cu_deviceptr() as usize as *const f32;
         match self.operation {
             ErodeDilateOperation::Erode => unsafe {
-                cuda_host::cuda_launch! {
+                shrimply_cuda::cuda_launch! {
                     kernel: erode_vertical,
                     stream: context.stream(),
                     module: &module,
@@ -95,7 +82,7 @@ impl GpuModifier for Resolved {
                 }
             },
             ErodeDilateOperation::Dilate => unsafe {
-                cuda_host::cuda_launch! {
+                shrimply_cuda::cuda_launch! {
                     kernel: dilate_vertical,
                     stream: context.stream(),
                     module: &module,

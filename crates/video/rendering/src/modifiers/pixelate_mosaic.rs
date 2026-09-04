@@ -2,12 +2,9 @@ use super::RasterModifierRuntime;
 use crate::gpu::modifiers::{CanvasRgbaFrame, GpuModifier, ModifierContext};
 use crate::layer::RasterVisual;
 use crate::visual_source::VisualModifierContext;
-use cuda_core::LaunchConfig;
-use cuda_device::{DisjointSlice, kernel};
+use shrimply_cuda::LaunchConfig;
 use shrimply_evaluation::resolve_scalar;
 use shrimply_video_modifiers::pixelate_mosaic::PixelateMosaicModifier;
-#[kernel]
-fn pixelate_mosaic(_: *const u32, _: u32, _: u32, _: DisjointSlice<u32>, _: u32, _: u32) {}
 struct Resolved {
     block_width: u32,
     block_height: u32,
@@ -27,7 +24,7 @@ impl GpuModifier for Resolved {
         let mut pass = input.into_pass(c)?;
         let module = c.modifier_module(crate::gpu::modifiers::ModifierModule::Geometry)?;
         unsafe {
-            cuda_host::cuda_launch! {
+            shrimply_cuda::cuda_launch! {
                 kernel: pixelate_mosaic,
                 stream: c.stream(),
                 module: &module,

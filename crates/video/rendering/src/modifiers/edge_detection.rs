@@ -2,13 +2,10 @@ use super::RasterModifierRuntime;
 use crate::gpu::modifiers::{CanvasRgbaFrame, GpuModifier, ModifierContext};
 use crate::layer::RasterVisual;
 use crate::visual_source::VisualModifierContext;
-use cuda_core::LaunchConfig;
-use cuda_device::{DisjointSlice, kernel};
+use shrimply_cuda::LaunchConfig;
 use shrimply_evaluation::{resolve_color, resolve_scalar};
 use shrimply_render_core::EdgeDetectionParams;
 use shrimply_video_modifiers::edge_detection::EdgeDetectionModifier;
-#[kernel]
-fn edge_detection(_: *const u32, _: u32, _: u32, _: DisjointSlice<u32>, _: EdgeDetectionParams) {}
 struct Resolved(EdgeDetectionParams);
 impl GpuModifier for Resolved {
     fn name(&self) -> &'static str {
@@ -24,7 +21,7 @@ impl GpuModifier for Resolved {
         let mut p = input.into_pass(c)?;
         let m = c.modifier_module(crate::gpu::modifiers::ModifierModule::General)?;
         unsafe {
-            cuda_host::cuda_launch! {
+            shrimply_cuda::cuda_launch! {
                 kernel: edge_detection,
                 stream: c.stream(),
                 module: &m,

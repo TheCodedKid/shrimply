@@ -1,8 +1,7 @@
 use std::sync::Arc;
 
-use cuda_core::{CudaContext, CudaModule, CudaStream, DeviceBuffer, DriverError, LaunchConfig};
-use cuda_device::{DisjointSlice, kernel};
-use cuda_host::cuda_launch;
+use shrimply_cuda::cuda_launch;
+use shrimply_cuda::{CudaContext, CudaModule, CudaStream, DeviceBuffer, DriverError, LaunchConfig};
 use shrimply_math_color::Color;
 use shrimply_project::project;
 use shrimply_render_core::LayerCompositeParams;
@@ -11,30 +10,15 @@ pub(crate) use shrimply_render_core::{LayerKind, Nv12LayerParams};
 
 const PREVIEW_CUBIN: &[u8] = include_bytes!(concat!(
     env!("CARGO_MANIFEST_DIR"),
-    "/../../../.oxide-artifacts/cuda/sm_86/preview.cubin"
+    "/../../../.slang-artifacts/cuda/sm_86/preview.cubin"
 ));
 const EXPORT_CUBIN: &[u8] = include_bytes!(concat!(
     env!("CARGO_MANIFEST_DIR"),
-    "/../../../.oxide-artifacts/cuda/sm_86/export.cubin"
+    "/../../../.slang-artifacts/cuda/sm_86/export.cubin"
 ));
 
 pub(crate) struct PreviewModule(Arc<CudaModule>);
 pub(crate) struct ExportModule(Arc<CudaModule>);
-
-#[kernel]
-fn composite_nv12_layers(_: &[Nv12LayerParams], _: &[glam::Mat3], _: DisjointSlice<u32>, _: u32) {}
-#[kernel]
-fn composite_layered_image_layer(_: LayerCompositeParams, _: DisjointSlice<u32>) {}
-#[kernel]
-fn tone_map_hdr(_: *const Color, _: *const Color, _: DisjointSlice<u32>, _: f32) {}
-#[kernel]
-fn rgba_to_nv12_luma(_: *const u32, _: u32, _: u32, _: *mut u8, _: usize) {}
-#[kernel]
-fn rgba_to_nv12_chroma(_: *const u32, _: u32, _: u32, _: *mut u8, _: usize) {}
-#[kernel]
-fn rgba_to_p010_luma(_: *const u32, _: u32, _: u32, _: *mut u16, _: usize) {}
-#[kernel]
-fn rgba_to_p010_chroma(_: *const u32, _: u32, _: u32, _: *mut u16, _: usize) {}
 
 pub(crate) fn load_preview(context: &Arc<CudaContext>) -> Result<PreviewModule, DriverError> {
     context
@@ -55,7 +39,7 @@ impl PreviewModule {
         config: LaunchConfig,
         input: *const Color,
         background: *const Color,
-        mut output: &mut DeviceBuffer<u32>,
+        output: &mut DeviceBuffer<u32>,
         toon_color_levels: f32,
     ) -> Result<(), DriverError> {
         unsafe {
@@ -75,7 +59,7 @@ impl PreviewModule {
         config: LaunchConfig,
         layers: &DeviceBuffer<Nv12LayerParams>,
         motion_transforms: &DeviceBuffer<glam::Mat3>,
-        mut output: &mut DeviceBuffer<u32>,
+        output: &mut DeviceBuffer<u32>,
         background: u32,
     ) -> Result<(), DriverError> {
         unsafe {
@@ -94,7 +78,7 @@ impl PreviewModule {
         stream: &Arc<CudaStream>,
         config: LaunchConfig,
         params: LayerCompositeParams,
-        mut output: &mut DeviceBuffer<u32>,
+        output: &mut DeviceBuffer<u32>,
     ) -> Result<(), DriverError> {
         unsafe {
             cuda_launch! {

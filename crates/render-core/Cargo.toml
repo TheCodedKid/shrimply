@@ -2,6 +2,7 @@
 name = "shrimply-render-core"
 version = "0.1.0"
 edition = "2024"
+build = "build.rs"
 
 [dependencies]
 autodiff.workspace = true
@@ -11,3 +12,8 @@ num-traits.workspace = true
 serde = { workspace = true, features = ["derive"] }
 shrimply-math-color = { path = "../math/color" }
 shrimply-math-geometry = { path = "../math/geometry" }
+shrimply-cuda.workspace = true
+
+[build-dependencies]
+serde_json.workspace = true
+shrimply-slang-build = { path = "../slang-build" }

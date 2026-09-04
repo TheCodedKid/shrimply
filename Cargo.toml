@@ -1,6 +1,7 @@
 [workspace]
 resolver = "3"
 members = [
+    "crates/cuda/bridge",
     "crates/apps/editor-qt-ui",
     "crates/apps/editor-ui",
     "crates/apps/launcher-ui",
@@ -112,7 +113,7 @@ members = [
     "crates/3d/transform-3d",
 ]
 default-members = ["crates/apps/editor-ui", "crates/apps/launcher-ui"]
-exclude = ["external/cuda-oxide", "external/vtracer"]
+exclude = ["external/vtracer"]
 
 [workspace.dependencies]
 adw = { package = "libadwaita", version = "0.9", features = ["v1_9"] }
@@ -129,9 +130,7 @@ cxx = "1"
 cxx-qt = "0.9.1"
 cxx-qt-build = "0.9.1"
 cxx-qt-lib = "0.9.1"
-cuda-core = { path = "external/cuda-oxide/crates/cuda-core" }
-cuda-device = { path = "external/cuda-oxide/crates/cuda-device" }
-cuda-host = { path = "external/cuda-oxide/crates/cuda-host" }
+shrimply-cuda = { path = "crates/cuda/bridge" }
 cc = "1"
 deep_filter = { path = "vendor/deepfilternet/libDF" }
 easyfft = "0.4"

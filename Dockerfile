@@ -33,21 +33,14 @@ COPY . .
 RUN rustup show
 
 # Git submodules might be missing or outdated before the build. Happened on Arch, not sure if it happens on Fedora
-RUN test -e external/cuda-oxide/crates/cargo-oxide/Cargo.toml || { \
+RUN test -e external/slang/CMakeLists.txt || { \
         echo "Git submodules are missing from the build context." >&2; \
         echo "Run 'git submodule update --init --recursive' before 'docker build'." >&2; \
         exit 1; \
     }
 
-# This is something that happens on fresh installs of CUDA-Oxide due to cargo trying to build it from Shrimply's workspace (where there is no library target)
-# We build directly againts the submodule that is pinned with the nightly version
-RUN rustup run nightly-2026-04-03 cargo install --path external/cuda-oxide/crates/cargo-oxide --locked
-RUN cd external/cuda-oxide/crates/rustc-codegen-cuda && \
-    SYSROOT="$(rustup run nightly-2026-04-03 rustc --print sysroot)" && \
-    LIBRARY_PATH="$SYSROOT/lib" LD_LIBRARY_PATH="$SYSROOT/lib" \
-        rustup run nightly-2026-04-03 cargo build --lib --target host-tuple --target-dir target
-
-ENV CUDA_OXIDE_BACKEND=/src/external/cuda-oxide/crates/rustc-codegen-cuda/target/x86_64-unknown-linux-gnu/debug/librustc_codegen_cuda.so
+RUN cmake -S external/slang -B external/slang/build -G Ninja -DCMAKE_BUILD_TYPE=Release -DSLANG_ENABLE_SLANG_RHI=OFF && \
+    cmake --build external/slang/build --target slangc slang-glslang
 ENV CUDA_HOME=/usr/local/cuda
 ENV CUDA_TOOLKIT_PATH=/usr/local/cuda
 

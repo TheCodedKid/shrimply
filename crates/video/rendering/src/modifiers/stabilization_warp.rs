@@ -1,12 +1,8 @@
-use cuda_core::LaunchConfig;
-use cuda_device::{DisjointSlice, kernel};
+use shrimply_cuda::LaunchConfig;
 use shrimply_render_core::AffineStabilizationParams;
 
 use crate::gpu::modifiers::{CanvasRgbaFrame, GpuModifier, ModifierContext};
 use crate::layer::{PreservingRasterModifier, VisualState};
-
-#[kernel]
-fn affine_stabilization(_: AffineStabilizationParams, _: DisjointSlice<u32>) {}
 
 pub(super) struct Source {
     pub source_transform: glam::Mat3,
@@ -41,7 +37,7 @@ impl GpuModifier for Resolved {
         let module =
             context.modifier_module(crate::gpu::modifiers::ModifierModule::Stabilization)?;
         unsafe {
-            cuda_host::cuda_launch! {
+            shrimply_cuda::cuda_launch! {
                 kernel: affine_stabilization,
                 stream: context.stream(), module: &module,
                 config: LaunchConfig::for_num_elems(u32::try_from(pixel_count).map_err(|_| "canvas is too large")?),

@@ -1,6 +1,6 @@
 target/
 .qmlls.ini
-/.oxide-artifacts
+/.slang-artifacts
 /video-generation-cache
 
 # Python bytecode
@@ -27,15 +27,6 @@ __pycache__/
 *.o
 *.lock
 !/Cargo.lock
-!/crates/cuda/anime4k/Cargo.lock
-!/crates/cuda/export/Cargo.lock
-!/crates/cuda/link/Cargo.lock
-!/crates/cuda/modifiers/Cargo.lock
-!/crates/cuda/modifiers-blur/Cargo.lock
-!/crates/cuda/modifiers-geometry/Cargo.lock
-!/crates/cuda/modifiers-matte/Cargo.lock
-!/crates/cuda/preview/Cargo.lock
-!/crates/cuda/stabilization/Cargo.lock
 !/server/uv.lock
 !/docs/uv.lock
 /docs/build

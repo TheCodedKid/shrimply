@@ -2,13 +2,10 @@ use super::RasterModifierRuntime;
 use crate::gpu::modifiers::{CanvasRgbaFrame, GpuModifier, ModifierContext};
 use crate::layer::RasterVisual;
 use crate::visual_source::VisualModifierContext;
-use cuda_core::LaunchConfig;
-use cuda_device::{DisjointSlice, kernel};
+use shrimply_cuda::LaunchConfig;
 use shrimply_evaluation::resolve_scalar;
 use shrimply_render_core::WaveRippleParams;
 use shrimply_video_modifiers::wave_ripple::WaveRippleModifier;
-#[kernel]
-fn wave_ripple(_: *const u32, _: u32, _: u32, _: DisjointSlice<u32>, _: WaveRippleParams) {}
 struct Resolved {
     amplitude: f32,
     wavelength: f32,
@@ -36,7 +33,7 @@ impl GpuModifier for Resolved {
             phase: self.phase,
         };
         unsafe {
-            cuda_host::cuda_launch! {
+            shrimply_cuda::cuda_launch! {
                 kernel: wave_ripple,
                 stream: c.stream(),
                 module: &m,

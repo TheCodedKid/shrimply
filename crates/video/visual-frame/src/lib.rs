@@ -2,7 +2,7 @@ use std::any::Any;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use cuda_core::{CudaContext, CudaStream, sys};
+use shrimply_cuda::{CudaContext, CudaStream, sys};
 use shrimply_gpu_memory::AllocationClass;
 use shrimply_gpu_memory::GpuBuffer;
 pub use shrimply_gpu_memory::MemoryKind;

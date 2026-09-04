@@ -2,13 +2,10 @@ use super::RasterModifierRuntime;
 use crate::gpu::modifiers::{CanvasRgbaFrame, GpuModifier, ModifierContext};
 use crate::layer::RasterVisual;
 use crate::visual_source::VisualModifierContext;
-use cuda_core::LaunchConfig;
-use cuda_device::{DisjointSlice, kernel};
+use shrimply_cuda::LaunchConfig;
 use shrimply_evaluation::{resolve_scalar, resolve_vec2};
 use shrimply_render_core::TwirlParams;
 use shrimply_video_modifiers::twirl::TwirlModifier;
-#[kernel]
-fn twirl(_: *const u32, _: u32, _: u32, _: DisjointSlice<u32>, _: TwirlParams) {}
 struct Resolved {
     center: glam::Vec2,
     radius: f32,
@@ -34,7 +31,7 @@ impl GpuModifier for Resolved {
             angle: self.angle,
         };
         unsafe {
-            cuda_host::cuda_launch! {
+            shrimply_cuda::cuda_launch! {
                 kernel: twirl,
                 stream: c.stream(),
                 module: &m,

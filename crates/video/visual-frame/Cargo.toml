@@ -4,6 +4,6 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-cuda-core.workspace = true
+shrimply-cuda.workspace = true
 shrimply-gpu-memory = { path = "../gpu-memory" }
 ffmpeg-next.workspace = true

@@ -1,18 +1,11 @@
 use std::rc::Rc;
 
-use cuda_core::LaunchConfig;
-use cuda_device::{DisjointSlice, kernel};
+use shrimply_cuda::LaunchConfig;
 
 use crate::gpu::VisualFrame;
 use crate::gpu::modifiers::{CanvasRgbaFrame, GpuModifier, ModifierContext};
 use crate::layer::{PreservingRasterModifier, Visual, VisualState};
 use shrimply_render_core::{AlphaMaskParams, ShapeAlphaMaskKind, ShapeAlphaMaskParams};
-
-#[kernel]
-fn alpha_mask(_: *const u32, _: AlphaMaskParams, _: DisjointSlice<u32>) {}
-
-#[kernel]
-fn shape_alpha_mask(_: *const u32, _: ShapeAlphaMaskParams, _: DisjointSlice<u32>) {}
 
 #[derive(Clone)]
 pub(crate) struct ResolvedShapeAlphaMask {
@@ -89,7 +82,7 @@ impl GpuModifier for Resolved {
         let mut pass = input.into_pass(context)?;
         let module = context.modifier_module(crate::gpu::modifiers::ModifierModule::Matte)?;
         unsafe {
-            cuda_host::cuda_launch! {
+            shrimply_cuda::cuda_launch! {
                 kernel: alpha_mask,
                 stream: context.stream(),
                 module: &module,
@@ -155,7 +148,7 @@ impl GpuModifier for ResolvedShape {
         let mut pass = input.into_pass(context)?;
         let module = context.modifier_module(crate::gpu::modifiers::ModifierModule::Matte)?;
         unsafe {
-            cuda_host::cuda_launch! {
+            shrimply_cuda::cuda_launch! {
                 kernel: shape_alpha_mask,
                 stream: context.stream(),
                 module: &module,

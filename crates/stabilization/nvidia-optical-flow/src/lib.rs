@@ -1,7 +1,7 @@
 use std::ffi::{CStr, c_char, c_int, c_void};
 use std::ptr::NonNull;
 
-use cuda_core::{CudaContext, CudaStream, sys};
+use shrimply_cuda::{CudaContext, CudaStream, sys};
 
 const ERROR_CAPACITY: usize = 512;
 

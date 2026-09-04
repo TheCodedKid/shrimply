@@ -2,6 +2,7 @@ use crate::Color;
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "snake_case")]
+#[repr(u8)]
 pub enum LayerBlendMode {
     PassThrough,
     #[default]

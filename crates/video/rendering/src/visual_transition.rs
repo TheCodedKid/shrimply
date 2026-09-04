@@ -1,5 +1,4 @@
-use cuda_core::LaunchConfig;
-use cuda_device::{DisjointSlice, kernel};
+use shrimply_cuda::LaunchConfig;
 use shrimply_project::project::{
     VisualClipTransition, VisualClipTransitionKind, VisualTransition, VisualTransitionKind,
 };
@@ -7,38 +6,6 @@ use shrimply_render_core::VisualTransitionMaskKind;
 
 use crate::gpu::modifiers::{CanvasRgbaFrame, GpuModifier, ModifierContext};
 use crate::layer::Visual;
-
-#[kernel]
-fn visual_transition_mask(
-    _: *const u32,
-    _: u32,
-    _: u32,
-    _: DisjointSlice<u32>,
-    _: shrimply_render_core::VisualTransitionMaskParams,
-) {
-}
-
-#[kernel]
-fn transition_gaussian_blur_horizontal(_: *const u32, _: u32, _: DisjointSlice<u32>, _: u32) {}
-
-#[kernel]
-fn transition_gaussian_blur_vertical(_: *const u32, _: u32, _: u32, _: DisjointSlice<u32>, _: u32) {
-}
-
-#[kernel]
-fn transition_pixelate(_: *const u32, _: u32, _: u32, _: DisjointSlice<u32>, _: u32, _: u32) {}
-
-#[kernel]
-fn origami_transition(
-    _: *const u32,
-    _: u32,
-    _: u32,
-    _: DisjointSlice<u32>,
-    _: *const f32,
-    _: u32,
-    _: f32,
-) {
-}
 
 struct Mask {
     kind: VisualTransitionMaskKind,
@@ -72,7 +39,7 @@ impl GpuModifier for Mask {
         let mut pass = input.into_pass(context)?;
         let module = context.modifier_module(crate::gpu::modifiers::ModifierModule::Matte)?;
         unsafe {
-            cuda_host::cuda_launch! {
+            shrimply_cuda::cuda_launch! {
                 kernel: visual_transition_mask,
                 stream: context.stream(), module: &module,
                 config: LaunchConfig::for_num_elems(u32::try_from(count).map_err(|_| "canvas is too large")?),
@@ -121,7 +88,7 @@ impl GpuModifier for Blur {
         let mut scratch = context.take_scratch(count)?;
         let module = context.modifier_module(crate::gpu::modifiers::ModifierModule::Matte)?;
         unsafe {
-            cuda_host::cuda_launch! {
+            shrimply_cuda::cuda_launch! {
                 kernel: transition_gaussian_blur_horizontal,
                 stream: context.stream(), module: &module, config: launch,
                 args: [pass.input_ptr(), width, slice_mut(&mut scratch), self.radius]
@@ -130,7 +97,7 @@ impl GpuModifier for Blur {
         .map_err(|error| format!("launch transition horizontal blur CUDA kernel: {error:?}"))?;
         let scratch_ptr = scratch.cu_deviceptr() as usize as *const u32;
         unsafe {
-            cuda_host::cuda_launch! {
+            shrimply_cuda::cuda_launch! {
                 kernel: transition_gaussian_blur_vertical,
                 stream: context.stream(), module: &module, config: launch,
                 args: [scratch_ptr, width, height, slice_mut(pass.output_buffer()), self.radius]
@@ -162,7 +129,7 @@ impl GpuModifier for Pixelate {
         let mut pass = input.into_pass(context)?;
         let module = context.modifier_module(crate::gpu::modifiers::ModifierModule::Matte)?;
         unsafe {
-            cuda_host::cuda_launch! {
+            shrimply_cuda::cuda_launch! {
                 kernel: transition_pixelate,
                 stream: context.stream(), module: &module,
                 config: LaunchConfig::for_num_elems(u32::try_from(count).map_err(|_| "canvas is too large")?),
@@ -214,7 +181,7 @@ impl GpuModifier for Origami {
         let mut pass = input.into_pass(context)?;
         let module = context.modifier_module(crate::gpu::modifiers::ModifierModule::Matte)?;
         unsafe {
-            cuda_host::cuda_launch! {
+            shrimply_cuda::cuda_launch! {
                 kernel: origami_transition,
                 stream: context.stream(), module: &module,
                 config: LaunchConfig::for_num_elems(u32::try_from(count).map_err(|_| "canvas is too large")?),

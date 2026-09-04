@@ -1,4 +1,4 @@
-use cuda_core::sys;
+use shrimply_cuda::sys;
 use shrimply_gpu_memory::GpuBuffer as DeviceBuffer;
 
 #[derive(Clone, Copy, Eq, PartialEq)]

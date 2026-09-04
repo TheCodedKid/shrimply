@@ -3,8 +3,7 @@ RUST_TOOLCHAIN ?= nightly-2026-04-03
 CARGO := $(RUSTUP) run $(RUST_TOOLCHAIN) cargo
 CUDA_HOME ?= /usr/local/cuda
 CUDA_TOOLKIT_PATH ?= $(CUDA_HOME)
-CUDA_OXIDE_TARGET ?= sm_86
-CUDA_OXIDE_DEBUG ?= off
+CUDA_TARGET ?= sm_86
 SOURCE_LINE_LIMIT ?= 2000
 SLANG_SOURCE_DIR ?= $(CURDIR)/external/slang
 SLANG_BUILD_DIR ?= $(SLANG_SOURCE_DIR)/build
@@ -18,30 +17,29 @@ BUILD_ENV := CUDA_HOME=$(CUDA_HOME) CUDA_TOOLKIT_PATH=$(CUDA_TOOLKIT_PATH) PATH=
 RUST_LIBDIR := $(shell $(RUSTUP) run $(RUST_TOOLCHAIN) rustc --print target-libdir)
 DEV_RUSTFLAGS ?= -C prefer-dynamic -C link-arg=-fuse-ld=lld -C link-arg=-Wl,-rpath,$(RUST_LIBDIR)
 DEV_BUILD_ENV := $(BUILD_ENV) RUSTFLAGS="$(DEV_RUSTFLAGS)"
-OXIDE_ENV := $(BUILD_ENV) CUDA_OXIDE_TARGET=$(CUDA_OXIDE_TARGET) CUDA_OXIDE_DEBUG=$(CUDA_OXIDE_DEBUG)
-CUDA_ARTIFACT_DIR := $(CURDIR)/.oxide-artifacts/cuda/$(CUDA_OXIDE_TARGET)
-CUDA_BUILD_TARGET := $(CURDIR)/target/cuda-oxide
+SLANGC := $(SLANG_BUILD_DIR)/Release/bin/slangc
+NVCC := $(CUDA_HOME)/bin/nvcc
+CUDA_HOST_CXX ?= g++-15
+CUDA_ARTIFACT_DIR := $(CURDIR)/.slang-artifacts/cuda/$(CUDA_TARGET)
 PREVIEW_CUBIN := $(CUDA_ARTIFACT_DIR)/preview.cubin
 ANIME4K_CUBIN := $(CUDA_ARTIFACT_DIR)/anime4k.cubin
 MODIFIERS_CUBIN := $(CUDA_ARTIFACT_DIR)/modifiers.cubin
-MODIFIERS_BLUR_CUBIN := $(CUDA_ARTIFACT_DIR)/modifiers-blur.cubin
-MODIFIERS_GEOMETRY_CUBIN := $(CUDA_ARTIFACT_DIR)/modifiers-geometry.cubin
-MODIFIERS_MATTE_CUBIN := $(CUDA_ARTIFACT_DIR)/modifiers-matte.cubin
+MODIFIERS_BLUR_CUBIN := $(CUDA_ARTIFACT_DIR)/modifiers_blur.cubin
+MODIFIERS_GEOMETRY_CUBIN := $(CUDA_ARTIFACT_DIR)/modifiers_geometry.cubin
+MODIFIERS_MATTE_CUBIN := $(CUDA_ARTIFACT_DIR)/modifiers_matte.cubin
 STABILIZATION_CUBIN := $(CUDA_ARTIFACT_DIR)/stabilization.cubin
 EXPORT_CUBIN := $(CUDA_ARTIFACT_DIR)/export.cubin
 CUDA_CUBINS := $(PREVIEW_CUBIN) $(ANIME4K_CUBIN) $(MODIFIERS_CUBIN) $(MODIFIERS_BLUR_CUBIN) $(MODIFIERS_GEOMETRY_CUBIN) $(MODIFIERS_MATTE_CUBIN) $(STABILIZATION_CUBIN) $(EXPORT_CUBIN)
-CUDA_COLOR_SOURCES := crates/math/color/src/lib.rs crates/math/color/src/adw.rs crates/math/color/src/blend.rs crates/math/color/Cargo.toml
-CUDA_GEOMETRY_SOURCES := $(filter-out crates/math/geometry/src/skia.rs,$(shell find crates/math/geometry/src -type f)) crates/math/geometry/Cargo.toml
-CUDA_SHARED_SOURCES := $(shell find crates/render-core/src -type f) crates/render-core/Cargo.toml $(CUDA_COLOR_SOURCES) $(CUDA_GEOMETRY_SOURCES)
-CUDA_PREVIEW_SOURCES := $(shell find crates/cuda/preview/src -type f) crates/cuda/preview/Cargo.toml crates/cuda/preview/Cargo.lock
-CUDA_ANIME4K_SOURCES := $(shell find crates/cuda/anime4k/src -type f) crates/video/anime4k/src/types.rs crates/cuda/anime4k/Cargo.toml crates/cuda/anime4k/Cargo.lock $(CUDA_COLOR_SOURCES)
-CUDA_MODIFIER_SOURCES := $(shell find crates/cuda/modifiers/src -type f) crates/cuda/modifiers/Cargo.toml crates/cuda/modifiers/Cargo.lock
-CUDA_MODIFIER_BLUR_SOURCES := $(shell find crates/cuda/modifiers-blur/src -type f) crates/cuda/modifiers-blur/Cargo.toml crates/cuda/modifiers-blur/Cargo.lock
-CUDA_MODIFIER_GEOMETRY_SOURCES := $(shell find crates/cuda/modifiers-geometry/src -type f) crates/cuda/modifiers-geometry/Cargo.toml crates/cuda/modifiers-geometry/Cargo.lock
-CUDA_MODIFIER_MATTE_SOURCES := $(shell find crates/cuda/modifiers-matte/src -type f) crates/cuda/modifiers-matte/Cargo.toml crates/cuda/modifiers-matte/Cargo.lock
-CUDA_STABILIZATION_SOURCES := $(shell find crates/cuda/stabilization/src -type f) crates/cuda/stabilization/Cargo.toml crates/cuda/stabilization/Cargo.lock
-CUDA_EXPORT_SOURCES := $(shell find crates/cuda/export/src -type f) crates/cuda/export/Cargo.toml crates/cuda/export/Cargo.lock $(CUDA_COLOR_SOURCES)
-CUDA_LINK_SOURCES := $(shell find crates/cuda/link/src -type f) crates/cuda/link/Cargo.toml crates/cuda/link/Cargo.lock
+COMPOSITOR_SHADER_DIR := crates/render-core/shaders
+COMPOSITOR_SHADER_SOURCES := $(shell find $(COMPOSITOR_SHADER_DIR) -type f -name '*.slang')
+$(PREVIEW_CUBIN): SLANG_ENTRIES := composite_layered_image_layer composite_nv12_layers tone_map_hdr
+$(ANIME4K_CUBIN): SLANG_ENTRIES := rgba_to_float nv12_to_float convolution depth_to_space_x2 float_to_rgba_opaque float_to_rgba_alpha
+$(MODIFIERS_CUBIN): SLANG_ENTRIES := invert posterize channel_mixer color_correction colorize_duotone chromatic_aberration edge_detection emboss film_grain scanlines_crt threshold vignette alpha_outline_horizontal alpha_outline_vertical dithering drop_shadow_horizontal drop_shadow_vertical halftone
+$(MODIFIERS_BLUR_CUBIN): SLANG_ENTRIES := directional_blur erode_horizontal dilate_horizontal erode_vertical dilate_vertical gaussian_blur_horizontal gaussian_blur_vertical glow_bloom_horizontal glow_bloom_vertical kuwahara_horizontal_statistics kuwahara_vertical radial_blur zoom_blur sharpen_blur_horizontal sharpen_blur_vertical unsharp_mask
+$(MODIFIERS_GEOMETRY_CUBIN): SLANG_ENTRIES := bulge_pinch displacement_map fisheye kaleidoscope lens_distortion mirror pixelate_mosaic twirl wave_ripple corner_pin
+$(MODIFIERS_MATTE_CUBIN): SLANG_ENTRIES := alpha_mask shape_alpha_mask chroma_key luma_key mask sam2_proxy sam2_apply_mask transparent_fill_apply_mask visual_transition_mask origami_transition transition_gaussian_blur_horizontal transition_gaussian_blur_vertical transition_pixelate
+$(STABILIZATION_CUBIN): SLANG_ENTRIES := affine_stabilization
+$(EXPORT_CUBIN): SLANG_ENTRIES := rgba_to_nv12_luma rgba_to_nv12_chroma rgba_to_p010_luma rgba_to_p010_chroma
 
 APP_NAME := Shrimply
 BIN_NAME := shrimply
@@ -111,7 +109,7 @@ FEDORA_PACKAGES := \
 	qt6-qtbase-devel \
 	qt6-qtdeclarative-devel
 
-.PHONY: native-deps qt-native-deps qt-desktop-file cuda-target-check cuda-artifacts dev qt-build dev-qt dev-server docs docs-check run run-qt build release check components-check gtk-components-showcase qt-components-showcase server-python-check manim manim-python-check manim-parameter-check cargo-check fmt fmt-check lint test frame-rate-test video-lifecycle-test transparent-fill-frame-range-test transparent-fill-decoder-test transparent-fill-kernel-test transparent-fill-compositor-test transparent-fill-playback-test transparent-fill-e2e-fixture transparent-fill-e2e-test decode-ahead-benchmark paint-interpolation-test crash-report oxide-doctor oxide-setup clean-dev clean deps-fedora deps-fedora-qt qt-release install install-qt install-codex-mcp-dev install-agy-mcp-dev uninstall uninstall-qt dist-image dist
+.PHONY: native-deps qt-native-deps slang-compiler qt-desktop-file cuda-target-check cuda-artifacts dev qt-build dev-qt dev-server docs docs-check run run-qt build release check components-check gtk-components-showcase qt-components-showcase server-python-check manim manim-python-check manim-parameter-check cargo-check fmt fmt-check lint test frame-rate-test video-lifecycle-test transparent-fill-frame-range-test transparent-fill-decoder-test transparent-fill-kernel-test transparent-fill-compositor-test transparent-fill-playback-test transparent-fill-e2e-fixture transparent-fill-e2e-test decode-ahead-benchmark paint-interpolation-test crash-report clean-dev clean deps-fedora deps-fedora-qt qt-release install install-qt install-codex-mcp-dev install-agy-mcp-dev uninstall uninstall-qt dist-image dist
 native-deps:
 	@$(PKG_CONFIG) --exists rubberband || { echo "Missing Rubber Band development files (pkg-config: rubberband)" >&2; exit 1; }
 	@$(PKG_CONFIG) --exists libpipewire-0.3 || { echo "Missing PipeWire development files (pkg-config: libpipewire-0.3)" >&2; exit 1; }
@@ -122,85 +120,23 @@ qt-native-deps:
 	@version="$$($(QT_QMAKE) -query QT_VERSION)"; case "$$version" in 6.*) echo "Using Qt $$version via $(QT_QMAKE)" ;; *) echo "$(QT_QMAKE) selected unsupported Qt $$version; Qt 6 is required" >&2; exit 1 ;; esac
 	@$(PKG_CONFIG) --exists Qt6Core Qt6Gui Qt6Qml Qt6Quick Qt6QuickControls2 Qt6OpenGL || { echo "Missing Qt 6 Quick/OpenGL development files" >&2; exit 1; }
 
+slang-compiler:
+	cmake --build $(SLANG_BUILD_DIR) --config Release --target slangc slang-glslang
+
 cuda-target-check:
-	@test "$(CUDA_OXIDE_TARGET)" = sm_86 || { echo "CUDA_OXIDE_TARGET=$(CUDA_OXIDE_TARGET) is unsupported: host binaries embed sm_86 CUDA artifacts" >&2; exit 1; }
+	@test "$(CUDA_TARGET)" = sm_86 || { echo "CUDA_TARGET=$(CUDA_TARGET) is unsupported: host binaries embed sm_86 CUDA artifacts" >&2; exit 1; }
 
 cuda-artifacts: cuda-target-check $(CUDA_CUBINS)
 
-$(CUDA_CUBINS): | cuda-target-check
-
-# Keep these dependencies limited to device and linker inputs. Depending on the
-# root Cargo.lock or host sources makes ordinary GUI edits rebuild every cubin.
-$(PREVIEW_CUBIN): $(CUDA_PREVIEW_SOURCES) $(CUDA_SHARED_SOURCES) $(CUDA_LINK_SOURCES)
+$(CUDA_ARTIFACT_DIR)/%.cubin: $(COMPOSITOR_SHADER_DIR)/%.slang $(COMPOSITOR_SHADER_SOURCES) | cuda-target-check slang-compiler
 	@mkdir -p $(CUDA_ARTIFACT_DIR)
-	cd crates/cuda/preview && $(OXIDE_ENV) CARGO_TARGET_DIR=$(CUDA_BUILD_TARGET) $(CARGO) oxide emit-ltoir shrimply_cuda_preview --arch $(CUDA_OXIDE_TARGET) -o $(CUDA_ARTIFACT_DIR)/preview.ltoir
-	@tmp="$@.$$$$.tmp"; \
-	trap 'rm -f "$$tmp"' EXIT; \
-	$(BUILD_ENV) CARGO_TARGET_DIR=$(CUDA_BUILD_TARGET) $(CARGO) run --release --manifest-path crates/cuda/link/Cargo.toml -- $(CUDA_ARTIFACT_DIR)/preview.ltoir "$$tmp" preview $(CUDA_OXIDE_TARGET); \
-	mv "$$tmp" $@
-
-$(ANIME4K_CUBIN): $(CUDA_ANIME4K_SOURCES) $(CUDA_LINK_SOURCES)
-	@mkdir -p $(CUDA_ARTIFACT_DIR)
-	cd crates/cuda/anime4k && $(OXIDE_ENV) CARGO_TARGET_DIR=$(CUDA_BUILD_TARGET) $(CARGO) oxide emit-ltoir shrimply_cuda_anime4k --arch $(CUDA_OXIDE_TARGET) -o $(CUDA_ARTIFACT_DIR)/anime4k.ltoir
-	@tmp="$@.$$$$.tmp"; \
-	trap 'rm -f "$$tmp"' EXIT; \
-	$(BUILD_ENV) CARGO_TARGET_DIR=$(CUDA_BUILD_TARGET) $(CARGO) run --release --manifest-path crates/cuda/link/Cargo.toml -- $(CUDA_ARTIFACT_DIR)/anime4k.ltoir "$$tmp" anime4k $(CUDA_OXIDE_TARGET); \
-	mv "$$tmp" $@
-
-$(MODIFIERS_CUBIN): $(CUDA_MODIFIER_SOURCES) $(CUDA_SHARED_SOURCES) $(CUDA_LINK_SOURCES)
-	@mkdir -p $(CUDA_ARTIFACT_DIR)
-	cd crates/cuda/modifiers && $(OXIDE_ENV) CARGO_TARGET_DIR=$(CUDA_BUILD_TARGET) $(CARGO) oxide emit-ltoir shrimply_cuda_modifiers --arch $(CUDA_OXIDE_TARGET) -o $(CUDA_ARTIFACT_DIR)/modifiers.ltoir
-	@tmp="$@.$$$$.tmp"; \
-	trap 'rm -f "$$tmp"' EXIT; \
-	$(BUILD_ENV) CARGO_TARGET_DIR=$(CUDA_BUILD_TARGET) $(CARGO) run --release --manifest-path crates/cuda/link/Cargo.toml -- $(CUDA_ARTIFACT_DIR)/modifiers.ltoir "$$tmp" modifiers $(CUDA_OXIDE_TARGET); \
-	mv "$$tmp" $@
-
-$(MODIFIERS_BLUR_CUBIN): $(CUDA_MODIFIER_BLUR_SOURCES) $(CUDA_SHARED_SOURCES) $(CUDA_LINK_SOURCES)
-	@mkdir -p $(CUDA_ARTIFACT_DIR)
-	cd crates/cuda/modifiers-blur && $(OXIDE_ENV) CARGO_TARGET_DIR=$(CUDA_BUILD_TARGET) $(CARGO) oxide emit-ltoir shrimply_cuda_modifiers_blur --arch $(CUDA_OXIDE_TARGET) -o $(CUDA_ARTIFACT_DIR)/modifiers-blur.ltoir
-	@tmp="$@.$$$$.tmp"; \
-	trap 'rm -f "$$tmp"' EXIT; \
-	$(BUILD_ENV) CARGO_TARGET_DIR=$(CUDA_BUILD_TARGET) $(CARGO) run --release --manifest-path crates/cuda/link/Cargo.toml -- $(CUDA_ARTIFACT_DIR)/modifiers-blur.ltoir "$$tmp" modifiers-blur $(CUDA_OXIDE_TARGET); \
-	mv "$$tmp" $@
-
-$(MODIFIERS_GEOMETRY_CUBIN): $(CUDA_MODIFIER_GEOMETRY_SOURCES) $(CUDA_SHARED_SOURCES) $(CUDA_LINK_SOURCES)
-	@mkdir -p $(CUDA_ARTIFACT_DIR)
-	cd crates/cuda/modifiers-geometry && $(OXIDE_ENV) CARGO_TARGET_DIR=$(CUDA_BUILD_TARGET) $(CARGO) oxide emit-ltoir shrimply_cuda_modifiers_geometry --arch $(CUDA_OXIDE_TARGET) -o $(CUDA_ARTIFACT_DIR)/modifiers-geometry.ltoir
-	@tmp="$@.$$$$.tmp"; \
-	trap 'rm -f "$$tmp"' EXIT; \
-	$(BUILD_ENV) CARGO_TARGET_DIR=$(CUDA_BUILD_TARGET) $(CARGO) run --release --manifest-path crates/cuda/link/Cargo.toml -- $(CUDA_ARTIFACT_DIR)/modifiers-geometry.ltoir "$$tmp" modifiers-geometry $(CUDA_OXIDE_TARGET); \
-	mv "$$tmp" $@
-
-$(MODIFIERS_MATTE_CUBIN): $(CUDA_MODIFIER_MATTE_SOURCES) $(CUDA_SHARED_SOURCES) $(CUDA_LINK_SOURCES)
-	@mkdir -p $(CUDA_ARTIFACT_DIR)
-	cd crates/cuda/modifiers-matte && $(OXIDE_ENV) CARGO_TARGET_DIR=$(CUDA_BUILD_TARGET) $(CARGO) oxide emit-ltoir shrimply_cuda_modifiers_matte --arch $(CUDA_OXIDE_TARGET) -o $(CUDA_ARTIFACT_DIR)/modifiers-matte.ltoir
-	@tmp="$@.$$$$.tmp"; \
-	trap 'rm -f "$$tmp"' EXIT; \
-	$(BUILD_ENV) CARGO_TARGET_DIR=$(CUDA_BUILD_TARGET) $(CARGO) run --release --manifest-path crates/cuda/link/Cargo.toml -- $(CUDA_ARTIFACT_DIR)/modifiers-matte.ltoir "$$tmp" modifiers-matte $(CUDA_OXIDE_TARGET); \
-	mv "$$tmp" $@
-
-$(STABILIZATION_CUBIN): $(CUDA_STABILIZATION_SOURCES) $(CUDA_SHARED_SOURCES) $(CUDA_LINK_SOURCES)
-	@mkdir -p $(CUDA_ARTIFACT_DIR)
-	cd crates/cuda/stabilization && $(OXIDE_ENV) CARGO_TARGET_DIR=$(CUDA_BUILD_TARGET) $(CARGO) oxide emit-ltoir shrimply_cuda_stabilization --arch $(CUDA_OXIDE_TARGET) -o $(CUDA_ARTIFACT_DIR)/stabilization.ltoir
-	@tmp="$@.$$$$.tmp"; \
-	trap 'rm -f "$$tmp"' EXIT; \
-	$(BUILD_ENV) CARGO_TARGET_DIR=$(CUDA_BUILD_TARGET) $(CARGO) run --release --manifest-path crates/cuda/link/Cargo.toml -- $(CUDA_ARTIFACT_DIR)/stabilization.ltoir "$$tmp" stabilization $(CUDA_OXIDE_TARGET); \
-	mv "$$tmp" $@
-
-$(EXPORT_CUBIN): $(CUDA_EXPORT_SOURCES) $(CUDA_LINK_SOURCES)
-	@mkdir -p $(CUDA_ARTIFACT_DIR)
-	cd crates/cuda/export && $(OXIDE_ENV) CARGO_TARGET_DIR=$(CUDA_BUILD_TARGET) $(CARGO) oxide emit-ltoir shrimply_cuda_export --arch $(CUDA_OXIDE_TARGET) -o $(CUDA_ARTIFACT_DIR)/export.ltoir
-	@tmp="$@.$$$$.tmp"; \
-	trap 'rm -f "$$tmp"' EXIT; \
-	$(BUILD_ENV) CARGO_TARGET_DIR=$(CUDA_BUILD_TARGET) $(CARGO) run --release --manifest-path crates/cuda/link/Cargo.toml -- $(CUDA_ARTIFACT_DIR)/export.ltoir "$$tmp" export $(CUDA_OXIDE_TARGET); \
-	mv "$$tmp" $@
+	$(SLANGC) $< -I $(COMPOSITOR_SHADER_DIR)/modules -target cuda -capability cuda_sm_8_0 -O2 -fp-mode precise $(foreach entry,$(SLANG_ENTRIES),-entry $(entry) -stage compute) -o $(CUDA_ARTIFACT_DIR)/$*.cu
+	$(NVCC) --compiler-bindir=$(CUDA_HOST_CXX) --cubin --gpu-architecture=$(CUDA_TARGET) -O2 -w $(CUDA_ARTIFACT_DIR)/$*.cu -o $@
 
 dev: SHELL := /bin/bash
 dev: native-deps cuda-artifacts
 	$(DEV_BUILD_ENV) CARGO_TERM_COLOR=always $(CARGO) build -p $(EDITOR_PACKAGE) -p $(LAUNCHER_PACKAGE) -p $(MCP_PACKAGE) --bins
 	@started="$$(date --iso-8601=seconds)"; \
-	# Do not replace this with `cargo oxide run`: it forces release opt-level=3 \
-	# and touches the host crate, causing a full optimized rebuild every run. \
 	$(BUILD_ENV) RUST_LOG=$(RUST_LOG) target/debug/$(BIN_NAME) 2>&1 \
 		| tee >(sed -E 's/\x1B\[[0-9;]*[[:alpha:]]//g' > "$(DEV_LOG)"); \
 	status=$${PIPESTATUS[0]}; \
@@ -286,7 +222,7 @@ manim-visual-check: native-deps
 manim-parameter-check: native-deps
 	$(DEV_BUILD_ENV) $(CARGO) test -p shrimply-manim-parser --test two_pass_parameters -- --ignored --nocapture
 
-cargo-check: native-deps qt-native-deps
+cargo-check: native-deps qt-native-deps slang-compiler
 	$(DEV_BUILD_ENV) QMAKE=$(QT_QMAKE) $(CARGO) check -p $(EDITOR_PACKAGE) -p $(QT_EDITOR_PACKAGE) -p $(LAUNCHER_PACKAGE) -p $(QT_LAUNCHER_PACKAGE) -p $(MCP_PACKAGE) --bins
 
 frame-rate-test: native-deps
@@ -321,25 +257,9 @@ transparent-fill-e2e-test: native-deps cuda-artifacts
 
 fmt:
 	$(BUILD_ENV) $(CARGO) fmt
-	$(BUILD_ENV) $(CARGO) fmt --manifest-path crates/cuda/preview/Cargo.toml
-	$(BUILD_ENV) $(CARGO) fmt --manifest-path crates/cuda/anime4k/Cargo.toml
-	$(BUILD_ENV) $(CARGO) fmt --manifest-path crates/cuda/modifiers/Cargo.toml
-	$(BUILD_ENV) $(CARGO) fmt --manifest-path crates/cuda/modifiers-blur/Cargo.toml
-	$(BUILD_ENV) $(CARGO) fmt --manifest-path crates/cuda/modifiers-geometry/Cargo.toml
-	$(BUILD_ENV) $(CARGO) fmt --manifest-path crates/cuda/modifiers-matte/Cargo.toml
-	$(BUILD_ENV) $(CARGO) fmt --manifest-path crates/cuda/stabilization/Cargo.toml
-	$(BUILD_ENV) $(CARGO) fmt --manifest-path crates/cuda/export/Cargo.toml
 
 fmt-check:
 	$(BUILD_ENV) $(CARGO) fmt --check
-	$(BUILD_ENV) $(CARGO) fmt --check --manifest-path crates/cuda/preview/Cargo.toml
-	$(BUILD_ENV) $(CARGO) fmt --check --manifest-path crates/cuda/anime4k/Cargo.toml
-	$(BUILD_ENV) $(CARGO) fmt --check --manifest-path crates/cuda/modifiers/Cargo.toml
-	$(BUILD_ENV) $(CARGO) fmt --check --manifest-path crates/cuda/modifiers-blur/Cargo.toml
-	$(BUILD_ENV) $(CARGO) fmt --check --manifest-path crates/cuda/modifiers-geometry/Cargo.toml
-	$(BUILD_ENV) $(CARGO) fmt --check --manifest-path crates/cuda/modifiers-matte/Cargo.toml
-	$(BUILD_ENV) $(CARGO) fmt --check --manifest-path crates/cuda/stabilization/Cargo.toml
-	$(BUILD_ENV) $(CARGO) fmt --check --manifest-path crates/cuda/export/Cargo.toml
 
 lint: native-deps qt-native-deps
 	$(DEV_BUILD_ENV) QMAKE=$(QT_QMAKE) $(CARGO) clippy -p $(EDITOR_PACKAGE) -p $(QT_EDITOR_PACKAGE) -p $(LAUNCHER_PACKAGE) -p $(QT_LAUNCHER_PACKAGE) -p $(MCP_PACKAGE) --bins -- -D warnings
@@ -368,18 +288,12 @@ crash-report:
 	@echo "Full crash stack: $(CRASH_STACK)"
 	@echo "Core dump: $(CRASH_CORE)"
 
-oxide-doctor:
-	$(OXIDE_ENV) $(CARGO) oxide doctor
-
-oxide-setup:
-	$(OXIDE_ENV) $(CARGO) oxide setup
-
 clean-dev:
 	$(CARGO) clean --profile dev
 
 clean:
 	$(CARGO) clean
-	rm -rf .oxide-artifacts
+	rm -rf .slang-artifacts
 	rm -rf docs/build
 
 deps-fedora:

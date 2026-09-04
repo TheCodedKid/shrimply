@@ -1,5 +1,4 @@
-use cuda_core::LaunchConfig;
-use cuda_device::{DisjointSlice, kernel};
+use shrimply_cuda::LaunchConfig;
 
 use super::RasterModifierRuntime;
 use crate::gpu::modifiers::{CanvasRgbaFrame, GpuModifier, ModifierContext};
@@ -7,9 +6,6 @@ use crate::layer::RasterVisual;
 use crate::visual_source::VisualModifierContext;
 use shrimply_evaluation::resolve_scalar;
 use shrimply_video_modifiers::luma_key::LumaKeyModifier;
-
-#[kernel]
-fn luma_key(_: *const u32, _: DisjointSlice<u32>, _: f32, _: f32, _: bool) {}
 
 struct Resolved {
     threshold: f32,
@@ -31,7 +27,7 @@ impl GpuModifier for Resolved {
         let mut pass = input.into_pass(context)?;
         let module = context.modifier_module(crate::gpu::modifiers::ModifierModule::Matte)?;
         unsafe {
-            cuda_host::cuda_launch! {
+            shrimply_cuda::cuda_launch! {
                 kernel: luma_key,
                 stream: context.stream(),
                 module: &module,

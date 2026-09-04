@@ -2,13 +2,10 @@ use super::RasterModifierRuntime;
 use crate::gpu::modifiers::{CanvasRgbaFrame, GpuModifier, ModifierContext};
 use crate::layer::RasterVisual;
 use crate::visual_source::VisualModifierContext;
-use cuda_core::LaunchConfig;
-use cuda_device::{DisjointSlice, kernel};
+use shrimply_cuda::LaunchConfig;
 use shrimply_evaluation::resolve_scalar;
 use shrimply_render_core::ChannelMixerParams;
 use shrimply_video_modifiers::channel_mixer::ChannelMixerModifier;
-#[kernel]
-fn channel_mixer(_: *const u32, _: DisjointSlice<u32>, _: ChannelMixerParams) {}
 struct Resolved(glam::Mat3);
 impl GpuModifier for Resolved {
     fn name(&self) -> &'static str {
@@ -24,7 +21,7 @@ impl GpuModifier for Resolved {
         let m = c.modifier_module(crate::gpu::modifiers::ModifierModule::General)?;
         let params = ChannelMixerParams { matrix: self.0 };
         unsafe {
-            cuda_host::cuda_launch! {
+            shrimply_cuda::cuda_launch! {
                 kernel: channel_mixer,
                 stream: c.stream(),
                 module: &m,

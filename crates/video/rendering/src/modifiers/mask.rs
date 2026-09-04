@@ -1,7 +1,6 @@
 use std::rc::Rc;
 
-use cuda_core::LaunchConfig;
-use cuda_device::{DisjointSlice, kernel};
+use shrimply_cuda::LaunchConfig;
 
 use super::RasterModifierRuntime;
 use crate::gpu::VisualFrame;
@@ -10,9 +9,6 @@ use crate::layer::{PreservingRasterModifier, RasterVisual, VisualState};
 use crate::visual_source::VisualModifierContext;
 use shrimply_render_core::MaskParams;
 use shrimply_video_modifiers::mask::{MaskMode, MaskModifier};
-
-#[kernel]
-fn mask(_: *const u32, _: MaskParams, _: DisjointSlice<u32>) {}
 
 struct Resolved {
     mask: Option<Rc<VisualFrame>>,
@@ -63,7 +59,7 @@ impl GpuModifier for Resolved {
         let mut pass = input.into_pass(context)?;
         let module = context.modifier_module(crate::gpu::modifiers::ModifierModule::Matte)?;
         unsafe {
-            cuda_host::cuda_launch! {
+            shrimply_cuda::cuda_launch! {
                 kernel: mask,
                 stream: context.stream(),
                 module: &module,

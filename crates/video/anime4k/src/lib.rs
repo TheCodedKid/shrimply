@@ -1,12 +1,11 @@
 use hashbrown::HashMap;
 use std::sync::Arc;
 
-use cuda_core::{
+use shrimply_cuda::cuda_launch;
+use shrimply_cuda::{
     CudaContext, CudaModule, CudaStream, DeviceBuffer as CudaDeviceBuffer, DriverError,
     LaunchConfig,
 };
-use cuda_device::{DisjointSlice, kernel};
-use cuda_host::cuda_launch;
 use shrimply_gpu_memory::GpuBuffer;
 
 mod types;
@@ -17,16 +16,14 @@ const RESTORE_GAN_UUL: &[u8] = include_bytes!("../models/restore_gan_uul.bin");
 const UPSCALE_GAN_X4_UUL: &[u8] = include_bytes!("../models/upscale_gan_x4_uul.bin");
 const ANIME4K_CUBIN: &[u8] = include_bytes!(concat!(
     env!("CARGO_MANIFEST_DIR"),
-    "/../../../.oxide-artifacts/cuda/sm_86/anime4k.cubin"
+    "/../../../.slang-artifacts/cuda/sm_86/anime4k.cubin"
 ));
 
-impl ImageDescriptor {
-    const EMPTY: Self = Self {
-        pixels: std::ptr::null(),
-        width: 0,
-        height: 0,
-    };
-}
+const EMPTY_IMAGE_DESCRIPTOR: ImageDescriptor = ImageDescriptor {
+    pixels: std::ptr::null(),
+    width: 0,
+    height: 0,
+};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Method {
@@ -268,7 +265,7 @@ impl Workspace {
             let count = pixel_count(width, height)?;
             let launch_count = u32::try_from(count)
                 .map_err(|_| format!("Anime4K stage {} is too large", stage.name))?;
-            let mut descriptors = [ImageDescriptor::EMPTY; MAX_STAGE_INPUTS];
+            let mut descriptors = [EMPTY_IMAGE_DESCRIPTOR; MAX_STAGE_INPUTS];
             for (slot, name) in stage.binds.iter().enumerate() {
                 descriptors[slot] = images
                     .get(name)
@@ -288,7 +285,7 @@ impl Workspace {
                             .residual
                             .as_ref()
                             .and_then(|name| images.get(name))
-                            .map_or(ImageDescriptor::EMPTY, Image::descriptor);
+                            .map_or(EMPTY_IMAGE_DESCRIPTOR, Image::descriptor);
                         self.convolution(
                             stream,
                             LaunchConfig::for_num_elems(launch_count),
@@ -600,35 +597,13 @@ fn pixel_count(width: u32, height: u32) -> Result<usize, String> {
         .ok_or_else(|| "Anime4K image dimensions overflow addressable memory".to_string())
 }
 
-#[kernel]
-fn rgba_to_float(_: *const u8, _: usize, _: u32, _: DisjointSlice<[f32; 4]>) {}
-#[kernel]
-fn nv12_to_float(
-    _: *const u8,
-    _: *const u8,
-    _: usize,
-    _: usize,
-    _: u32,
-    _: u32,
-    _: DisjointSlice<[f32; 4]>,
-) {
-}
-#[kernel]
-fn convolution(_: ConvolutionParams, _: &[ConvolutionTerm], _: DisjointSlice<[f32; 4]>) {}
-#[kernel]
-fn depth_to_space_x2(_: ImageDescriptor, _: ImageDescriptor, _: u32, _: DisjointSlice<[f32; 4]>) {}
-#[kernel]
-fn float_to_rgba_opaque(_: *const [f32; 4], _: DisjointSlice<u32>) {}
-#[kernel]
-fn float_to_rgba_alpha(_: AlphaParams, _: DisjointSlice<u32>) {}
-
 impl Workspace {
     unsafe fn rgba_to_float(
         &self,
         stream: &Arc<CudaStream>,
         config: LaunchConfig,
         args: (*const u8, usize, u32),
-        mut output: &mut CudaDeviceBuffer<[f32; 4]>,
+        output: &mut CudaDeviceBuffer<[f32; 4]>,
     ) -> Result<(), DriverError> {
         let (source, pitch, width) = args;
         unsafe {
@@ -647,7 +622,7 @@ impl Workspace {
         stream: &Arc<CudaStream>,
         config: LaunchConfig,
         args: (*const u8, *const u8, usize, usize, u32, u32),
-        mut output: &mut CudaDeviceBuffer<[f32; 4]>,
+        output: &mut CudaDeviceBuffer<[f32; 4]>,
     ) -> Result<(), DriverError> {
         let (y, uv, y_pitch, uv_pitch, width, height) = args;
         unsafe {
@@ -667,7 +642,7 @@ impl Workspace {
         config: LaunchConfig,
         params: ConvolutionParams,
         terms: &CudaDeviceBuffer<ConvolutionTerm>,
-        mut output: &mut CudaDeviceBuffer<[f32; 4]>,
+        output: &mut CudaDeviceBuffer<[f32; 4]>,
     ) -> Result<(), DriverError> {
         unsafe {
             cuda_launch! {
@@ -687,7 +662,7 @@ impl Workspace {
         convolution_image: ImageDescriptor,
         residual: ImageDescriptor,
         width: u32,
-        mut output: &mut CudaDeviceBuffer<[f32; 4]>,
+        output: &mut CudaDeviceBuffer<[f32; 4]>,
     ) -> Result<(), DriverError> {
         unsafe {
             cuda_launch! {
@@ -705,7 +680,7 @@ impl Workspace {
         stream: &Arc<CudaStream>,
         config: LaunchConfig,
         source: *const [f32; 4],
-        mut output: &mut CudaDeviceBuffer<u32>,
+        output: &mut CudaDeviceBuffer<u32>,
     ) -> Result<(), DriverError> {
         unsafe {
             cuda_launch! {
@@ -723,7 +698,7 @@ impl Workspace {
         stream: &Arc<CudaStream>,
         config: LaunchConfig,
         args: (*const [f32; 4], *const u8, usize, u32, u32, u32, u32),
-        mut output: &mut CudaDeviceBuffer<u32>,
+        output: &mut CudaDeviceBuffer<u32>,
     ) -> Result<(), DriverError> {
         let (source, alpha_source, alpha_pitch, alpha_width, alpha_height, width, height) = args;
         let params = AlphaParams {

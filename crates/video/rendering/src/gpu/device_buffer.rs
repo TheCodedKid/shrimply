@@ -1,6 +1,6 @@
 use std::mem;
 
-use cuda_core::{CudaContext, CudaStream, memory};
+use shrimply_cuda::{CudaContext, CudaStream, memory};
 use shrimply_gpu_memory::GpuBuffer as DeviceBuffer;
 
 pub(super) fn copy<T>(

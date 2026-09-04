@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use cuda_core::CudaContext;
+use shrimply_cuda::CudaContext;
 use shrimply_evaluation::{TransformEvaluation, TransformExpressionCache};
 use shrimply_visual_frame::{VisualFormat, VisualFrame, VisualPlane};
 use skia_safe::Canvas;

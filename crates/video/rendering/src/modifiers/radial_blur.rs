@@ -1,5 +1,4 @@
-use cuda_core::LaunchConfig;
-use cuda_device::{DisjointSlice, kernel};
+use shrimply_cuda::LaunchConfig;
 use shrimply_render_core::RadialBlurParams;
 
 use super::RasterModifierRuntime;
@@ -8,9 +7,6 @@ use crate::layer::RasterVisual;
 use crate::visual_source::VisualModifierContext;
 use shrimply_evaluation::{resolve_scalar, resolve_vec2};
 use shrimply_video_modifiers::radial_blur::RadialBlurModifier;
-
-#[kernel]
-fn radial_blur(_: *const u32, _: u32, _: u32, _: DisjointSlice<u32>, _: RadialBlurParams) {}
 
 struct Resolved {
     center: glam::Vec2,
@@ -39,7 +35,7 @@ impl GpuModifier for Resolved {
             samples: self.samples,
         };
         unsafe {
-            cuda_host::cuda_launch! {
+            shrimply_cuda::cuda_launch! {
                 kernel: radial_blur,
                 stream: context.stream(),
                 module: &module,

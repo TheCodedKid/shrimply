@@ -2,13 +2,10 @@ use super::RasterModifierRuntime;
 use crate::gpu::modifiers::{CanvasRgbaFrame, GpuModifier, ModifierContext};
 use crate::layer::RasterVisual;
 use crate::visual_source::VisualModifierContext;
-use cuda_core::LaunchConfig;
-use cuda_device::{DisjointSlice, kernel};
+use shrimply_cuda::LaunchConfig;
 use shrimply_evaluation::{resolve_scalar, resolve_vec2};
 use shrimply_render_core::KaleidoscopeParams;
 use shrimply_video_modifiers::kaleidoscope::KaleidoscopeModifier;
-#[kernel]
-fn kaleidoscope(_: *const u32, _: u32, _: u32, _: DisjointSlice<u32>, _: KaleidoscopeParams) {}
 struct Resolved {
     center: glam::Vec2,
     segments: u32,
@@ -34,7 +31,7 @@ impl GpuModifier for Resolved {
             rotation: self.rotation,
         };
         unsafe {
-            cuda_host::cuda_launch! {
+            shrimply_cuda::cuda_launch! {
                 kernel: kaleidoscope,
                 stream: c.stream(),
                 module: &m,

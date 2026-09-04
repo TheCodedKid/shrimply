@@ -2,32 +2,10 @@ use super::RasterModifierRuntime;
 use crate::gpu::modifiers::{CanvasRgbaFrame, GpuModifier, ModifierContext};
 use crate::layer::RasterVisual;
 use crate::visual_source::VisualModifierContext;
-use cuda_core::LaunchConfig;
-use cuda_device::{DisjointSlice, kernel};
+use shrimply_cuda::LaunchConfig;
 use shrimply_evaluation::{resolve_color, resolve_scalar, resolve_vec2};
 use shrimply_render_core::DropShadowParams;
 use shrimply_video_modifiers::drop_shadow::DropShadowModifier;
-
-#[kernel]
-fn drop_shadow_horizontal(
-    _: *const u32,
-    _: u32,
-    _: u32,
-    _: DisjointSlice<f32>,
-    _: DropShadowParams,
-) {
-}
-
-#[kernel]
-fn drop_shadow_vertical(
-    _: *const u32,
-    _: *const f32,
-    _: u32,
-    _: u32,
-    _: DisjointSlice<u32>,
-    _: DropShadowParams,
-) {
-}
 
 struct Resolved {
     offset: glam::Vec2,
@@ -57,7 +35,7 @@ impl GpuModifier for Resolved {
             color: self.color,
         };
         unsafe {
-            cuda_host::cuda_launch! {
+            shrimply_cuda::cuda_launch! {
                 kernel: drop_shadow_horizontal,
                 stream: c.stream(), module: &module, config: launch,
                 args: [pass.input_ptr(), width, height, slice_mut(&mut alpha), params]
@@ -66,7 +44,7 @@ impl GpuModifier for Resolved {
         .map_err(|error| format!("launch horizontal CUDA kernel: {error:?}"))?;
         let alpha_ptr = alpha.cu_deviceptr() as usize as *const f32;
         unsafe {
-            cuda_host::cuda_launch! {
+            shrimply_cuda::cuda_launch! {
                 kernel: drop_shadow_vertical,
                 stream: c.stream(), module: &module, config: launch,
                 args: [

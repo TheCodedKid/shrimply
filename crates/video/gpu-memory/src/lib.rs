@@ -5,8 +5,8 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU8, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock, Weak};
 
-use cuda_core::{CudaContext, CudaStream, DeviceBuffer, DeviceCopy, sys};
 use hashbrown::{HashMap, HashSet};
+use shrimply_cuda::{CudaContext, CudaStream, DeviceBuffer, DeviceCopy, sys};
 
 const RESERVE_DIVISOR: u64 = 16;
 const RESIDENCY_HOST: u8 = 0;

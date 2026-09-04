@@ -2,8 +2,8 @@ use std::ffi::CStr;
 use std::ptr;
 use std::sync::Arc;
 
-use cuda_core::{CudaContext, sys};
 use libc::size_t;
+use shrimply_cuda::{CudaContext, sys};
 use shrimply_gpu_memory::MemoryKind;
 
 const CU_GRAPHICS_REGISTER_FLAGS_WRITE_DISCARD: u32 = 0x02;

@@ -7,8 +7,8 @@ use std::sync::Arc;
 
 use crate::decode::DecodeControl;
 use crate::layer::VideoLayer;
-use cuda_core::{CudaContext, CudaEvent, CudaStream, DeviceCopy, LaunchConfig, sys};
 use ffmpeg_next::{frame as ffmpeg_frame, sys as ffmpeg_sys};
+use shrimply_cuda::{CudaContext, CudaEvent, CudaStream, DeviceCopy, LaunchConfig, sys};
 use shrimply_gpu_memory::GpuBuffer as DeviceBuffer;
 use shrimply_project::project::{CanvasSize, Color};
 use shrimply_render_core::{LayerCompositeParams, math};

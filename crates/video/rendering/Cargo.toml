@@ -9,9 +9,7 @@ hashbrown.workspace = true
 ash.workspace = true
 cached.workspace = true
 cairo = { workspace = true, features = ["freetype"] }
-cuda-core.workspace = true
-cuda-device.workspace = true
-cuda-host.workspace = true
+shrimply-cuda.workspace = true
 ffmpeg-next.workspace = true
 glam.workspace = true
 glib.workspace = true

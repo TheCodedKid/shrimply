@@ -5,7 +5,7 @@ use std::ptr;
 use std::sync::Arc;
 
 use ash::vk;
-use cuda_core::{CudaContext, CudaStream, LaunchConfig, sys};
+use shrimply_cuda::{CudaContext, CudaStream, LaunchConfig, sys};
 use shrimply_math_color::Color;
 use shrimply_visual_frame::{VisualFormat, VisualFrame, VisualPlane};
 

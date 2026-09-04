@@ -10,8 +10,8 @@ use std::sync::{Arc, Mutex, Weak};
 
 use ash::vk::Handle;
 use ash::{Entry, Instance, vk};
-use cuda_core::{CudaContext, sys};
 use hashbrown::HashMap;
+use shrimply_cuda::{CudaContext, sys};
 use shrimply_evaluation::{TransformEvaluation, TransformExpressionCache};
 use shrimply_preview_skia::{CanvasOperation, draw_with_operations};
 use shrimply_project::project::{CanvasSize, SkiaDrawingStrategy};
@@ -82,7 +82,7 @@ struct ImportedManimImage {
     external_memory: usize,
     external_semaphore: usize,
     allocation_size: u64,
-    stream: Arc<cuda_core::CudaStream>,
+    stream: Arc<shrimply_cuda::CudaStream>,
 }
 
 impl ManimRenderer {
@@ -114,7 +114,7 @@ impl ManimRenderer {
     fn render(
         &mut self,
         context: Arc<CudaContext>,
-        stream: Arc<cuda_core::CudaStream>,
+        stream: Arc<shrimply_cuda::CudaStream>,
         slot: &Arc<()>,
         animation: &shrimply_manim_wgpu::PreparedAnimation,
         frame_index: usize,
@@ -204,7 +204,7 @@ impl ManimRenderer {
 
 fn import_manim_source(
     context: Arc<CudaContext>,
-    stream: Arc<cuda_core::CudaStream>,
+    stream: Arc<shrimply_cuda::CudaStream>,
     descriptor: shrimply_manim_wgpu::ExternalFrameDescriptor,
     exported: shrimply_manim_wgpu::ExportedFrame,
 ) -> Result<ManimCudaSource, String> {
@@ -334,7 +334,7 @@ fn import_manim_source(
 
 fn copy_manim_source(
     context: Arc<CudaContext>,
-    stream: Arc<cuda_core::CudaStream>,
+    stream: Arc<shrimply_cuda::CudaStream>,
     source: &ManimCudaSource,
     semaphore_value: u64,
     destination: &VisualFrame,
@@ -567,7 +567,7 @@ impl GeneratedGpuRenderer {
     pub(crate) fn render_background(
         &mut self,
         context: Arc<CudaContext>,
-        stream: Arc<cuda_core::CudaStream>,
+        stream: Arc<shrimply_cuda::CudaStream>,
         width: u32,
         height: u32,
         time: shrimply_project::project::Time,
@@ -617,7 +617,7 @@ impl GeneratedGpuRenderer {
     pub(crate) fn render_manim(
         &mut self,
         context: Arc<CudaContext>,
-        stream: Arc<cuda_core::CudaStream>,
+        stream: Arc<shrimply_cuda::CudaStream>,
         slot: &Arc<()>,
         animation: &shrimply_manim_wgpu::PreparedAnimation,
         frame_index: usize,
@@ -635,7 +635,7 @@ impl GeneratedGpuRenderer {
     pub(crate) fn render_mesh_flow(
         &mut self,
         context: Arc<CudaContext>,
-        stream: &cuda_core::CudaStream,
+        stream: &shrimply_cuda::CudaStream,
         source: &VisualFrame,
         grid_width: u32,
         grid_height: u32,
@@ -1129,7 +1129,7 @@ impl GeneratedGpuRenderer {
     fn import_submitted_buffer_to_cuda(
         &self,
         context: Arc<CudaContext>,
-        stream: Arc<cuda_core::CudaStream>,
+        stream: Arc<shrimply_cuda::CudaStream>,
         width: u32,
         height: u32,
         buffer: ExportedBuffer,
@@ -1569,7 +1569,7 @@ struct ExportedBuffer {
 }
 
 struct PendingVulkanWait {
-    stream: Arc<cuda_core::CudaStream>,
+    stream: Arc<shrimply_cuda::CudaStream>,
     semaphore: VulkanSemaphore,
     external_semaphore: usize,
 }
@@ -1579,7 +1579,7 @@ struct ImportedVulkanFrame {
     ptr: sys::CUdeviceptr,
     external_memory: usize,
     allocation_size: u64,
-    stream: Option<Arc<cuda_core::CudaStream>>,
+    stream: Option<Arc<shrimply_cuda::CudaStream>>,
     external_semaphore: Option<usize>,
     _semaphore: Option<VulkanSemaphore>,
     _buffer: ExportedBuffer,
@@ -1697,7 +1697,7 @@ fn drop_imported_memory(
     ptr: sys::CUdeviceptr,
     external_memory: usize,
     allocation_size: u64,
-    stream: Option<&cuda_core::CudaStream>,
+    stream: Option<&shrimply_cuda::CudaStream>,
     external_semaphore: Option<usize>,
 ) {
     if let Err(error) = bind_context(context, "bind CUDA context for Vulkan visual frame drop") {

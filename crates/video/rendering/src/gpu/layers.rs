@@ -1,4 +1,4 @@
-use cuda_core::{CudaStream, sys};
+use shrimply_cuda::{CudaStream, sys};
 
 use crate::decode::DecodeControl;
 use crate::layer::VideoLayer;
@@ -114,7 +114,7 @@ pub(super) fn prepare(
                     .ok_or_else(|| "CUDA video frame is missing its CUDA context".to_string())?;
                 if frame_context.cu_ctx() != context {
                     return Err(
-                        "CUDA video frame context does not match the CUDA Oxide primary context"
+                        "CUDA video frame context does not match the active CUDA primary context"
                             .to_string(),
                     );
                 }
@@ -217,7 +217,7 @@ pub(super) fn prepare(
 pub(super) fn apply_anime4k(
     prepared: &mut PreparedLayers,
     workspace: &mut shrimply_anime4k::Workspace,
-    stream: &std::sync::Arc<cuda_core::CudaStream>,
+    stream: &std::sync::Arc<shrimply_cuda::CudaStream>,
 ) -> Result<Vec<shrimply_gpu_memory::GpuBuffer<u32>>, String> {
     let mut buffers = Vec::with_capacity(prepared.anime4k.len());
     for request in &prepared.anime4k {

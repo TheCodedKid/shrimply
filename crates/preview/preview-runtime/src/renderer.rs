@@ -23,7 +23,7 @@ pub struct VideoRenderer {
     vao: glow::NativeVertexArray,
     rgba_texture: glow::NativeTexture,
     rgba_cuda: Option<CudaTexture>,
-    cuda_context: Option<cuda_core::sys::CUcontext>,
+    cuda_context: Option<shrimply_cuda::sys::CUcontext>,
     texture_width: u32,
     texture_height: u32,
     last_frame_key: Option<CompositedFrameStorageKey>,

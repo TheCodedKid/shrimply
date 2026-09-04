@@ -2,30 +2,9 @@ use super::RasterModifierRuntime;
 use crate::gpu::modifiers::{CanvasRgbaFrame, GpuModifier, ModifierContext};
 use crate::layer::RasterVisual;
 use crate::visual_source::VisualModifierContext;
-use cuda_core::LaunchConfig;
-use cuda_device::{DisjointSlice, kernel};
+use shrimply_cuda::LaunchConfig;
 use shrimply_evaluation::resolve_vec2;
 use shrimply_video_modifiers::gaussian_blur::{GaussianBlurChannels, GaussianBlurModifier};
-
-#[kernel]
-fn gaussian_blur_horizontal(_: *const u32, _: u32, _: DisjointSlice<u32>, _: u32) {}
-
-#[kernel]
-#[expect(
-    clippy::too_many_arguments,
-    reason = "parameters must match the compiled CUDA kernel ABI"
-)]
-fn gaussian_blur_vertical(
-    _: *const u32,
-    _: *const u32,
-    _: u32,
-    _: u32,
-    _: DisjointSlice<u32>,
-    _: u32,
-    _: bool,
-    _: bool,
-) {
-}
 
 struct Resolved {
     radius_x: u32,
@@ -53,7 +32,7 @@ impl GpuModifier for Resolved {
         let mut scratch = context.take_scratch(count)?;
         let module = context.modifier_module(crate::gpu::modifiers::ModifierModule::Blur)?;
         unsafe {
-            cuda_host::cuda_launch! {
+            shrimply_cuda::cuda_launch! {
                 kernel: gaussian_blur_horizontal,
                 stream: context.stream(), module: &module, config: launch,
                 args: [pass.input_ptr(), width, slice_mut(&mut scratch), self.radius_x]
@@ -62,7 +41,7 @@ impl GpuModifier for Resolved {
         .map_err(|error| format!("launch horizontal CUDA kernel: {error:?}"))?;
         let scratch_ptr = scratch.cu_deviceptr() as usize as *const u32;
         unsafe {
-            cuda_host::cuda_launch! {
+            shrimply_cuda::cuda_launch! {
                 kernel: gaussian_blur_vertical,
                 stream: context.stream(), module: &module, config: launch,
                 args: [

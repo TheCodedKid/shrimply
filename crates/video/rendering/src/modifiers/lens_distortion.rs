@@ -2,12 +2,9 @@ use super::RasterModifierRuntime;
 use crate::gpu::modifiers::{CanvasRgbaFrame, GpuModifier, ModifierContext};
 use crate::layer::RasterVisual;
 use crate::visual_source::VisualModifierContext;
-use cuda_core::LaunchConfig;
-use cuda_device::{DisjointSlice, kernel};
+use shrimply_cuda::LaunchConfig;
 use shrimply_evaluation::{resolve_scalar, resolve_vec2};
 use shrimply_video_modifiers::lens_distortion::LensDistortionModifier;
-#[kernel]
-fn lens_distortion(_: *const u32, _: u32, _: u32, _: DisjointSlice<u32>, _: f32, _: glam::Vec2) {}
 struct Resolved {
     distortion: f32,
     center: glam::Vec2,
@@ -27,7 +24,7 @@ impl GpuModifier for Resolved {
         let mut p = input.into_pass(c)?;
         let m = c.modifier_module(crate::gpu::modifiers::ModifierModule::Geometry)?;
         unsafe {
-            cuda_host::cuda_launch! {
+            shrimply_cuda::cuda_launch! {
                 kernel: lens_distortion,
                 stream: c.stream(),
                 module: &m,

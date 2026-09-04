@@ -2,11 +2,8 @@ use super::RasterModifierRuntime;
 use crate::gpu::modifiers::{CanvasRgbaFrame, GpuModifier, ModifierContext};
 use crate::layer::RasterVisual;
 use crate::visual_source::VisualModifierContext;
-use cuda_core::LaunchConfig;
-use cuda_device::{DisjointSlice, kernel};
+use shrimply_cuda::LaunchConfig;
 use shrimply_video_modifiers::mirror::MirrorModifier;
-#[kernel]
-fn mirror(_: *const u32, _: u32, _: u32, _: DisjointSlice<u32>, _: u32, _: u32) {}
 struct Resolved {
     horizontal: u32,
     vertical: u32,
@@ -26,7 +23,7 @@ impl GpuModifier for Resolved {
         let mut p = input.into_pass(c)?;
         let m = c.modifier_module(crate::gpu::modifiers::ModifierModule::Geometry)?;
         unsafe {
-            cuda_host::cuda_launch! {
+            shrimply_cuda::cuda_launch! {
                 kernel: mirror,
                 stream: c.stream(),
                 module: &m,

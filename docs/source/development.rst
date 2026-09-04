@@ -11,8 +11,8 @@ The current development setup targets Fedora and uses the Rust toolchain in
 
    $ make deps-fedora
 
-Set up CUDA Oxide with ``make oxide-setup``. CUDA host artifacts currently
-target ``sm_86``.
+Initialize the Slang submodule before building. Slang compiles the compositor
+shaders to CUDA, and ``nvcc`` packages the current ``sm_86`` cubins.
 
 Build and check
 ---------------

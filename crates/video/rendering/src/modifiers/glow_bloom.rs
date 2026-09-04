@@ -2,26 +2,10 @@ use super::RasterModifierRuntime;
 use crate::gpu::modifiers::{CanvasRgbaFrame, GpuModifier, ModifierContext};
 use crate::layer::RasterVisual;
 use crate::visual_source::VisualModifierContext;
-use cuda_core::LaunchConfig;
-use cuda_device::{DisjointSlice, kernel};
+use shrimply_cuda::LaunchConfig;
 use shrimply_evaluation::resolve_scalar;
 use shrimply_math_color::Color;
 use shrimply_video_modifiers::glow_bloom::GlowBloomModifier;
-
-#[kernel]
-fn glow_bloom_horizontal(_: *const u32, _: u32, _: DisjointSlice<Color>, _: f32, _: u32) {}
-
-#[kernel]
-fn glow_bloom_vertical(
-    _: *const u32,
-    _: *const Color,
-    _: u32,
-    _: u32,
-    _: DisjointSlice<u32>,
-    _: u32,
-    _: f32,
-) {
-}
 
 struct Resolved {
     threshold: f32,
@@ -46,7 +30,7 @@ impl GpuModifier for Resolved {
         let mut glow = c.take_typed_scratch::<Color>(count)?;
         let module = c.modifier_module(crate::gpu::modifiers::ModifierModule::Blur)?;
         unsafe {
-            cuda_host::cuda_launch! {
+            shrimply_cuda::cuda_launch! {
                 kernel: glow_bloom_horizontal,
                 stream: c.stream(), module: &module, config: launch,
                 args: [
@@ -58,7 +42,7 @@ impl GpuModifier for Resolved {
         .map_err(|error| format!("launch horizontal CUDA kernel: {error:?}"))?;
         let glow_ptr = glow.cu_deviceptr() as usize as *const Color;
         unsafe {
-            cuda_host::cuda_launch! {
+            shrimply_cuda::cuda_launch! {
                 kernel: glow_bloom_vertical,
                 stream: c.stream(), module: &module, config: launch,
                 args: [

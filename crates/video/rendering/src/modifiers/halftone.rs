@@ -2,13 +2,10 @@ use super::RasterModifierRuntime;
 use crate::gpu::modifiers::{CanvasRgbaFrame, GpuModifier, ModifierContext};
 use crate::layer::RasterVisual;
 use crate::visual_source::VisualModifierContext;
-use cuda_core::LaunchConfig;
-use cuda_device::{DisjointSlice, kernel};
+use shrimply_cuda::LaunchConfig;
 use shrimply_evaluation::resolve_scalar;
 use shrimply_render_core::HalftoneParams;
 use shrimply_video_modifiers::halftone::{HalftoneMode, HalftoneModifier};
-#[kernel]
-fn halftone(_: *const u32, _: u32, _: DisjointSlice<u32>, _: HalftoneParams) {}
 struct Resolved {
     size: f32,
     angle: f32,
@@ -39,7 +36,7 @@ impl GpuModifier for Resolved {
             channel_angle_offset: self.channel_angle_offset,
         };
         unsafe {
-            cuda_host::cuda_launch! {
+            shrimply_cuda::cuda_launch! {
                 kernel: halftone,
                 stream: c.stream(),
                 module: &m,
