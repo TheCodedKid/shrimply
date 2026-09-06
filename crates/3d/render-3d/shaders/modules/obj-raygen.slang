@@ -4,11 +4,7 @@ void raygen_main()
     uint2 pixel = DispatchRaysIndex().xy;
     uint2 dimensions = DispatchRaysDimensions().xy;
     AntiAliasing anti_aliasing = scene.toon.anti_aliasing;
-    uint anti_aliasing_samples = anti_aliasing == AntiAliasing::None
-        ? 1
-        : (anti_aliasing == AntiAliasing::RotatedGrid2x
-            ? 2
-            : (anti_aliasing == AntiAliasing::Grid4x ? 4 : 8));
+    uint anti_aliasing_samples = anti_aliasing_sample_count(anti_aliasing);
     uint minimum_samples = 1u;
     uint maximum_samples = 1u;
     float relative_error = 0.0;

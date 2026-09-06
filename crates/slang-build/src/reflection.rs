@@ -131,6 +131,117 @@ pub fn generate_abi(reflection: &Value, abi_reflection: &[u8]) -> String {
     output
 }
 
+pub fn generate_metal_module(module: &str, metal_filename: &str, reflection: &[u8]) -> String {
+    let module = rust_identifier(module);
+    assert_eq!(
+        std::path::Path::new(metal_filename)
+            .file_name()
+            .and_then(std::ffi::OsStr::to_str),
+        Some(metal_filename),
+        "Metal artifact must be a filename under OUT_DIR"
+    );
+    assert!(
+        metal_filename.ends_with(".metal"),
+        "Metal artifact must have a .metal extension"
+    );
+    let reflection: Value = serde_json::from_slice(reflection)
+        .unwrap_or_else(|error| panic!("parse Slang Metal reflection: {error}"));
+    let parameters = reflection
+        .get("parameters")
+        .and_then(Value::as_array)
+        .expect("Slang Metal reflection has no parameters array");
+    let entry_points = reflection
+        .get("entryPoints")
+        .and_then(Value::as_array)
+        .expect("Slang Metal reflection has no entryPoints array");
+
+    let mut output = format!(
+        "pub mod {module} {{\n    pub const METAL_SOURCE: &str = include_str!(concat!(env!(\"OUT_DIR\"), \"/{metal_filename}\"));\n"
+    );
+    for parameter in parameters {
+        let name = required_string(parameter, "name");
+        rust_identifier(name);
+        let binding = required(parameter, "binding");
+        validate_metal_binding(parameter, required_string(binding, "kind"));
+        output.push_str(&format!(
+            "    pub const {}_BINDING: usize = {};\n",
+            screaming_snake(name),
+            required_usize(binding, "index")
+        ));
+        let ty = required(parameter, "type");
+        if ty.get("baseShape").and_then(Value::as_str) == Some("structuredBuffer") {
+            let element = required(ty, "resultType");
+            let size = required(element, "sizes")
+                .as_array()
+                .expect("structured Metal buffer element has no sizes")
+                .iter()
+                .find(|size| required_string(size, "kind") == "uniform")
+                .map(|size| required_usize(size, "value"))
+                .expect("structured Metal buffer element has no uniform size");
+            output.push_str(&format!(
+                "    pub const {}_ELEMENT_SIZE: usize = {size};\n",
+                screaming_snake(name)
+            ));
+        }
+    }
+    for entry in entry_points {
+        let name = required_string(entry, "name");
+        rust_identifier(name);
+        let constant = screaming_snake(name);
+        let stage = required_string(entry, "stage");
+        assert!(
+            matches!(stage, "compute" | "vertex" | "fragment"),
+            "unsupported Metal shader stage `{stage}`"
+        );
+        output.push_str(&format!(
+            "    pub const {constant}_ENTRY_POINT: &str = {name:?};\n"
+        ));
+        if stage == "compute" {
+            let group = required(entry, "threadGroupSize")
+                .as_array()
+                .expect("Metal compute entry has no thread group size");
+            assert_eq!(group.len(), 3, "Metal compute thread group must be 3D");
+            output.push_str(&format!(
+                "    pub const {constant}_THREAD_GROUP: [usize; 3] = [{}, {}, {}];\n",
+                group[0].as_u64().expect("Metal thread group x"),
+                group[1].as_u64().expect("Metal thread group y"),
+                group[2].as_u64().expect("Metal thread group z")
+            ));
+        }
+    }
+    output.push_str("}\n");
+    output
+}
+
+fn validate_metal_binding(parameter: &Value, kind: &str) {
+    let ty = required(parameter, "type");
+    let type_kind = required_string(ty, "kind");
+    let valid = match kind {
+        "constantBuffer" => {
+            type_kind == "constantBuffer"
+                || type_kind == "resource"
+                    && matches!(
+                        ty.get("baseShape").and_then(Value::as_str),
+                        Some("structuredBuffer" | "accelerationStructure")
+                    )
+        }
+        "shaderResource" => {
+            type_kind == "resource"
+                && matches!(
+                    ty.get("baseShape").and_then(Value::as_str),
+                    Some("texture1D" | "texture2D" | "texture3D" | "textureCube")
+                )
+        }
+        "samplerState" => type_kind == "samplerState",
+        _ => false,
+    };
+    assert!(
+        valid,
+        "unsupported Metal binding `{kind}` for `{}`",
+        required_string(parameter, "name")
+    );
+}
+
 fn parse_abi(reflection: &[u8]) -> AbiReflection<'_> {
     let reflection = std::str::from_utf8(reflection).expect("Slang ABI reflection must be UTF-8");
     let mut enums = Vec::<ReflectedEnum>::new();

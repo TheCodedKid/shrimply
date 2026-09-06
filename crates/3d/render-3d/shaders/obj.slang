@@ -1,4 +1,6 @@
 import render_3d_abi;
+import render_3d_environment;
+import render_3d_material;
 import render_3d_normals;
 import render_3d_pbr;
 import render_3d_sampling;
@@ -163,19 +165,12 @@ void alpha_any_hit(
         : scene.base_color;
     if (material.flags.x == 0 || material.flags.y == 0)
         return;
-    float alpha = base_color.a;
-    if (material.flags.y == 1)
-    {
-        if (alpha < material.metallic_roughness_normal_alpha.w)
-            IgnoreHit();
-        return;
-    }
-    const uint HASH_MULTIPLIER = 0x9e3779b9u;
-    uint hash = material_index * HASH_MULTIPLIER
-        ^ asuint(attributes.barycentrics.x)
-        ^ (asuint(attributes.barycentrics.y) << 1);
-    hash ^= hash >> 16;
-    if (float(hash & 0x00ffffffu) / float(0x01000000u) >= alpha)
+    if (!material_hit_accepted(
+            material_index,
+            attributes.barycentrics,
+            material.flags.y,
+            base_color.a,
+            material.metallic_roughness_normal_alpha.w))
         IgnoreHit();
 }
 
@@ -211,16 +206,15 @@ void shadow_alpha_any_hit(
     else if (material.flags.x != 0 && material.flags.y != 0)
         coverage = saturate(base_color.a);
 
-    float metallic = scene.material.x;
-    if (material.flags.x != 0)
-    {
-        float4 metallic_roughness = sample_material_texture(
-            material.metallic_roughness_texture,
-            first,
-            barycentric);
-        metallic = material.metallic_roughness_normal_alpha.x
-            * metallic_roughness.b;
-    }
+    float4 metallic_roughness = sample_material_texture(
+        material.metallic_roughness_texture,
+        first,
+        barycentric);
+    float metallic = material_metallic(
+        material.flags.x != 0,
+        material.metallic_roughness_normal_alpha.x,
+        metallic_roughness,
+        scene.material.x);
 
     float3 object_normal = normalize(cross(
         positions[first + 1].xyz - positions[first].xyz,
@@ -287,36 +281,11 @@ void closest_hit(
     NormalMode normal_mode = mesh_material.flags.w != 0
         ? NormalMode(mesh_material.surface.x)
         : scene.normal_mode;
-    float3 object_normal;
-    switch (normal_mode)
-    {
-    case NormalMode::Smooth:
-        object_normal = normalize(
-            triangle_normals[0] * barycentric.x
-            + triangle_normals[1] * barycentric.y
-            + triangle_normals[2] * barycentric.z);
-        break;
-    case NormalMode::Spherical:
-        object_normal = spherical_normal(triangle_normals, barycentric);
-        break;
-    case NormalMode::PnTriangle:
-        object_normal = pn_triangle_normal(
-            triangle_positions,
-            triangle_normals,
-            barycentric);
-        break;
-    case NormalMode::Flat:
-        object_normal = normalize(cross(
-            triangle_positions[1] - triangle_positions[0],
-            triangle_positions[2] - triangle_positions[0]));
-        break;
-    default:
-        object_normal = normalize(
-            triangle_normals[0] * barycentric.x
-            + triangle_normals[1] * barycentric.y
-            + triangle_normals[2] * barycentric.z);
-        break;
-    }
+    float3 object_normal = surface_normal(
+        normal_mode,
+        triangle_positions,
+        triangle_normals,
+        barycentric);
 
     PbrSettings surface_pbr = mesh_material.flags.w != 0
         ? mesh_material.pbr
@@ -340,15 +309,13 @@ void closest_hit(
         float3 tangent = normalize(mul(
             mul(scene.model, instance.model),
             float4(object_tangent.xyz, 0.0)).xyz);
-        tangent = normalize(tangent - normal * dot(normal, tangent));
         float handedness = object_tangent.w < 0.0 ? -1.0 : 1.0;
-        float3 bitangent = cross(normal, tangent) * handedness;
-        float3 tangent_normal = sampled_normal.xyz * 2.0 - 1.0;
-        tangent_normal.xy *= mesh_material.metallic_roughness_normal_alpha.z;
-        normal = normalize(
-            tangent * tangent_normal.x
-            + bitangent * tangent_normal.y
-            + normal * tangent_normal.z);
+        normal = apply_normal_map(
+            normal,
+            tangent,
+            handedness,
+            sampled_normal.xyz,
+            mesh_material.metallic_roughness_normal_alpha.z);
     }
     float3 world_ray_direction = normalize(mul(
         scene.model,
@@ -403,12 +370,16 @@ void closest_hit(
     float3 base_color = mesh_material.flags.x != 0
         ? mesh_base_color.rgb
         : scene.base_color.rgb;
-    float metallic = mesh_material.flags.x != 0
-        ? mesh_material.metallic_roughness_normal_alpha.x * metallic_roughness.b
-        : scene.material.x;
-    float roughness = mesh_material.flags.x != 0
-        ? mesh_material.metallic_roughness_normal_alpha.y * metallic_roughness.g
-        : scene.material.y;
+    float metallic = material_metallic(
+        mesh_material.flags.x != 0,
+        mesh_material.metallic_roughness_normal_alpha.x,
+        metallic_roughness,
+        scene.material.x);
+    float roughness = material_roughness(
+        mesh_material.flags.x != 0,
+        mesh_material.metallic_roughness_normal_alpha.y,
+        metallic_roughness,
+        scene.material.y);
     bool toon = surface_toon.shading_model == ShadingModel::Toon;
     bool path_tracing = scene.pbr.path_tracing != PathTracingMode::Off;
     bool stochastic_transport = path_tracing || surface_pbr.transmission > 0.0;
