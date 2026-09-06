@@ -43,3 +43,4 @@ latex_cache/
 *.fdb_latexmk
 *.synctex.gz
 .gradio/certificate.pem
+TODO.md
