@@ -5,13 +5,15 @@ use objc2::{AnyThread, ClassType, DefinedClass, MainThreadOnly, define_class, ms
 use objc2_app_kit::NSControlTextEditingDelegate;
 use objc2_app_kit::{
     NSButton, NSButtonType, NSColor, NSControlStateValueOn, NSCursor, NSEvent, NSEventMask,
-    NSEventType, NSImage, NSImageView, NSLayoutConstraintOrientation, NSLayoutPriorityDefaultLow,
-    NSTextAlignment, NSTextField, NSTextFieldDelegate, NSTrackingArea, NSTrackingAreaOptions,
-    NSView,
+    NSEventType, NSGraphicsContext, NSImage, NSImageView, NSLayoutConstraintOrientation,
+    NSLayoutPriorityDefaultLow, NSTextAlignment, NSTextField, NSTextFieldDelegate,
+    NSTrackingArea, NSTrackingAreaOptions, NSView,
 };
+use objc2_app_kit::NSAffineTransformNSAppKitAdditions;
 use objc2_core_graphics::{CGAssociateMouseAndMouseCursorPosition, CGError};
 use objc2_foundation::{
-    MainThreadMarker, NSNotification, NSObjectProtocol, NSPoint, NSRect, NSString,
+    MainThreadMarker, NSAffineTransform, NSNotification, NSObjectProtocol, NSPoint, NSRect,
+    NSString,
 };
 use shrimply_component_core::number::{
     DEFAULT_MAXIMUM, DEFAULT_MINIMUM, NumberConfig, NumberDrag, accepted_value, format_value,
@@ -27,11 +29,52 @@ type NumberCallback = Rc<dyn Fn(Fraction)>;
 type PairCallback = Box<dyn Fn([f64; 2], usize)>;
 type ScalarCallback = Box<dyn Fn(f64)>;
 
+struct RotatingImageViewIvars {
+    angle_degrees: Cell<f64>,
+}
+
+define_class!(
+    #[unsafe(super(NSImageView))]
+    #[thread_kind = MainThreadOnly]
+    #[ivars = RotatingImageViewIvars]
+    struct RotatingImageView;
+
+    unsafe impl NSObjectProtocol for RotatingImageView {}
+
+    impl RotatingImageView {
+        #[unsafe(method(drawRect:))]
+        fn draw_rect(&self, _dirty_rect: NSRect) {
+            NSGraphicsContext::saveGraphicsState_class();
+            let bounds = self.bounds();
+            let transform = NSAffineTransform::transform();
+            transform.translateXBy_yBy(bounds.size.width / 2.0, bounds.size.height / 2.0);
+            transform.rotateByDegrees(-self.ivars().angle_degrees.get());
+            transform.translateXBy_yBy(-bounds.size.width / 2.0, -bounds.size.height / 2.0);
+            transform.concat();
+            unsafe {
+                let _: () = msg_send![super(self), drawRect: bounds];
+            }
+            NSGraphicsContext::restoreGraphicsState_class();
+        }
+    }
+);
+
+impl RotatingImageView {
+    fn set_angle(&self, angle_degrees: f64) {
+        if self.ivars().angle_degrees.replace(angle_degrees) != angle_degrees {
+            self.as_super()
+                .as_super()
+                .as_super()
+                .setNeedsDisplay(true);
+        }
+    }
+}
+
 struct NumberPickerIvars {
     config: NumberConfig,
     value: Cell<Fraction>,
     display: Retained<NSView>,
-    rotating_icon: Retained<NSImageView>,
+    rotating_icon: Retained<RotatingImageView>,
     rotation_offset_degrees: f64,
     value_label: Retained<NSTextField>,
     entry: Retained<NSTextField>,
@@ -242,10 +285,9 @@ impl NumberPickerView {
 
     fn refresh(&self) {
         if !self.ivars().rotating_icon.isHidden() {
-            self.ivars().rotating_icon.setBoundsRotation(
-                fraction_as_f64(self.ivars().value.get())
-                    + self.ivars().rotation_offset_degrees,
-            );
+            let angle = fraction_as_f64(self.ivars().value.get())
+                + self.ivars().rotation_offset_degrees;
+            self.ivars().rotating_icon.set_angle(angle);
         }
         self.ivars()
             .value_label
@@ -507,7 +549,11 @@ impl NumberPickerBuilder {
         let background = NSTextField::labelWithString(&NSString::new(), mtm);
         background.setBordered(true);
         background.setBezeled(true);
-        let rotating_icon = NSImageView::new(mtm);
+        let rotating_icon = RotatingImageView::alloc(mtm).set_ivars(RotatingImageViewIvars {
+            angle_degrees: Cell::new(f64::NAN),
+        });
+        let rotating_icon: Retained<RotatingImageView> =
+            unsafe { msg_send![super(rotating_icon), initWithFrame: NSRect::ZERO] };
         if let Some(name) = self.rotating_prefix_symbol.as_deref() {
             rotating_icon.setImage(Some(&system_symbol(name, "Rotation")));
         } else {
@@ -521,7 +567,7 @@ impl NumberPickerBuilder {
         suffix.setTextColor(Some(&NSColor::secondaryLabelColor()));
         for child in [
             &*background,
-            rotating_icon.as_super().as_super(),
+            rotating_icon.as_super().as_super().as_super(),
             &*prefix,
             &*value_label,
             &*suffix,

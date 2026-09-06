@@ -8,7 +8,7 @@ use objc2_app_kit::{
     NSControlStateValueOn, NSEvent, NSFont, NSGlassEffectView, NSGlassEffectViewStyle, NSImage,
     NSLayoutAttribute, NSLayoutConstraintOrientation, NSLayoutPriorityDefaultLow,
     NSLayoutPriorityRequired, NSPasteboard, NSPasteboardTypeString, NSPopover, NSPopoverBehavior,
-    NSProgressIndicator, NSProgressIndicatorStyle, NSScrollView, NSSearchField,
+    NSImageView, NSProgressIndicator, NSProgressIndicatorStyle, NSScrollView, NSSearchField,
     NSSegmentedControl, NSStackView, NSStackViewDistribution, NSSwitch, NSTextAlignment, NSTextField,
     NSUserInterfaceLayoutOrientation, NSView, NSViewController, NSAutoresizingMaskOptions,
 };
@@ -251,6 +251,12 @@ define_class!(
     unsafe impl NSObjectProtocol for SearchResult {}
 
     impl SearchResult {
+        #[unsafe(method(hitTest:))]
+        fn hit_test(&self, point: NSPoint) -> Option<&NSView> {
+            let hit: Option<&NSView> = unsafe { msg_send![super(self), hitTest: point] };
+            hit.map(|_| self.as_super().as_super().as_super())
+        }
+
         #[unsafe(method(keyDown:))]
         fn key_down(&self, event: &NSEvent) {
             match event.keyCode() {
@@ -632,8 +638,20 @@ fn populate_search_results(
         row.setBordered(false);
         row.setAutoresizingMask(NSAutoresizingMaskOptions::ViewWidthSizable);
         if selected.borrow().as_ref() == Some(&choice.value) {
-            row.setImage(Some(&symbol("checkmark", "Selected")));
-            row.setImagePosition(NSCellImagePosition::ImageTrailing);
+            let checkmark = NSImageView::new(mtm);
+            checkmark.setImage(Some(&symbol("checkmark", "Selected")));
+            checkmark.setTranslatesAutoresizingMaskIntoConstraints(false);
+            row.addSubview(&checkmark);
+            for constraint in [
+                checkmark
+                    .trailingAnchor()
+                    .constraintEqualToAnchor_constant(&row.trailingAnchor(), -SEARCH_ROW_HORIZONTAL_INSET),
+                checkmark.centerYAnchor().constraintEqualToAnchor(&row.centerYAnchor()),
+                checkmark.widthAnchor().constraintEqualToConstant(14.0),
+                checkmark.heightAnchor().constraintEqualToConstant(14.0),
+            ] {
+                constraint.setActive(true);
+            }
         }
         let value = choice.value.clone();
         let label = choice.label.clone();
@@ -644,11 +662,11 @@ fn populate_search_results(
         action::attach(
             &row,
             move |_| {
-                *selected.borrow_mut() = Some(value.clone());
-                if update_title
-                    && let Some(button) = main_button.as_ref().and_then(Weak::load)
-                {
-                    button.setTitle(&NSString::from_str(&label));
+                if update_title {
+                    *selected.borrow_mut() = Some(value.clone());
+                    if let Some(button) = main_button.as_ref().and_then(Weak::load) {
+                        button.setTitle(&NSString::from_str(&label));
+                    }
                 }
                 on_select(value.clone());
                 if let Some(popover) = popover.load() {
