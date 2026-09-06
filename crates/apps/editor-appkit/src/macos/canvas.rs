@@ -440,8 +440,12 @@ define_class!(
         #[unsafe(method(scrollWheel:))]
         fn scroll(&self, event: &NSEvent) {
             if let Content::Timeline(scene) = &mut *self.ivars().content.borrow_mut() {
-                let step = if event.hasPreciseScrollingDeltas() { 1.0 } else { shrimply_timeline_core::metrics::SCROLL_PIXELS_PER_STEP };
-                scene.scroll(self.point(event), glam::Vec2::new((event.scrollingDeltaX() * step) as f32, (event.scrollingDeltaY() * step) as f32), event.modifierFlags().contains(NSEventModifierFlags::Control));
+                let input = if event.hasPreciseScrollingDeltas() {
+                    shrimply_timeline_core::view::TimelineScrollInput::Surface
+                } else {
+                    shrimply_timeline_core::view::TimelineScrollInput::Wheel
+                };
+                scene.scroll(self.point(event), glam::Vec2::new(event.scrollingDeltaX() as f32, event.scrollingDeltaY() as f32), event.modifierFlags().contains(NSEventModifierFlags::Control), input);
             }
             self.preview_pointer_event(PointerEvent::Scroll {
                 input: self.preview_input(event),

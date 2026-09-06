@@ -212,18 +212,21 @@ pub(crate) fn add_input_controllers(
     let scroll_runtime = runtime.clone();
     scroll.connect_scroll(move |controller, dx, dy| {
         let modifiers = modifiers_from_state(controller.current_event_state());
+        let input = if controller.unit() == gtk::gdk::ScrollUnit::Wheel {
+            TimelineScrollInput::Wheel
+        } else {
+            TimelineScrollInput::Surface
+        };
         let mut runtime = scroll_runtime.borrow_mut();
         runtime
             .scene
             .event(shrimply_timeline_core::scene::Event::Modifiers(modifiers));
         let pointer = runtime.scene.pointer_state().position;
         runtime.scene.event(Event::Scroll(TimelineScrollEvent {
-            delta: vec2(
-                (dx * SCROLL_PIXELS_PER_STEP) as f32,
-                (dy * SCROLL_PIXELS_PER_STEP) as f32,
-            ),
+            delta: vec2(dx as f32, dy as f32),
             ctrl: modifiers.ctrl,
             pointer,
+            input,
         }));
         drop(runtime);
         scroll_area.queue_render();

@@ -579,13 +579,15 @@ impl Scene {
         self.finish_pointer_frame();
     }
 
-    /// Deltas use content motion coordinates; native wheel direction is translated by the host.
-    pub fn scroll(&mut self, point: Vec2, delta: Vec2, zoom: bool) {
+    /// Deltas use native input units and content motion coordinates; wheel direction is
+    /// translated by the host.
+    pub fn scroll(&mut self, point: Vec2, delta: Vec2, zoom: bool, input: TimelineScrollInput) {
         self.pointer_pos = Some(point);
         self.pending_scrolls.push(TimelineScrollEvent {
             delta: -delta,
             ctrl: zoom,
             pointer: Some(point),
+            input,
         });
         self.update_input();
     }
