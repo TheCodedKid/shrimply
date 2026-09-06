@@ -16,7 +16,8 @@ use uuid::Uuid;
 
 use crate::{
     CURSOR_LANE_HEIGHT, GRAPH_PAD, GraphDomain, KeyframeGraph, KeyframeGraphDraw, KeyframePoint,
-    RawSegment, STEP_GRAPH_RANGE, draw_keyframes, raw_point, raw_range, segment_speed_at,
+    RawSegment, STEP_GRAPH_RANGE, draw_keyframes, graph_value_at, raw_point, raw_range,
+    segment_speed_at,
     speed_range, time_x, value_y,
 };
 
@@ -1119,22 +1120,7 @@ impl FrameGraphState {
     }
 
     fn current_value(&self) -> f64 {
-        if let KeyframeGraph::Step { points } = &self.graph {
-            return points
-                .iter()
-                .rev()
-                .find(|point| point.time <= self.playhead)
-                .or_else(|| points.first())
-                .map_or(0.0, |point| point.value);
-        }
-        self.focused_key
-            .and_then(|time| graph_key_point(&self.graph, time))
-            .or_else(|| {
-                graph_key_points(&self.graph)
-                    .into_iter()
-                    .min_by_key(|point| point.time.abs_diff(self.playhead))
-            })
-            .map_or(0.0, |point| point.value)
+        graph_value_at(&self.graph, self.playhead)
     }
 
     fn domain(&mut self, width: f64) -> GraphDomain {
