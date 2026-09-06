@@ -136,7 +136,6 @@ define_class!(
 
         #[unsafe(method(mouseDown:))]
         fn mouse_down(&self, event: &NSEvent) {
-            eprintln!("number-picker: mouse-down x={:.2}", event.locationInWindow().x);
             self.ivars().drag.set(NumberDrag::begin(self.ivars().value.get()));
             let origin_x = event.locationInWindow().x;
             let window = self
@@ -149,12 +148,6 @@ define_class!(
                     .expect("number interaction ended without a mouse-up event");
                 match next.r#type() {
                     NSEventType::LeftMouseDragged => {
-                        eprintln!(
-                            "number-picker: mouse-dragged x={:.2} dx={:.2} locked={}",
-                            next.locationInWindow().x,
-                            next.deltaX(),
-                            self.ivars().pointer_locked.get()
-                        );
                         if self.ivars().pointer_locked.get() {
                             self.update_drag(next.deltaX(), false);
                         } else {
@@ -165,15 +158,9 @@ define_class!(
                         if !self.ivars().pointer_locked.get() {
                             self.update_drag(next.locationInWindow().x - origin_x, true);
                         }
-                        eprintln!(
-                            "number-picker: mouse-up moved={} locked={}",
-                            self.ivars().drag.get().moved(),
-                            self.ivars().pointer_locked.get()
-                        );
                         if self.ivars().drag.get().moved() {
                             self.finish_drag();
                         } else {
-                            eprintln!("number-picker: release classified as click");
                             self.begin_edit();
                         }
                         break;
@@ -223,13 +210,11 @@ define_class!(
 
         #[unsafe(method(controlTextDidEndEditing:))]
         fn text_did_end(&self, _notification: &NSNotification) {
-            eprintln!("number-picker: text-did-end-editing");
             self.commit_edit();
         }
 
         #[unsafe(method(controlTextDidChange:))]
         fn text_did_change(&self, notification: &NSNotification) {
-            eprintln!("number-picker: text-did-change editing={}", self.ivars().editing.get());
             if !self.ivars().editing.get() {
                 return;
             }
@@ -278,7 +263,6 @@ impl NumberPickerView {
 
     fn finish_drag(&self) {
         assert!(self.ivars().drag.get().moved(), "finish_drag requires movement");
-        eprintln!("number-picker: release classified as drag");
         self.release_pointer();
         (self.ivars().on_commit)(self.ivars().value.get());
     }
@@ -342,10 +326,8 @@ impl NumberPickerView {
 
     fn begin_edit(&self) {
         if self.ivars().editing.get() {
-            eprintln!("number-picker: begin-edit ignored; already editing");
             return;
         }
-        eprintln!("number-picker: begin-edit");
         self.ivars().editing.set(true);
         self.ivars().preview_value.set(None);
         self.ivars()
@@ -377,11 +359,11 @@ impl NumberPickerView {
             constraint.setActive(true);
         }
         self.layoutSubtreeIfNeeded();
-        let accepted = self.window()
-            .expect("number picker must be attached before editing")
-            .makeFirstResponder(Some(&self.ivars().entry));
-        eprintln!(
-            "number-picker: entry installed=true first-responder-accepted={accepted}"
+        assert!(
+            self.window()
+                .expect("number picker must be attached before editing")
+                .makeFirstResponder(Some(&self.ivars().entry)),
+            "number picker entry must accept first responder"
         );
     }
 

@@ -5,7 +5,7 @@ use objc2_app_kit::{
     NSApplication, NSApplicationActivationPolicy, NSApplicationDelegate, NSAutoresizingMaskOptions,
     NSBackingStoreType, NSColor, NSFont, NSGlassEffectView, NSGlassEffectViewStyle, NSScrollView,
     NSStackView, NSTextField, NSTextView, NSTitlebarSeparatorStyle, NSToolbar, NSView, NSWindow,
-    NSWindowDelegate, NSWindowStyleMask, NSWindowTitleVisibility, NSWindowToolbarStyle, NSWorkspace,
+    NSWindowStyleMask, NSWindowTitleVisibility, NSWindowToolbarStyle, NSWorkspace,
 };
 use objc2_foundation::{
     MainThreadMarker, NSNotification, NSObject, NSObjectProtocol, NSPoint, NSRect, NSSize,
@@ -70,16 +70,8 @@ define_class!(
             window.setContentMinSize(NSSize::ZERO);
             window.setContentMaxSize(NSSize::new(f64::MAX, f64::MAX));
             window.setResizeIncrements(NSSize::new(1.0, 1.0));
-            window.setDelegate(Some(ProtocolObject::from_ref(self)));
             let showcase = build_showcase(mtm);
             window.setContentView(Some(&window_shell(showcase.view(), mtm)));
-            eprintln!(
-                "appkit-showcase-window: resizable={} frame={:?} content-min={:?} content-max={:?}",
-                window.styleMask().contains(NSWindowStyleMask::Resizable),
-                window.frame().size,
-                window.contentMinSize(),
-                window.contentMaxSize(),
-            );
             window.center();
             window.makeKeyAndOrderFront(None);
             self.ivars()
@@ -92,24 +84,6 @@ define_class!(
         }
     }
 
-    unsafe impl NSWindowDelegate for Delegate {
-        #[unsafe(method(windowWillStartLiveResize:))]
-        fn window_will_start_live_resize(&self, _notification: &NSNotification) {
-            eprintln!("appkit-showcase-window: live-resize-start");
-        }
-
-        #[unsafe(method(windowDidResize:))]
-        fn window_did_resize(&self, _notification: &NSNotification) {
-            if let Some(window) = self.ivars().window.get() {
-                eprintln!("appkit-showcase-window: resized frame={:?}", window.frame().size);
-            }
-        }
-
-        #[unsafe(method(windowDidEndLiveResize:))]
-        fn window_did_end_live_resize(&self, _notification: &NSNotification) {
-            eprintln!("appkit-showcase-window: live-resize-end");
-        }
-    }
 );
 
 pub fn run() {
