@@ -1,11 +1,13 @@
-use crate::{action, stack};
+use crate::action;
 use objc2::rc::Retained;
 use objc2::runtime::ProtocolObject;
-use objc2::{ClassType, DefinedClass, MainThreadOnly, define_class, msg_send, sel};
+use objc2::{AnyThread, ClassType, DefinedClass, MainThreadOnly, define_class, msg_send, sel};
 use objc2_app_kit::NSControlTextEditingDelegate;
 use objc2_app_kit::{
-    NSButton, NSControlStateValueOn, NSCursor, NSEvent, NSStackView, NSTextField,
-    NSTextFieldDelegate, NSView,
+    NSButton, NSButtonType, NSColor, NSControlStateValueOn, NSCursor, NSEvent, NSEventMask,
+    NSEventType, NSImage, NSImageView, NSLayoutConstraintOrientation, NSLayoutPriorityDefaultLow,
+    NSTextAlignment, NSTextField, NSTextFieldDelegate, NSTrackingArea, NSTrackingAreaOptions,
+    NSView,
 };
 use objc2_core_graphics::{CGAssociateMouseAndMouseCursorPosition, CGError};
 use objc2_foundation::{
@@ -28,15 +30,18 @@ type ScalarCallback = Box<dyn Fn(f64)>;
 struct NumberPickerIvars {
     config: NumberConfig,
     value: Cell<Fraction>,
-    display: Retained<NSTextField>,
+    display: Retained<NSView>,
+    rotating_icon: Retained<NSImageView>,
+    rotation_offset_degrees: f64,
+    value_label: Retained<NSTextField>,
     entry: Retained<NSTextField>,
-    prefix: String,
-    suffix: String,
     on_change: NumberCallback,
     on_commit: NumberCallback,
     drag: Cell<NumberDrag>,
     pointer_locked: Cell<bool>,
     editing: Cell<bool>,
+    preview_value: Cell<Option<Fraction>>,
+    tracking_area: RefCell<Option<Retained<NSTrackingArea>>>,
 }
 
 impl Drop for NumberPickerIvars {
@@ -68,41 +73,105 @@ define_class!(
         fn is_flipped(&self) -> bool { true }
 
         #[unsafe(method(acceptsFirstResponder))]
-        fn accepts_first_responder(&self) -> bool { true }
+        fn accepts_first_responder(&self) -> bool { false }
+
+        #[unsafe(method(acceptsFirstMouse:))]
+        fn accepts_first_mouse(&self, _event: Option<&NSEvent>) -> bool { true }
+
+        #[unsafe(method(mouseDownCanMoveWindow))]
+        fn mouse_down_can_move_window(&self) -> bool { false }
 
         #[unsafe(method(hitTest:))]
         fn hit_test(&self, point: NSPoint) -> Option<&NSView> {
             let hit: Option<&NSView> = unsafe { msg_send![super(self), hitTest: point] };
-            if hit.is_none() || self.ivars().editing.get() {
-                return hit;
+            if self.ivars().editing.get() {
+                hit
+            } else {
+                hit.map(|_| self.as_super())
             }
-            Some(self.as_super())
         }
 
         #[unsafe(method(mouseDown:))]
-        fn mouse_down(&self, _event: &NSEvent) {
-            if self.ivars().editing.get() { return; }
+        fn mouse_down(&self, event: &NSEvent) {
+            eprintln!("number-picker: mouse-down x={:.2}", event.locationInWindow().x);
             self.ivars().drag.set(NumberDrag::begin(self.ivars().value.get()));
+            let origin_x = event.locationInWindow().x;
+            let window = self
+                .window()
+                .expect("number picker must be attached to a window");
+            let mask = NSEventMask::LeftMouseDragged | NSEventMask::LeftMouseUp;
+            loop {
+                let next = window
+                    .nextEventMatchingMask(mask)
+                    .expect("number interaction ended without a mouse-up event");
+                match next.r#type() {
+                    NSEventType::LeftMouseDragged => {
+                        eprintln!(
+                            "number-picker: mouse-dragged x={:.2} dx={:.2} locked={}",
+                            next.locationInWindow().x,
+                            next.deltaX(),
+                            self.ivars().pointer_locked.get()
+                        );
+                        if self.ivars().pointer_locked.get() {
+                            self.update_drag(next.deltaX(), false);
+                        } else {
+                            self.update_drag(next.locationInWindow().x - origin_x, true);
+                        }
+                    }
+                    NSEventType::LeftMouseUp => {
+                        if !self.ivars().pointer_locked.get() {
+                            self.update_drag(next.locationInWindow().x - origin_x, true);
+                        }
+                        eprintln!(
+                            "number-picker: mouse-up moved={} locked={}",
+                            self.ivars().drag.get().moved(),
+                            self.ivars().pointer_locked.get()
+                        );
+                        if self.ivars().drag.get().moved() {
+                            self.finish_drag();
+                        } else {
+                            eprintln!("number-picker: release classified as click");
+                            self.begin_edit();
+                        }
+                        break;
+                    }
+                    _ => unreachable!("number interaction requested only drag and mouse-up events"),
+                }
+            }
         }
 
-        #[unsafe(method(mouseDragged:))]
-        fn mouse_dragged(&self, event: &NSEvent) {
-            if self.ivars().editing.get() { return; }
-            let mut drag = self.ivars().drag.get();
-            if !drag.update_relative(event.deltaX()) { return; }
-            self.ivars().drag.set(drag);
-            self.lock_pointer();
-            self.set_value(drag.value(&self.ivars().config));
+        #[unsafe(method(updateTrackingAreas))]
+        fn update_tracking_areas(&self) {
+            unsafe { let _: () = msg_send![super(self), updateTrackingAreas]; }
+            if let Some(previous) = self.ivars().tracking_area.borrow_mut().take() {
+                self.removeTrackingArea(&previous);
+            }
+            let area = unsafe {
+                NSTrackingArea::initWithRect_options_owner_userInfo(
+                    NSTrackingArea::alloc(),
+                    NSRect::ZERO,
+                    NSTrackingAreaOptions::MouseEnteredAndExited
+                        | NSTrackingAreaOptions::ActiveInKeyWindow
+                        | NSTrackingAreaOptions::InVisibleRect,
+                    Some(self),
+                    None,
+                )
+            };
+            self.addTrackingArea(&area);
+            self.ivars().tracking_area.replace(Some(area));
         }
 
-        #[unsafe(method(mouseUp:))]
-        fn mouse_up(&self, _event: &NSEvent) {
-            if self.ivars().editing.get() { return; }
-            if self.ivars().drag.get().moved() {
-                self.release_pointer();
-                (self.ivars().on_commit)(self.ivars().value.get());
-            } else {
-                self.begin_edit();
+        #[unsafe(method(mouseEntered:))]
+        fn mouse_entered(&self, _event: &NSEvent) {
+            if !self.ivars().editing.get() && !self.ivars().pointer_locked.get() {
+                NSCursor::columnResizeCursor().set();
+            }
+        }
+
+        #[unsafe(method(mouseExited:))]
+        fn mouse_exited(&self, _event: &NSEvent) {
+            if !self.ivars().pointer_locked.get() {
+                NSCursor::arrowCursor().set();
             }
         }
 
@@ -110,7 +179,29 @@ define_class!(
         fn commit_text(&self, _sender: &NSTextField) { self.commit_edit(); }
 
         #[unsafe(method(controlTextDidEndEditing:))]
-        fn text_did_end(&self, _notification: &NSNotification) { self.commit_edit(); }
+        fn text_did_end(&self, _notification: &NSNotification) {
+            eprintln!("number-picker: text-did-end-editing");
+            self.commit_edit();
+        }
+
+        #[unsafe(method(controlTextDidChange:))]
+        fn text_did_change(&self, notification: &NSNotification) {
+            eprintln!("number-picker: text-did-change editing={}", self.ivars().editing.get());
+            if !self.ivars().editing.get() {
+                return;
+            }
+            let field = notification
+                .object()
+                .expect("number edit notification sender")
+                .downcast::<NSTextField>()
+                .expect("number edit notification must contain a text field");
+            if let Some(value) = parse_fraction(field.stringValue().to_string().trim()) {
+                let value = accepted_value(&self.ivars().config, value);
+                if self.ivars().preview_value.replace(Some(value)) != Some(value) {
+                    (self.ivars().on_change)(value);
+                }
+            }
+        }
 
         #[unsafe(method(cancelOperation:))]
         fn cancel_operation(&self, _sender: &objc2_foundation::NSObject) {
@@ -127,19 +218,41 @@ define_class!(
 );
 
 impl NumberPickerView {
-    fn text(&self) -> String {
-        format!(
-            "{}{}{}",
-            self.ivars().prefix,
-            format_value(&self.ivars().config, self.ivars().value.get()),
-            self.ivars().suffix,
-        )
+    fn update_drag(&self, offset_x: f64, absolute: bool) {
+        let mut drag = self.ivars().drag.get();
+        let moved = if absolute {
+            drag.update_absolute(offset_x)
+        } else {
+            drag.update_relative(offset_x)
+        };
+        if !moved {
+            return;
+        }
+        self.ivars().drag.set(drag);
+        self.lock_pointer();
+        self.set_value(drag.value(&self.ivars().config));
+    }
+
+    fn finish_drag(&self) {
+        assert!(self.ivars().drag.get().moved(), "finish_drag requires movement");
+        eprintln!("number-picker: release classified as drag");
+        self.release_pointer();
+        (self.ivars().on_commit)(self.ivars().value.get());
     }
 
     fn refresh(&self) {
+        if !self.ivars().rotating_icon.isHidden() {
+            self.ivars().rotating_icon.setBoundsRotation(
+                fraction_as_f64(self.ivars().value.get())
+                    + self.ivars().rotation_offset_degrees,
+            );
+        }
         self.ivars()
-            .display
-            .setStringValue(&NSString::from_str(&self.text()));
+            .value_label
+            .setStringValue(&NSString::from_str(&format_value(
+                &self.ivars().config,
+                self.ivars().value.get(),
+            )));
     }
 
     fn set_value(&self, value: Fraction) -> bool {
@@ -150,6 +263,13 @@ impl NumberPickerView {
         self.refresh();
         (self.ivars().on_change)(value);
         true
+    }
+
+    fn set_value_silently(&self, value: Fraction) {
+        let value = accepted_value(&self.ivars().config, value);
+        if self.ivars().value.replace(value) != value {
+            self.refresh();
+        }
     }
 
     fn lock_pointer(&self) {
@@ -179,21 +299,48 @@ impl NumberPickerView {
     }
 
     fn begin_edit(&self) {
+        if self.ivars().editing.get() {
+            eprintln!("number-picker: begin-edit ignored; already editing");
+            return;
+        }
+        eprintln!("number-picker: begin-edit");
         self.ivars().editing.set(true);
+        self.ivars().preview_value.set(None);
         self.ivars()
             .entry
             .setStringValue(&NSString::from_str(&format_value(
                 &self.ivars().config,
                 self.ivars().value.get(),
             )));
-        self.ivars().display.setHidden(true);
-        self.ivars().entry.setHidden(false);
-        self.window()
+        self.ivars().display.removeFromSuperview();
+        self.addSubview(&self.ivars().entry);
+        for constraint in [
+            self.ivars()
+                .entry
+                .leadingAnchor()
+                .constraintEqualToAnchor(&self.leadingAnchor()),
+            self.ivars()
+                .entry
+                .trailingAnchor()
+                .constraintEqualToAnchor(&self.trailingAnchor()),
+            self.ivars()
+                .entry
+                .topAnchor()
+                .constraintEqualToAnchor(&self.topAnchor()),
+            self.ivars()
+                .entry
+                .bottomAnchor()
+                .constraintEqualToAnchor(&self.bottomAnchor()),
+        ] {
+            constraint.setActive(true);
+        }
+        self.layoutSubtreeIfNeeded();
+        let accepted = self.window()
             .expect("number picker must be attached before editing")
             .makeFirstResponder(Some(&self.ivars().entry));
-        unsafe {
-            self.ivars().entry.selectText(None);
-        }
+        eprintln!(
+            "number-picker: entry installed=true first-responder-accepted={accepted}"
+        );
     }
 
     fn commit_edit(&self) {
@@ -212,8 +359,29 @@ impl NumberPickerView {
         if !self.ivars().editing.replace(false) {
             return;
         }
-        self.ivars().entry.setHidden(true);
-        self.ivars().display.setHidden(false);
+        self.ivars().entry.removeFromSuperview();
+        self.addSubview(&self.ivars().display);
+        for constraint in [
+            self.ivars()
+                .display
+                .leadingAnchor()
+                .constraintEqualToAnchor(&self.leadingAnchor()),
+            self.ivars()
+                .display
+                .trailingAnchor()
+                .constraintEqualToAnchor(&self.trailingAnchor()),
+            self.ivars()
+                .display
+                .topAnchor()
+                .constraintEqualToAnchor(&self.topAnchor()),
+            self.ivars()
+                .display
+                .bottomAnchor()
+                .constraintEqualToAnchor(&self.bottomAnchor()),
+        ] {
+            constraint.setActive(true);
+        }
+        self.ivars().preview_value.set(None);
         self.refresh();
     }
 }
@@ -234,6 +402,8 @@ impl NumberPicker {
             digits: 2,
             prefix: String::new(),
             suffix: String::new(),
+            rotating_prefix_symbol: None,
+            rotation_offset_degrees: 0.0,
             on_change: None,
             on_commit: None,
         }
@@ -248,6 +418,8 @@ pub struct NumberPickerBuilder {
     digits: usize,
     prefix: String,
     suffix: String,
+    rotating_prefix_symbol: Option<String>,
+    rotation_offset_degrees: f64,
     on_change: Option<Box<dyn Fn(Fraction)>>,
     on_commit: Option<Box<dyn Fn(Fraction)>>,
 }
@@ -277,6 +449,19 @@ impl NumberPickerBuilder {
     }
     pub fn prefix(mut self, value: impl Into<String>) -> Self {
         self.prefix = format!("{} ", value.into());
+        self
+    }
+    pub fn rotating_prefix_symbol(mut self, value: impl Into<String>) -> Self {
+        self.rotating_prefix_symbol = Some(value.into());
+        self
+    }
+    pub fn rotating_prefix_symbol_with_offset(
+        mut self,
+        value: impl Into<String>,
+        offset_degrees: f64,
+    ) -> Self {
+        self.rotating_prefix_symbol = Some(value.into());
+        self.rotation_offset_degrees = offset_degrees;
         self
     }
     pub fn unit_name(mut self, value: impl Into<String>) -> Self {
@@ -318,23 +503,81 @@ impl NumberPickerBuilder {
             },
         };
         let value = accepted_value(&config, self.value);
-        let display = NSTextField::labelWithString(&NSString::from_str(""), mtm);
-        display.setAlignment(objc2_app_kit::NSTextAlignment::Right);
-        display.setBordered(true);
-        display.setBezeled(true);
-        display.setToolTip(Some(&NSString::from_str(
-            "Click to type, drag horizontally to adjust",
-        )));
+        let display = NSView::new(mtm);
+        let background = NSTextField::labelWithString(&NSString::new(), mtm);
+        background.setBordered(true);
+        background.setBezeled(true);
+        let rotating_icon = NSImageView::new(mtm);
+        if let Some(name) = self.rotating_prefix_symbol.as_deref() {
+            rotating_icon.setImage(Some(&system_symbol(name, "Rotation")));
+        } else {
+            rotating_icon.setHidden(true);
+        }
+        let prefix = NSTextField::labelWithString(&NSString::from_str(self.prefix.trim()), mtm);
+        prefix.setTextColor(Some(&NSColor::secondaryLabelColor()));
+        let value_label = NSTextField::labelWithString(&NSString::new(), mtm);
+        value_label.setAlignment(NSTextAlignment::Right);
+        let suffix = NSTextField::labelWithString(&NSString::from_str(self.suffix.trim()), mtm);
+        suffix.setTextColor(Some(&NSColor::secondaryLabelColor()));
+        for child in [
+            &*background,
+            rotating_icon.as_super().as_super(),
+            &*prefix,
+            &*value_label,
+            &*suffix,
+        ] {
+            child.setTranslatesAutoresizingMaskIntoConstraints(false);
+            display.addSubview(child);
+        }
+        let has_icon = !rotating_icon.isHidden();
+        let has_prefix = !self.prefix.trim().is_empty();
+        let has_suffix = !self.suffix.trim().is_empty();
+        for constraint in [
+            background.leadingAnchor().constraintEqualToAnchor(&display.leadingAnchor()),
+            background.trailingAnchor().constraintEqualToAnchor(&display.trailingAnchor()),
+            background.topAnchor().constraintEqualToAnchor(&display.topAnchor()),
+            background.bottomAnchor().constraintEqualToAnchor(&display.bottomAnchor()),
+            rotating_icon.leadingAnchor().constraintEqualToAnchor_constant(&display.leadingAnchor(), 8.0),
+            rotating_icon.centerYAnchor().constraintEqualToAnchor(&display.centerYAnchor()),
+            rotating_icon.widthAnchor().constraintEqualToConstant(if has_icon { 14.0 } else { 0.0 }),
+            rotating_icon.heightAnchor().constraintEqualToConstant(if has_icon { 14.0 } else { 0.0 }),
+            prefix.leadingAnchor().constraintEqualToAnchor_constant(
+                &rotating_icon.trailingAnchor(),
+                if has_icon && has_prefix { 4.0 } else { 0.0 },
+            ),
+            prefix.centerYAnchor().constraintEqualToAnchor(&display.centerYAnchor()),
+            value_label.leadingAnchor().constraintEqualToAnchor_constant(
+                &prefix.trailingAnchor(),
+                if has_prefix { 4.0 } else { 0.0 },
+            ),
+            value_label.centerYAnchor().constraintEqualToAnchor(&display.centerYAnchor()),
+            suffix.leadingAnchor().constraintEqualToAnchor_constant(
+                &value_label.trailingAnchor(),
+                if has_suffix { 4.0 } else { 0.0 },
+            ),
+            suffix.trailingAnchor().constraintEqualToAnchor_constant(&display.trailingAnchor(), -8.0),
+            suffix.centerYAnchor().constraintEqualToAnchor(&display.centerYAnchor()),
+        ] {
+            constraint.setActive(true);
+        }
+        value_label.setContentHuggingPriority_forOrientation(
+            NSLayoutPriorityDefaultLow,
+            NSLayoutConstraintOrientation::Horizontal,
+        );
         let entry = NSTextField::initWithFrame(NSTextField::alloc(mtm), NSRect::ZERO);
-        entry.setAlignment(objc2_app_kit::NSTextAlignment::Right);
-        entry.setHidden(true);
+        entry.setAlignment(NSTextAlignment::Right);
+        entry.setEditable(true);
+        entry.setSelectable(true);
+        entry.setEnabled(true);
+        entry.setTranslatesAutoresizingMaskIntoConstraints(false);
         let view = NumberPickerView::alloc(mtm).set_ivars(NumberPickerIvars {
             config,
             value: Cell::new(value),
             display: display.clone(),
+            rotating_icon: rotating_icon.clone(),
+            rotation_offset_degrees: self.rotation_offset_degrees,
+            value_label: value_label.clone(),
             entry: entry.clone(),
-            prefix: self.prefix,
-            suffix: self.suffix,
             on_change: self
                 .on_change
                 .map_or_else(|| Rc::new(|_| {}) as NumberCallback, Rc::from),
@@ -344,6 +587,8 @@ impl NumberPickerBuilder {
             drag: Cell::new(NumberDrag::begin(value)),
             pointer_locked: Cell::new(false),
             editing: Cell::new(false),
+            preview_value: Cell::new(None),
+            tracking_area: RefCell::new(None),
         });
         let view: Retained<NumberPickerView> =
             unsafe { msg_send![super(view), initWithFrame: NSRect::ZERO] };
@@ -352,27 +597,29 @@ impl NumberPickerBuilder {
             entry.setAction(Some(sel!(commitText:)));
             entry.setDelegate(Some(ProtocolObject::from_ref(&*view)));
         }
-        for child in [&*display, &*entry] {
-            child.setTranslatesAutoresizingMaskIntoConstraints(false);
-            view.addSubview(child);
-            for constraint in [
-                child
-                    .leadingAnchor()
-                    .constraintEqualToAnchor(&view.leadingAnchor()),
-                child
-                    .trailingAnchor()
-                    .constraintEqualToAnchor(&view.trailingAnchor()),
-                child.topAnchor().constraintEqualToAnchor(&view.topAnchor()),
-                child
-                    .bottomAnchor()
-                    .constraintEqualToAnchor(&view.bottomAnchor()),
-            ] {
-                constraint.setActive(true);
-            }
+        display.setTranslatesAutoresizingMaskIntoConstraints(false);
+        view.addSubview(&display);
+        for constraint in [
+            display
+                .leadingAnchor()
+                .constraintEqualToAnchor(&view.leadingAnchor()),
+            display
+                .trailingAnchor()
+                .constraintEqualToAnchor(&view.trailingAnchor()),
+            display.topAnchor().constraintEqualToAnchor(&view.topAnchor()),
+            display
+                .bottomAnchor()
+                .constraintEqualToAnchor(&view.bottomAnchor()),
+        ] {
+            constraint.setActive(true);
         }
         view.widthAnchor()
             .constraintGreaterThanOrEqualToConstant(100.0)
             .setActive(true);
+        view.setContentHuggingPriority_forOrientation(
+            NSLayoutPriorityDefaultLow,
+            NSLayoutConstraintOrientation::Horizontal,
+        );
         view.heightAnchor()
             .constraintEqualToConstant(28.0)
             .setActive(true);
@@ -397,7 +644,7 @@ pub struct NumberPickerHandle {
 impl NumberPickerHandle {
     pub fn set_f64(&self, value: f64) {
         if !self.view.ivars().editing.get() {
-            self.view.set_value(fraction_from_f64(value));
+            self.view.set_value_silently(fraction_from_f64(value));
         }
     }
     pub fn value(&self) -> Fraction {
@@ -522,36 +769,39 @@ impl Number2PickerBuilder {
             .build_with_handle(mtm);
         let pair_handles = [first.handle.clone(), second.handle.clone()];
         handles.replace(Some(pair_handles.clone()));
-        let row = stack(false, 4.0, mtm);
-        row.addArrangedSubview(&first.widget);
-        row.addArrangedSubview(&second.widget);
-        if self.lock {
+        let lock = if self.lock {
             let button = unsafe {
-                NSButton::checkboxWithTitle_target_action(
-                    &NSString::from_str("Lock"),
-                    None,
-                    None,
-                    mtm,
-                )
+                NSButton::buttonWithImage_target_action(&lock_symbol(true), None, None, mtm)
             };
+            button.setButtonType(NSButtonType::PushOnPushOff);
+            button.setBordered(false);
             button.setState(NSControlStateValueOn);
+            button.setToolTip(Some(&NSString::from_str("Unlock ratio")));
             action::attach(
                 &button,
                 move |control| {
-                    let active = control
+                    let button = control
                         .downcast_ref::<NSButton>()
-                        .expect("pair lock sender")
-                        .state()
-                        == NSControlStateValueOn;
+                        .expect("pair lock sender");
+                    let active = button.state() == NSControlStateValueOn;
                     locked.set(active);
+                    button.setImage(Some(&lock_symbol(active)));
+                    button.setToolTip(Some(&NSString::from_str(if active {
+                        "Unlock ratio"
+                    } else {
+                        "Lock ratio"
+                    })));
                     if active && let Some(handles) = handles.borrow().as_ref() {
                         ratio.set(pair_ratio(handles[0].value(), handles[1].value()));
                     }
                 },
                 mtm,
             );
-            row.addArrangedSubview(&button);
-        }
+            Some(button)
+        } else {
+            None
+        };
+        let row = number_row(&[&first.widget, &second.widget], lock.as_deref(), mtm);
         Number2PickerParts {
             widget: row,
             first: pair_handles[0].clone(),
@@ -561,7 +811,7 @@ impl Number2PickerBuilder {
 }
 
 pub struct Number2PickerParts {
-    pub widget: Retained<NSStackView>,
+    pub widget: Retained<NSView>,
     pub first: NumberPickerHandle,
     pub second: NumberPickerHandle,
 }
@@ -644,37 +894,43 @@ impl Number3PickerBuilder {
             third.handle.clone(),
         ];
         shared.replace(Some(handles.clone()));
-        let row = stack(false, 4.0, mtm);
-        row.addArrangedSubview(&first.widget);
-        row.addArrangedSubview(&second.widget);
-        row.addArrangedSubview(&third.widget);
-        if self.lock {
+        let lock = if self.lock {
             let button = unsafe {
-                NSButton::checkboxWithTitle_target_action(
-                    &NSString::from_str("Lock"),
-                    None,
-                    None,
-                    mtm,
-                )
+                NSButton::buttonWithImage_target_action(&lock_symbol(true), None, None, mtm)
             };
+            button.setButtonType(NSButtonType::PushOnPushOff);
+            button.setBordered(false);
             button.setState(NSControlStateValueOn);
+            button.setToolTip(Some(&NSString::from_str("Unlock ratio")));
             action::attach(
                 &button,
                 move |control| {
-                    let active = control
+                    let button = control
                         .downcast_ref::<NSButton>()
-                        .expect("vector lock sender")
-                        .state()
-                        == NSControlStateValueOn;
+                        .expect("vector lock sender");
+                    let active = button.state() == NSControlStateValueOn;
                     locked.set(active);
+                    button.setImage(Some(&lock_symbol(active)));
+                    button.setToolTip(Some(&NSString::from_str(if active {
+                        "Unlock ratio"
+                    } else {
+                        "Lock ratio"
+                    })));
                     if active && let Some(handles) = shared.borrow().as_ref() {
                         ratios.set(triple_ratios(handles.clone().map(|handle| handle.value())));
                     }
                 },
                 mtm,
             );
-            row.addArrangedSubview(&button);
-        }
+            Some(button)
+        } else {
+            None
+        };
+        let row = number_row(
+            &[&first.widget, &second.widget, &third.widget],
+            lock.as_deref(),
+            mtm,
+        );
         Number3PickerParts {
             widget: row,
             handles,
@@ -683,6 +939,75 @@ impl Number3PickerBuilder {
 }
 
 pub struct Number3PickerParts {
-    pub widget: Retained<NSStackView>,
+    pub widget: Retained<NSView>,
     pub handles: [NumberPickerHandle; 3],
+}
+
+fn number_row(
+    fields: &[&NSView],
+    lock: Option<&NSButton>,
+    mtm: MainThreadMarker,
+) -> Retained<NSView> {
+    assert!(!fields.is_empty(), "number row needs at least one field");
+    let row = NSView::new(mtm);
+    let mut previous = lock.map(|button| button.as_super().as_super());
+    if let Some(lock) = lock {
+        lock.setTranslatesAutoresizingMaskIntoConstraints(false);
+        lock.setContentHuggingPriority_forOrientation(
+            objc2_app_kit::NSLayoutPriorityRequired,
+            NSLayoutConstraintOrientation::Horizontal,
+        );
+        row.addSubview(lock);
+        for constraint in [
+            lock.leadingAnchor().constraintEqualToAnchor(&row.leadingAnchor()),
+            lock.centerYAnchor().constraintEqualToAnchor(&row.centerYAnchor()),
+            lock.widthAnchor()
+                .constraintEqualToConstant(lock.intrinsicContentSize().width),
+        ] {
+            constraint.setActive(true);
+        }
+    }
+    for field in fields {
+        field.setTranslatesAutoresizingMaskIntoConstraints(false);
+        row.addSubview(field);
+        let leading = if let Some(previous) = previous {
+            field
+                .leadingAnchor()
+                .constraintEqualToAnchor_constant(
+                    &previous.trailingAnchor(),
+                    f64::from(shrimply_component_core::layout::CONTROL_ROW_GAP),
+                )
+        } else {
+            field.leadingAnchor().constraintEqualToAnchor(&row.leadingAnchor())
+        };
+        for constraint in [
+            leading,
+            field.topAnchor().constraintEqualToAnchor(&row.topAnchor()),
+            field.bottomAnchor().constraintEqualToAnchor(&row.bottomAnchor()),
+            field.widthAnchor().constraintEqualToAnchor(&fields[0].widthAnchor()),
+        ] {
+            constraint.setActive(true);
+        }
+        previous = Some(field);
+    }
+    fields
+        .last()
+        .expect("number row field")
+        .trailingAnchor()
+        .constraintEqualToAnchor(&row.trailingAnchor())
+        .setActive(true);
+    row
+}
+
+fn lock_symbol(locked: bool) -> Retained<NSImage> {
+    let name = if locked { "lock.fill" } else { "lock.open" };
+    system_symbol(name, if locked { "Locked" } else { "Unlocked" })
+}
+
+fn system_symbol(name: &str, label: &str) -> Retained<NSImage> {
+    NSImage::imageWithSystemSymbolName_accessibilityDescription(
+        &NSString::from_str(name),
+        Some(&NSString::from_str(label)),
+    )
+    .unwrap_or_else(|| panic!("macOS must provide the {name} system symbol"))
 }

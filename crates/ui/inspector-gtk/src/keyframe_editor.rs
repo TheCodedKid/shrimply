@@ -93,18 +93,15 @@ pub(crate) fn build(
         actions.text_interpolation.is_some(),
     );
     let state = context.keyframe_graph_state(view_state_scope, initial);
-    {
-        let mut state = state.borrow_mut();
-        state.replace_graph(graph);
-        state.set_item_range(item_range);
-        state.set_frame_step(frame_step);
-        state.set_playhead(playhead());
-        configure_state(
-            &mut state,
-            &context.preferences,
-            actions.text_interpolation.is_some(),
-        );
-    }
+    state.replace_active_graph(graph);
+    state.set_view(
+        item_range,
+        frame_step,
+        playhead(),
+        keyframe_model::graph_snapping(&context.preferences),
+        true,
+        actions.text_interpolation.is_some(),
+    );
 
     let action_context = Rc::new(GraphActionContext {
         actions: Rc::new(actions),
@@ -135,13 +132,15 @@ pub(crate) fn build(
             );
             let frame_step = project_frame_step(&project, selected_item.as_ref());
             drop(project);
-            let mut state = state.borrow_mut();
-            state.replace_graph(updated);
-            state.set_item_range(item_range);
-            state.set_frame_step(frame_step);
-            state.set_playhead(playhead());
-            configure_state(&mut state, &preferences, text_interpolation);
-            drop(state);
+            state.replace_active_graph(updated);
+            state.set_view(
+                item_range,
+                frame_step,
+                playhead(),
+                keyframe_model::graph_snapping(&preferences),
+                true,
+                text_interpolation,
+            );
             frame_graph.refresh();
         }) as Rc<dyn Fn(KeyframeGraph)>
     };

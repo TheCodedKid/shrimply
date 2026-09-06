@@ -1,10 +1,11 @@
-use objc2::rc::Retained;
+use objc2::rc::{Retained, Weak};
 use objc2::runtime::ProtocolObject;
 use objc2::{DefinedClass, MainThreadOnly, define_class, msg_send};
 use objc2_app_kit::{
     NSApplication, NSApplicationActivationPolicy, NSApplicationDelegate, NSAutoresizingMaskOptions,
-    NSBackingStoreType, NSFont, NSScrollView, NSStackView, NSTextView, NSView, NSWindow,
-    NSWindowStyleMask, NSWorkspace,
+    NSBackingStoreType, NSColor, NSFont, NSGlassEffectView, NSGlassEffectViewStyle, NSScrollView,
+    NSStackView, NSTextField, NSTextView, NSTitlebarSeparatorStyle, NSToolbar, NSView, NSWindow,
+    NSWindowStyleMask, NSWindowTitleVisibility, NSWindowToolbarStyle, NSWorkspace,
 };
 use objc2_foundation::{
     MainThreadMarker, NSNotification, NSObject, NSObjectProtocol, NSPoint, NSRect, NSSize,
@@ -14,16 +15,15 @@ use shrimply_component_core::layered::{LayeredEdit, LayeredPropertyController, c
 use shrimply_components_appkit::{
     ColorPicker, ExpressionEditor, FrameGraph, InspectorCard, InspectorGraphProperty,
     MultilineTextInput, Number2Picker, NumberPicker, ProgressButton, ProgressButtonState,
-    ReadOnlyField, SingleLineTextInput, StringChoice, StringSelector, Tabs, control_row,
-    live_performance, modifier_menu, playback_shortcuts, split_button, stack, switch_row,
+    ReadOnlyField, SingleLineTextInput, StringChoice, StringSelector, Tabs, column_append,
+    column_stack, control_row, live_performance, modifier_menu, playback_shortcuts, row_stack,
+    split_button, switch_row,
 };
 use std::cell::{Cell, OnceCell};
 use std::path::PathBuf;
 use std::rc::Rc;
 
 const WINDOW_SIZE: NSSize = NSSize::new(920.0, 900.0);
-const CONTENT_WIDTH: f64 = 860.0;
-const GENERAL_HEIGHT: f64 = 1500.0;
 const PAGE_INSET: f64 = 16.0;
 const PAGE_GAP: f64 = 10.0;
 
@@ -49,7 +49,8 @@ define_class!(
                     NSWindowStyleMask::Titled
                         | NSWindowStyleMask::Closable
                         | NSWindowStyleMask::Miniaturizable
-                        | NSWindowStyleMask::Resizable,
+                        | NSWindowStyleMask::Resizable
+                        | NSWindowStyleMask::FullSizeContentView,
                     NSBackingStoreType::Buffered,
                     false,
                 )
@@ -58,8 +59,16 @@ define_class!(
                 window.setReleasedWhenClosed(false);
             }
             window.setTitle(&NSString::from_str("Shrimply AppKit Components"));
-            window.setContentMinSize(NSSize::new(640.0, 600.0));
-            window.setContentView(Some(build_showcase(mtm).view()));
+            window.setTitleVisibility(NSWindowTitleVisibility::Hidden);
+            window.setTitlebarAppearsTransparent(true);
+            window.setTitlebarSeparatorStyle(NSTitlebarSeparatorStyle::None);
+            window.setToolbar(Some(&NSToolbar::new(mtm)));
+            window.setToolbarStyle(NSWindowToolbarStyle::UnifiedCompact);
+            window.setOpaque(false);
+            window.setBackgroundColor(Some(&NSColor::clearColor()));
+            window.setMovableByWindowBackground(true);
+            let showcase = build_showcase(mtm);
+            window.setContentView(Some(&window_shell(showcase.view(), mtm)));
             window.center();
             window.makeKeyAndOrderFront(None);
             self.ivars()
@@ -84,13 +93,51 @@ pub fn run() {
     app.run();
 }
 
+fn window_shell(content: &NSView, mtm: MainThreadMarker) -> Retained<NSGlassEffectView> {
+    let glass = NSGlassEffectView::initWithFrame(
+        NSGlassEffectView::alloc(mtm),
+        NSRect::new(NSPoint::ZERO, WINDOW_SIZE),
+    );
+    glass.setStyle(NSGlassEffectViewStyle::Regular);
+    glass.setTintColor(Some(&NSColor::windowBackgroundColor()));
+    glass.setAutoresizingMask(
+        NSAutoresizingMaskOptions::ViewWidthSizable | NSAutoresizingMaskOptions::ViewHeightSizable,
+    );
+    let root = NSView::initWithFrame(
+        NSView::alloc(mtm),
+        NSRect::new(NSPoint::ZERO, WINDOW_SIZE),
+    );
+    root.setAutoresizingMask(
+        NSAutoresizingMaskOptions::ViewWidthSizable
+            | NSAutoresizingMaskOptions::ViewHeightSizable,
+    );
+    let title = NSTextField::labelWithString(
+        &NSString::from_str("Shrimply AppKit Components"),
+        mtm,
+    );
+    title.setFont(Some(&NSFont::boldSystemFontOfSize(NSFont::systemFontSize())));
+    title.setTranslatesAutoresizingMaskIntoConstraints(false);
+    content.setTranslatesAutoresizingMaskIntoConstraints(false);
+    root.addSubview(&title);
+    root.addSubview(content);
+    for constraint in [
+        title.centerXAnchor().constraintEqualToAnchor(&root.centerXAnchor()),
+        title.topAnchor().constraintEqualToAnchor_constant(&root.topAnchor(), 14.0),
+        content.leadingAnchor().constraintEqualToAnchor(&root.leadingAnchor()),
+        content.trailingAnchor().constraintEqualToAnchor(&root.trailingAnchor()),
+        content.topAnchor().constraintEqualToAnchor_constant(&root.topAnchor(), 44.0),
+        content.bottomAnchor().constraintEqualToAnchor(&root.bottomAnchor()),
+    ] {
+        constraint.setActive(true);
+    }
+    glass.setContentView(Some(&root));
+    glass
+}
+
 fn build_showcase(mtm: MainThreadMarker) -> Tabs {
     let events = NSTextView::initWithFrame(
         NSTextView::alloc(mtm),
-        NSRect::new(
-            NSPoint::ZERO,
-            NSSize::new(CONTENT_WIDTH, WINDOW_SIZE.height),
-        ),
+        NSRect::ZERO,
     );
     events.setEditable(false);
     events.setFont(Some(&NSFont::monospacedSystemFontOfSize_weight(
@@ -132,7 +179,7 @@ fn general_page(log: Rc<dyn Fn(String)>, mtm: MainThreadMarker) -> Retained<NSVi
             move |value| log(format!("number committed {value}"))
         })
         .build(mtm);
-    general.addArrangedSubview(&control_row("Number", &number, mtm));
+    column_append(&general, &control_row("Number", &number, mtm));
 
     let pair = Number2Picker::builder(1920.0, 1080.0)
         .minimum(1.0)
@@ -147,7 +194,7 @@ fn general_page(log: Rc<dyn Fn(String)>, mtm: MainThreadMarker) -> Retained<NSVi
             move |values, component| log(format!("pair {component} {}", values[component]))
         })
         .build_with_handles(mtm);
-    general.addArrangedSubview(&control_row("Pair", &pair.widget, mtm));
+    column_append(&general, &control_row("Pair", &pair.widget, mtm));
 
     let vector = shrimply_components_appkit::Number3Picker::builder([1.0, 2.0, 3.0])
         .prefixes(["X", "Y", "Z"])
@@ -165,7 +212,7 @@ fn general_page(log: Rc<dyn Fn(String)>, mtm: MainThreadMarker) -> Retained<NSVi
             move |value| log(format!("vector 2 {value}"))
         })
         .build_with_handles(mtm);
-    general.addArrangedSubview(&control_row("Vector", &vector.widget, mtm));
+    column_append(&general, &control_row("Vector", &vector.widget, mtm));
 
     let single = SingleLineTextInput::new(
         "Editable text",
@@ -178,7 +225,7 @@ fn general_page(log: Rc<dyn Fn(String)>, mtm: MainThreadMarker) -> Retained<NSVi
         },
         mtm,
     );
-    general.addArrangedSubview(&control_row("Single line", single.view(), mtm));
+    column_append(&general, &control_row("Single line", single.view(), mtm));
     let multiline = MultilineTextInput::new(
         "Try a typo such as teh.",
         110.0,
@@ -190,7 +237,7 @@ fn general_page(log: Rc<dyn Fn(String)>, mtm: MainThreadMarker) -> Retained<NSVi
         },
         mtm,
     );
-    general.addArrangedSubview(&control_row("Multiline", multiline.view(), mtm));
+    column_append(&general, &control_row("Multiline", multiline.view(), mtm));
     let selector = StringSelector::new(
         "two",
         [
@@ -208,45 +255,64 @@ fn general_page(log: Rc<dyn Fn(String)>, mtm: MainThreadMarker) -> Retained<NSVi
         },
         mtm,
     );
-    general.addArrangedSubview(&control_row("Searchable dropdown", selector.view(), mtm));
+    column_append(
+        &general,
+        &control_row("Searchable dropdown", selector.view(), mtm),
+    );
 
     let position = pair_property(
-        "Position",
-        [960.0, 540.0],
-        ["X", "Y"],
-        Some("px"),
-        0,
-        (true, true),
+        PairPropertyConfig {
+            label: "Position",
+            initial: [960.0, 540.0],
+            prefixes: ["X", "Y"],
+            unit: Some("px"),
+            digits: 0,
+            modes: (true, true),
+            minimum: None,
+            locked: false,
+        },
         log.clone(),
         mtm,
     );
     let anchor = pair_property(
-        "Anchor",
-        [960.0, 540.0],
-        ["X", "Y"],
-        Some("px"),
-        0,
-        (false, false),
+        PairPropertyConfig {
+            label: "Anchor",
+            initial: [960.0, 540.0],
+            prefixes: ["X", "Y"],
+            unit: Some("px"),
+            digits: 0,
+            modes: (false, false),
+            minimum: None,
+            locked: false,
+        },
         log.clone(),
         mtm,
     );
     let scale = pair_property(
-        "Scale",
-        [1.0, 1.0],
-        ["X", "Y"],
-        Some("x"),
-        2,
-        (false, false),
+        PairPropertyConfig {
+            label: "Scale",
+            initial: [1.0, 1.0],
+            prefixes: ["X", "Y"],
+            unit: Some("x"),
+            digits: 2,
+            modes: (false, false),
+            minimum: Some(0.0),
+            locked: true,
+        },
         log.clone(),
         mtm,
     );
     let shear = pair_property(
-        "Shear",
-        [0.0, 0.0],
-        ["X", "Y"],
-        None,
-        2,
-        (false, false),
+        PairPropertyConfig {
+            label: "Shear",
+            initial: [0.0, 0.0],
+            prefixes: ["X", "Y"],
+            unit: None,
+            digits: 2,
+            modes: (false, false),
+            minimum: None,
+            locked: false,
+        },
         log.clone(),
         mtm,
     );
@@ -281,7 +347,6 @@ fn general_page(log: Rc<dyn Fn(String)>, mtm: MainThreadMarker) -> Retained<NSVi
     ] {
         card.append(&view);
     }
-    general.addArrangedSubview(card.view());
     let modifiers = modifier_menu(
         shrimply_components_demo_core::modifier_names()
             .into_iter()
@@ -296,9 +361,12 @@ fn general_page(log: Rc<dyn Fn(String)>, mtm: MainThreadMarker) -> Retained<NSVi
         },
         mtm,
     );
-    general.addArrangedSubview(&control_row("Add modifier", modifiers.view(), mtm));
-    general.addArrangedSubview(&live_performance(mtm));
-    general.addArrangedSubview(&switch_row(
+    let transform_group = column_stack(0.0, mtm);
+    column_append(&transform_group, card.view());
+    column_append(&transform_group, modifiers.view());
+    column_append(&general, &transform_group);
+    column_append(&general, &live_performance(mtm));
+    column_append(&general, &switch_row(
         "Enabled",
         Some("Toggle this option"),
         true,
@@ -321,7 +389,7 @@ fn general_page(log: Rc<dyn Fn(String)>, mtm: MainThreadMarker) -> Retained<NSVi
         },
         mtm,
     );
-    general.addArrangedSubview(&control_row("Color", color.view(), mtm));
+    column_append(&general, &control_row("Color", color.view(), mtm));
     let split = split_button(
         "Primary",
         "Secondary",
@@ -335,8 +403,8 @@ fn general_page(log: Rc<dyn Fn(String)>, mtm: MainThreadMarker) -> Retained<NSVi
         },
         mtm,
     );
-    general.addArrangedSubview(&control_row("Split", &split, mtm));
-    let progress = stack(false, 8.0, mtm);
+    column_append(&general, &control_row("Split", &split, mtm));
+    let progress = row_stack(8.0, mtm);
     let idle = ProgressButton::new("Idle", mtm);
     let working = ProgressButton::new("Working", mtm);
     working.set_state(ProgressButtonState::Indeterminate);
@@ -345,7 +413,7 @@ fn general_page(log: Rc<dyn Fn(String)>, mtm: MainThreadMarker) -> Retained<NSVi
     progress.addArrangedSubview(idle.view());
     progress.addArrangedSubview(working.view());
     progress.addArrangedSubview(half.view());
-    general.addArrangedSubview(&control_row("Progress", &progress, mtm));
+    column_append(&general, &control_row("Progress", &progress, mtm));
     let playback = playback_shortcuts(
         {
             let log = log.clone();
@@ -357,8 +425,29 @@ fn general_page(log: Rc<dyn Fn(String)>, mtm: MainThreadMarker) -> Retained<NSVi
         },
         mtm,
     );
-    general.addArrangedSubview(&control_row("Playback keys", &playback, mtm));
-    scrolling_page(general, GENERAL_HEIGHT, mtm).into_super()
+    column_append(&general, &control_row("Playback keys", &playback, mtm));
+    let page = scrolling_page(general, mtm);
+    card.connect_expansion({
+        let scroll = Weak::new(&*page.scroll);
+        let preserved_origin = Rc::new(Cell::new(None::<NSPoint>));
+        move |_, complete| {
+            if let Some(scroll) = scroll.load() {
+                let clip = scroll.contentView();
+                if !complete {
+                    preserved_origin.set(Some(clip.bounds().origin));
+                }
+                scroll.layoutSubtreeIfNeeded();
+                if let Some(origin) = preserved_origin.get() {
+                    clip.scrollToPoint(origin);
+                    scroll.reflectScrolledClipView(&clip);
+                }
+                if complete {
+                    preserved_origin.set(None);
+                }
+            }
+        }
+    });
+    page.scroll.into_super()
 }
 
 struct DemoProperty {
@@ -366,17 +455,32 @@ struct DemoProperty {
     reset: Rc<dyn Fn()>,
 }
 
-#[allow(clippy::too_many_arguments)]
-fn pair_property(
-    label: &str,
+struct PairPropertyConfig<'a> {
+    label: &'a str,
     initial: [f64; 2],
-    prefixes: [&str; 2],
-    unit: Option<&str>,
+    prefixes: [&'a str; 2],
+    unit: Option<&'a str>,
     digits: usize,
     modes: (bool, bool),
+    minimum: Option<f64>,
+    locked: bool,
+}
+
+fn pair_property(
+    config: PairPropertyConfig<'_>,
     log: Rc<dyn Fn(String)>,
     mtm: MainThreadMarker,
 ) -> DemoProperty {
+    let PairPropertyConfig {
+        label,
+        initial,
+        prefixes,
+        unit,
+        digits,
+        modes,
+        minimum,
+        locked,
+    } = config;
     let controller = LayeredPropertyController::default();
     let graph = FrameGraph::with_components(
         shrimply_components_demo_core::property_graph_components(&initial, 0),
@@ -393,6 +497,12 @@ fn pair_property(
         .second_prefix(prefixes[1]);
     if let Some(unit) = unit {
         builder = builder.unit_name(unit);
+    }
+    if let Some(minimum) = minimum {
+        builder = builder.minimum(minimum);
+    }
+    if locked {
+        builder = builder.enable_lock();
     }
     let picker = builder
         .on_change({
@@ -416,7 +526,7 @@ fn pair_property(
         let handles = handles.clone();
         let values = values.clone();
         move |status| {
-            let component = graph.state().borrow().active_component().min(1);
+            let component = graph.active_component().min(1);
             let mut next = values.get();
             next[component] = status.value;
             values.set(next);
@@ -474,6 +584,7 @@ fn scalar_property(
     let picker = NumberPicker::builder(initial)
         .digits(1)
         .drag_step(0.1)
+        .rotating_prefix_symbol("arrow.up")
         .unit_name("°")
         .on_change({
             let controller = controller.clone();
@@ -522,7 +633,7 @@ fn info_page(log: Rc<dyn Fn(String)>, mtm: MainThreadMarker) -> Retained<NSView>
         ("Frame graph", "Shared Rust renderer"),
     ] {
         let field = ReadOnlyField::new(value, true, mtm);
-        info.addArrangedSubview(&control_row(label, field.view(), mtm));
+        column_append(&info, &control_row(label, field.view(), mtm));
     }
     let home = std::env::var_os("HOME")
         .map(PathBuf::from)
@@ -540,12 +651,12 @@ fn info_page(log: Rc<dyn Fn(String)>, mtm: MainThreadMarker) -> Retained<NSView>
         },
         mtm,
     );
-    info.addArrangedSubview(&control_row("Home folder", field.view(), mtm));
-    scrolling_page(info, WINDOW_SIZE.height, mtm).into_super()
+    column_append(&info, &control_row("Home folder", field.view(), mtm));
+    scrolling_page(info, mtm).scroll.into_super()
 }
 
 fn page_stack(mtm: MainThreadMarker) -> Retained<NSStackView> {
-    let page = stack(true, PAGE_GAP, mtm);
+    let page = column_stack(PAGE_GAP, mtm);
     page.setEdgeInsets(objc2_foundation::NSEdgeInsets {
         top: PAGE_INSET,
         left: PAGE_INSET,
@@ -555,27 +666,66 @@ fn page_stack(mtm: MainThreadMarker) -> Retained<NSStackView> {
     page
 }
 
-fn scrolling_page(
-    content: Retained<NSStackView>,
-    height: f64,
-    mtm: MainThreadMarker,
-) -> Retained<NSScrollView> {
-    content.setFrameSize(NSSize::new(CONTENT_WIDTH, height));
-    content.setAutoresizingMask(NSAutoresizingMaskOptions::ViewWidthSizable);
+struct PageDocumentIvars;
+
+define_class!(
+    #[unsafe(super(NSView))]
+    #[thread_kind = MainThreadOnly]
+    #[ivars = PageDocumentIvars]
+    struct PageDocument;
+
+    unsafe impl NSObjectProtocol for PageDocument {}
+
+    impl PageDocument {
+        #[unsafe(method(isFlipped))]
+        fn is_flipped(&self) -> bool { true }
+
+    }
+);
+
+struct ScrollingPage {
+    scroll: Retained<NSScrollView>,
+}
+
+fn scrolling_page(content: Retained<NSStackView>, mtm: MainThreadMarker) -> ScrollingPage {
     let scroll = NSScrollView::initWithFrame(
         NSScrollView::alloc(mtm),
-        NSRect::new(NSPoint::ZERO, WINDOW_SIZE),
+        NSRect::ZERO,
     );
     scroll.setHasVerticalScroller(true);
+    scroll.setHasHorizontalScroller(false);
     scroll.setAutohidesScrollers(true);
-    scroll.setDocumentView(Some(&content));
-    scroll
+    let document = PageDocument::alloc(mtm).set_ivars(PageDocumentIvars);
+    let document: Retained<PageDocument> =
+        unsafe { msg_send![super(document), initWithFrame: NSRect::ZERO] };
+    content.setTranslatesAutoresizingMaskIntoConstraints(false);
+    document.setTranslatesAutoresizingMaskIntoConstraints(false);
+    document.addSubview(&content);
+    scroll.setDocumentView(Some(&document));
+    let natural_height = document.heightAnchor().constraintEqualToAnchor(&content.heightAnchor());
+    natural_height.setPriority(objc2_app_kit::NSLayoutPriorityDefaultHigh);
+    for constraint in [
+        document
+            .widthAnchor()
+            .constraintEqualToAnchor(&scroll.contentView().widthAnchor()),
+        document
+            .heightAnchor()
+            .constraintGreaterThanOrEqualToAnchor(&scroll.contentView().heightAnchor()),
+        content.leadingAnchor().constraintEqualToAnchor(&document.leadingAnchor()),
+        content.trailingAnchor().constraintEqualToAnchor(&document.trailingAnchor()),
+        content.topAnchor().constraintEqualToAnchor(&document.topAnchor()),
+        content.bottomAnchor().constraintLessThanOrEqualToAnchor(&document.bottomAnchor()),
+        natural_height,
+    ] {
+        constraint.setActive(true);
+    }
+    ScrollingPage { scroll }
 }
 
 fn text_scroll(view: Retained<NSTextView>, mtm: MainThreadMarker) -> Retained<NSScrollView> {
     let scroll = NSScrollView::initWithFrame(
         NSScrollView::alloc(mtm),
-        NSRect::new(NSPoint::ZERO, WINDOW_SIZE),
+        NSRect::ZERO,
     );
     scroll.setHasVerticalScroller(true);
     scroll.setHasHorizontalScroller(true);

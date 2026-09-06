@@ -134,9 +134,9 @@ impl InspectorContext {
             .borrow_mut()
             .entry(key)
             .or_insert_with(|| {
-                Rc::new(RefCell::new(
+                shrimply_gtk_components::ui::SharedFrameGraphState::new(
                     shrimply_inspector_core::keyframe_graph::FrameGraphComponents::single(initial),
-                ))
+                )
             })
             .clone()
     }

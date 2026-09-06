@@ -27,6 +27,7 @@ const SNAP_RADIUS_PX: f64 = 8.0;
 const MINIMUM_VISIBLE_PIXELS: f64 = 10_000.0;
 const MINIMUM_SECONDS_PER_PIXEL: f64 = 0.000_001;
 const WHEEL_UNITS_PER_STEP: f64 = 120.0;
+const SCROLLBAR_PAGE_FRACTION_PER_STEP: f64 = 0.25;
 
 #[derive(Clone, Copy, Default)]
 pub struct FrameGraphModifiers {
@@ -946,11 +947,16 @@ impl FrameGraphState {
         }
         if !control && let Some(scrollbar) = self.scrollbar(width, height) {
             let mut scroll_seconds = self.view.scroll_seconds;
-            let event = self.scrollbar.scroll_at(
+            let pages = match input {
+                FrameGraphScrollInput::Wheel => delta * SCROLLBAR_PAGE_FRACTION_PER_STEP,
+                FrameGraphScrollInput::Surface => {
+                    delta / WHEEL_UNITS_PER_STEP * SCROLLBAR_PAGE_FRACTION_PER_STEP
+                }
+            };
+            let event = self.scrollbar.scroll_pages_at(
                 scrollbar,
                 Some(vec2(pointer_x as f32, pointer_y as f32)),
-                delta,
-                input,
+                pages,
                 |value| {
                     scroll_seconds = self.item_range.0.as_secs_f64() + value;
                 },
@@ -972,6 +978,22 @@ impl FrameGraphState {
             self.set_scroll(width, target);
         }
         true
+    }
+
+    pub fn magnify(&mut self, magnification: f64, pointer_x: f64, width: f64) {
+        if !magnification.is_finite() {
+            return;
+        }
+        self.view.initialize(self.item_range, width);
+        self.view.clamp(self.item_range, width);
+        let domain = self.view.domain(self.item_range, width);
+        let pointer_time = time_at_x(pointer_x, width, domain);
+        let pointer_plot_x = (pointer_x - GRAPH_PAD).clamp(0.0, graph_plot_width(width));
+        self.view.seconds_per_pixel /= magnification.exp();
+        self.view.scroll_seconds =
+            pointer_time.as_secs_f64() - pointer_plot_x * self.view.seconds_per_pixel;
+        self.view.clamp(self.item_range, width);
+        self.overscroll = None;
     }
 
     pub fn key(&mut self, key: FrameGraphKey) -> Vec<FrameGraphAction> {

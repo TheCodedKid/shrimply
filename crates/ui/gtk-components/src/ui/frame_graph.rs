@@ -4,10 +4,10 @@ use std::rc::Rc;
 use adw::prelude::*;
 use gtk::{gdk, glib};
 use shrimply_interpolation::Interpolation;
-use shrimply_keyframe_graph_core::{
-    FrameGraphAction, FrameGraphComponentAction, FrameGraphComponents, FrameGraphKey,
-    FrameGraphModifiers, FrameGraphPointerButton, FrameGraphPointerPosition, FrameGraphScrollInput,
-    FrameGraphState, FrameGraphStatus,
+use shrimply_framegraph_core::{
+    FrameGraphAction, FrameGraphCommand, FrameGraphComponentAction, FrameGraphComponents, FrameGraphKey,
+    FrameGraphInputResult, FrameGraphModifiers, FrameGraphPointerButton, FrameGraphPointerPosition,
+    FrameGraphScrollInput, FrameGraphState, FrameGraphStatus, SharedFrameGraphState,
 };
 use shrimply_skia_adw_core::canvas::UVec2;
 use shrimply_skia_gl::TimelineRenderer;
@@ -17,7 +17,6 @@ use super::modifier_menu::{SearchMenuItem, searchable_popover};
 type ActionHandler = Rc<dyn Fn(FrameGraphComponentAction)>;
 type StatusHandler = Rc<dyn Fn(FrameGraphStatus)>;
 type StatusHandlers = Rc<RefCell<Vec<StatusHandler>>>;
-pub type SharedFrameGraphState = Rc<RefCell<FrameGraphComponents>>;
 
 #[derive(Clone)]
 pub struct FrameGraph {
@@ -56,14 +55,14 @@ impl FrameGraph {
         states: FrameGraphComponents,
         on_action: impl Fn(FrameGraphComponentAction) + 'static,
     ) -> Self {
-        Self::with_shared_components(Rc::new(RefCell::new(states)), on_action)
+        Self::with_shared_components(SharedFrameGraphState::new(states), on_action)
     }
 
     pub fn with_shared_components(
         state: SharedFrameGraphState,
         on_action: impl Fn(FrameGraphComponentAction) + 'static,
     ) -> Self {
-        let graph_height = state.borrow().preferred_height();
+        let graph_height = state.preferred_height();
         let on_action: ActionHandler = Rc::new(on_action);
         let status_handlers = Rc::new(RefCell::new(Vec::<StatusHandler>::new()));
         let area = gtk::GLArea::builder()
@@ -96,7 +95,7 @@ impl FrameGraph {
             let next = next.clone();
             let status_handlers = status_handlers.clone();
             Rc::new(move || {
-                let status = state.borrow().status();
+                let status = state.status();
                 previous.set_sensitive(status.can_previous);
                 next.set_sensitive(status.can_next);
                 toggle.set_icon_name(if status.key_at_playhead {
@@ -123,15 +122,30 @@ impl FrameGraph {
             }
         });
 
-        connect_button(&previous, &area, &state, &on_action, &sync, |state| {
-            state.previous_key()
-        });
-        connect_button(&toggle, &area, &state, &on_action, &sync, |state| {
-            state.toggle_key()
-        });
-        connect_button(&next, &area, &state, &on_action, &sync, |state| {
-            state.next_key()
-        });
+        connect_button(
+            &previous,
+            &area,
+            &state,
+            &on_action,
+            &sync,
+            FrameGraphCommand::PreviousKey,
+        );
+        connect_button(
+            &toggle,
+            &area,
+            &state,
+            &on_action,
+            &sync,
+            FrameGraphCommand::ToggleKey,
+        );
+        connect_button(
+            &next,
+            &area,
+            &state,
+            &on_action,
+            &sync,
+            FrameGraphCommand::NextKey,
+        );
 
         let animation_active = Rc::new(Cell::new(false));
         let renderer = Rc::new(RefCell::new(TimelineRenderer::new()));
@@ -158,9 +172,7 @@ impl FrameGraph {
                         shrimply_cross_ui_theme::current().view_bg,
                     )
                     .unwrap_or_else(|error| panic!("could not draw the frame graph: {error}"));
-                state
-                    .borrow_mut()
-                    .draw(&painter, f64::from(width), f64::from(height));
+                state.draw(&painter, f64::from(width), f64::from(height));
                 renderer
                     .end_frame()
                     .unwrap_or_else(|error| panic!("could not finish the frame graph: {error}"));
@@ -181,8 +193,9 @@ impl FrameGraph {
             let area = area.clone();
             move |_, x, y| {
                 pointer.set(Some((x, y)));
-                state.borrow_mut().pointer_moved(x, y);
-                area.queue_render();
+                if state.pointer_moved(x, y).redraw {
+                    area.queue_render();
+                }
             }
         });
         motion.connect_leave({
@@ -191,8 +204,9 @@ impl FrameGraph {
             let pointer = pointer.clone();
             move |_| {
                 pointer.set(None);
-                state.borrow_mut().pointer_left();
-                area.queue_render();
+                if state.pointer_left().redraw {
+                    area.queue_render();
+                }
             }
         });
         area.add_controller(motion);
@@ -221,18 +235,20 @@ impl FrameGraph {
             let state = state.clone();
             let on_action = on_action.clone();
             move |gesture, _, x, y| {
-                area.grab_focus();
-                let actions = state.borrow_mut().active_actions(|state| {
-                    state.begin_pointer(
-                        FrameGraphPointerButton::Secondary,
+                let result = state.begin_pointer(
+                    FrameGraphPointerButton::Secondary,
+                    FrameGraphPointerPosition {
                         x,
                         y,
-                        f64::from(area.width().max(1)),
-                        f64::from(area.height().max(1)),
-                        modifiers(gesture.current_event_state()),
-                    )
-                });
-                for component_action in actions {
+                        width: f64::from(area.width().max(1)),
+                        height: f64::from(area.height().max(1)),
+                    },
+                    modifiers(gesture.current_event_state()),
+                );
+                if result.focus {
+                    area.grab_focus();
+                }
+                for component_action in result.actions {
                     let FrameGraphComponentAction { component, action } = component_action;
                     if let FrameGraphAction::InterpolationRequested {
                         owner_id,
@@ -257,6 +273,9 @@ impl FrameGraph {
                         on_action(FrameGraphComponentAction { component, action });
                     }
                 }
+                if result.redraw {
+                    area.queue_render();
+                }
             }
         });
         area.add_controller(secondary);
@@ -278,7 +297,7 @@ impl FrameGraph {
                             f64::from(area.height().max(1)) / 2.0,
                         )
                     });
-                let handled = state.borrow_mut().scroll(
+                let result = state.scroll(
                     dx,
                     dy,
                     FrameGraphPointerPosition {
@@ -296,7 +315,10 @@ impl FrameGraph {
                         FrameGraphScrollInput::Surface
                     },
                 );
-                area.queue_render();
+                let handled = result.handled;
+                if result.redraw {
+                    area.queue_render();
+                }
                 start_animation_if_needed(&area, &state, &animation_active);
                 if handled {
                     glib::Propagation::Stop
@@ -335,12 +357,12 @@ impl FrameGraph {
                     gdk::Key::minus => FrameGraphKey::ZoomOut,
                     _ => return glib::Propagation::Proceed,
                 };
-                let actions = state
-                    .borrow_mut()
-                    .active_actions(|state| state.key(graph_key));
-                dispatch(&on_action, actions);
-                sync();
-                area.queue_render();
+                finish_input(
+                    &area,
+                    &on_action,
+                    &sync,
+                    state.key(graph_key),
+                );
                 glib::Propagation::Stop
             }
         });
@@ -378,10 +400,7 @@ impl FrameGraph {
     }
 
     pub fn edit_value(&self, value: f64) {
-        let actions = self
-            .state
-            .borrow_mut()
-            .active_actions(|state| state.set_value(value));
+        let actions = self.state.edit_value(value);
         dispatch(&self.on_action, actions);
         (self.sync)();
         self.area.queue_render();
@@ -392,23 +411,20 @@ impl FrameGraph {
     }
 
     pub fn edit_component_values(&self, active_component: usize, values: &[(usize, f64)]) {
-        let actions = self
-            .state
-            .borrow_mut()
-            .set_component_values(active_component, values);
+        let actions = self.state.edit_component_values(active_component, values);
         dispatch(&self.on_action, actions);
         (self.sync)();
         self.area.queue_render();
     }
 
     pub fn activate_component(&self, component: usize) {
-        self.state.borrow_mut().activate(component);
+        self.state.activate_component(component);
         (self.sync)();
         self.area.queue_render();
     }
 
     pub fn set_playhead(&self, playhead: shrimply_math_core::Time) {
-        self.state.borrow_mut().set_playhead(playhead);
+        self.state.set_playhead(playhead);
         if self.area.is_mapped() {
             (self.sync)();
             self.area.queue_render();
@@ -424,13 +440,13 @@ impl FrameGraph {
     }
 
     pub fn replace_components(&self, states: FrameGraphComponents) {
-        *self.state.borrow_mut() = states;
+        self.state.replace_components(states);
         self.refresh();
     }
 
     pub fn refresh(&self) {
         self.area
-            .set_height_request(self.state.borrow().preferred_height());
+            .set_height_request(self.state.preferred_height());
         if self.area.is_mapped() {
             (self.sync)();
             self.area.queue_render();
@@ -457,24 +473,41 @@ fn dispatch(handler: &ActionHandler, actions: Vec<FrameGraphComponentAction>) {
     }
 }
 
+fn finish_input(
+    area: &gtk::GLArea,
+    handler: &ActionHandler,
+    sync: &Rc<dyn Fn()>,
+    result: FrameGraphInputResult,
+) {
+    if result.focus {
+        area.grab_focus();
+    }
+    dispatch(handler, result.actions);
+    sync();
+    if result.redraw {
+        area.queue_render();
+    }
+}
+
 fn connect_button(
     button: &gtk::Button,
     area: &gtk::GLArea,
     state: &SharedFrameGraphState,
     handler: &ActionHandler,
     sync: &Rc<dyn Fn()>,
-    action: impl Fn(&mut FrameGraphState) -> Vec<FrameGraphAction> + 'static,
+    command: FrameGraphCommand,
 ) {
     let area = area.clone();
     let state = state.clone();
     let handler = handler.clone();
     let sync = sync.clone();
     button.connect_clicked(move |_| {
-        let actions = state.borrow_mut().active_actions(|state| action(state));
-        dispatch(&handler, actions);
-        sync();
-        area.queue_render();
-        area.grab_focus();
+        finish_input(
+            &area,
+            &handler,
+            &sync,
+            state.command(command),
+        );
     });
 }
 
@@ -496,21 +529,18 @@ fn add_drag(
         let sync = sync.clone();
         let start = start.clone();
         move |gesture, x, y| {
-            area.grab_focus();
             start.set((x, y));
-            let actions = state.borrow_mut().active_actions(|state| {
-                state.begin_pointer(
-                    button,
+            let result = state.begin_pointer(
+                button,
+                FrameGraphPointerPosition {
                     x,
                     y,
-                    f64::from(area.width().max(1)),
-                    f64::from(area.height().max(1)),
-                    modifiers(gesture.current_event_state()),
-                )
-            });
-            dispatch(&handler, actions);
-            sync();
-            area.queue_render();
+                    width: f64::from(area.width().max(1)),
+                    height: f64::from(area.height().max(1)),
+                },
+                modifiers(gesture.current_event_state()),
+            );
+            finish_input(&area, &handler, &sync, result);
         }
     });
     drag.connect_drag_update({
@@ -520,29 +550,29 @@ fn add_drag(
         let sync = sync.clone();
         move |_, dx, dy| {
             let (start_x, start_y) = start.get();
-            let actions = state.borrow_mut().active_actions(|state| {
-                state.update_pointer(
-                    start_x + dx,
-                    start_y + dy,
-                    f64::from(area.width().max(1)),
-                    f64::from(area.height().max(1)),
-                )
-            });
-            dispatch(&handler, actions);
-            sync();
-            area.queue_render();
+            let result = state.update_pointer(
+                FrameGraphPointerPosition {
+                    x: start_x + dx,
+                    y: start_y + dy,
+                    width: f64::from(area.width().max(1)),
+                    height: f64::from(area.height().max(1)),
+                },
+            );
+            finish_input(&area, &handler, &sync, result);
         }
     });
     drag.connect_drag_end({
         let area = area.clone();
         let state = state.clone();
         let handler = handler.clone();
+        let sync = sync.clone();
         move |_, _, _| {
-            let actions = state
-                .borrow_mut()
-                .active_actions(FrameGraphState::end_pointer);
-            dispatch(&handler, actions);
-            area.queue_render();
+            finish_input(
+                &area,
+                &handler,
+                &sync,
+                state.end_pointer(),
+            );
         }
     });
     area.add_controller(drag);
@@ -560,7 +590,7 @@ fn start_animation_if_needed(
     state: &SharedFrameGraphState,
     active: &Rc<Cell<bool>>,
 ) {
-    if active.get() || !state.borrow().is_animating() {
+    if active.get() || !state.is_animating() {
         return;
     }
     active.set(true);
@@ -568,7 +598,7 @@ fn start_animation_if_needed(
     let active = active.clone();
     area.add_tick_callback(move |area, _| {
         area.queue_render();
-        if state.borrow().is_animating() {
+        if state.is_animating() {
             glib::ControlFlow::Continue
         } else {
             active.set(false);
@@ -624,9 +654,7 @@ fn show_interpolation_popover(
                         SearchMenuItem::new(
                             crate::i18n::text(interpolation.label()).as_ref(),
                             move || {
-                                state
-                                    .borrow_mut()
-                                    .set_interpolation(owner_id, interpolation);
+                                state.set_interpolation(owner_id, interpolation);
                                 handler(FrameGraphComponentAction {
                                     component,
                                     action: FrameGraphAction::InterpolationRequested {

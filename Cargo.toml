@@ -88,6 +88,7 @@ members = [
     "crates/ui/inspector-gtk",
     "crates/ui/inspector-qt",
     "crates/ui/component-core",
+    "crates/ui/framegraph-core",
     "crates/ui/component-metal",
     "crates/ui/components-demo-core",
     "crates/ui/components-appkit",

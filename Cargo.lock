@@ -5516,6 +5516,7 @@ dependencies = [
  "objc2-app-kit",
  "objc2-foundation",
  "shrimply-cross-ui-theme",
+ "shrimply-framegraph-core",
  "shrimply-keyframe-graph-core",
  "shrimply-math-core",
  "shrimply-skia-adw-core",
@@ -5534,6 +5535,7 @@ dependencies = [
  "shrimply-component-core",
  "shrimply-component-metal",
  "shrimply-cross-ui-theme",
+ "shrimply-framegraph-core",
  "shrimply-interpolation",
  "shrimply-keyframe-graph-core",
  "shrimply-math-color",
@@ -5828,6 +5830,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "shrimply-framegraph-core"
+version = "0.1.0"
+dependencies = [
+ "shrimply-interpolation",
+ "shrimply-keyframe-graph-core",
+ "shrimply-math-core",
+ "shrimply-skia-adw-core",
+ "uuid",
+]
+
+[[package]]
 name = "shrimply-gpu-memory"
 version = "0.1.0"
 dependencies = [
@@ -5852,6 +5865,7 @@ dependencies = [
  "shrimply-component-core",
  "shrimply-cross-ui-core",
  "shrimply-cross-ui-theme",
+ "shrimply-framegraph-core",
  "shrimply-i18n-gtk",
  "shrimply-interpolation",
  "shrimply-keyframe-graph-core",

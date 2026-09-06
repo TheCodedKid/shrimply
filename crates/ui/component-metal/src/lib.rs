@@ -1,20 +1,23 @@
 #![cfg(target_os = "macos")]
 
 use objc2::rc::Retained;
-use objc2::{AnyThread, DefinedClass, MainThreadOnly, define_class, msg_send};
+use objc2::{AnyThread, DefinedClass, MainThreadOnly, define_class, msg_send, sel};
 use objc2_app_kit::{NSEvent, NSEventModifierFlags, NSTrackingArea, NSTrackingAreaOptions, NSView};
-use objc2_foundation::{MainThreadMarker, NSObjectProtocol, NSRect, NSSize};
-use shrimply_keyframe_graph_core::{
-    FrameGraphComponentAction, FrameGraphComponents, FrameGraphKey, FrameGraphModifiers,
+use objc2_foundation::{
+    MainThreadMarker, NSObjectProtocol, NSRect, NSRunLoop, NSRunLoopCommonModes, NSSize, NSTimer,
+};
+use shrimply_framegraph_core::{
+    FrameGraphComponentAction, FrameGraphInputResult, FrameGraphKey, FrameGraphModifiers,
     FrameGraphPointerButton, FrameGraphPointerPosition, FrameGraphScrollInput,
+    SharedFrameGraphState,
 };
 use shrimply_skia_adw_core::canvas::TimelinePainter;
 use shrimply_skia_metal::Renderer;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
-pub type SharedFrameGraphState = Rc<RefCell<FrameGraphComponents>>;
 pub type FrameGraphActionHandler = Rc<dyn Fn(FrameGraphComponentAction)>;
+const FRAME_INTERVAL_SECONDS: f64 = 1.0 / 60.0;
 
 pub struct GraphViewIvars {
     renderer: RefCell<Renderer>,
@@ -22,6 +25,7 @@ pub struct GraphViewIvars {
     on_action: FrameGraphActionHandler,
     tracking_area: RefCell<Option<Retained<NSTrackingArea>>>,
     pointer: Cell<Option<(f64, f64)>>,
+    animation_timer: RefCell<Option<Retained<NSTimer>>>,
 }
 
 define_class!(
@@ -77,8 +81,7 @@ define_class!(
         #[unsafe(method(mouseExited:))]
         fn mouse_exited(&self, _event: &NSEvent) {
             self.ivars().pointer.set(None);
-            self.ivars().state.borrow_mut().pointer_left();
-            self.render();
+            self.finish(self.ivars().state.pointer_left());
         }
 
         #[unsafe(method(mouseDown:))]
@@ -119,7 +122,7 @@ define_class!(
         fn scroll_wheel(&self, event: &NSEvent) {
             let (x, y) = self.point(event);
             let size = self.bounds().size;
-            let handled = self.ivars().state.borrow_mut().scroll(
+            let result = self.ivars().state.scroll(
                 -event.scrollingDeltaX(),
                 -event.scrollingDeltaY(),
                 FrameGraphPointerPosition {
@@ -128,17 +131,33 @@ define_class!(
                     width: size.width.max(1.0),
                     height: size.height.max(1.0),
                 },
-                event.modifierFlags().contains(NSEventModifierFlags::Command),
+                event.modifierFlags().contains(NSEventModifierFlags::Control),
                 if event.hasPreciseScrollingDeltas() {
                     FrameGraphScrollInput::Surface
                 } else {
                     FrameGraphScrollInput::Wheel
                 },
             );
-            self.render();
+            let handled = result.handled;
+            self.finish(result);
             if !handled {
                 unsafe { let _: () = msg_send![super(self), scrollWheel: event]; }
             }
+        }
+
+        #[unsafe(method(magnifyWithEvent:))]
+        fn magnify(&self, event: &NSEvent) {
+            let (x, y) = self.point(event);
+            let size = self.bounds().size;
+            self.finish(self.ivars().state.magnify(
+                event.magnification(),
+                FrameGraphPointerPosition {
+                    x,
+                    y,
+                    width: size.width.max(1.0),
+                    height: size.height.max(1.0),
+                },
+            ));
         }
 
         #[unsafe(method(keyDown:))]
@@ -161,14 +180,32 @@ define_class!(
                 unsafe { let _: () = msg_send![super(self), keyDown: event]; }
                 return;
             };
-            let actions = self.ivars().state.borrow_mut().active_actions(|state| state.key(key));
-            self.dispatch(actions);
-            self.render();
+            self.finish(self.ivars().state.key(key));
         }
 
         #[unsafe(method(cancelOperation:))]
         fn cancel_operation(&self, _sender: &objc2_foundation::NSObject) {
             self.end_pointer();
+        }
+
+        #[unsafe(method(viewDidMoveToWindow))]
+        fn moved_to_window(&self) {
+            unsafe { let _: () = msg_send![super(self), viewDidMoveToWindow]; }
+            if self.window().is_none()
+                && let Some(timer) = self.ivars().animation_timer.borrow_mut().take()
+            {
+                timer.invalidate();
+            }
+        }
+
+        #[unsafe(method(renderAnimation:))]
+        fn render_animation(&self, timer: &NSTimer) {
+            if self.window().is_none() || !self.ivars().state.is_animating() {
+                timer.invalidate();
+                self.ivars().animation_timer.borrow_mut().take();
+                return;
+            }
+            self.render();
         }
     }
 );
@@ -190,57 +227,75 @@ impl FrameGraphView {
     fn pointer_moved(&self, event: &NSEvent) {
         let point = self.point(event);
         self.ivars().pointer.set(Some(point));
-        self.ivars()
-            .state
-            .borrow_mut()
-            .pointer_moved(point.0, point.1);
-        self.render();
+        self.finish(self.ivars().state.pointer_moved(point.0, point.1));
     }
 
     fn begin_pointer(&self, event: &NSEvent, button: FrameGraphPointerButton) {
-        self.window()
-            .expect("frame graph must be attached before input")
-            .makeFirstResponder(Some(self));
         let (x, y) = self.point(event);
         let size = self.bounds().size;
-        let actions = self.ivars().state.borrow_mut().active_actions(|state| {
-            state.begin_pointer(
-                button,
+        self.finish(self.ivars().state.begin_pointer(
+            button,
+            FrameGraphPointerPosition {
                 x,
                 y,
-                size.width.max(1.0),
-                size.height.max(1.0),
-                Self::modifiers(event),
-            )
-        });
-        self.dispatch(actions);
-        self.render();
+                width: size.width.max(1.0),
+                height: size.height.max(1.0),
+            },
+            Self::modifiers(event),
+        ));
     }
 
     fn update_pointer(&self, event: &NSEvent) {
         let (x, y) = self.point(event);
         let size = self.bounds().size;
-        let actions = self.ivars().state.borrow_mut().active_actions(|state| {
-            state.update_pointer(x, y, size.width.max(1.0), size.height.max(1.0))
-        });
-        self.dispatch(actions);
-        self.render();
+        self.finish(self.ivars().state.update_pointer(
+            FrameGraphPointerPosition {
+                x,
+                y,
+                width: size.width.max(1.0),
+                height: size.height.max(1.0),
+            },
+        ));
     }
 
     fn end_pointer(&self) {
-        let actions = self
-            .ivars()
-            .state
-            .borrow_mut()
-            .active_actions(shrimply_keyframe_graph_core::FrameGraphState::end_pointer);
-        self.dispatch(actions);
-        self.render();
+        self.finish(self.ivars().state.end_pointer());
     }
 
-    fn dispatch(&self, actions: Vec<FrameGraphComponentAction>) {
-        for action in actions {
+    fn finish(&self, result: FrameGraphInputResult) {
+        if result.focus {
+            self.window()
+                .expect("frame graph must be attached before input")
+                .makeFirstResponder(Some(self));
+        }
+        for action in result.actions {
             (self.ivars().on_action)(action);
         }
+        if result.redraw {
+            self.render();
+        }
+        self.start_animation_if_needed();
+    }
+
+    fn start_animation_if_needed(&self) {
+        if !self.ivars().state.is_animating()
+            || self.ivars().animation_timer.borrow().is_some()
+        {
+            return;
+        }
+        let timer = unsafe {
+            NSTimer::scheduledTimerWithTimeInterval_target_selector_userInfo_repeats(
+                FRAME_INTERVAL_SECONDS,
+                self,
+                sel!(renderAnimation:),
+                None,
+                true,
+            )
+        };
+        unsafe {
+            NSRunLoop::mainRunLoop().addTimer_forMode(&timer, NSRunLoopCommonModes);
+        }
+        self.ivars().animation_timer.replace(Some(timer));
     }
 
     pub fn render(&self) {
@@ -262,10 +317,7 @@ impl FrameGraphView {
             canvas.clear(shrimply_cross_ui_theme::current().view_bg);
             canvas.scale((scale as f32, scale as f32));
             let painter = TimelinePainter::new(canvas);
-            self.ivars()
-                .state
-                .borrow_mut()
-                .draw(&painter, size.width, size.height);
+            self.ivars().state.draw(&painter, size.width, size.height);
         });
     }
 }
@@ -281,6 +333,7 @@ pub fn frame_graph_view(
         on_action,
         tracking_area: RefCell::new(None),
         pointer: Cell::new(None),
+        animation_timer: RefCell::new(None),
     });
     let view: Retained<FrameGraphView> =
         unsafe { msg_send![super(view), initWithFrame: NSRect::ZERO] };

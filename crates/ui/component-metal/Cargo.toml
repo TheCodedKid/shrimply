@@ -8,8 +8,8 @@ objc2.workspace = true
 objc2-app-kit.workspace = true
 objc2-foundation.workspace = true
 shrimply-cross-ui-theme = { path = "../cross-ui-theme" }
+shrimply-framegraph-core = { path = "../framegraph-core" }
 shrimply-keyframe-graph-core = { path = "../../timeline/keyframe-graph-core" }
 shrimply-math-core = { path = "../../math/core" }
 shrimply-skia-adw-core = { path = "../skia-adw-core" }
 shrimply-skia-metal = { path = "../skia-metal" }
-
