@@ -1,13 +1,16 @@
-use crate::{StringChoice, action, column_append, column_stack, controls::show_searchable_popover_at, row_stack};
+use crate::{
+    StringChoice, action, column_append, column_stack, controls::show_searchable_popover_at,
+    row_stack,
+};
 use objc2::rc::{Retained, Weak};
 use objc2_app_kit::{NSButton, NSImage, NSLayoutConstraint, NSStackView};
 use objc2_foundation::{MainThreadMarker, NSPoint, NSString};
+use shrimply_framegraph_core::FrameGraphCommand;
 use shrimply_interpolation::Interpolation;
 use shrimply_keyframe_graph_core::{
     FrameGraphAction, FrameGraphComponentAction, FrameGraphComponents, FrameGraphState,
     FrameGraphStatus,
 };
-use shrimply_framegraph_core::FrameGraphCommand;
 use shrimply_math_core::Time;
 use std::cell::RefCell;
 use std::rc::Rc;

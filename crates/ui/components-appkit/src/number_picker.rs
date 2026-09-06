@@ -234,7 +234,10 @@ impl NumberPickerView {
     }
 
     fn finish_drag(&self) {
-        assert!(self.ivars().drag.get().moved(), "finish_drag requires movement");
+        assert!(
+            self.ivars().drag.get().moved(),
+            "finish_drag requires movement"
+        );
         eprintln!("number-picker: release classified as drag");
         self.release_pointer();
         (self.ivars().on_commit)(self.ivars().value.get());
@@ -243,8 +246,7 @@ impl NumberPickerView {
     fn refresh(&self) {
         if !self.ivars().rotating_icon.isHidden() {
             self.ivars().rotating_icon.setBoundsRotation(
-                fraction_as_f64(self.ivars().value.get())
-                    + self.ivars().rotation_offset_degrees,
+                fraction_as_f64(self.ivars().value.get()) + self.ivars().rotation_offset_degrees,
             );
         }
         self.ivars()
@@ -335,12 +337,11 @@ impl NumberPickerView {
             constraint.setActive(true);
         }
         self.layoutSubtreeIfNeeded();
-        let accepted = self.window()
+        let accepted = self
+            .window()
             .expect("number picker must be attached before editing")
             .makeFirstResponder(Some(&self.ivars().entry));
-        eprintln!(
-            "number-picker: entry installed=true first-responder-accepted={accepted}"
-        );
+        eprintln!("number-picker: entry installed=true first-responder-accepted={accepted}");
     }
 
     fn commit_edit(&self) {
@@ -533,30 +534,56 @@ impl NumberPickerBuilder {
         let has_prefix = !self.prefix.trim().is_empty();
         let has_suffix = !self.suffix.trim().is_empty();
         for constraint in [
-            background.leadingAnchor().constraintEqualToAnchor(&display.leadingAnchor()),
-            background.trailingAnchor().constraintEqualToAnchor(&display.trailingAnchor()),
-            background.topAnchor().constraintEqualToAnchor(&display.topAnchor()),
-            background.bottomAnchor().constraintEqualToAnchor(&display.bottomAnchor()),
-            rotating_icon.leadingAnchor().constraintEqualToAnchor_constant(&display.leadingAnchor(), 8.0),
-            rotating_icon.centerYAnchor().constraintEqualToAnchor(&display.centerYAnchor()),
-            rotating_icon.widthAnchor().constraintEqualToConstant(if has_icon { 14.0 } else { 0.0 }),
-            rotating_icon.heightAnchor().constraintEqualToConstant(if has_icon { 14.0 } else { 0.0 }),
+            background
+                .leadingAnchor()
+                .constraintEqualToAnchor(&display.leadingAnchor()),
+            background
+                .trailingAnchor()
+                .constraintEqualToAnchor(&display.trailingAnchor()),
+            background
+                .topAnchor()
+                .constraintEqualToAnchor(&display.topAnchor()),
+            background
+                .bottomAnchor()
+                .constraintEqualToAnchor(&display.bottomAnchor()),
+            rotating_icon
+                .leadingAnchor()
+                .constraintEqualToAnchor_constant(&display.leadingAnchor(), 8.0),
+            rotating_icon
+                .centerYAnchor()
+                .constraintEqualToAnchor(&display.centerYAnchor()),
+            rotating_icon
+                .widthAnchor()
+                .constraintEqualToConstant(if has_icon { 14.0 } else { 0.0 }),
+            rotating_icon
+                .heightAnchor()
+                .constraintEqualToConstant(if has_icon { 14.0 } else { 0.0 }),
             prefix.leadingAnchor().constraintEqualToAnchor_constant(
                 &rotating_icon.trailingAnchor(),
                 if has_icon && has_prefix { 4.0 } else { 0.0 },
             ),
-            prefix.centerYAnchor().constraintEqualToAnchor(&display.centerYAnchor()),
-            value_label.leadingAnchor().constraintEqualToAnchor_constant(
-                &prefix.trailingAnchor(),
-                if has_prefix { 4.0 } else { 0.0 },
-            ),
-            value_label.centerYAnchor().constraintEqualToAnchor(&display.centerYAnchor()),
+            prefix
+                .centerYAnchor()
+                .constraintEqualToAnchor(&display.centerYAnchor()),
+            value_label
+                .leadingAnchor()
+                .constraintEqualToAnchor_constant(
+                    &prefix.trailingAnchor(),
+                    if has_prefix { 4.0 } else { 0.0 },
+                ),
+            value_label
+                .centerYAnchor()
+                .constraintEqualToAnchor(&display.centerYAnchor()),
             suffix.leadingAnchor().constraintEqualToAnchor_constant(
                 &value_label.trailingAnchor(),
                 if has_suffix { 4.0 } else { 0.0 },
             ),
-            suffix.trailingAnchor().constraintEqualToAnchor_constant(&display.trailingAnchor(), -8.0),
-            suffix.centerYAnchor().constraintEqualToAnchor(&display.centerYAnchor()),
+            suffix
+                .trailingAnchor()
+                .constraintEqualToAnchor_constant(&display.trailingAnchor(), -8.0),
+            suffix
+                .centerYAnchor()
+                .constraintEqualToAnchor(&display.centerYAnchor()),
         ] {
             constraint.setActive(true);
         }
@@ -606,7 +633,9 @@ impl NumberPickerBuilder {
             display
                 .trailingAnchor()
                 .constraintEqualToAnchor(&view.trailingAnchor()),
-            display.topAnchor().constraintEqualToAnchor(&view.topAnchor()),
+            display
+                .topAnchor()
+                .constraintEqualToAnchor(&view.topAnchor()),
             display
                 .bottomAnchor()
                 .constraintEqualToAnchor(&view.bottomAnchor()),
@@ -959,8 +988,10 @@ fn number_row(
         );
         row.addSubview(lock);
         for constraint in [
-            lock.leadingAnchor().constraintEqualToAnchor(&row.leadingAnchor()),
-            lock.centerYAnchor().constraintEqualToAnchor(&row.centerYAnchor()),
+            lock.leadingAnchor()
+                .constraintEqualToAnchor(&row.leadingAnchor()),
+            lock.centerYAnchor()
+                .constraintEqualToAnchor(&row.centerYAnchor()),
             lock.widthAnchor()
                 .constraintEqualToConstant(lock.intrinsicContentSize().width),
         ] {
@@ -971,20 +1002,24 @@ fn number_row(
         field.setTranslatesAutoresizingMaskIntoConstraints(false);
         row.addSubview(field);
         let leading = if let Some(previous) = previous {
+            field.leadingAnchor().constraintEqualToAnchor_constant(
+                &previous.trailingAnchor(),
+                f64::from(shrimply_component_core::layout::CONTROL_ROW_GAP),
+            )
+        } else {
             field
                 .leadingAnchor()
-                .constraintEqualToAnchor_constant(
-                    &previous.trailingAnchor(),
-                    f64::from(shrimply_component_core::layout::CONTROL_ROW_GAP),
-                )
-        } else {
-            field.leadingAnchor().constraintEqualToAnchor(&row.leadingAnchor())
+                .constraintEqualToAnchor(&row.leadingAnchor())
         };
         for constraint in [
             leading,
             field.topAnchor().constraintEqualToAnchor(&row.topAnchor()),
-            field.bottomAnchor().constraintEqualToAnchor(&row.bottomAnchor()),
-            field.widthAnchor().constraintEqualToAnchor(&fields[0].widthAnchor()),
+            field
+                .bottomAnchor()
+                .constraintEqualToAnchor(&row.bottomAnchor()),
+            field
+                .widthAnchor()
+                .constraintEqualToAnchor(&fields[0].widthAnchor()),
         ] {
             constraint.setActive(true);
         }
