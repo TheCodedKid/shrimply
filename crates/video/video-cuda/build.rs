@@ -5,7 +5,7 @@ use serde_json::Value;
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=../../slang-build/compiler.cpp");
-    println!("cargo:rerun-if-changed=shaders");
+    println!("cargo:rerun-if-changed=../../render-core/shaders");
     println!("cargo:rerun-if-env-changed=SLANG_SOURCE_DIR");
     println!("cargo:rerun-if-env-changed=SLANG_BUILD_DIR");
 
