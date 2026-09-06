@@ -984,6 +984,7 @@ impl FrameItemRenderer<'_> {
         drop(property_measurement);
 
         let audio_analysis = self.audio_analysis.clone();
+        let accuracy = self.mode.accuracy();
         let request = VisualRenderRequest {
             project: self.project,
             sequence_path: &self.sequence_path,
@@ -1005,7 +1006,7 @@ impl FrameItemRenderer<'_> {
             generated_transition: (!cache_branch)
                 .then(|| generated_transition(item, self.position, scene_3d))
                 .flatten(),
-            accuracy: self.mode.accuracy(),
+            accuracy,
             transmission_background,
             decode_control: self.decode_control,
         };
@@ -1080,7 +1081,7 @@ impl FrameItemRenderer<'_> {
                         item = %item.id,
                         content = ?item.content,
                         position = %self.position.as_label(),
-                        ?request.accuracy,
+                        ?accuracy,
                         "visual item is still loading",
                     );
                 }
@@ -1096,7 +1097,7 @@ impl FrameItemRenderer<'_> {
                         item = %item.id,
                         content = ?item.content,
                         position = %self.position.as_label(),
-                        ?request.accuracy,
+                        ?accuracy,
                         "visual item is showing a loading placeholder",
                     );
                 }

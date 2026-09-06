@@ -4,6 +4,7 @@ use std::rc::Rc;
 
 use adw::prelude::*;
 use gtk::{gdk, gio, glib};
+use shrimply_gtk_components::ui::I18nAlertDialogExt;
 
 use super::TimelineRuntime;
 use super::interaction::show_error_dialog;

@@ -249,8 +249,9 @@ impl InspectorController {
         modifier_id: uuid::Uuid,
     ) -> Result<InspectorSection, String> {
         let project = self.project.borrow();
+        let address = super::video_address(target)?;
         let item = project
-            .video_item(super::video_address(target)?)
+            .video_item(address)
             .ok_or_else(|| "SAM2 item is no longer available".to_string())?;
         let (index, modifier) = item
             .modifiers
@@ -265,6 +266,7 @@ impl InspectorController {
             return Err("SAM2 modifier is no longer available".to_string());
         };
         Ok(presentation(
+            address,
             value,
             index,
             modifier_id,
