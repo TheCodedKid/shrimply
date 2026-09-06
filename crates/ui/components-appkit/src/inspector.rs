@@ -6,7 +6,7 @@ use block2::RcBlock;
 use objc2::MainThreadOnly;
 use objc2::rc::Retained;
 use objc2_app_kit::{
-    NSAnimationContext, NSButton, NSButtonType, NSControlStateValueOn, NSGlassEffectView,
+    NSAnimationContext, NSButton, NSButtonType, NSColor, NSControlStateValueOn, NSGlassEffectView,
     NSGlassEffectViewStyle, NSImage, NSLayoutConstraint, NSStackView, NSTextAlignment, NSTextField,
     NSView,
 };
@@ -285,6 +285,7 @@ impl InspectorGraphProperty {
         keyframes.setButtonType(NSButtonType::PushOnPushOff);
         keyframes.setBordered(false);
         keyframes.setToolTip(Some(&NSString::from_str("Toggle keyframes")));
+        set_toggle_tint(&keyframes, false);
         let expression = unsafe {
             NSButton::buttonWithImage_target_action(
                 &symbol("chevron.left.forwardslash.chevron.right", "Toggle expression"),
@@ -296,6 +297,7 @@ impl InspectorGraphProperty {
         expression.setButtonType(NSButtonType::PushOnPushOff);
         expression.setBordered(false);
         expression.setToolTip(Some(&NSString::from_str("Toggle expression")));
+        set_toggle_tint(&expression, false);
         let suffix = row_stack(4.0, mtm);
         suffix.addArrangedSubview(&keyframes);
         suffix.addArrangedSubview(&expression);
@@ -328,6 +330,7 @@ impl InspectorGraphProperty {
                     .state()
                     == NSControlStateValueOn;
                 graph_controller.set_keyframes(active);
+                set_toggle_tint(control.downcast_ref::<NSButton>().expect("keyframe toggle sender"), active);
                 graph_view.setHidden(!active);
                 invalidate_ancestor_layout(&graph_view);
             },
@@ -344,6 +347,7 @@ impl InspectorGraphProperty {
                     .state()
                     == NSControlStateValueOn;
                 expression_controller.set_expression(active);
+                set_toggle_tint(control.downcast_ref::<NSButton>().expect("expression toggle sender"), active);
                 expression_view.setHidden(!active);
                 invalidate_ancestor_layout(&expression_view);
             },
@@ -374,6 +378,7 @@ impl InspectorGraphProperty {
         self.controller.set_keyframes(active);
         self.keyframes
             .setState(if active { NSControlStateValueOn } else { 0 });
+        set_toggle_tint(&self.keyframes, active);
         self.graph.view().setHidden(!active);
         invalidate_ancestor_layout(self.graph.view());
     }
@@ -381,9 +386,18 @@ impl InspectorGraphProperty {
         self.controller.set_expression(active);
         self.expression
             .setState(if active { NSControlStateValueOn } else { 0 });
+        set_toggle_tint(&self.expression, active);
         self._expression_editor.view().setHidden(!active);
         invalidate_ancestor_layout(self._expression_editor.view());
     }
+}
+
+fn set_toggle_tint(button: &NSButton, active: bool) {
+    button.setContentTintColor(Some(if active {
+        &NSColor::controlAccentColor()
+    } else {
+        &NSColor::secondaryLabelColor()
+    }));
 }
 
 fn invalidate_ancestor_layout(view: &NSView) {

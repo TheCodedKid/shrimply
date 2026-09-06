@@ -5,7 +5,7 @@ use objc2_app_kit::{
     NSApplication, NSApplicationActivationPolicy, NSApplicationDelegate, NSAutoresizingMaskOptions,
     NSBackingStoreType, NSColor, NSFont, NSGlassEffectView, NSGlassEffectViewStyle, NSScrollView,
     NSStackView, NSTextField, NSTextView, NSTitlebarSeparatorStyle, NSToolbar, NSView, NSWindow,
-    NSWindowStyleMask, NSWindowTitleVisibility, NSWindowToolbarStyle, NSWorkspace,
+    NSWindowDelegate, NSWindowStyleMask, NSWindowTitleVisibility, NSWindowToolbarStyle, NSWorkspace,
 };
 use objc2_foundation::{
     MainThreadMarker, NSNotification, NSObject, NSObjectProtocol, NSPoint, NSRect, NSSize,
@@ -67,8 +67,19 @@ define_class!(
             window.setOpaque(false);
             window.setBackgroundColor(Some(&NSColor::clearColor()));
             window.setMovableByWindowBackground(true);
+            window.setContentMinSize(NSSize::ZERO);
+            window.setContentMaxSize(NSSize::new(f64::MAX, f64::MAX));
+            window.setResizeIncrements(NSSize::new(1.0, 1.0));
+            window.setDelegate(Some(ProtocolObject::from_ref(self)));
             let showcase = build_showcase(mtm);
             window.setContentView(Some(&window_shell(showcase.view(), mtm)));
+            eprintln!(
+                "appkit-showcase-window: resizable={} frame={:?} content-min={:?} content-max={:?}",
+                window.styleMask().contains(NSWindowStyleMask::Resizable),
+                window.frame().size,
+                window.contentMinSize(),
+                window.contentMaxSize(),
+            );
             window.center();
             window.makeKeyAndOrderFront(None);
             self.ivars()
@@ -78,6 +89,25 @@ define_class!(
             let app = NSApplication::sharedApplication(mtm);
             app.setActivationPolicy(NSApplicationActivationPolicy::Regular);
             app.activate();
+        }
+    }
+
+    unsafe impl NSWindowDelegate for Delegate {
+        #[unsafe(method(windowWillStartLiveResize:))]
+        fn window_will_start_live_resize(&self, _notification: &NSNotification) {
+            eprintln!("appkit-showcase-window: live-resize-start");
+        }
+
+        #[unsafe(method(windowDidResize:))]
+        fn window_did_resize(&self, _notification: &NSNotification) {
+            if let Some(window) = self.ivars().window.get() {
+                eprintln!("appkit-showcase-window: resized frame={:?}", window.frame().size);
+            }
+        }
+
+        #[unsafe(method(windowDidEndLiveResize:))]
+        fn window_did_end_live_resize(&self, _notification: &NSNotification) {
+            eprintln!("appkit-showcase-window: live-resize-end");
         }
     }
 );
@@ -410,6 +440,12 @@ fn general_page(log: Rc<dyn Fn(String)>, mtm: MainThreadMarker) -> Retained<NSVi
     working.set_state(ProgressButtonState::Indeterminate);
     let half = ProgressButton::new("Half", mtm);
     half.set_state(ProgressButtonState::Progress(0.5));
+    let progress_spacer = NSView::new(mtm);
+    progress_spacer.setContentHuggingPriority_forOrientation(
+        objc2_app_kit::NSLayoutPriorityDefaultLow,
+        objc2_app_kit::NSLayoutConstraintOrientation::Horizontal,
+    );
+    progress.addArrangedSubview(&progress_spacer);
     progress.addArrangedSubview(idle.view());
     progress.addArrangedSubview(working.view());
     progress.addArrangedSubview(half.view());
@@ -430,10 +466,10 @@ fn general_page(log: Rc<dyn Fn(String)>, mtm: MainThreadMarker) -> Retained<NSVi
     card.connect_expansion({
         let scroll = Weak::new(&*page.scroll);
         let preserved_origin = Rc::new(Cell::new(None::<NSPoint>));
-        move |_, complete| {
+        move |expanding, complete| {
             if let Some(scroll) = scroll.load() {
                 let clip = scroll.contentView();
-                if !complete {
+                if !complete && !expanding {
                     preserved_origin.set(Some(clip.bounds().origin));
                 }
                 scroll.layoutSubtreeIfNeeded();
@@ -441,7 +477,7 @@ fn general_page(log: Rc<dyn Fn(String)>, mtm: MainThreadMarker) -> Retained<NSVi
                     clip.scrollToPoint(origin);
                     scroll.reflectScrolledClipView(&clip);
                 }
-                if complete {
+                if complete && expanding {
                     preserved_origin.set(None);
                 }
             }
@@ -523,9 +559,13 @@ fn pair_property(
     let handles = [picker.first.clone(), picker.second.clone()];
     graph.connect_status({
         let graph = graph.clone();
+        let controller = controller.clone();
         let handles = handles.clone();
         let values = values.clone();
         move |status| {
+            if !controller.keyframes() {
+                return;
+            }
             let component = graph.active_component().min(1);
             let mut next = values.get();
             next[component] = status.value;
@@ -597,7 +637,14 @@ fn scalar_property(
         })
         .build_with_handle(mtm);
     let handle = picker.handle.clone();
-    graph.connect_status(move |status| handle.set_f64(status.value));
+    graph.connect_status({
+        let controller = controller.clone();
+        move |status| {
+            if controller.keyframes() {
+                handle.set_f64(status.value);
+            }
+        }
+    });
     let expression = ExpressionEditor::new(
         shrimply_components_demo_core::EXPRESSION_SOURCE,
         &shrimply_components_demo_core::expression_output(
@@ -699,11 +746,17 @@ fn scrolling_page(content: Retained<NSStackView>, mtm: MainThreadMarker) -> Scro
     let document: Retained<PageDocument> =
         unsafe { msg_send![super(document), initWithFrame: NSRect::ZERO] };
     content.setTranslatesAutoresizingMaskIntoConstraints(false);
+    content.setContentHuggingPriority_forOrientation(
+        objc2_app_kit::NSLayoutPriorityRequired,
+        objc2_app_kit::NSLayoutConstraintOrientation::Vertical,
+    );
+    content.setContentCompressionResistancePriority_forOrientation(
+        objc2_app_kit::NSLayoutPriorityRequired,
+        objc2_app_kit::NSLayoutConstraintOrientation::Vertical,
+    );
     document.setTranslatesAutoresizingMaskIntoConstraints(false);
     document.addSubview(&content);
     scroll.setDocumentView(Some(&document));
-    let natural_height = document.heightAnchor().constraintEqualToAnchor(&content.heightAnchor());
-    natural_height.setPriority(objc2_app_kit::NSLayoutPriorityDefaultHigh);
     for constraint in [
         document
             .widthAnchor()
@@ -715,7 +768,6 @@ fn scrolling_page(content: Retained<NSStackView>, mtm: MainThreadMarker) -> Scro
         content.trailingAnchor().constraintEqualToAnchor(&document.trailingAnchor()),
         content.topAnchor().constraintEqualToAnchor(&document.topAnchor()),
         content.bottomAnchor().constraintLessThanOrEqualToAnchor(&document.bottomAnchor()),
-        natural_height,
     ] {
         constraint.setActive(true);
     }

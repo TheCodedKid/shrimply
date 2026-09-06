@@ -1,11 +1,10 @@
 use objc2::ffi::{OBJC_ASSOCIATION_RETAIN_NONATOMIC, objc_setAssociatedObject};
 use objc2::rc::Retained;
 use objc2::runtime::ProtocolObject;
-use objc2::{ClassType, DefinedClass, MainThreadOnly, define_class, msg_send, sel};
+use objc2::{DefinedClass, MainThreadOnly, define_class, msg_send, sel};
 use objc2_app_kit::{
-    NSBackgroundColorAttributeName, NSColor, NSControlTextEditingDelegate, NSFont,
-    NSForegroundColorAttributeName, NSScrollView, NSTextDelegate, NSTextField,
-    NSTextFieldDelegate, NSTextView, NSTextViewDelegate,
+    NSColor, NSControlTextEditingDelegate, NSFont, NSForegroundColorAttributeName, NSScrollView,
+    NSTextDelegate, NSTextField, NSTextFieldDelegate, NSTextView, NSTextViewDelegate,
 };
 use objc2_foundation::{
     MainThreadMarker, NSNotification, NSObject, NSObjectProtocol, NSRange, NSRect, NSSize, NSString,
@@ -67,7 +66,8 @@ impl SingleTarget {
 }
 
 pub struct SingleLineTextInput {
-    view: Retained<NSTextField>,
+    root: Retained<objc2_app_kit::NSView>,
+    _field: Retained<NSTextField>,
 }
 
 impl SingleLineTextInput {
@@ -97,11 +97,27 @@ impl SingleLineTextInput {
             field.setDelegate(Some(ProtocolObject::from_ref(&*target)));
             retain_target(&*field, &target, &SINGLE_TARGET_KEY);
         }
-        Self { view: field }
+        let root = objc2_app_kit::NSView::new(mtm);
+        field.setTranslatesAutoresizingMaskIntoConstraints(false);
+        root.addSubview(&field);
+        for constraint in [
+            field.leadingAnchor().constraintEqualToAnchor(&root.leadingAnchor()),
+            field.trailingAnchor().constraintEqualToAnchor(&root.trailingAnchor()),
+            field.centerYAnchor().constraintEqualToAnchor(&root.centerYAnchor()),
+            field
+                .heightAnchor()
+                .constraintEqualToConstant(field.intrinsicContentSize().height),
+        ] {
+            constraint.setActive(true);
+        }
+        Self {
+            root,
+            _field: field,
+        }
     }
 
-    pub fn view(&self) -> &NSTextField {
-        &self.view
+    pub fn view(&self) -> &objc2_app_kit::NSView {
+        &self.root
     }
 }
 
@@ -355,7 +371,6 @@ fn highlight_expression(view: &NSTextView, source: &str) {
     let full_range = NSRange::new(0, source.encode_utf16().count());
     storage.beginEditing();
     unsafe {
-        storage.removeAttribute_range(NSBackgroundColorAttributeName, full_range);
         storage.addAttribute_value_range(
             NSForegroundColorAttributeName,
             &NSColor::textColor(),
@@ -377,14 +392,6 @@ fn highlight_expression(view: &NSTextView, source: &str) {
                 NSRange::new(span.start_utf16, span.length_utf16),
             );
         }
-    }
-    let line = current_line_range(source, view.selectedRange().location);
-    unsafe {
-        storage.addAttribute_value_range(
-            NSBackgroundColorAttributeName,
-            &NSColor::selectedContentBackgroundColor().colorWithAlphaComponent(0.08),
-            line,
-        );
     }
     storage.endEditing();
 }
@@ -410,20 +417,6 @@ fn current_line_indent(source: &str, utf16_location: usize) -> String {
         || source.chars().take_while(|character| character.is_whitespace()).collect(),
         |(_, line)| line.chars().take_while(|character| matches!(character, ' ' | '\t')).collect(),
     )
-}
-
-fn current_line_range(source: &str, utf16_location: usize) -> NSRange {
-    let utf16 = source.encode_utf16().collect::<Vec<_>>();
-    let caret = utf16_location.min(utf16.len());
-    let start = utf16[..caret]
-        .iter()
-        .rposition(|character| *character == b'\n' as u16)
-        .map_or(0, |index| index + 1);
-    let end = utf16[caret..]
-        .iter()
-        .position(|character| *character == b'\n' as u16)
-        .map_or(utf16.len(), |index| caret + index + 1);
-    NSRange::new(start, end.saturating_sub(start))
 }
 
 fn smart_backspace(view: &NSTextView) -> bool {
