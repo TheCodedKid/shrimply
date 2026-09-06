@@ -4,6 +4,7 @@ use std::{
     fmt,
     mem::size_of,
     path::{Path, PathBuf},
+    sync::Arc,
 };
 
 use ffmpeg::{format, media};
@@ -480,6 +481,15 @@ pub struct SceneObject<'a> {
     pub session: &'a ObjRenderSession,
     pub transform: shrimply_scene_3d::ResolvedTransform3d,
     pub material: SurfaceMaterialParams,
+}
+
+pub struct PreparedFrame {
+    pub session: Arc<ObjRenderSession>,
+    pub params: SceneRenderParams,
+    pub uniforms: obj::SceneUniforms,
+    pub environment: Option<AssetSnapshot>,
+    pub width: u32,
+    pub height: u32,
 }
 
 impl ObjRenderSession {

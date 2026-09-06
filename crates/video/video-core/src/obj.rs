@@ -5,7 +5,7 @@ use std::{
 };
 
 use hashbrown::HashMap;
-use shrimply_asset::{Asset, AssetSnapshot};
+use shrimply_asset::Asset;
 use shrimply_project::project::{CanvasSize, VideoItem, VideoItemContent};
 use shrimply_video_modifiers::{ModifierEffect, scene_3d::Scene3dModifierEffect};
 use uuid::Uuid;
@@ -51,14 +51,7 @@ pub struct Request<'a> {
     pub tracked_camera: Option<Camera>,
 }
 
-pub struct Prepared {
-    pub session: Arc<shrimply_render_3d::ObjRenderSession>,
-    pub params: shrimply_render_3d::SceneRenderParams,
-    pub uniforms: shrimply_render_3d::obj::SceneUniforms,
-    pub environment: Option<AssetSnapshot>,
-    pub width: u32,
-    pub height: u32,
-}
+pub use shrimply_render_3d::PreparedFrame as Prepared;
 
 impl Default for State {
     fn default() -> Self {

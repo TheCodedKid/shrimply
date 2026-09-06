@@ -1,5 +1,7 @@
 module render_3d_sampling;
 
+import render_3d_abi;
+
 static const float PI = 3.14159265358979323846;
 static const float GOLDEN_ANGLE = 2.39996322972865332;
 static const uint PIXEL_HASH_X = 0x9e3779b9u;
@@ -9,6 +11,17 @@ static const uint HASH_MULTIPLIER_A = 0x7feb352du;
 static const uint HASH_MULTIPLIER_B = 0x846ca68bu;
 static const float UINT_TO_UNIT_FLOAT = 1.0 / 4294967296.0;
 static const float3 LINEAR_LUMINANCE_WEIGHTS = float3(0.2126, 0.7152, 0.0722);
+static const float CAMERA_RAY_MINIMUM = 0.001;
+static const float CAMERA_RAY_MAXIMUM = 100000.0;
+
+public struct CameraRay
+{
+    public RayDesc object_ray;
+    public float3 world_origin;
+    public float3 world_direction;
+    public float3 ground_origin;
+    public bool valid;
+};
 
 public float luminance(float3 color)
 {
@@ -92,9 +105,153 @@ public float2 stochastic_pixel_offset(uint index, uint count, uint2 pixel)
     return float2(cos(angle), sin(angle)) * radius;
 }
 
+public uint anti_aliasing_sample_count(AntiAliasing strategy)
+{
+    return strategy == AntiAliasing::None
+        ? 1u
+        : (strategy == AntiAliasing::RotatedGrid2x
+            ? 2u
+            : (strategy == AntiAliasing::Grid4x ? 4u : 8u));
+}
+
+public float2 anti_aliasing_offset(uint index, AntiAliasing strategy, uint2 pixel)
+{
+    if (strategy == AntiAliasing::RotatedGrid2x)
+        return index == 0 ? float2(-0.25, 0.25) : float2(0.25, -0.25);
+    if (strategy == AntiAliasing::Grid4x)
+    {
+        return float2(
+            (index & 1) == 0 ? -0.25 : 0.25,
+            (index & 2) == 0 ? -0.25 : 0.25);
+    }
+    if (strategy == AntiAliasing::Stochastic8x)
+        return stochastic_pixel_offset(index, 8, pixel);
+    return float2(0.0);
+}
+
 public float power_heuristic(float first_pdf, float second_pdf)
 {
     float first_squared = first_pdf * first_pdf;
     float second_squared = second_pdf * second_pdf;
     return first_squared / max(first_squared + second_squared, 0.0000001);
+}
+
+public CameraRay camera_ray(
+    SceneUniforms scene,
+    float2 sample_position,
+    uint2 dimensions,
+    bool depth_of_field,
+    uint seed)
+{
+    CameraRay result;
+    result.valid = false;
+    float2 uv = sample_position / float2(dimensions);
+    float2 ndc = float2(uv.x * 2.0 - 1.0, 1.0 - uv.y * 2.0);
+    float3 pinhole_direction;
+    CameraProjection projection = CameraProjection(uint(scene.camera_lens.w));
+    switch (projection)
+    {
+    case CameraProjection::Equirectangular:
+        {
+            float longitude = ndc.x * PI;
+            float latitude = ndc.y * PI * 0.5;
+            float latitude_radius = cos(latitude);
+            float3 camera_direction = float3(
+                sin(longitude) * latitude_radius,
+                sin(latitude),
+                -cos(longitude) * latitude_radius);
+            result.world_origin = scene.camera_position.xyz;
+            result.world_direction = normalize(mul(
+                scene.camera_world,
+                float4(camera_direction, 0.0)).xyz);
+            pinhole_direction = result.world_direction;
+            break;
+        }
+    case CameraProjection::Cylindrical:
+        {
+            float longitude = ndc.x * PI;
+            float3 camera_direction = normalize(float3(
+                sin(longitude),
+                ndc.y * scene.camera_lens.z,
+                -cos(longitude)));
+            result.world_origin = scene.camera_position.xyz;
+            result.world_direction = normalize(mul(
+                scene.camera_world,
+                float4(camera_direction, 0.0)).xyz);
+            pinhole_direction = result.world_direction;
+            break;
+        }
+    case CameraProjection::Fisheye:
+        {
+            float minimum_dimension = float(min(dimensions.x, dimensions.y));
+            float2 lens_position = ndc * float2(dimensions) / minimum_dimension;
+            float lens_radius = length(lens_position);
+            if (lens_radius > 1.0)
+                return result;
+            float angle = lens_radius * scene.camera_lens.z;
+            float2 lens_direction = lens_radius > CAMERA_RAY_MINIMUM
+                ? lens_position / lens_radius
+                : float2(0.0);
+            float3 camera_direction = float3(
+                lens_direction * sin(angle),
+                -cos(angle));
+            result.world_origin = scene.camera_position.xyz;
+            result.world_direction = normalize(mul(
+                scene.camera_world,
+                float4(camera_direction, 0.0)).xyz);
+            pinhole_direction = result.world_direction;
+            break;
+        }
+    case CameraProjection::Perspective:
+    case CameraProjection::Orthographic:
+    default:
+        {
+            float4 near_point = mul(
+                scene.inverse_view_projection,
+                float4(ndc, 0.0, 1.0));
+            float4 far_point = mul(
+                scene.inverse_view_projection,
+                float4(ndc, 1.0, 1.0));
+            result.world_origin = near_point.xyz / near_point.w;
+            float3 far_position = far_point.xyz / far_point.w;
+            result.world_direction = normalize(far_position - result.world_origin);
+            pinhole_direction = normalize(far_position - scene.camera_position.xyz);
+            break;
+        }
+    }
+    float3 camera_forward = normalize(
+        mul(scene.camera_world, float4(0.0, 0.0, -1.0, 0.0)).xyz);
+    float camera_plane_distance = dot(
+        result.world_origin - scene.camera_position.xyz,
+        camera_forward) / max(
+            dot(result.world_direction, camera_forward),
+            CAMERA_RAY_MINIMUM);
+    result.ground_origin = result.world_origin
+        - result.world_direction * camera_plane_distance;
+    if (depth_of_field && scene.camera_lens.y > 0.0)
+    {
+        float3 pinhole_origin = scene.camera_position.xyz;
+        float focus_t = scene.camera_lens.x
+            / max(dot(pinhole_direction, camera_forward), CAMERA_RAY_MINIMUM);
+        float3 focus_position = pinhole_origin + pinhole_direction * focus_t;
+        float3 lens_tangent;
+        float3 lens_bitangent;
+        tangent_frame(camera_forward, lens_tangent, lens_bitangent);
+        float2 lens_sample = random_disk(seed) * scene.camera_lens.y;
+        result.world_origin = pinhole_origin
+            + lens_tangent * lens_sample.x
+            + lens_bitangent * lens_sample.y;
+        result.ground_origin = result.world_origin;
+        result.world_direction = normalize(focus_position - result.world_origin);
+    }
+    result.object_ray.Origin = mul(
+        scene.model_inverse,
+        float4(result.world_origin, 1.0)).xyz;
+    result.object_ray.Direction = normalize(mul(
+        scene.model_inverse,
+        float4(result.world_direction, 0.0)).xyz);
+    result.object_ray.TMin = CAMERA_RAY_MINIMUM;
+    result.object_ray.TMax = CAMERA_RAY_MAXIMUM;
+    result.valid = true;
+    return result;
 }

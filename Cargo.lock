@@ -6789,11 +6789,11 @@ dependencies = [
  "objc2",
  "objc2-foundation",
  "objc2-metal",
- "serde_json",
+ "shrimply-asset",
  "shrimply-render-3d",
  "shrimply-render-metal",
+ "shrimply-scene-3d",
  "shrimply-slang-build",
- "shrimply-video-core",
 ]
 
 [[package]]

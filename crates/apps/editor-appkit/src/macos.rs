@@ -12,11 +12,11 @@ use objc2::rc::Retained;
 use objc2::runtime::ProtocolObject;
 use objc2::{AnyThread, DefinedClass, MainThreadOnly, define_class, msg_send, sel};
 use objc2_app_kit::{
-    NSAlert, NSApplication, NSApplicationActivationPolicy, NSApplicationDelegate,
-    NSBackingStoreType, NSButton, NSColorWell, NSControl, NSControlStateValueOff,
-    NSControlStateValueOn, NSMenuItem, NSPopUpButton, NSTextField, NSToolbar, NSToolbarDelegate,
-    NSToolbarDisplayMode, NSToolbarItem, NSWindow, NSWindowDelegate, NSWindowStyleMask,
-    NSWindowToolbarStyle,
+    NSAlert, NSAlertFirstButtonReturn, NSAlertSecondButtonReturn, NSApplication,
+    NSApplicationActivationPolicy, NSApplicationDelegate, NSBackingStoreType, NSButton,
+    NSColorWell, NSControl, NSControlStateValueOff, NSControlStateValueOn, NSMenuItem,
+    NSPopUpButton, NSTextField, NSToolbar, NSToolbarDelegate, NSToolbarDisplayMode, NSToolbarItem,
+    NSWindow, NSWindowDelegate, NSWindowStyleMask, NSWindowToolbarStyle,
 };
 use objc2_foundation::{
     MainThreadMarker, NSArray, NSNotification, NSObject, NSObjectProtocol, NSPoint, NSRect,
@@ -474,12 +474,8 @@ pub fn run(project: Option<&Path>) {
             .expect("local project file");
         &chosen
     };
-    let prepared = match shrimply_project::project::prepare_project(path) {
-        Ok(prepared) => prepared,
-        Err(error) => {
-            error_alert::show(mtm, &format!("Could not open project: {error:?}"));
-            return;
-        }
+    let Some(prepared) = prepare_project(path, mtm) else {
+        return;
     };
     let session = Rc::new(
         EditorSession::new(shrimply_project::project::activate_project(prepared))
@@ -506,4 +502,44 @@ pub fn run(project: Option<&Path>) {
     let editor: Retained<Editor> = unsafe { msg_send![super(editor), init] };
     app.setDelegate(Some(ProtocolObject::from_ref(&*editor)));
     app.run();
+}
+
+fn prepare_project(
+    path: &Path,
+    mtm: MainThreadMarker,
+) -> Option<shrimply_project::project::PreparedProject> {
+    loop {
+        match shrimply_project::project::prepare_project(path) {
+            Ok(prepared) => return Some(prepared),
+            Err(shrimply_project::project::ProjectLoadError::LockedByOtherInstance { pid }) => {
+                let alert = NSAlert::new(mtm);
+                alert.setMessageText(ns_string!("Project is in use"));
+                alert.setInformativeText(&NSString::from_str(&format!(
+                    "The project lock is held by another editor process (PID {pid})."
+                )));
+                alert.addButtonWithTitle(ns_string!("Retry"));
+                let stop = alert.addButtonWithTitle(ns_string!("Stop Other Editor"));
+                stop.setHasDestructiveAction(true);
+                alert.addButtonWithTitle(ns_string!("Close"));
+                let response = alert.runModal();
+                if response == NSAlertFirstButtonReturn {
+                    continue;
+                }
+                if response != NSAlertSecondButtonReturn {
+                    return None;
+                }
+                if !shrimply_project::project::terminate_project_process(pid) {
+                    error_alert::show(
+                        mtm,
+                        "Could not stop other editor: Shrimply could not signal the other process.",
+                    );
+                    return None;
+                }
+            }
+            Err(shrimply_project::project::ProjectLoadError::Other(error)) => {
+                error_alert::show(mtm, &format!("Could not open project: {error}"));
+                return None;
+            }
+        }
+    }
 }

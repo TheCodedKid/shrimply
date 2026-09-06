@@ -1,5 +1,7 @@
 module render_3d_normals;
 
+import render_3d_abi;
+
 static const float NORMAL_EPSILON = 0.000001;
 
 float3 spherical_interpolate(float3 first, float3 second, float amount)
@@ -52,4 +54,45 @@ public float3 pn_triangle_normal(
         + edge_01 * (2.0 * x * y)
         + edge_12 * (2.0 * y * z)
         + edge_20 * (2.0 * z * x));
+}
+
+public float3 surface_normal(
+    NormalMode mode,
+    float3 positions[3],
+    float3 normals[3],
+    float3 barycentric)
+{
+    switch (mode)
+    {
+    case NormalMode::Spherical:
+        return spherical_normal(normals, barycentric);
+    case NormalMode::PnTriangle:
+        return pn_triangle_normal(positions, normals, barycentric);
+    case NormalMode::Flat:
+        return normalize(cross(
+            positions[1] - positions[0],
+            positions[2] - positions[0]));
+    default:
+        return normalize(
+            normals[0] * barycentric.x
+            + normals[1] * barycentric.y
+            + normals[2] * barycentric.z);
+    }
+}
+
+public float3 apply_normal_map(
+    float3 normal,
+    float3 tangent,
+    float handedness,
+    float3 sampled,
+    float scale)
+{
+    tangent = normalize(tangent - normal * dot(normal, tangent));
+    float3 bitangent = cross(normal, tangent) * handedness;
+    float3 tangent_normal = sampled * 2.0 - 1.0;
+    tangent_normal.xy *= scale;
+    return normalize(
+        tangent * tangent_normal.x
+        + bitangent * tangent_normal.y
+        + normal * tangent_normal.z);
 }

@@ -1,14 +1,3 @@
-float2 equirectangular_uv(float3 direction)
-{
-    float3 rotated = normalize(mul(
-        scene.environment_inverse_rotation,
-        float4(direction, 0.0)).xyz);
-    float longitude = atan2(rotated.z, rotated.x);
-    return float2(
-        frac(longitude / (2.0 * PI) + 0.5),
-        acos(clamp(rotated.y, -1.0, 1.0)) / PI);
-}
-
 float4 sample_composite_texture(float2 uv, float lod)
 {
     float4 sampled = transmission_background_texture.SampleLevel(
@@ -288,7 +277,7 @@ float3 sample_environment(
     if (scene.environment.source == EnvironmentSource::Image)
         return environment_texture.SampleLevel(
             environment_sampler,
-            equirectangular_uv(direction),
+            environment_coordinates(scene.environment_inverse_rotation, direction),
             lod).rgb;
     if (scene.environment.source == EnvironmentSource::Composite
         && scene.transmission_background.y != 0.0)
