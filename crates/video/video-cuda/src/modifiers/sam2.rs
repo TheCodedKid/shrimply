@@ -1,11 +1,4 @@
-use shrimply_video_modifiers::sam2::Sam2Modifier;
-
-use super::RasterModifierRuntime;
-use crate::{
-    gpu::modifiers::{CanvasRgbaFrame, GpuModifier, ModifierContext, ModifierModule},
-    layer::RasterVisual,
-    visual_source::VisualModifierContext,
-};
+use crate::gpu::modifiers::{CanvasRgbaFrame, GpuModifier, ModifierContext, ModifierModule};
 
 pub(crate) use shrimply_video_core::sam2::{
     MASK_LOGIT_QUANTIZATION_SCALE, MASK_SIZE, MODEL_SIZE, Sam2MaskCache, cache_key, validate_cache,
@@ -52,31 +45,5 @@ impl GpuModifier for shrimply_video_core::sam2::ResolvedMask {
         }
         .map_err(|error| format!("launch SAM2 mask kernel: {error:?}"))?;
         Ok(pass.finish(context))
-    }
-}
-
-impl RasterModifierRuntime for Sam2Modifier {
-    fn apply_raster(
-        &self,
-        mut input: RasterVisual,
-        context: &mut VisualModifierContext<'_>,
-    ) -> Result<RasterVisual, String> {
-        if self.points.is_empty() && self.box_prompt.is_none() {
-            return Ok(input);
-        }
-        let Some(resolved) = shrimply_video_core::sam2::resolve(
-            context.project,
-            context.address,
-            context.item,
-            context.position,
-            context.modifier_id,
-            context.modifier_index,
-            context.require_complete_assets,
-        )?
-        else {
-            return Ok(input);
-        };
-        input.push_pixel(Box::new(resolved));
-        Ok(input)
     }
 }

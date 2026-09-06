@@ -386,14 +386,9 @@ pub(super) fn show_timeline_item_context_menu(
             hit,
             false,
         ),
-        TrackKind::Caption => add_caption_item_context_actions(
-            &actions,
-            area,
-            project,
-            player_state,
-            selection_state,
-            preferences,
-        ),
+        TrackKind::Caption => {
+            add_caption_item_context_actions(&actions, area, runtime, preferences)
+        }
         TrackKind::Video => add_video_frame_context_actions(
             &menu,
             &actions,
@@ -679,28 +674,15 @@ fn add_audio_item_context_actions(
     add_export_audio_action(actions, area, project, selection_state);
     add_menu_action(actions, "transcribe", {
         let area = area.clone();
-        let project = project.clone();
-        let player_state = player_state.clone();
-        let selection_state = selection_state.clone();
+        let runtime = runtime.clone();
         let preferences = preferences.clone();
-        move || {
-            show_transcribe_dialog(
-                &area,
-                &project,
-                &player_state,
-                &selection_state,
-                &preferences,
-            )
-        }
+        move || show_transcribe_dialog(&area, &runtime, &preferences)
     });
     if can_remove_silences {
         add_menu_action(actions, "remove-silences", {
             let area = area.clone();
-            let project = project.clone();
-            let player_state = player_state.clone();
-            let selection_state = selection_state.clone();
             let runtime = runtime.clone();
-            move || silence::show_dialog(&area, &project, &player_state, &selection_state, &runtime)
+            move || silence::show_dialog(&area, &runtime)
         });
     }
 }
@@ -1139,28 +1121,15 @@ fn show_audio_track_context_menu(
     add_export_audio_action(&actions, area, project, selection_state);
     add_menu_action(&actions, "transcribe", {
         let area = area.clone();
-        let project = project.clone();
-        let player_state = player_state.clone();
-        let selection_state = selection_state.clone();
+        let runtime = runtime.clone();
         let preferences = preferences.clone();
-        move || {
-            show_transcribe_dialog(
-                &area,
-                &project,
-                &player_state,
-                &selection_state,
-                &preferences,
-            )
-        }
+        move || show_transcribe_dialog(&area, &runtime, &preferences)
     });
     if can_remove_silences {
         add_menu_action(&actions, "remove-silences", {
             let area = area.clone();
-            let project = project.clone();
-            let player_state = player_state.clone();
-            let selection_state = selection_state.clone();
             let runtime = runtime.clone();
-            move || silence::show_dialog(&area, &project, &player_state, &selection_state, &runtime)
+            move || silence::show_dialog(&area, &runtime)
         });
     }
     let gain_row = adw::ActionRow::builder()
@@ -1248,15 +1217,14 @@ fn show_caption_track_context_menu(
                 );
                 return;
             }
-            let jobs = caption_tts::jobs_for_track(&project.borrow(), key.track_index);
-            caption_tts::show_dialog(
-                &area,
-                &project,
-                &player_state,
-                &selection_state,
-                preferences.clone(),
-                jobs,
-            );
+            let plan = match runtime.borrow().scene.caption_speech_plan() {
+                Ok(plan) => plan,
+                Err(error) => {
+                    show_error_dialog(&area, "Could not generate speech", &error);
+                    return;
+                }
+            };
+            caption_tts::show_dialog(&area, &runtime, preferences.clone(), plan);
         }
     });
     popup_timeline_context_menu(area, runtime, &menu, &actions, None, x, y);

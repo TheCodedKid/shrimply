@@ -194,54 +194,6 @@ impl InspectorController {
     }
 }
 
-pub fn set_mask_source(
-    project: &mut Project,
-    source: &ItemAddress,
-    modifier_id: uuid::Uuid,
-) -> Result<bool, String> {
-    let ItemAddress::Video { .. } = source else {
-        return Err("mask source is not a video item".to_string());
-    };
-    let tracks = project
-        .video_tracks_for_path(source.sequence_path())
-        .ok_or_else(|| "mask source sequence is no longer available".to_string())?;
-    if project.video_item(source).is_none() {
-        return Err("mask source item is no longer available".to_string());
-    }
-    let owner = tracks
-        .iter()
-        .find_map(|track| {
-            track.items.iter().find_map(|item| {
-                item.modifiers
-                    .iter()
-                    .any(|modifier| {
-                        modifier.id == modifier_id
-                            && matches!(
-                                modifier.effect,
-                                ModifierEffect::Raster(ref effect)
-                                    if matches!(&**effect, RasterModifierEffect::Mask(_))
-                            )
-                    })
-                    .then(|| ItemAddress::Video {
-                        sequence_path: source.sequence_path().to_vec(),
-                        track_id: track.id,
-                        item_id: item.id,
-                    })
-            })
-        })
-        .ok_or_else(|| "mask modifier is no longer available".to_string())?;
-    if owner.item_id() == source.item_id() {
-        return Err("a mask source cannot be its own item".to_string());
-    }
-    let mask = mask_modifier_mut(project, &InspectorTarget::Item(owner), modifier_id)?;
-    if mask.item_id == Some(source.item_id()) {
-        return Ok(false);
-    }
-    mask.item_id = Some(source.item_id());
-    shrimply_project::project::commit_edit(project, "edit-mask-source");
-    Ok(true)
-}
-
 fn mask_modifier_mut<'a>(
     project: &'a mut Project,
     target: &InspectorTarget,

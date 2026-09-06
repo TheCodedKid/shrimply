@@ -7,8 +7,17 @@ pub(super) fn watch_updates(area: &gtk::GLArea, runtime: &Rc<RefCell<TimelineRun
         let (Some(area), Some(runtime)) = (area.upgrade(), runtime.upgrade()) else {
             return glib::ControlFlow::Break;
         };
-        if runtime.borrow_mut().scene.update_media() {
+        let (changed, error) = {
+            let mut runtime = runtime.borrow_mut();
+            let changed = runtime.scene.update_media();
+            while runtime.scene.take_external_import_event().is_some() {}
+            (changed, runtime.scene.take_error())
+        };
+        if changed {
             area.queue_render();
+        }
+        if let Some(error) = error {
+            crate::interaction::show_error_dialog(&area, "Timeline operation failed", &error);
         }
         glib::ControlFlow::Continue
     });

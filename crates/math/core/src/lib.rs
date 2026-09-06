@@ -307,6 +307,11 @@ pub fn fraction_floor_i64(value: Fraction) -> Option<i64> {
     i64::try_from(numerator.div_euclid(denominator)).ok()
 }
 
+pub fn fraction_ceil_i64(value: Fraction) -> Option<i64> {
+    let (numerator, denominator) = fraction_ratio_i128(value)?;
+    i64::try_from((-numerator).div_euclid(denominator).checked_neg()?).ok()
+}
+
 pub fn fraction_rem_euclid(value: Fraction, modulus: Fraction) -> Option<Fraction> {
     if modulus <= FRACTION_ZERO {
         return None;

@@ -13,10 +13,11 @@ pub(super) fn presentation(
     value: &CacheModifier,
     index: usize,
     id: uuid::Uuid,
+    address: &shrimply_project::project::ItemAddress,
     _runtime: InspectorRuntime,
 ) -> InspectorSection {
     let base = format!("/modifiers/{index}/effect/effect/config");
-    let status = visual_cache_status(id);
+    let status = visual_cache_status(address, id);
     let baking = matches!(status, CacheStatus::Baking { .. });
     let mut section = InspectorSection::default();
     section.add(
@@ -63,8 +64,11 @@ pub(super) fn presentation(
     section
 }
 
-pub fn visual_cache_status(id: uuid::Uuid) -> CacheStatus {
-    match modifier_cache::status(id) {
+pub fn visual_cache_status(
+    address: &shrimply_project::project::ItemAddress,
+    id: uuid::Uuid,
+) -> CacheStatus {
+    match modifier_cache::status(address, id) {
         modifier_cache::Status::Missing => CacheStatus::Missing,
         modifier_cache::Status::Baking { completed, total } => {
             CacheStatus::Baking { completed, total }
@@ -132,9 +136,12 @@ impl InspectorController {
         if !available {
             return Err("visual cache modifier is no longer available".to_string());
         }
-        if matches!(visual_cache_status(id), CacheStatus::Baking { .. }) {
+        if matches!(
+            visual_cache_status(&address, id),
+            CacheStatus::Baking { .. }
+        ) {
             drop(project);
-            modifier_cache::invalidate(id)?;
+            modifier_cache::invalidate(&address, id)?;
         } else {
             let project = project.clone();
             modifier_cache::bake(project, address, id)?;

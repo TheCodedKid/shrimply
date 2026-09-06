@@ -33,7 +33,6 @@ pub mod timeline {
     pub use shrimply_gtk_components::canvas as renderer;
 }
 use std::rc::Rc;
-use std::time::Instant;
 
 use crate::audio::AudioPlayer;
 use crate::player_state::SharedPlayerState;
@@ -50,7 +49,7 @@ use gtk::{gdk, gio, glib};
 use shrimply_paint_edit::{PAINT_PREVIEW_STATE, PaintPreviewMode as PaintMode, PaintPreviewState};
 use shrimply_playback_performance as playback_performance;
 
-use shrimply_preview_core::playback::{LOADING_INDICATOR_DELAY, STEP_REPEAT_TICK};
+use shrimply_preview_core::playback::{LoadingIndicator, STEP_REPEAT_TICK, playback_lagging};
 const LOADING_SPINNER_SIZE: i32 = 16;
 const PREVIEW_FULLSCREEN_ICON: &str = "arrows-pointing-outward-symbolic";
 const PREVIEW_TOOLBAR_ICON_SIZE: i32 = 20;
@@ -1027,7 +1026,7 @@ fn attach_frame_pump(
     } = widgets;
     let displayed_position = Cell::new(None);
     let render_loading = Cell::new(false);
-    let loading_since = Cell::new(None::<Instant>);
+    let loading = LoadingIndicator::default();
     preview_area.add_tick_callback(move |_, _| {
         let update = media.poll();
         if !update.running {
@@ -1076,22 +1075,15 @@ fn attach_frame_pump(
 
         let frame_step = project.borrow().frame_step();
         let playback_frame_step = scaled_time_delta(frame_step, snapshot.playback_speed);
-        let playback_lagging = snapshot.playing
-            && displayed_position.get().is_none_or(|displayed| {
-                displayed
-                    .max(snapshot.position)
-                    .saturating_sub(displayed.min(snapshot.position))
-                    > playback_frame_step
-            });
-        let is_loading = render_loading.get() || playback_lagging;
-        if !is_loading {
-            loading_since.set(None);
-        } else if loading_since.get().is_none() {
-            loading_since.set(Some(Instant::now()));
-        }
-        let show_loading = loading_since
-            .get()
-            .is_some_and(|loading_since| loading_since.elapsed() >= LOADING_INDICATOR_DELAY);
+        let show_loading = loading.update(
+            render_loading.get()
+                || playback_lagging(
+                    snapshot.playing,
+                    snapshot.position,
+                    displayed_position.get(),
+                    playback_frame_step,
+                ),
+        );
         loading_spinner.set_visible(show_loading);
         loading_indicator.set_visible_child_name(if show_loading { "loading" } else { "done" });
         glib::ControlFlow::Continue

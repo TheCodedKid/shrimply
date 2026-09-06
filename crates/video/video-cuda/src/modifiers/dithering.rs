@@ -1,27 +1,9 @@
 use shrimply_cuda::LaunchConfig;
-use shrimply_render_core::{
-    DitheringColorMode as GpuDitheringColorMode, DitheringParams,
-    DitheringPattern as GpuDitheringPattern,
-};
+use shrimply_render_core::DitheringParams;
 
-use super::RasterModifierRuntime;
 use crate::gpu::modifiers::{CanvasRgbaFrame, GpuModifier, ModifierContext};
-use crate::layer::RasterVisual;
-use crate::visual_source::VisualModifierContext;
-use shrimply_evaluation::{resolve_color, resolve_scalar};
-use shrimply_video_modifiers::dithering::{
-    DitheringColorMode, DitheringModifier, DitheringPattern,
-};
 
-struct Resolved {
-    pattern: GpuDitheringPattern,
-    color_mode: GpuDitheringColorMode,
-    levels: f32,
-    amount: f32,
-    palette: Vec<u32>,
-}
-
-impl GpuModifier for Resolved {
+impl GpuModifier for shrimply_video_core::raster_modifiers::Dithering {
     fn name(&self) -> &'static str {
         "Dithering"
     }
@@ -65,37 +47,5 @@ impl GpuModifier for Resolved {
         }
         .map_err(|error| format!("launch dithering CUDA kernel: {error:?}"))?;
         Ok(pass.finish(context))
-    }
-}
-
-impl RasterModifierRuntime for DitheringModifier {
-    fn apply_raster(
-        &self,
-        mut input: RasterVisual,
-        context: &mut VisualModifierContext<'_>,
-    ) -> Result<RasterVisual, String> {
-        let mut palette = Vec::with_capacity(self.palette.len());
-        for color in &self.palette {
-            palette
-                .push(resolve_color(color, context.evaluation, context.expressions).to_rgba_u32());
-        }
-        input.push_pixel(Box::new(Resolved {
-            pattern: match self.pattern.value_at(context.evaluation.local_time()) {
-                DitheringPattern::Bayer2x2 => GpuDitheringPattern::Bayer2x2,
-                DitheringPattern::Bayer4x4 => GpuDitheringPattern::Bayer4x4,
-                DitheringPattern::Bayer8x8 => GpuDitheringPattern::Bayer8x8,
-            },
-            color_mode: match self.color_mode.value_at(context.evaluation.local_time()) {
-                DitheringColorMode::Color => GpuDitheringColorMode::Color,
-                DitheringColorMode::Grayscale => GpuDitheringColorMode::Grayscale,
-                DitheringColorMode::Palette => GpuDitheringColorMode::Palette,
-            },
-            levels: resolve_scalar(&self.levels, context.evaluation, context.expressions)
-                .clamp(2.0, 256.0),
-            amount: resolve_scalar(&self.amount, context.evaluation, context.expressions)
-                .clamp(0.0, 1.0),
-            palette,
-        }));
-        Ok(input)
     }
 }

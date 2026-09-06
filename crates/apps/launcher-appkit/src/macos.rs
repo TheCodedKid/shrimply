@@ -453,16 +453,36 @@ impl Delegate {
                 return;
             }
         };
+        let window_number = self
+            .ivars()
+            .window
+            .get()
+            .expect("launcher window must exist")
+            .windowNumber();
         self.ivars()
             .window
             .get()
             .expect("launcher window must exist")
             .orderOut(None);
         NSApplication::sharedApplication(self.mtm()).hide(None);
-        // Match GTK: hide the launcher, keep it alive, and propagate the editor's exit.
         std::thread::spawn(move || {
             let result = child.wait();
             let completed = block2::RcBlock::new(move || match &result {
+                Ok(status)
+                    if status.code()
+                        == Some(i32::from(
+                            shrimply_cross_ui_core::launcher::EDITOR_OPEN_CANCELED_EXIT_CODE,
+                        )) =>
+                {
+                    let mtm =
+                        MainThreadMarker::new().expect("completion must run on the main thread");
+                    let app = NSApplication::sharedApplication(mtm);
+                    app.unhide(None);
+                    app.windowWithWindowNumber(window_number)
+                        .expect("launcher window must still exist")
+                        .makeKeyAndOrderFront(None);
+                    app.activate();
+                }
                 Ok(status) if status.success() => {
                     let mtm =
                         MainThreadMarker::new().expect("completion must run on the main thread");

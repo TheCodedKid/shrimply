@@ -131,7 +131,12 @@ pub fn generate_abi(reflection: &Value, abi_reflection: &[u8]) -> String {
     output
 }
 
-pub fn generate_metal_module(module: &str, metal_filename: &str, reflection: &[u8]) -> String {
+pub fn generate_metal_module(
+    module: &str,
+    metal_filename: &str,
+    reflection: &[u8],
+    rust_types: &[(&str, &str)],
+) -> String {
     let module = rust_identifier(module);
     assert_eq!(
         std::path::Path::new(metal_filename)
@@ -155,9 +160,11 @@ pub fn generate_metal_module(module: &str, metal_filename: &str, reflection: &[u
         .and_then(Value::as_array)
         .expect("Slang Metal reflection has no entryPoints array");
 
+    let rust_types = rust_types.iter().copied().collect::<HashMap<_, _>>();
     let mut output = format!(
         "pub mod {module} {{\n    pub const METAL_SOURCE: &str = include_str!(concat!(env!(\"OUT_DIR\"), \"/{metal_filename}\"));\n"
     );
+    let mut generated_layouts = HashSet::new();
     for parameter in parameters {
         let name = required_string(parameter, "name");
         rust_identifier(name);
@@ -171,17 +178,30 @@ pub fn generate_metal_module(module: &str, metal_filename: &str, reflection: &[u
         let ty = required(parameter, "type");
         if ty.get("baseShape").and_then(Value::as_str) == Some("structuredBuffer") {
             let element = required(ty, "resultType");
-            let size = required(element, "sizes")
-                .as_array()
-                .expect("structured Metal buffer element has no sizes")
-                .iter()
-                .find(|size| required_string(size, "kind") == "uniform")
-                .map(|size| required_usize(size, "value"))
-                .expect("structured Metal buffer element has no uniform size");
+            let size = metal_uniform_size(element);
             output.push_str(&format!(
                 "    pub const {}_ELEMENT_SIZE: usize = {size};\n",
                 screaming_snake(name)
             ));
+            generate_metal_layout_assertions(
+                element,
+                &rust_types,
+                &mut generated_layouts,
+                &mut output,
+            );
+        } else if required_string(ty, "kind") == "constantBuffer" {
+            let element = required(ty, "elementType");
+            let size = metal_uniform_size(element);
+            output.push_str(&format!(
+                "    pub const {}_ELEMENT_SIZE: usize = {size};\n",
+                screaming_snake(name)
+            ));
+            generate_metal_layout_assertions(
+                element,
+                &rust_types,
+                &mut generated_layouts,
+                &mut output,
+            );
         }
     }
     for entry in entry_points {
@@ -211,6 +231,68 @@ pub fn generate_metal_module(module: &str, metal_filename: &str, reflection: &[u
     }
     output.push_str("}\n");
     output
+}
+
+fn generate_metal_layout_assertions(
+    layout: &Value,
+    rust_types: &HashMap<&str, &str>,
+    generated: &mut HashSet<String>,
+    output: &mut String,
+) {
+    match required_string(layout, "kind") {
+        "array" => generate_metal_layout_assertions(
+            required(layout, "elementType"),
+            rust_types,
+            generated,
+            output,
+        ),
+        "struct" => {
+            let name = required_string(layout, "name");
+            if !generated.insert(name.to_owned()) {
+                return;
+            }
+            for field in required(layout, "fields")
+                .as_array()
+                .expect("reflected Metal struct has no fields")
+            {
+                generate_metal_layout_assertions(
+                    required(field, "type"),
+                    rust_types,
+                    generated,
+                    output,
+                );
+            }
+            let Some(rust_type) = rust_types.get(name) else {
+                return;
+            };
+            output.push_str(&format!(
+                "    const _: () = {{\n        assert!(::std::mem::size_of::<{rust_type}>() == {});\n",
+                metal_uniform_size(layout)
+            ));
+            for field in required(layout, "fields")
+                .as_array()
+                .expect("reflected Metal struct has no fields")
+            {
+                let field_name = rust_identifier(required_string(field, "name"));
+                output.push_str(&format!(
+                    "        assert!(::std::mem::offset_of!({rust_type}, {field_name}) == {});\n",
+                    required_usize(required(field, "binding"), "offset")
+                ));
+            }
+            output.push_str("    };\n");
+        }
+        _ => {}
+    }
+}
+
+fn metal_uniform_size(layout: &Value) -> usize {
+    required(layout, "sizes")
+        .as_array()
+        .expect("reflected Metal type has no sizes")
+        .iter()
+        .find(|size| required_string(size, "kind") == "uniform")
+        .map(|size| required_usize(size, "value"))
+        .expect("reflected Metal type has no uniform size")
 }
 
 fn validate_metal_binding(parameter: &Value, kind: &str) {

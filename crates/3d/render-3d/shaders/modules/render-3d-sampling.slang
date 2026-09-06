@@ -1,6 +1,7 @@
 module render_3d_sampling;
 
 import render_3d_abi;
+import render_3d_ray;
 
 static const float PI = 3.14159265358979323846;
 static const float GOLDEN_ANGLE = 2.39996322972865332;
@@ -11,8 +12,12 @@ static const uint HASH_MULTIPLIER_A = 0x7feb352du;
 static const uint HASH_MULTIPLIER_B = 0x846ca68bu;
 static const float UINT_TO_UNIT_FLOAT = 1.0 / 4294967296.0;
 static const float3 LINEAR_LUMINANCE_WEIGHTS = float3(0.2126, 0.7152, 0.0722);
-static const float CAMERA_RAY_MINIMUM = 0.001;
-static const float CAMERA_RAY_MAXIMUM = 100000.0;
+public static const uint MINIMUM_VARIANCE_SAMPLES = 2u;
+static const uint INTERACTIVE_MINIMUM_SAMPLES = 2u;
+static const uint INTERACTIVE_SAMPLE_DIVISOR = 8u;
+static const float MINIMUM_ADAPTIVE_MEAN = 0.02;
+static const float INTERACTIVE_RELATIVE_ERROR = 0.18;
+static const float FINAL_RELATIVE_ERROR = 0.02;
 
 public struct CameraRay
 {
@@ -136,6 +141,44 @@ public float power_heuristic(float first_pdf, float second_pdf)
     return first_squared / max(first_squared + second_squared, 0.0000001);
 }
 
+public void adaptive_path_budget(
+    PbrSettings settings,
+    out uint minimum_samples,
+    out uint maximum_samples,
+    out float relative_error)
+{
+    uint requested = max(uint(settings.path_tracing), 1u);
+    if (settings.render_quality == RenderQuality::Interactive)
+    {
+        minimum_samples = INTERACTIVE_MINIMUM_SAMPLES;
+        maximum_samples = max(requested / INTERACTIVE_SAMPLE_DIVISOR, minimum_samples);
+        relative_error = INTERACTIVE_RELATIVE_ERROR;
+        return;
+    }
+    minimum_samples = requested;
+    maximum_samples = requested * 2u;
+    relative_error = FINAL_RELATIVE_ERROR;
+}
+
+public bool adaptive_converged(
+    float4 mean,
+    float4 squared_error,
+    uint sample_count,
+    float relative_error)
+{
+    if (sample_count < MINIMUM_VARIANCE_SAMPLES)
+        return false;
+    float4 variance = squared_error / float(sample_count - 1u);
+    float color_standard_error = sqrt(
+        max(max(variance.r, max(variance.g, variance.b)), 0.0) / float(sample_count));
+    float alpha_standard_error = sqrt(max(variance.a, 0.0) / float(sample_count));
+    float color_scale = max(
+        max(abs(mean.r), max(abs(mean.g), abs(mean.b))),
+        MINIMUM_ADAPTIVE_MEAN);
+    return color_standard_error <= relative_error * color_scale
+        && alpha_standard_error <= relative_error;
+}
+
 public CameraRay camera_ray(
     SceneUniforms scene,
     float2 sample_position,
@@ -189,7 +232,7 @@ public CameraRay camera_ray(
             if (lens_radius > 1.0)
                 return result;
             float angle = lens_radius * scene.camera_lens.z;
-            float2 lens_direction = lens_radius > CAMERA_RAY_MINIMUM
+            float2 lens_direction = lens_radius > RAY_MINIMUM
                 ? lens_position / lens_radius
                 : float2(0.0);
             float3 camera_direction = float3(
@@ -225,14 +268,14 @@ public CameraRay camera_ray(
         result.world_origin - scene.camera_position.xyz,
         camera_forward) / max(
             dot(result.world_direction, camera_forward),
-            CAMERA_RAY_MINIMUM);
+            RAY_MINIMUM);
     result.ground_origin = result.world_origin
         - result.world_direction * camera_plane_distance;
     if (depth_of_field && scene.camera_lens.y > 0.0)
     {
         float3 pinhole_origin = scene.camera_position.xyz;
         float focus_t = scene.camera_lens.x
-            / max(dot(pinhole_direction, camera_forward), CAMERA_RAY_MINIMUM);
+            / max(dot(pinhole_direction, camera_forward), RAY_MINIMUM);
         float3 focus_position = pinhole_origin + pinhole_direction * focus_t;
         float3 lens_tangent;
         float3 lens_bitangent;
@@ -250,8 +293,8 @@ public CameraRay camera_ray(
     result.object_ray.Direction = normalize(mul(
         scene.model_inverse,
         float4(result.world_direction, 0.0)).xyz);
-    result.object_ray.TMin = CAMERA_RAY_MINIMUM;
-    result.object_ray.TMax = CAMERA_RAY_MAXIMUM;
+    result.object_ray.TMin = RAY_MINIMUM;
+    result.object_ray.TMax = RAY_MAXIMUM;
     result.valid = true;
     return result;
 }

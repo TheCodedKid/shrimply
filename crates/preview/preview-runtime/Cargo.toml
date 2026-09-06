@@ -24,6 +24,7 @@ shrimply-preview-core = { path = "../preview-core" }
 shrimply-skia-adw-core = { path = "../../ui/skia-adw-core" }
 shrimply-state = { path = "../../state" }
 shrimply-video-cuda = { path = "../../video/video-cuda" }
+shrimply-video-core = { path = "../../video/video-core" }
 skia-safe = { workspace = true, features = ["textlayout"] }
 tracing.workspace = true
 uuid = { workspace = true, features = ["v4"] }

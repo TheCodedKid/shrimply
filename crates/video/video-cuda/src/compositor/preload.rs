@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use shrimply_project::project::{
-    CanvasSize, Project, SequenceReference, Time, VideoItem, VideoItemContent,
+    CanvasSize, ItemAddress, Project, SequenceReference, Time, VideoItem, VideoItemContent,
     VisualClipTransitionKind, VisualTrack, video_source_time_at,
 };
 use uuid::Uuid;
@@ -329,11 +329,21 @@ fn upcoming(
             .iter()
             .filter(|track| track.enabled)
             .flat_map(|track| {
+                let sequence_path = cursor.sequence_path.clone();
                 track.items.iter().filter_map(move |item| {
-                    if crate::modifier_cache::effective_item(item, project.canvas_size)
-                        .ok()
-                        .flatten()
-                        .is_some()
+                    let address = ItemAddress::Video {
+                        sequence_path: sequence_path.clone(),
+                        track_id: track.id,
+                        item_id: item.id,
+                    };
+                    if shrimply_video_core::modifier_cache::effective_item(
+                        &address,
+                        item,
+                        project.canvas_size,
+                    )
+                    .ok()
+                    .flatten()
+                    .is_some()
                     {
                         return None;
                     }
@@ -431,9 +441,18 @@ impl FrameItemRenderer<'_> {
                 held_item = Some(item);
             }
             let item = held_item.as_ref().unwrap_or(active.item);
-            let cached_item = crate::modifier_cache::effective_item(item, self.project.canvas_size)
-                .ok()
-                .flatten();
+            let address = ItemAddress::Video {
+                sequence_path: self.sequence_path.clone(),
+                track_id: active.track_id,
+                item_id: item.id,
+            };
+            let cached_item = shrimply_video_core::modifier_cache::effective_item(
+                &address,
+                item,
+                self.project.canvas_size,
+            )
+            .ok()
+            .flatten();
             let item = cached_item.as_ref().unwrap_or(item);
             let previous = cached_item.is_none().then_some(active.previous).flatten();
             let routes = self.decode_routes(active.track_id, previous, item);
@@ -551,10 +570,18 @@ impl FrameItemRenderer<'_> {
             if transition.is_some() && (self.position < child.start || self.position >= child.end) {
                 child.repeat_strategy = shrimply_project::project::RepeatStrategy::Hold;
             }
-            let cached_child =
-                crate::modifier_cache::effective_item(&child, self.project.canvas_size)
-                    .ok()
-                    .flatten();
+            let address = ItemAddress::Video {
+                sequence_path: self.sequence_path.clone(),
+                track_id,
+                item_id: child.id,
+            };
+            let cached_child = shrimply_video_core::modifier_cache::effective_item(
+                &address,
+                &child,
+                self.project.canvas_size,
+            )
+            .ok()
+            .flatten();
             let child = cached_child.as_ref().unwrap_or(&child);
             let previous = cached_child
                 .is_none()

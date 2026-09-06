@@ -12,3 +12,4 @@ shrimply-asset = { path = "../../asset" }
 shrimply-math-core = { path = "../../math/core" }
 shrimply-server-client = { path = "../../server-client" }
 tracing.workspace = true
+tokio.workspace = true

@@ -11,4 +11,5 @@ shrimply-math-color = { path = "../../math/color" }
 shrimply-math-core = { path = "../../math/core" }
 shrimply-project = { path = "../../project/project" }
 shrimply-server-client = { path = "../../server-client" }
+shrimply-i18n-core = { path = "../../ui/i18n-core" }
 tracing.workspace = true

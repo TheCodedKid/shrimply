@@ -10,7 +10,6 @@ use std::rc::Rc;
 use std::thread;
 use store::ServerStatus;
 
-const GIB_BYTES: f64 = 1024.0 * 1024.0 * 1024.0;
 const DEVICE_LABEL_MAX_WIDTH_CHARS: i32 = 60;
 const DEVICE_LIST_SPACING: i32 = 12;
 
@@ -699,27 +698,8 @@ fn row(title: &str) -> adw::ActionRow {
         .build()
 }
 
-fn server_version(status: &ServerStatus) -> String {
-    if status.server.git_short_hash.is_empty() {
-        status.server.version.clone()
-    } else {
-        format!(
-            "{} ({})",
-            status.server.version, status.server.git_short_hash
-        )
-    }
-}
-
 fn server_summary(status: &ServerStatus) -> String {
-    let version = shrimply_gtk_components::i18n::text_args(
-        "Version %{version}",
-        &[("version", server_version(status))],
-    );
-    if status.status.eq_ignore_ascii_case("ok") {
-        version
-    } else {
-        format!("{version} · {}", status.status.to_uppercase())
-    }
+    store::present_compute_server(status).summary
 }
 
 fn check(url: String, rows: Rows, revision: Rc<Cell<u64>>, current_revision: u64) {
@@ -743,123 +723,46 @@ fn check(url: String, rows: Rows, revision: Rc<Cell<u64>>, current_revision: u64
 }
 
 fn show_status(rows: &Rows, status: &ServerStatus) {
+    let presentation = store::present_compute_server(status);
     rows.version.remove_css_class("error");
-    rows.version.set_tooltip_text(
-        (!status.server.git_hash.is_empty()).then_some(status.server.git_hash.as_str()),
-    );
-    rows.version.set_subtitle(&server_version(status));
-    rows.protocol.set_subtitle(&format!(
-        "{}.{}",
-        status.protocol.major, status.protocol.minor
-    ));
-    rows.torch.set_subtitle(&status.torch.version);
-    rows.cuda.set_subtitle(
-        &match (&status.torch.cuda_runtime, status.torch.cuda_available) {
-            (Some(runtime), true) => shrimply_gtk_components::i18n::text_args(
-                "%{runtime} · Available",
-                &[("runtime", runtime.clone())],
-            ),
-            (None, true) => tr!("Available").into_owned(),
-            (_, false) => tr!("Unavailable").into_owned(),
-        },
-    );
-    let device_labels = status
-        .torch
-        .devices
-        .iter()
-        .map(|device| {
-            device.total_memory_bytes.map_or_else(
-                || device.name.clone(),
-                |total_memory_bytes| {
-                    format!(
-                        "{} · {} ({:.1} GiB)",
-                        device.id.to_uppercase().replace(':', " "),
-                        device.name,
-                        total_memory_bytes as f64 / GIB_BYTES
-                    )
-                },
-            )
-        })
-        .collect::<Vec<_>>();
-    let selected_device = status
-        .torch
-        .devices
-        .iter()
-        .position(|device| device.id == status.torch.selected_device)
-        .map(|position| position as u32);
+    rows.version
+        .set_tooltip_text(presentation.version_detail.as_deref());
+    rows.version.set_subtitle(&presentation.version);
+    rows.protocol.set_subtitle(&presentation.protocol);
+    rows.torch.set_subtitle(&presentation.torch);
+    rows.cuda.set_subtitle(&presentation.cuda);
+    let selected_device = presentation.selected_device.map(|position| position as u32);
     rows.updating_device.set(true);
     rows.device_ids.replace(
-        status
-            .torch
+        presentation
             .devices
             .iter()
             .map(|device| device.id.clone())
             .collect(),
     );
-    let device_label_refs = device_labels.iter().map(String::as_str).collect::<Vec<_>>();
+    let device_label_refs = presentation
+        .devices
+        .iter()
+        .map(|device| device.label.as_str())
+        .collect::<Vec<_>>();
     rows.device
         .set_model(Some(&gtk::StringList::new(&device_label_refs)));
     rows.device.set_selected(selected_device.unwrap_or(0));
     rows.device.set_sensitive(selected_device.is_some());
     rows.device.remove_css_class("error");
     rows.device.set_tooltip_i18n_opt(
-        (selected_device.is_none() && !device_labels.is_empty())
+        (selected_device.is_none() && !presentation.devices.is_empty())
             .then_some("Server does not support device selection"),
     );
     rows.current_device.set(selected_device);
     rows.updating_device.set(false);
-    rows.jobs
-        .set_subtitle(&shrimply_gtk_components::i18n::text_args(
-            "%{queued} queued · %{active} active",
-            &[
-                ("queued", status.compute.queued_jobs.to_string()),
-                ("active", status.compute.active_jobs.to_string()),
-            ],
-        ));
-    rows.reservations.set_subtitle(&format!(
-        "RAM {:.1} GiB · VRAM {:.1} GiB",
-        status.compute.reserved_ram_bytes as f64 / GIB_BYTES,
-        status.compute.reserved_vram_bytes as f64 / GIB_BYTES,
-    ));
-    let workers = status
-        .compute
-        .workers
-        .iter()
-        .map(|worker| {
-            let configuration = worker
-                .configuration
-                .iter()
-                .map(|(key, value)| format!("{key}={value}"))
-                .collect::<Vec<_>>()
-                .join(", ");
-            format!(
-                "{} · {}{} · {} ×{}",
-                worker.service,
-                worker.model,
-                if configuration.is_empty() {
-                    String::new()
-                } else {
-                    format!(" ({configuration})")
-                },
-                worker.state,
-                worker.copies
-            )
-        })
-        .collect::<Vec<_>>()
-        .join("\n");
-    if workers.is_empty() {
-        rows.workers.set_subtitle(tr!("None").as_ref());
-    } else {
-        rows.workers.set_subtitle(&workers);
-    }
-    rows.workers
-        .set_tooltip_text((!workers.is_empty()).then_some(workers.as_str()));
-    rows.features
-        .set_subtitle(&if status.capabilities.is_empty() {
-            tr!("None").into_owned()
-        } else {
-            status.capabilities.join(", ")
-        });
+    rows.jobs.set_subtitle(&presentation.jobs);
+    rows.reservations.set_subtitle(&presentation.reservations);
+    rows.workers.set_subtitle(&presentation.workers);
+    rows.workers.set_tooltip_text(
+        (presentation.workers != "None").then_some(presentation.workers.as_str()),
+    );
+    rows.features.set_subtitle(&presentation.features);
 }
 
 fn show_device_error(rows: &Rows, error: &str) {

@@ -34,13 +34,6 @@ enum ObjectSource {
     Shape(Uuid),
 }
 
-pub struct Camera {
-    pub position: glam::Vec3,
-    pub rotation: glam::Quat,
-    pub projection: shrimply_render_3d::SceneProjection,
-    pub vertical_fov_degrees: f32,
-}
-
 pub struct Request<'a> {
     pub project: &'a shrimply_project::project::Project,
     pub item: &'a VideoItem,
@@ -48,7 +41,8 @@ pub struct Request<'a> {
     pub audio_analysis: &'a shrimply_evaluation::FrameAudioAnalysis,
     pub render_canvas: CanvasSize,
     pub content_accurate: bool,
-    pub tracked_camera: Option<Camera>,
+    pub sequence_path: &'a [Uuid],
+    pub track_id: Uuid,
 }
 
 pub use shrimply_render_3d::PreparedFrame as Prepared;
@@ -86,7 +80,13 @@ impl State {
         params.grounds.clear();
         params.shadow_receiver_enabled = false;
         let mut objects = Vec::new();
-        if let Some(camera) = request.tracked_camera {
+        if let Some(camera) = crate::camera_reconstruction::sample_for_visual(
+            request.project,
+            request.item,
+            request.sequence_path,
+            request.track_id,
+            request.position,
+        )? {
             let (position, rotation) = shrimply_math_geometry::apply_reconstructed_camera_motion(
                 camera.position,
                 camera.rotation,

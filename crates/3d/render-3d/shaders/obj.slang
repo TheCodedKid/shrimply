@@ -1,19 +1,17 @@
 import render_3d_abi;
+import render_3d_composite;
 import render_3d_environment;
+import render_3d_ground;
 import render_3d_material;
 import render_3d_normals;
+import render_3d_outline;
 import render_3d_pbr;
+import render_3d_ray;
 import render_3d_sampling;
 import render_3d_toon;
 
 static const float PI = 3.14159265358979323846;
 static const float UNIFORM_ENVIRONMENT_PDF = 1.0 / (4.0 * PI);
-static const float RAY_MINIMUM = 0.001;
-static const float RAY_MAXIMUM = 100000.0;
-static const float MINIMUM_ADAPTIVE_MEAN = 0.02;
-static const float INTERACTIVE_RELATIVE_ERROR = 0.18;
-static const float FINAL_RELATIVE_ERROR = 0.02;
-static const uint MINIMUM_VARIANCE_SAMPLES = 2;
 static const uint DOG_RING_COUNT = 3;
 
 [[vk::binding(0, 0)]] ConstantBuffer<SceneUniforms> scene;
@@ -225,19 +223,12 @@ void shadow_alpha_any_hit(
     float3 world_direction = normalize(mul(
         scene.model,
         float4(WorldRayDirection(), 0.0)).xyz);
-    float cosine = abs(dot(world_normal, world_direction));
-    float fresnel = pbr_fresnel(
-        float3(1.0),
-        0.0,
-        cosine,
-        surface_pbr.ior).r;
-    float transmission = saturate(
-        surface_pbr.transmission * (1.0 - metallic) * (1.0 - fresnel));
-    float3 surface_transmittance = lerp(
-        float3(1.0),
-        saturate(base_color.rgb) * transmission,
-        coverage);
-    payload.transmittance *= surface_transmittance;
+    payload.transmittance *= material_shadow_transmittance(
+        base_color,
+        coverage,
+        metallic,
+        dot(world_normal, world_direction),
+        surface_pbr);
     if (max(
             payload.transmittance.r,
             max(payload.transmittance.g, payload.transmittance.b))
@@ -385,53 +376,31 @@ void closest_hit(
     bool stochastic_transport = path_tracing || surface_pbr.transmission > 0.0;
     uint state = payload.random_seed;
     uint light_samples = stochastic_transport ? 1u : uint(scene.pbr.light_sampling_quality);
-    float toon_illumination = 0.0;
-    float toon_shadow_illuminance = 0.0;
-    float toon_blocked_illuminance = 0.0;
-    float3 toon_light_color = float3(0.0);
-    float3 toon_specular_color = float3(0.0);
-    float3 toon_environment = float3(0.0);
+    ToonDirectLighting toon_lighting;
+    if (toon)
+    {
+        ToonShadowTracer tracer;
+        toon_lighting = integrate_toon_direct_lights(
+            scene,
+            world_position,
+            normal,
+            view,
+            surface_toon,
+            tracer);
+    }
+    float3 toon_environment_light = float3(0.0);
+    float3 toon_environment_reflection = float3(0.0);
     float3 color = toon
         ? float3(0.0)
         : (path_tracing ? float3(0.0) : base_color * 0.02);
     float4 background = float4(0.0);
 
-    for (uint light_index = 0; light_index < scene.sun_light_count; ++light_index)
+    if (!toon)
     {
-        SunLight source = scene.sun_lights[light_index];
-        if (toon)
+        for (uint light_index = 0; light_index < scene.sun_light_count; ++light_index)
         {
-            float3 light = normalize(-source.direction_angular_radius.xyz);
-            float visibility = luminance(shadow_visibility(
-                world_position,
-                normal,
-                light,
-                RAY_MAXIMUM));
-            float3 radiance = source.color_intensity.rgb * source.color_intensity.w;
-            float light_amount = saturate(dot(normal, light));
-            float light_illuminance = toon_light_response(
-                normal,
-                light,
-                radiance,
-                1.0);
-            toon_illumination += light_illuminance;
-            float incident_illuminance = luminance(radiance);
-            toon_shadow_illuminance += incident_illuminance;
-            toon_blocked_illuminance += max(
-                incident_illuminance - light_illuminance * visibility,
-                0.0);
-            toon_light_color += radiance * light_amount;
-            toon_specular_color += toon_specular_light(
-                normal,
-                view,
-                light,
-                radiance,
-                1.0,
-                surface_toon);
-        }
-        else
             color += sample_pbr_sun(
-                source,
+                scene.sun_lights[light_index],
                 world_position,
                 normal,
                 view,
@@ -441,53 +410,11 @@ void closest_hit(
                 surface_pbr,
                 light_samples,
                 state);
-    }
-
-    for (uint light_index = 0; light_index < scene.point_light_count; ++light_index)
-    {
-        PointLight source = scene.point_lights[light_index];
-        if (toon)
-        {
-            float3 delta = source.position_radius.xyz - world_position;
-            float distance_squared = dot(delta, delta);
-            float distance = sqrt(distance_squared);
-            if (distance < source.range_padding.x)
-            {
-                float3 light = delta / max(distance, RAY_MINIMUM);
-                float visibility = luminance(shadow_visibility(
-                    world_position,
-                    normal,
-                    light,
-                    distance));
-                float falloff = pow(1.0 - distance / source.range_padding.x, 2.0)
-                    / max(distance_squared, 0.01);
-                float3 radiance = source.color_intensity.rgb
-                    * source.color_intensity.w * falloff;
-                float light_amount = saturate(dot(normal, light));
-                float light_illuminance = toon_light_response(
-                    normal,
-                    light,
-                    radiance,
-                    1.0);
-                toon_illumination += light_illuminance;
-                float incident_illuminance = luminance(radiance);
-                toon_shadow_illuminance += incident_illuminance;
-                toon_blocked_illuminance += max(
-                    incident_illuminance - light_illuminance * visibility,
-                    0.0);
-                toon_light_color += radiance * light_amount;
-                toon_specular_color += toon_specular_light(
-                    normal,
-                    view,
-                    light,
-                    radiance,
-                    1.0,
-                    surface_toon);
-            }
         }
-        else
+        for (uint light_index = 0; light_index < scene.point_light_count; ++light_index)
+        {
             color += sample_pbr_point(
-                source,
+                scene.point_lights[light_index],
                 world_position,
                 normal,
                 view,
@@ -497,6 +424,7 @@ void closest_hit(
                 surface_pbr,
                 light_samples,
                 state);
+        }
     }
 
     if (!toon && stochastic_transport && environment_enabled())
@@ -546,13 +474,11 @@ void closest_hit(
                 diffuse_composed_hit);
             float diffuse_scale =
                 (diffuse_composed_hit ? 1.0 : scene.environment.intensity) * 0.25;
-            float3 environment_light = diffuse_environment * diffuse_scale;
-            toon_illumination += luminance(environment_light);
-            toon_light_color += environment_light;
+            toon_environment_light = diffuse_environment * diffuse_scale;
             float reflection_scale =
                 (reflection_composed_hit ? 1.0 : scene.environment.intensity)
                 * metallic;
-            toon_environment += environment * reflection_scale;
+            toon_environment_reflection = environment * reflection_scale;
         }
         else
         {
@@ -570,7 +496,7 @@ void closest_hit(
         }
     }
 
-    uint bounce_limit = scene.pbr.path_tracing == PathTracingMode::Preview ? 2u : 4u;
+    uint bounce_limit = pbr_transport_bounce_limit(scene.pbr);
     if (!toon
         && stochastic_transport
         && payload.path_bounce < bounce_limit)
@@ -650,44 +576,24 @@ void closest_hit(
     }
 
     if (toon)
-    {
-        float tone_index = toon_tone_index(toon_illumination, surface_toon);
-        float tone = toon_tone_value(tone_index, surface_toon);
-        color = toon_tone_fill(
+        color = toon_surface_color(
             base_color,
-            toon_light_color,
-            tone,
-            surface_toon);
-        color += toon_environment;
-        color += toon_specular_color;
-        float rim = pow(1.0 - saturate(dot(normal, view)), surface_toon.rim_power)
-            * surface_toon.rim.w;
-        color += surface_toon.rim.rgb
-            * toon_quantized_intensity(rim, surface_toon);
-        float shadow_occlusion = toon_shadow_illuminance > RAY_MINIMUM
-            ? saturate(toon_blocked_illuminance / toon_shadow_illuminance)
-            : 0.0;
-        float shadow_tone_index = toon_tone_index(
-            1.0 - shadow_occlusion,
-            surface_toon);
-        float shadow_pattern = toon_shadow_pattern(
+            normal,
+            view,
             float2(DispatchRaysIndex().xy) + 0.5,
-            shadow_tone_index,
-            surface_toon);
-        color = lerp(
-            color,
-            surface_toon.shadow.rgb,
-            surface_toon.shadow.w * shadow_pattern);
-    }
+            toon_environment_light,
+            toon_environment_reflection,
+            surface_toon,
+            toon_lighting);
 
     if (payload.path_bounce == 0)
         color *= scene.material.z;
-    if (payload.path_bounce == 0 && scene.pbr.optix_denoising == 0)
+    if (payload.path_bounce == 0 && scene.pbr.denoising == 0)
         color = float3(
             aces_tone_map(color.r),
             aces_tone_map(color.g),
             aces_tone_map(color.b));
-    if (payload.path_bounce == 0 && scene.pbr.optix_denoising == 0)
+    if (payload.path_bounce == 0 && scene.pbr.denoising == 0)
     {
         color = saturate(color + background.rgb);
         color = float3(

@@ -1,6 +1,7 @@
 module render_3d_toon;
 
 import render_3d_abi;
+import render_3d_ray;
 
 static const uint TOON_SHADOW_HASH_MULTIPLIER = 0x9e3779b9u;
 static const uint TOON_SHADOW_HASH_CHANNEL = 0x85ebca6bu;
@@ -10,6 +11,81 @@ static const float TOON_GOLDEN_ANGLE = 2.39996322972865332;
 static const float3 TOON_LUMINANCE = float3(0.2126, 0.7152, 0.0722);
 static const float TOON_EPSILON = 0.00001;
 static const int TOON_MAX_HATCH_DIRECTIONS = 6;
+static const float KUWAHARA_DEPTH_REJECTION = 0.1;
+static const float KUWAHARA_NORMAL_REJECTION_COSINE = 0.5;
+
+public struct ToonTextureSample
+{
+    public bool hit;
+    public float3 color;
+    public float3 normal;
+    public float depth;
+};
+
+public interface IToonTextureTracer
+{
+    ToonTextureSample sample(float2 position, uint2 dimensions);
+}
+
+public float3 toon_screen_space_kuwahara<T : IToonTextureTracer>(
+    float3 center_color,
+    float3 center_normal,
+    float center_depth,
+    float2 center_position,
+    uint2 dimensions,
+    ToonSettings settings,
+    T tracer)
+{
+    int radius = int(settings.kuwahara_radius);
+    if (radius == 0 || settings.kuwahara_strength == 0.0)
+        return center_color;
+
+    float3 best_mean = center_color;
+    float best_variance = RAY_MAXIMUM;
+    for (int quadrant = 0; quadrant < 4; ++quadrant)
+    {
+        int2 direction = int2(
+            (quadrant & 1) == 0 ? -1 : 1,
+            (quadrant & 2) == 0 ? -1 : 1);
+        float3 sum = center_color;
+        float3 squared_sum = center_color * center_color;
+        float sample_count = 1.0;
+        for (int y = 0; y <= radius; ++y)
+        {
+            for (int x = 0; x <= radius; ++x)
+            {
+                if (x == 0 && y == 0)
+                    continue;
+                float2 sample_position = center_position
+                    + float2(direction * int2(x, y));
+                if (any(sample_position < float2(0.0))
+                    || any(sample_position >= float2(dimensions)))
+                    continue;
+                ToonTextureSample sample = tracer.sample(sample_position, dimensions);
+                if (!sample.hit)
+                    continue;
+                float relative_depth = abs(center_depth - sample.depth)
+                    / max(min(center_depth, sample.depth), RAY_MINIMUM);
+                if (relative_depth > KUWAHARA_DEPTH_REJECTION
+                    || dot(center_normal, sample.normal)
+                        < KUWAHARA_NORMAL_REJECTION_COSINE)
+                    continue;
+                sum += sample.color;
+                squared_sum += sample.color * sample.color;
+                sample_count += 1.0;
+            }
+        }
+        float3 mean = sum / sample_count;
+        float3 variance = max(squared_sum / sample_count - mean * mean, 0.0);
+        float variance_score = dot(variance, TOON_LUMINANCE);
+        if (variance_score < best_variance)
+        {
+            best_variance = variance_score;
+            best_mean = mean;
+        }
+    }
+    return lerp(center_color, best_mean, settings.kuwahara_strength);
+}
 
 float toon_shadow_hash(int index, uint channel)
 {
@@ -223,4 +299,145 @@ public float3 toon_palette_quantize(float3 color, float levels)
 public float toon_outline_fresnel(float facing, float width)
 {
     return smoothstep(saturate(1.0 - width * 0.08), 1.0, facing);
+}
+
+public interface IToonShadowTracer
+{
+    float visibility(
+        float3 world_position,
+        float3 normal,
+        float3 direction,
+        float maximum);
+}
+
+public struct ToonDirectLighting
+{
+    public float illumination;
+    public float shadow_illuminance;
+    public float blocked_illuminance;
+    public float3 light_color;
+    public float3 specular_color;
+};
+
+public ToonDirectLighting integrate_toon_direct_lights<T : IToonShadowTracer>(
+    SceneUniforms scene,
+    float3 world_position,
+    float3 normal,
+    float3 view,
+    ToonSettings settings,
+    T tracer)
+{
+    ToonDirectLighting result = {
+        0.0,
+        0.0,
+        0.0,
+        float3(0.0),
+        float3(0.0)
+    };
+    for (uint light_index = 0; light_index < scene.sun_light_count; ++light_index)
+    {
+        SunLight source = scene.sun_lights[light_index];
+        float3 light = normalize(-source.direction_angular_radius.xyz);
+        float visibility = tracer.visibility(
+            world_position,
+            normal,
+            light,
+            RAY_MAXIMUM);
+        float3 radiance = source.color_intensity.rgb * source.color_intensity.w;
+        float light_amount = saturate(dot(normal, light));
+        float light_illuminance = toon_light_response(
+            normal,
+            light,
+            radiance,
+            1.0);
+        result.illumination += light_illuminance;
+        float incident_illuminance = dot(radiance, TOON_LUMINANCE);
+        result.shadow_illuminance += incident_illuminance;
+        result.blocked_illuminance += max(
+            incident_illuminance - light_illuminance * visibility,
+            0.0);
+        result.light_color += radiance * light_amount;
+        result.specular_color += toon_specular_light(
+            normal,
+            view,
+            light,
+            radiance,
+            1.0,
+            settings);
+    }
+    for (uint light_index = 0; light_index < scene.point_light_count; ++light_index)
+    {
+        PointLight source = scene.point_lights[light_index];
+        float3 delta = source.position_radius.xyz - world_position;
+        float distance_squared = dot(delta, delta);
+        float distance = sqrt(distance_squared);
+        if (distance >= source.range_padding.x)
+            continue;
+        float3 light = delta / max(distance, RAY_MINIMUM);
+        float visibility = tracer.visibility(
+            world_position,
+            normal,
+            light,
+            distance);
+        float falloff = pow(1.0 - distance / source.range_padding.x, 2.0)
+            / max(distance_squared, 0.01);
+        float3 radiance = source.color_intensity.rgb
+            * source.color_intensity.w * falloff;
+        float light_amount = saturate(dot(normal, light));
+        float light_illuminance = toon_light_response(
+            normal,
+            light,
+            radiance,
+            1.0);
+        result.illumination += light_illuminance;
+        float incident_illuminance = dot(radiance, TOON_LUMINANCE);
+        result.shadow_illuminance += incident_illuminance;
+        result.blocked_illuminance += max(
+            incident_illuminance - light_illuminance * visibility,
+            0.0);
+        result.light_color += radiance * light_amount;
+        result.specular_color += toon_specular_light(
+            normal,
+            view,
+            light,
+            radiance,
+            1.0,
+            settings);
+    }
+    return result;
+}
+
+public float3 toon_surface_color(
+    float3 base_color,
+    float3 normal,
+    float3 view,
+    float2 pixel_position,
+    float3 environment_light,
+    float3 environment_reflection,
+    ToonSettings settings,
+    ToonDirectLighting lighting)
+{
+    lighting.illumination += dot(environment_light, TOON_LUMINANCE);
+    lighting.light_color += environment_light;
+    float tone_index = toon_tone_index(lighting.illumination, settings);
+    float3 color = toon_tone_fill(
+        base_color,
+        lighting.light_color,
+        toon_tone_value(tone_index, settings),
+        settings);
+    color += environment_reflection + lighting.specular_color;
+    float rim = pow(1.0 - saturate(dot(normal, view)), settings.rim_power)
+        * settings.rim.w;
+    color += settings.rim.rgb * toon_quantized_intensity(rim, settings);
+    float shadow_occlusion = lighting.shadow_illuminance > RAY_MINIMUM
+        ? saturate(lighting.blocked_illuminance / lighting.shadow_illuminance)
+        : 0.0;
+    float shadow_pattern = toon_shadow_pattern(
+        pixel_position,
+        toon_tone_index(1.0 - shadow_occlusion, settings),
+        settings);
+    return lerp(
+        color,
+        settings.shadow.rgb,
+        settings.shadow.w * shadow_pattern);
 }

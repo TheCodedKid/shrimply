@@ -12,9 +12,9 @@ use objc2::rc::Retained;
 use objc2::runtime::ProtocolObject;
 use objc2::{AnyThread, DefinedClass, MainThreadOnly, define_class, msg_send, sel};
 use objc2_app_kit::{
-    NSAlert, NSAlertFirstButtonReturn, NSAlertSecondButtonReturn, NSApplication,
-    NSApplicationActivationPolicy, NSApplicationDelegate, NSBackingStoreType, NSButton,
-    NSColorWell, NSControl, NSControlStateValueOff, NSControlStateValueOn, NSMenuItem,
+    NSAlert, NSAlertFirstButtonReturn, NSAlertSecondButtonReturn, NSAlertThirdButtonReturn,
+    NSApplication, NSApplicationActivationPolicy, NSApplicationDelegate, NSBackingStoreType,
+    NSButton, NSColorWell, NSControl, NSControlStateValueOff, NSControlStateValueOn, NSMenuItem,
     NSPopUpButton, NSTextField, NSToolbar, NSToolbarDelegate, NSToolbarDisplayMode, NSToolbarItem,
     NSWindow, NSWindowDelegate, NSWindowStyleMask, NSWindowToolbarStyle,
 };
@@ -45,6 +45,16 @@ struct EditorIvars {
     settings_window: RefCell<Option<Retained<NSWindow>>>,
     settings_blender_probe:
         RefCell<Option<std::sync::mpsc::Receiver<Result<std::path::PathBuf, String>>>>,
+    settings_server_probe: RefCell<Option<std::sync::mpsc::Receiver<settings::ServerProbe>>>,
+    settings_device_probe: RefCell<Option<(u64, std::sync::mpsc::Receiver<settings::ServerProbe>)>>,
+    settings_device_revision: Cell<u64>,
+    settings_device_error: RefCell<Option<String>>,
+    settings_server_statuses: RefCell<
+        std::collections::BTreeMap<
+            String,
+            Result<shrimply_state::preferences::ComputeServerPresentation, String>,
+        >,
+    >,
     event_monitor: OnceCell<Retained<objc2::runtime::AnyObject>>,
     title: String,
 }
@@ -114,6 +124,11 @@ define_class!(
             if let Some(monitor) = self.ivars().event_monitor.get() {
                 unsafe { objc2_app_kit::NSEvent::removeMonitor(monitor); }
             }
+            if let Some(layout) = self.ivars().layout.get() {
+                for canvas in &layout.canvases {
+                    canvas.suspend_timeline();
+                }
+            }
             NSApplication::sharedApplication(self.mtm()).terminate(None);
         }
 
@@ -157,6 +172,7 @@ define_class!(
         #[unsafe(method(renderFrame:))]
         fn render_frame(&self, _timer: &objc2_foundation::NSTimer) {
             self.poll_blender_probe();
+            self.poll_compute_server_probes();
             let session = self.ivars().session.get().expect("project loaded");
             let imported = self.ivars().imports.borrow_mut().poll(session);
             if let Err(error) = imported { self.show_error(&error); }
@@ -227,9 +243,11 @@ define_class!(
         fn show_settings(&self, _sender: &NSObject) {
             if let Some(window) = self.ivars().settings_window.borrow().as_ref() {
                 window.makeKeyAndOrderFront(None);
+                self.refresh_compute_servers();
                 return;
             }
             self.ivars().settings_window.replace(Some(settings::show(self)));
+            self.refresh_compute_servers();
         }
 
         #[unsafe(method(changeNumericPreference:))]
@@ -271,12 +289,86 @@ define_class!(
 
         #[unsafe(method(changeComputeServer:))]
         fn change_compute_server(&self, sender: &NSTextField) {
-            if let Err(error) = shrimply_state::preferences::add_compute_server(
-                &self.ivars().session.get().expect("project loaded").preferences,
+            let store = &self.ivars().session.get().expect("project loaded").preferences;
+            let previous = shrimply_state::preferences::snapshot(store).compute_server_url;
+            if let Err(error) = shrimply_state::preferences::edit_compute_server(
+                store,
+                &previous,
                 &sender.stringValue().to_string(),
             ) {
                 self.show_error(error);
             }
+            self.refresh_compute_servers();
+        }
+
+        #[unsafe(method(addComputeServer:))]
+        fn add_compute_server(&self, _sender: &NSButton) {
+            let Some(url) = settings::prompt_compute_server_url(self.mtm()) else { return };
+            let store = &self.ivars().session.get().expect("project loaded").preferences;
+            if let Err(error) = shrimply_state::preferences::add_compute_server(store, &url) {
+                self.show_error(error);
+            }
+            self.refresh_compute_servers();
+        }
+
+        #[unsafe(method(removeComputeServer:))]
+        fn remove_compute_server(&self, _sender: &NSButton) {
+            let store = &self.ivars().session.get().expect("project loaded").preferences;
+            let selected = shrimply_state::preferences::snapshot(store).compute_server_url;
+            shrimply_state::preferences::remove_compute_server(store, &selected);
+            self.refresh_compute_servers();
+        }
+
+        #[unsafe(method(selectComputeServer:))]
+        fn select_compute_server(&self, sender: &NSPopUpButton) {
+            let (urls, _) = shrimply_state::preferences::compute_servers(
+                &self.ivars().session.get().expect("project loaded").preferences,
+            );
+            let index = sender.indexOfSelectedItem();
+            let Some(url) = usize::try_from(index).ok().and_then(|index| urls.get(index)) else { return };
+            assert!(
+                shrimply_state::preferences::select_compute_server(
+                    &self.ivars().session.get().expect("project loaded").preferences,
+                    url,
+                ),
+                "AppKit selected a compute server outside the shared preference list"
+            );
+            self.cancel_compute_device_probe();
+            self.sync_compute_server_settings();
+        }
+
+        #[unsafe(method(selectComputeDevice:))]
+        fn select_compute_device(&self, sender: &NSPopUpButton) {
+            if self.ivars().settings_device_probe.borrow().is_some() {
+                self.sync_compute_server_settings();
+                return;
+            }
+            let selected_url = shrimply_state::preferences::snapshot(
+                &self.ivars().session.get().expect("project loaded").preferences,
+            ).compute_server_url;
+            let index = sender.indexOfSelectedItem();
+            let device = self.ivars().settings_server_statuses.borrow()
+                .get(&selected_url)
+                .and_then(|result| result.as_ref().ok())
+                .and_then(|status| usize::try_from(index).ok().and_then(|index| status.devices.get(index)))
+                .map(|device| device.id.clone());
+            let Some(device) = device else {
+                self.sync_compute_server_settings();
+                return;
+            };
+            sender.setEnabled(false);
+            self.ivars().settings_device_error.borrow_mut().take();
+            let revision = self.ivars().settings_device_revision.get().wrapping_add(1);
+            self.ivars().settings_device_revision.set(revision);
+            let (result_sender, receiver) = std::sync::mpsc::channel();
+            std::thread::spawn(move || {
+                let result = shrimply_state::preferences::select_compute_device(&selected_url, &device)
+                    .map(|status| shrimply_state::preferences::present_compute_server(&status));
+                let _ = result_sender.send((selected_url, result));
+            });
+            self.ivars()
+                .settings_device_probe
+                .replace(Some((revision, receiver)));
         }
 
         #[unsafe(method(chooseBlender:))]
@@ -398,6 +490,136 @@ impl Editor {
         }
     }
 
+    fn refresh_compute_servers(&self) {
+        self.cancel_compute_device_probe();
+        let store = &self
+            .ivars()
+            .session
+            .get()
+            .expect("project loaded")
+            .preferences;
+        let (urls, _) = shrimply_state::preferences::compute_servers(store);
+        self.ivars()
+            .settings_server_statuses
+            .borrow_mut()
+            .retain(|url, _| urls.contains(url));
+        let (result_sender, receiver) = std::sync::mpsc::channel();
+        for url in urls {
+            let result_sender = result_sender.clone();
+            std::thread::spawn(move || {
+                let result = shrimply_state::preferences::compute_server_status(&url)
+                    .map(|status| shrimply_state::preferences::present_compute_server(&status));
+                let _ = result_sender.send((url, result));
+            });
+        }
+        drop(result_sender);
+        self.ivars().settings_server_probe.replace(Some(receiver));
+        self.sync_compute_server_settings();
+    }
+
+    fn poll_compute_server_probes(&self) {
+        let mut server_results = Vec::new();
+        {
+            let mut pending = self.ivars().settings_server_probe.borrow_mut();
+            if let Some(receiver) = pending.as_ref() {
+                loop {
+                    match receiver.try_recv() {
+                        Ok(result) => server_results.push(result),
+                        Err(std::sync::mpsc::TryRecvError::Empty) => break,
+                        Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                            pending.take();
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        for (url, result) in &server_results {
+            self.ivars()
+                .settings_server_statuses
+                .borrow_mut()
+                .insert(url.clone(), result.clone());
+        }
+        let device_result = {
+            let mut pending = self.ivars().settings_device_probe.borrow_mut();
+            let received = pending
+                .as_ref()
+                .map(|(revision, receiver)| (*revision, receiver.try_recv()));
+            match received {
+                None => None,
+                Some((revision, Ok(result))) => {
+                    pending.take();
+                    (revision == self.ivars().settings_device_revision.get()).then_some(result)
+                }
+                Some((_, Err(std::sync::mpsc::TryRecvError::Empty))) => None,
+                Some((revision, Err(std::sync::mpsc::TryRecvError::Disconnected))) => {
+                    pending.take();
+                    (revision == self.ivars().settings_device_revision.get()).then(|| {
+                        (
+                            shrimply_state::preferences::snapshot(
+                                &self
+                                    .ivars()
+                                    .session
+                                    .get()
+                                    .expect("project loaded")
+                                    .preferences,
+                            )
+                            .compute_server_url,
+                            Err("Device selection stopped unexpectedly".into()),
+                        )
+                    })
+                }
+            }
+        };
+        if let Some((url, result)) = &device_result {
+            match result {
+                Ok(status) => {
+                    self.ivars().settings_device_error.borrow_mut().take();
+                    self.ivars()
+                        .settings_server_statuses
+                        .borrow_mut()
+                        .insert(url.clone(), Ok(status.clone()));
+                }
+                Err(error) => {
+                    self.ivars()
+                        .settings_device_error
+                        .replace(Some(error.clone()));
+                }
+            }
+        }
+        if server_results.is_empty() && device_result.is_none() {
+            return;
+        }
+        self.sync_compute_server_settings();
+    }
+
+    fn sync_compute_server_settings(&self) {
+        let Some(window) = self.ivars().settings_window.borrow().as_ref().cloned() else {
+            return;
+        };
+        settings::sync_compute_servers_window(
+            &window,
+            &self
+                .ivars()
+                .session
+                .get()
+                .expect("project loaded")
+                .preferences,
+            &self.ivars().settings_server_statuses.borrow(),
+            self.ivars().settings_device_error.borrow().as_deref(),
+            self.ivars().settings_device_probe.borrow().is_some(),
+            self.mtm(),
+        );
+    }
+
+    fn cancel_compute_device_probe(&self) {
+        self.ivars()
+            .settings_device_revision
+            .set(self.ivars().settings_device_revision.get().wrapping_add(1));
+        self.ivars().settings_device_probe.borrow_mut().take();
+        self.ivars().settings_device_error.borrow_mut().take();
+    }
+
     fn step(&self, forward: bool) {
         let session = self.ivars().session.get().expect("project loaded");
         player_state::set_playing(&session.player_state, false);
@@ -426,8 +648,12 @@ impl Editor {
         self.sync_fullscreen_layout();
         layout.root.view().setNeedsLayout(true);
         layout.root.view().layoutSubtreeIfNeeded();
+        let timeline_active = !fullscreen && ivars.timeline_visible.get();
         for canvas in &layout.canvases {
             canvas.set_preview_fullscreen(fullscreen);
+            if !timeline_active {
+                canvas.suspend_timeline();
+            }
         }
         if let Some(items) = ivars.view_items.get() {
             for (item, checked) in items.iter().zip([
@@ -445,7 +671,7 @@ impl Editor {
     }
 }
 
-pub fn run(project: Option<&Path>) {
+pub fn run(project: Option<&Path>) -> Result<bool, ()> {
     let mtm = MainThreadMarker::new().expect("AppKit must start on the main thread");
     objc2_foundation::NSProcessInfo::processInfo().setProcessName(ns_string!("Shrimply"));
     let app = NSApplication::sharedApplication(mtm);
@@ -465,7 +691,7 @@ pub fn run(project: Option<&Path>) {
         let panel = objc2_app_kit::NSOpenPanel::openPanel(mtm);
         panel.setCanChooseDirectories(false);
         if panel.runModal() != objc2_app_kit::NSModalResponseOK {
-            return;
+            return Ok(false);
         }
         chosen = panel
             .URL()
@@ -474,8 +700,8 @@ pub fn run(project: Option<&Path>) {
             .expect("local project file");
         &chosen
     };
-    let Some(prepared) = prepare_project(path, mtm) else {
-        return;
+    let Some(prepared) = prepare_project(path, mtm)? else {
+        return Ok(false);
     };
     let session = Rc::new(
         EditorSession::new(shrimply_project::project::activate_project(prepared))
@@ -496,21 +722,28 @@ pub fn run(project: Option<&Path>) {
         fullscreen: RefCell::new(fullscreen::State::default()),
         settings_window: RefCell::new(None),
         settings_blender_probe: RefCell::new(None),
+        settings_server_probe: RefCell::new(None),
+        settings_device_probe: RefCell::new(None),
+        settings_device_revision: Cell::new(0),
+        settings_device_error: RefCell::new(None),
+        settings_server_statuses: RefCell::new(std::collections::BTreeMap::new()),
         event_monitor: OnceCell::new(),
         title,
     });
     let editor: Retained<Editor> = unsafe { msg_send![super(editor), init] };
     app.setDelegate(Some(ProtocolObject::from_ref(&*editor)));
     app.run();
+    shrimply_project::project::clear_project_file_locks();
+    Ok(true)
 }
 
 fn prepare_project(
     path: &Path,
     mtm: MainThreadMarker,
-) -> Option<shrimply_project::project::PreparedProject> {
+) -> Result<Option<shrimply_project::project::PreparedProject>, ()> {
     loop {
         match shrimply_project::project::prepare_project(path) {
-            Ok(prepared) => return Some(prepared),
+            Ok(prepared) => return Ok(Some(prepared)),
             Err(shrimply_project::project::ProjectLoadError::LockedByOtherInstance { pid }) => {
                 let alert = NSAlert::new(mtm);
                 alert.setMessageText(ns_string!("Project is in use"));
@@ -520,25 +753,30 @@ fn prepare_project(
                 alert.addButtonWithTitle(ns_string!("Retry"));
                 let stop = alert.addButtonWithTitle(ns_string!("Stop Other Editor"));
                 stop.setHasDestructiveAction(true);
-                alert.addButtonWithTitle(ns_string!("Close"));
+                let close = alert.addButtonWithTitle(ns_string!("Close"));
+                close.setKeyEquivalent(&NSString::from_str("\u{1b}"));
                 let response = alert.runModal();
                 if response == NSAlertFirstButtonReturn {
                     continue;
                 }
-                if response != NSAlertSecondButtonReturn {
-                    return None;
+                if response == NSAlertThirdButtonReturn {
+                    return Ok(None);
                 }
+                assert_eq!(
+                    response, NSAlertSecondButtonReturn,
+                    "unexpected project-lock alert response"
+                );
                 if !shrimply_project::project::terminate_project_process(pid) {
                     error_alert::show(
                         mtm,
                         "Could not stop other editor: Shrimply could not signal the other process.",
                     );
-                    return None;
+                    return Err(());
                 }
             }
             Err(shrimply_project::project::ProjectLoadError::Other(error)) => {
                 error_alert::show(mtm, &format!("Could not open project: {error}"));
-                return None;
+                return Err(());
             }
         }
     }

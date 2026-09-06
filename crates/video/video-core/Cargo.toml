@@ -41,8 +41,11 @@ shrimply-transform-3d = { path = "../../3d/transform-3d" }
 shrimply-3dgs = { path = "../../3d/3dgs" }
 skia-safe = { workspace = true, features = ["textlayout", "svg"] }
 serde_json.workspace = true
+serde = { workspace = true, features = ["derive"] }
+shrimply-resource-pipeline = { path = "../../resource-pipeline" }
 vtracer.workspace = true
 hashbrown.workspace = true
+num-traits.workspace = true
 rusqlite = { workspace = true, features = ["bundled"] }
 png.workspace = true
 tempfile.workspace = true

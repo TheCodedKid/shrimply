@@ -56,6 +56,13 @@ pub struct Scene {
     pending_audio_record: Option<TrackKey>,
     pending_video_record: Option<TrackKey>,
     active_audio_recording: Option<crate::recording::AudioRecording>,
+    pub(crate) active_video_recording: Option<crate::recording::ActiveVideoRecording>,
+    pub(crate) video_recording_commands:
+        std::collections::VecDeque<crate::recording::VideoRecordingCommand>,
+    pub(crate) active_caption_speech: Option<crate::caption_speech::Job>,
+    pub(crate) caption_speech_updates: std::collections::VecDeque<crate::caption_speech::Update>,
+    pub(crate) active_transcription: Option<crate::transcription::Job>,
+    pub(crate) transcription_updates: std::collections::VecDeque<crate::transcription::Update>,
     pending_pause_playback: bool,
     playhead_visibility_requested: Rc<Cell<bool>>,
     last_playhead_position: Option<Time>,
@@ -80,9 +87,9 @@ pub struct Scene {
     pub snap_repository: crate::snapping::SnapRepo,
     pub default_visual_duration: Time,
     pub default_text_font_family: FontFamily,
-    project: Rc<RefCell<Project>>,
-    player: SharedPlayerState,
-    selection: SharedSelectionState,
+    pub(crate) project: Rc<RefCell<Project>>,
+    pub(crate) player: SharedPlayerState,
+    pub(crate) selection: SharedSelectionState,
     preferences: SharedPreferences,
     performance: crate::performance::State,
     beat_updates: mpsc::Receiver<(uuid::Uuid, audio::beat::BeatUpdate)>,
@@ -93,6 +100,15 @@ pub struct Scene {
     viewport: Rect,
     context: context_menu::Context,
     drop_preview: Option<drop_preview::DropPreview>,
+    pub(crate) external_imports: crate::import_queue::ImportQueue,
+    pub(crate) external_downloads:
+        std::collections::VecDeque<crate::external_content::PendingDownload>,
+    pub(crate) external_remuxes: std::collections::VecDeque<crate::external_content::PendingRemux>,
+    pub(crate) external_import_events:
+        std::collections::VecDeque<crate::external_content::ExternalImportEvent>,
+    pub(crate) external_owned_files:
+        HashMap<crate::import_queue::BatchId, Vec<crate::external_content::OwnedFile>>,
+    pub(crate) pending_errors: std::collections::VecDeque<String>,
     pending_seek: Option<Time>,
     suspended: bool,
     revision: u64,
@@ -220,6 +236,12 @@ impl Scene {
             pending_audio_record: None,
             pending_video_record: None,
             active_audio_recording: None,
+            active_video_recording: None,
+            video_recording_commands: std::collections::VecDeque::new(),
+            active_caption_speech: None,
+            caption_speech_updates: std::collections::VecDeque::new(),
+            active_transcription: None,
+            transcription_updates: std::collections::VecDeque::new(),
             pending_pause_playback: false,
             playhead_visibility_requested: playhead_visibility_requested.clone(),
             last_playhead_position: None,
@@ -257,6 +279,12 @@ impl Scene {
             viewport: Rect::from_min_size(Vec2::ZERO, Vec2::ZERO),
             context: context_menu::Context::default(),
             drop_preview: None,
+            external_imports: crate::import_queue::ImportQueue::default(),
+            external_downloads: std::collections::VecDeque::new(),
+            external_remuxes: std::collections::VecDeque::new(),
+            external_import_events: std::collections::VecDeque::new(),
+            external_owned_files: HashMap::new(),
+            pending_errors: std::collections::VecDeque::new(),
             pending_seek: None,
             suspended: false,
             revision,
@@ -328,10 +356,18 @@ impl Drop for Scene {
         }
         self.waveform_cancel.store(true, Ordering::Relaxed);
         self.beat_cancel.store(true, Ordering::Relaxed);
-        if let Some(recording) = self.active_audio_recording.take()
-            && let Err(error) = recording.finish(&mut self.project.borrow_mut(), &self.player)
-        {
-            tracing::error!(%error, "Could not finish active timeline audio recording");
+        if self.active_audio_recording.is_some() {
+            player_state::set_playing(&self.player, false);
+            let recording = self
+                .active_audio_recording
+                .take()
+                .expect("active audio recording exists");
+            if let Err(error) = recording.finish(&mut self.project.borrow_mut(), &self.player) {
+                tracing::error!(%error, "Could not finish active timeline audio recording");
+            }
+        }
+        if self.active_video_recording.is_some() {
+            player_state::set_playing(&self.player, false);
         }
     }
 }

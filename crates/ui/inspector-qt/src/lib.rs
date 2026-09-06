@@ -102,10 +102,10 @@ pub(crate) struct VoiceModels {
     pub(crate) loading: bool,
 }
 
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 enum CacheKind {
     Audio,
-    Visual,
+    Visual(shrimply_project::project::ItemAddress),
 }
 
 #[derive(Clone, Eq, PartialEq)]
@@ -764,24 +764,32 @@ fn voice_models_with_current(mut values: Vec<String>, current: &str) -> Vec<Stri
 }
 
 fn cache_status(kind: CacheKind, id: uuid::Uuid) -> shrimply_inspector_core::CacheStatus {
-    let status = current_cache_status(kind, id);
+    let status = current_cache_status(kind.clone(), id);
     CACHE_STATUSES.with_borrow_mut(|statuses| statuses.observe(kind, id, status))
 }
 
 fn current_cache_status(kind: CacheKind, id: uuid::Uuid) -> shrimply_inspector_core::CacheStatus {
     match kind {
         CacheKind::Audio => shrimply_inspector_core::audio_cache_status(id),
-        CacheKind::Visual => shrimply_inspector_core::visual_cache_status(id),
+        CacheKind::Visual(address) => shrimply_inspector_core::visual_cache_status(&address, id),
     }
 }
 
-fn cache_kind(control: crate::section::ControlKind) -> Option<CacheKind> {
+fn cache_kind(
+    control: crate::section::ControlKind,
+    target: Option<&InspectorTarget>,
+) -> Option<CacheKind> {
     match control {
         crate::section::ControlKind::AudioCache | crate::section::ControlKind::AudioCachePreset => {
             Some(CacheKind::Audio)
         }
         crate::section::ControlKind::VisualCache
-        | crate::section::ControlKind::VisualCacheQuality => Some(CacheKind::Visual),
+        | crate::section::ControlKind::VisualCacheQuality => match target {
+            Some(InspectorTarget::Item(
+                address @ shrimply_project::project::ItemAddress::Video { .. },
+            )) => Some(CacheKind::Visual(address.clone())),
+            _ => None,
+        },
         _ => None,
     }
 }
@@ -789,20 +797,25 @@ fn cache_kind(control: crate::section::ControlKind) -> Option<CacheKind> {
 pub(crate) fn tracked_cache_control(
     control: crate::section::ControlKind,
     id: uuid::Uuid,
+    target: Option<&InspectorTarget>,
 ) -> Option<shrimply_inspector_core::CacheControlPresentation> {
-    let kind = cache_kind(control)?;
-    let tracked = CACHE_STATUSES.with_borrow(|statuses| statuses.tracked(kind, id).cloned());
-    let status = tracked.unwrap_or_else(|| cache_status(kind, id));
+    let kind = cache_kind(control, target)?;
+    let tracked =
+        CACHE_STATUSES.with_borrow(|statuses| statuses.tracked(kind.clone(), id).cloned());
+    let status = tracked.unwrap_or_else(|| cache_status(kind.clone(), id));
     Some(match kind {
         CacheKind::Audio => shrimply_inspector_core::audio_cache_control(status),
-        CacheKind::Visual => shrimply_inspector_core::cache_control_presentation(status, ""),
+        CacheKind::Visual(_) => shrimply_inspector_core::cache_control_presentation(status, ""),
     })
 }
 
 fn receive_cache_statuses() {
     let poll = CACHE_STATUSES.with_borrow_mut(|statuses| statuses.poll(current_cache_status));
     let audio_terminal = poll.finished.contains(&CacheKind::Audio);
-    let visual_terminal = poll.finished.contains(&CacheKind::Visual);
+    let visual_terminal = poll
+        .finished
+        .iter()
+        .any(|kind| matches!(kind, CacheKind::Visual(_)));
     if audio_terminal || visual_terminal {
         with_controller(|controller| {
             if audio_terminal {
@@ -828,7 +841,12 @@ fn retain_cache_statuses(document: &InspectorDocument) {
             crate::item::InspectorListItem::Item(item) => item.section.controls.as_slice(),
             crate::item::InspectorListItem::Flat(section) => section.controls.as_slice(),
         })
-        .filter_map(|control| Some((cache_kind(control.kind)?, control.target_id?)))
+        .filter_map(|control| {
+            Some((
+                cache_kind(control.kind, Some(&document.target))?,
+                control.target_id?,
+            ))
+        })
         .fold(Vec::new(), |mut ids, entry| {
             if !ids.contains(&entry) {
                 ids.push(entry);
@@ -838,7 +856,8 @@ fn retain_cache_statuses(document: &InspectorDocument) {
     CACHE_STATUSES.with_borrow_mut(|statuses| {
         statuses.retain(|kind, id| ids.contains(&(kind, id)));
         for (kind, id) in ids.drain(..) {
-            statuses.observe(kind, id, current_cache_status(kind, id));
+            let status = current_cache_status(kind.clone(), id);
+            statuses.observe(kind, id, status);
         }
     });
 }

@@ -1,5 +1,4 @@
 use std::path::Path;
-use std::rc::Rc;
 
 use hashbrown::{HashMap, hash_map::Entry};
 use shrimply_asset::Asset;
@@ -28,6 +27,7 @@ pub use shrimply_preview_core::accuracy::{Accuracy, CompositeAccuracy};
 #[derive(Clone, Copy)]
 pub struct VisualRenderRequest<'a> {
     pub project: &'a Project,
+    pub sequence_path: &'a [Uuid],
     pub item: &'a VideoItem,
     pub position: Time,
     pub audio_analysis: &'a FrameAudioAnalysis,
@@ -158,42 +158,23 @@ pub fn create_renderer(
 
 /// Read-only frame evaluation services available while a modifier appends its lazy operation.
 pub struct VisualModifierContext<'a> {
-    pub project: &'a Project,
-    pub address: &'a shrimply_project::project::ItemAddress,
     pub item: &'a VideoItem,
-    pub position: Time,
     pub accuracy: CompositeAccuracy,
-    pub require_complete_assets: bool,
-    pub modifier_id: Uuid,
-    pub modifier_index: usize,
     pub evaluation: &'a VisualEvaluation,
     pub expressions: &'a mut TransformExpressionCache,
-    pub mask_source: Option<Rc<VisualFrame>>,
 }
 
 impl<'a> VisualModifierContext<'a> {
     pub fn new(
-        project: &'a Project,
-        address: &'a shrimply_project::project::ItemAddress,
         item: &'a VideoItem,
-        position: Time,
-        modifier_id: Uuid,
-        modifier_index: usize,
         evaluation: &'a VisualEvaluation,
         expressions: &'a mut TransformExpressionCache,
     ) -> Self {
         Self {
-            project,
-            address,
             item,
-            position,
             accuracy: CompositeAccuracy::default(),
-            require_complete_assets: false,
-            modifier_id,
-            modifier_index,
             evaluation,
             expressions,
-            mask_source: None,
         }
     }
 }

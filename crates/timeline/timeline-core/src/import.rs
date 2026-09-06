@@ -13,7 +13,7 @@ use shrimply_core::timeline_value::*;
 use shrimply_project::project::{
     Asset, AssetSnapshot, AudioItem, CanvasSize, CaptionItem, LayerVisibility, LayeredImageItem,
     Project, RepeatStrategy, ResolvedTransform, Time, Transform, VideoItem, VideoItemContent,
-    VisualModifier, default_playback_speed,
+    VisualModifier, default_playback_speed, project_directory,
 };
 use shrimply_project::timeline_search;
 use shrimply_state::player_state::{self, ProjectChange, SharedPlayerState};
@@ -815,7 +815,7 @@ pub fn vtt_ranges(path: &Path) -> Result<Vec<(Time, Time)>, String> {
 }
 
 pub fn remux_mkv_to_mp4(input: &Path) -> Result<PathBuf, String> {
-    let output = remux_output_path(input);
+    let output = remux_output_path(input)?;
     remux(input, &output).inspect_err(|_| {
         let _ = fs::remove_file(&output);
     })?;
@@ -1216,24 +1216,16 @@ fn remux(input: &Path, output: &Path) -> Result<(), String> {
         .map_err(|error| format!("could not write {} trailer: {error}", output.display()))
 }
 
-fn remux_output_path(input: &Path) -> PathBuf {
-    let parent = input.parent().unwrap_or_else(|| Path::new(""));
+fn remux_output_path(input: &Path) -> Result<PathBuf, String> {
+    const REMUX_MEDIA_DIR: &str = "media/remuxed";
+    let parent = project_directory().join(REMUX_MEDIA_DIR);
+    fs::create_dir_all(&parent)
+        .map_err(|error| format!("could not create remux media directory: {error}"))?;
     let stem = input
         .file_stem()
         .and_then(|stem| stem.to_str())
         .unwrap_or("remuxed");
-    let direct = parent.join(format!("{stem}.mp4"));
-    if !direct.exists() {
-        return direct;
-    }
-
-    for index in 1.. {
-        let output = parent.join(format!("{stem}-remuxed-{index}.mp4"));
-        if !output.exists() {
-            return output;
-        }
-    }
-    unreachable!()
+    Ok(parent.join(format!("{stem}-{}.mp4", uuid::Uuid::new_v4())))
 }
 
 fn rational_as_f64(value: Rational) -> f64 {

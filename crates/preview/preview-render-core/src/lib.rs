@@ -77,8 +77,20 @@ pub struct FramePlan {
     pub loading: bool,
     pub audio_analysis: FrameAudioAnalysis,
     pub layers: Vec<Layer>,
+    pub external_layers: Vec<ExternalLayers>,
     pub width: u32,
     pub height: u32,
+}
+
+pub struct ExternalLayers {
+    pub dependency: shrimply_video_core::raster_modifiers::ExternalDependency,
+    pub layers: Vec<Layer>,
+}
+
+struct PreparedDependency<'a> {
+    dependency: shrimply_video_core::raster_modifiers::ExternalDependency,
+    audio: FrameAudioAnalysis,
+    items: Vec<items::PreparedItem<'a>>,
 }
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
@@ -244,6 +256,7 @@ impl Scene {
             .sample(project, time, self.audio_revision);
         self.sampled_audio.clear();
         let mut requests = Vec::new();
+        let capture_item = self.capture_item.clone();
         let items = self.items(
             project,
             &project.video_tracks,
@@ -252,8 +265,24 @@ impl Scene {
                 time,
                 ..Default::default()
             },
+            capture_item.as_ref().map(|address| items::Target {
+                address,
+                scope_positions: None,
+            }),
             &mut requests,
         )?;
+        let mut dependency_records = Vec::new();
+        for (dependency, dependency_audio) in external_dependencies(project, &items, &audio)? {
+            self.collect_external_dependency(
+                project,
+                time,
+                dependency,
+                dependency_audio,
+                &mut requests,
+                &mut Vec::new(),
+                &mut dependency_records,
+            )?;
+        }
         if !self.media.request(requests)? {
             return Ok(None);
         }
@@ -269,6 +298,13 @@ impl Scene {
         self.manim_pending = false;
         self.blender_loading = false;
         self.stabilization_pending = false;
+        let mut external_layers = Vec::with_capacity(dependency_records.len());
+        for dependency in dependency_records {
+            external_layers.push(ExternalLayers {
+                dependency: dependency.dependency,
+                layers: self.layers(project, &dependency.audio, dependency.items)?,
+            });
+        }
         let layers = self.layers(project, &audio, items)?;
         if self.manim_pending || self.stabilization_pending {
             return Ok(None);
@@ -293,8 +329,107 @@ impl Scene {
             loading: self.manim_loading || self.blender_loading,
             audio_analysis: audio,
             layers,
+            external_layers,
             width: project.canvas_size.width,
             height: project.canvas_size.height,
         }))
+    }
+}
+
+fn external_dependencies(
+    project: &Project,
+    items: &[items::PreparedItem<'_>],
+    audio: &FrameAudioAnalysis,
+) -> Result<
+    Vec<(
+        shrimply_video_core::raster_modifiers::ExternalDependency,
+        FrameAudioAnalysis,
+    )>,
+    String,
+> {
+    let mut dependencies = Vec::new();
+    for prepared in items {
+        let item_audio = prepared.audio.as_ref().unwrap_or(audio);
+        if let Some(children) = &prepared.children {
+            for dependency in external_dependencies(project, children, item_audio)? {
+                if !dependencies
+                    .iter()
+                    .any(|(current, _)| current == &dependency.0)
+                {
+                    dependencies.push(dependency);
+                }
+            }
+        }
+        for dependency in shrimply_video_core::raster_modifiers::external_dependencies(
+            shrimply_video_core::raster_modifiers::ChainRequest {
+                project,
+                address: &prepared.address,
+                item: &prepared.item,
+                position: prepared.time,
+                scope_positions: &prepared.scope_positions,
+                require_complete_assets: false,
+            },
+        )? {
+            if !dependencies
+                .iter()
+                .any(|(current, _)| current == &dependency)
+            {
+                dependencies.push((dependency, item_audio.clone()));
+            }
+        }
+    }
+    Ok(dependencies)
+}
+
+impl Scene {
+    fn collect_external_dependency<'a>(
+        &mut self,
+        project: &'a Project,
+        root_time: Time,
+        dependency: shrimply_video_core::raster_modifiers::ExternalDependency,
+        audio: FrameAudioAnalysis,
+        requests: &mut Vec<media::Request>,
+        stack: &mut Vec<ItemAddress>,
+        records: &mut Vec<PreparedDependency<'a>>,
+    ) -> Result<(), String> {
+        if records.iter().any(|record| record.dependency == dependency) {
+            return Ok(());
+        }
+        if stack.contains(&dependency.address) {
+            return Err("cyclic mask reference".to_string());
+        }
+        stack.push(dependency.address.clone());
+        let dependency_items = self.items(
+            project,
+            &project.video_tracks,
+            &audio,
+            &items::Scope {
+                time: root_time,
+                ..Default::default()
+            },
+            Some(items::Target {
+                address: &dependency.address,
+                scope_positions: Some(&dependency.scope_positions),
+            }),
+            requests,
+        )?;
+        for (child, child_audio) in external_dependencies(project, &dependency_items, &audio)? {
+            self.collect_external_dependency(
+                project,
+                root_time,
+                child,
+                child_audio,
+                requests,
+                stack,
+                records,
+            )?;
+        }
+        stack.pop();
+        records.push(PreparedDependency {
+            dependency,
+            audio,
+            items: dependency_items,
+        });
+        Ok(())
     }
 }

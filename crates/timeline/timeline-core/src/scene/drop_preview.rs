@@ -15,10 +15,13 @@ impl Scene {
         text: String,
         point: Vec2,
     ) -> Option<crate::external_content::TextPreview> {
+        if !self.external_drop_target(point) {
+            return None;
+        }
         let project = self.project.borrow();
         let x = f64::from(point.x);
         let y = f64::from(point.y);
-        if text.is_empty() || x < timeline_x() {
+        if text.is_empty() {
             return None;
         }
         let (kind, track_index, _) = items::track_at_y(&project, y + self.view.scroll_y)?;
@@ -65,29 +68,35 @@ impl Scene {
         })
     }
 
-    pub fn update_text_drop_preview(&mut self, text: String, point: Vec2) {
+    pub fn update_text_drop_preview(&mut self, text: String, point: Vec2) -> bool {
         self.clear_drop_preview();
         self.text_drop_preview = self.text_preview(text, point);
+        self.text_drop_preview.is_some()
+    }
+
+    pub fn external_drop_target(&self, point: Vec2) -> bool {
+        if !self.drop_surface_target(point) {
+            return false;
+        }
+        let project = self.project.borrow();
+        let rows = items::track_rows(&project);
+        let y = f64::from(point.y).max(RULER_HEIGHT) + self.view.scroll_y;
+        !crate::math::track_row_at_y(y)
+            .and_then(|index| rows.get(index))
+            .is_some_and(|row| row.root_key.is_none())
+    }
+
+    pub(crate) fn drop_surface_target(&self, point: Vec2) -> bool {
+        f64::from(point.x) >= timeline_x()
+            && self.pointer_in_viewport(point)
+            && self.scrollbar_at(point).is_none()
     }
 
     pub fn update_drop_preview(&mut self, path: PathBuf, point: Vec2) -> bool {
         self.text_drop_preview = None;
-        if !self.pointer_in_viewport(point)
-            || self.scrollbar_at(point).is_some()
+        if !self.external_drop_target(point)
             || matches!(import::file_kind(&path), None | Some(import::FileKind::Vtt))
         {
-            self.clear_drop_preview();
-            return false;
-        }
-        let nested_target = {
-            let project = self.project.borrow();
-            let rows = items::track_rows(&project);
-            let y = f64::from(point.y).max(RULER_HEIGHT) + self.view.scroll_y;
-            crate::math::track_row_at_y(y)
-                .and_then(|index| rows.get(index))
-                .is_some_and(|row| row.root_key.is_none())
-        };
-        if nested_target {
             self.clear_drop_preview();
             return false;
         }

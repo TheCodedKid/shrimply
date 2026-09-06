@@ -87,8 +87,9 @@ pub fn prepare_geometry(
         .filter(|source| {
             source.track_id != address.track_id()
                 && project
-                    .video_tracks
-                    .iter()
+                    .video_tracks_for_path(address.sequence_path())
+                    .into_iter()
+                    .flatten()
                     .any(|track| track.id == source.track_id)
         })
         .and_then(|source| camera_sampler(item.id, source, evaluation.local_time()));

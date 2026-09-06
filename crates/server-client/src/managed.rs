@@ -86,6 +86,25 @@ impl CancellationToken {
         &self,
         request: RequestBuilder,
     ) -> Result<(RequestBuilder, ManagedJobGuard), String> {
+        let guard = self.start()?;
+        Ok((
+            request.header(JOB_HEADER, self.state.job_id.to_string()),
+            guard,
+        ))
+    }
+
+    pub fn manage_async(
+        &self,
+        request: reqwest::RequestBuilder,
+    ) -> Result<(reqwest::RequestBuilder, ManagedJobGuard), String> {
+        let guard = self.start()?;
+        Ok((
+            request.header(JOB_HEADER, self.state.job_id.to_string()),
+            guard,
+        ))
+    }
+
+    fn start(&self) -> Result<ManagedJobGuard, String> {
         if self.is_cancelled() {
             return Err("Compute job cancelled".to_string());
         }
@@ -97,13 +116,10 @@ impl CancellationToken {
             .name(format!("compute-heartbeat:{}", state.job_id))
             .spawn(move || heartbeat_loop(state))
             .map_err(|error| format!("Could not start compute heartbeat: {error}"))?;
-        Ok((
-            request.header(JOB_HEADER, self.state.job_id.to_string()),
-            ManagedJobGuard {
-                state: self.state.clone(),
-                thread: Some(thread),
-            },
-        ))
+        Ok(ManagedJobGuard {
+            state: self.state.clone(),
+            thread: Some(thread),
+        })
     }
 }
 

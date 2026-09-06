@@ -37,7 +37,7 @@ pub const TEXTURE_FILTER_PATH: &str = "/content/material/toon/texture_filter";
 pub const SHADOW_KIND_PATH: &str = "/content/material/toon/shadow_kind";
 pub const PATH_TRACING_PATH: &str = "/content/material/path_tracing";
 pub const LIGHT_SAMPLING_PATH: &str = "/content/material/light_sampling_quality";
-pub const OPTIX_DENOISING_PATH: &str = "/content/material/optix_denoising";
+pub const DENOISING_PATH: &str = "/content/material/denoising";
 
 pub const ENVIRONMENT_SOURCE_PATH: &str = "/content/environment/source";
 pub const ENVIRONMENT_FILE_PATH: &str = "/content/environment/file";
@@ -251,11 +251,11 @@ pub fn render_card(material: &PbrMaterial, runtime: InspectorRuntime) -> VideoCa
             ));
             section.add(light_sampling(material.light_sampling_quality));
             section.add(selector(
-                OPTIX_DENOISING_PATH,
-                "OptiX denoiser",
-                material.optix_denoising,
+                DENOISING_PATH,
+                "Denoiser",
+                material.denoising,
                 &[(false, "Off"), (true, "On")],
-                "edit-scene-3d-optix-denoising",
+                "edit-scene-3d-denoising",
             ));
         }
         ShadingModel::Toon => add_toon(&mut section, material, runtime),

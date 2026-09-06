@@ -52,10 +52,16 @@ impl CanvasView {
                 };
                 scene.toggle_audio_recording(key)
             }
-            TrackLabelAction::VideoRecord => Err(
-                "Screen recording requires a macOS capture backend, which is not yet available."
-                    .into(),
-            ),
+            TrackLabelAction::VideoRecord => {
+                {
+                    let mut content = self.ivars().content.borrow_mut();
+                    let Content::Timeline(scene) = &mut *content else {
+                        return Err("Screen recording requires the timeline".into());
+                    };
+                    scene.toggle_video_recording(key)?;
+                }
+                self.update_screen_recording()
+            }
             TrackLabelAction::Toggle | TrackLabelAction::Select => {
                 unreachable!("track state actions are handled by the shared scene")
             }

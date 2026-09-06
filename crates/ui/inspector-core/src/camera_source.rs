@@ -386,7 +386,7 @@ impl InspectorController {
         if active {
             camera_reconstruction::cancel(item_id, &source);
         } else {
-            camera_reconstruction::analyze((*project).clone(), item_id, source, server_url);
+            camera_reconstruction::analyze((*project).clone(), address.clone(), source, server_url);
         }
         drop(project);
         self.refresh_analysis_output();

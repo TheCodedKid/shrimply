@@ -2,9 +2,10 @@ use objc2::runtime::ProtocolObject;
 use objc2::{AnyThread, DefinedClass, MainThreadOnly, define_class, msg_send, rc::Retained};
 use objc2_app_kit::{
     NSDragOperation, NSDraggingDestination, NSDraggingInfo, NSEvent, NSEventModifierFlags,
-    NSPasteboardTypeFileURL, NSTrackingArea, NSTrackingAreaOptions, NSView,
+    NSPasteboard, NSPasteboardTypeFileURL, NSPasteboardTypePNG, NSPasteboardTypeString,
+    NSPasteboardTypeTIFF, NSPasteboardTypeURL, NSTrackingArea, NSTrackingAreaOptions, NSView,
 };
-use objc2_foundation::{MainThreadMarker, NSRect, NSSize};
+use objc2_foundation::{MainThreadMarker, NSRect, NSSize, NSString, NSURL};
 use objc2_foundation::{NSArray, NSObjectProtocol};
 use shrimply_cross_ui_core::editor::EditorSession;
 use shrimply_preview_core::{KeyState, PointerEvent};
@@ -19,6 +20,7 @@ mod context_audio;
 mod context_frame;
 mod context_menu;
 pub(super) mod preview;
+mod screen_recording;
 mod track_actions;
 
 pub enum Content {
@@ -37,8 +39,15 @@ pub struct CanvasState {
     context_controls: RefCell<Vec<shrimply_timeline_core::ContextMenuControl>>,
     context_error: RefCell<Option<String>>,
     suppress_primary: Cell<bool>,
+    secondary_preview_active: Cell<bool>,
+    relative_pan_active: Cell<bool>,
     audio_export: RefCell<Option<context_audio::AudioExport>>,
+    caption_speech_probe: RefCell<Option<context_menu::CaptionSpeechProbe>>,
+    caption_speech_alert: RefCell<Option<Retained<objc2_app_kit::NSAlert>>>,
+    transcription_probe: RefCell<Option<context_menu::TranscriptionProbe>>,
+    transcription_alert: RefCell<Option<Retained<objc2_app_kit::NSAlert>>>,
     frame_capture: RefCell<Option<context_frame::FrameCapture>>,
+    screen_recording: RefCell<Option<screen_recording::ScreenRecording>>,
     drop_source: RefCell<Option<(std::path::PathBuf, super::media::ScopedUrl)>>,
     tools: RefCell<Vec<(super::timeline::Tool, Retained<objc2_app_kit::NSButton>)>>,
     paint_tools: RefCell<Vec<(PaintTool, Retained<objc2_app_kit::NSButton>)>>,
@@ -59,6 +68,15 @@ pub(super) enum PaintTool {
 }
 
 const MIDDLE_MOUSE_BUTTON: isize = 2;
+const MASK_PASTEBOARD_TYPE: &str = "com.shrimply.mask-modifier";
+
+enum DropPayload {
+    Files(Vec<Retained<NSURL>>),
+    Mask(String),
+    Image,
+    ImageUrl(String),
+    Text(String),
+}
 
 define_class!(
     #[unsafe(super(NSView))]
@@ -130,6 +148,7 @@ define_class!(
         #[unsafe(method(cancelOperation:))]
         fn cancel_operation(&self, _sender: &objc2_foundation::NSObject) {
             if let Content::Timeline(scene) = &mut *self.ivars().content.borrow_mut() {
+                self.release_relative_pan(scene);
                 scene.pointer_cancelled();
                 Self::set_timeline_cursor(scene.pointer_cursor());
             }
@@ -225,30 +244,82 @@ define_class!(
 
         #[unsafe(method(rightMouseDown:))]
         fn right_mouse_down(&self, event: &NSEvent) {
-            self.open_context_menu(event);
+            if matches!(&*self.ivars().content.borrow(), Content::Preview(state)
+                if state.controller.sequence
+                    != shrimply_preview_interaction_core::controller::PointerSequence::Idle)
+            {
+                return;
+            }
+            self.ivars().secondary_preview_active.set(false);
+            self.window().expect("canvas must be attached").makeFirstResponder(Some(self));
+            let mut input = self.preview_input(event);
+            input.button = shrimply_preview_core::PointerButton::Secondary;
+            if self.preview_pointer_event(PointerEvent::Begin(input)) {
+                self.ivars().secondary_preview_active.set(true);
+            } else {
+                self.preview_pointer_event(PointerEvent::End(input));
+                self.open_context_menu(event);
+            }
+        }
+
+        #[unsafe(method(rightMouseDragged:))]
+        fn right_mouse_dragged(&self, event: &NSEvent) {
+            if !self.ivars().secondary_preview_active.get() {
+                return;
+            }
+            let mut input = self.preview_input(event);
+            input.button = shrimply_preview_core::PointerButton::Secondary;
+            self.preview_pointer_event(PointerEvent::Samples { input, samples: &[input.sample] });
+        }
+
+        #[unsafe(method(rightMouseUp:))]
+        fn right_mouse_up(&self, event: &NSEvent) {
+            if !self.ivars().secondary_preview_active.replace(false) {
+                return;
+            }
+            let mut input = self.preview_input(event);
+            input.button = shrimply_preview_core::PointerButton::Secondary;
+            self.preview_pointer_event(PointerEvent::Samples { input, samples: &[input.sample] });
+            self.preview_pointer_event(PointerEvent::End(input));
         }
 
         #[unsafe(method(otherMouseDown:))]
         fn other_mouse_down(&self, event: &NSEvent) {
             if event.buttonNumber() == MIDDLE_MOUSE_BUTTON && let Content::Timeline(scene) = &mut *self.ivars().content.borrow_mut() {
                 self.window().expect("canvas must be attached").makeFirstResponder(Some(self));
-                scene.begin_pan(self.point(event));
-                objc2_app_kit::NSCursor::closedHandCursor().set();
+                let point = self.point(event);
+                scene.begin_pan(point);
+                if scene.pointer_state().capture_requested {
+                    let result = objc2_core_graphics::CGAssociateMouseAndMouseCursorPosition(false);
+                    assert_eq!(result, objc2_core_graphics::CGError::Success, "could not capture the macOS pointer for timeline pan");
+                    scene.begin_relative_pointer(point, closed_hand_software_cursor());
+                    self.ivars().relative_pan_active.set(true);
+                    objc2_app_kit::NSCursor::hide();
+                } else {
+                    objc2_app_kit::NSCursor::closedHandCursor().set();
+                }
             }
         }
 
         #[unsafe(method(otherMouseDragged:))]
         fn other_mouse_dragged(&self, event: &NSEvent) {
             if event.buttonNumber() == MIDDLE_MOUSE_BUTTON && let Content::Timeline(scene) = &mut *self.ivars().content.borrow_mut() {
-                scene.pan_to(self.point(event));
-                objc2_app_kit::NSCursor::closedHandCursor().set();
+                if self.ivars().relative_pan_active.get() {
+                    scene.event(shrimply_timeline_core::scene::Event::RelativeMotion {
+                        delta: glam::Vec2::new(event.deltaX() as f32, -event.deltaY() as f32),
+                    });
+                } else {
+                    scene.pan_to(self.point(event));
+                    objc2_app_kit::NSCursor::closedHandCursor().set();
+                }
             }
         }
 
         #[unsafe(method(otherMouseUp:))]
         fn other_mouse_up(&self, event: &NSEvent) {
             if event.buttonNumber() == MIDDLE_MOUSE_BUTTON && let Content::Timeline(scene) = &mut *self.ivars().content.borrow_mut() {
-                scene.end_pan(self.point(event));
+                let point = self.release_relative_pan(scene).unwrap_or_else(|| self.point(event));
+                scene.end_pan(point);
                 Self::set_timeline_cursor(scene.pointer_cursor());
             }
         }
@@ -271,7 +342,21 @@ define_class!(
             let control = event.modifierFlags().contains(NSEventModifierFlags::Control);
             self.ivars().suppress_primary.set(control);
             if control {
-                self.open_context_menu(event);
+                if matches!(&*self.ivars().content.borrow(), Content::Preview(state)
+                    if state.controller.sequence
+                        != shrimply_preview_interaction_core::controller::PointerSequence::Idle)
+                {
+                    return;
+                }
+                self.ivars().secondary_preview_active.set(false);
+                let mut input = self.preview_input(event);
+                input.button = shrimply_preview_core::PointerButton::Secondary;
+                if self.preview_pointer_event(PointerEvent::Begin(input)) {
+                    self.ivars().secondary_preview_active.set(true);
+                } else {
+                    self.preview_pointer_event(PointerEvent::End(input));
+                    self.open_context_menu(event);
+                }
                 return;
             }
             self.window().expect("canvas must be attached").makeFirstResponder(Some(self));
@@ -289,9 +374,21 @@ define_class!(
 
         #[unsafe(method(mouseDragged:))]
         fn mouse_dragged(&self, event: &NSEvent) {
-            if self.ivars().suppress_primary.get() { return; }
+            if self.ivars().suppress_primary.get() {
+                if self.ivars().secondary_preview_active.get() {
+                    let mut input = self.preview_input(event);
+                    input.button = shrimply_preview_core::PointerButton::Secondary;
+                    self.preview_pointer_event(PointerEvent::Samples { input, samples: &[input.sample] });
+                }
+                return;
+            }
             if let Content::Timeline(scene) = &mut *self.ivars().content.borrow_mut() {
-                scene.pointer_dragged(self.point(event));
+                let modifiers = event.modifierFlags();
+                scene.pointer_dragged(
+                    self.point(event),
+                    modifiers.contains(NSEventModifierFlags::Command),
+                    modifiers.contains(NSEventModifierFlags::Shift),
+                );
                 Self::set_timeline_cursor(scene.pointer_cursor());
             }
             self.preview_pointer_move(self.point(event));
@@ -301,11 +398,28 @@ define_class!(
 
         #[unsafe(method(mouseUp:))]
         fn mouse_up(&self, event: &NSEvent) {
-            if self.ivars().suppress_primary.replace(false) { return; }
+            if self.ivars().suppress_primary.replace(false) {
+                if self.ivars().secondary_preview_active.replace(false) {
+                    let mut input = self.preview_input(event);
+                    input.button = shrimply_preview_core::PointerButton::Secondary;
+                    self.preview_pointer_event(PointerEvent::Samples { input, samples: &[input.sample] });
+                    self.preview_pointer_event(PointerEvent::End(input));
+                }
+                return;
+            }
             let point = self.point(event);
             let result = {
                 let mut content = self.ivars().content.borrow_mut();
-                if let Content::Timeline(scene) = &mut *content { scene.pointer_up(point) } else { Ok(None) }
+                if let Content::Timeline(scene) = &mut *content {
+                    let modifiers = event.modifierFlags();
+                    scene.pointer_up(
+                        point,
+                        modifiers.contains(NSEventModifierFlags::Command),
+                        modifiers.contains(NSEventModifierFlags::Shift),
+                    )
+                } else {
+                    Ok(None)
+                }
             };
             match result.and_then(|action| {
                 if let Some(action) = action { self.activate_track_button(action, point) } else { Ok(()) }
@@ -344,6 +458,15 @@ define_class!(
 
         #[unsafe(method(flagsChanged:))]
         fn flags_changed(&self, event: &NSEvent) {
+            if let Content::Timeline(scene) = &mut *self.ivars().content.borrow_mut() {
+                let modifiers = event.modifierFlags();
+                scene.event(shrimply_timeline_core::scene::Event::Modifiers(
+                    shrimply_timeline_core::scene::TimelineModifiers {
+                        ctrl: modifiers.contains(NSEventModifierFlags::Command),
+                        shift: modifiers.contains(NSEventModifierFlags::Shift),
+                    },
+                ));
+            }
             self.preview_modifiers_changed(event);
         }
 
@@ -532,6 +655,43 @@ impl CanvasView {
         super::error_alert::show(self.mtm(), error);
     }
 
+    fn drop_payload(pasteboard: &NSPasteboard) -> Option<DropPayload> {
+        let mask_type = NSString::from_str(MASK_PASTEBOARD_TYPE);
+        if let Some(mask) = pasteboard.stringForType(&mask_type) {
+            return Some(DropPayload::Mask(mask.to_string()));
+        }
+        let files = super::media::file_urls(pasteboard);
+        if !files.is_empty() {
+            return Some(DropPayload::Files(files));
+        }
+        if pasteboard
+            .dataForType(unsafe { NSPasteboardTypePNG })
+            .is_some()
+            || pasteboard
+                .dataForType(unsafe { NSPasteboardTypeTIFF })
+                .is_some()
+        {
+            return Some(DropPayload::Image);
+        }
+        if let Some(url) = pasteboard.stringForType(unsafe { NSPasteboardTypeURL }) {
+            return Some(DropPayload::ImageUrl(url.to_string()));
+        }
+        pasteboard
+            .stringForType(unsafe { NSPasteboardTypeString })
+            .map(|text| {
+                match shrimply_timeline_core::external_content::classify_external_text(
+                    text.to_string(),
+                ) {
+                    shrimply_timeline_core::external_content::ExternalText::Text(text) => {
+                        DropPayload::Text(text)
+                    }
+                    shrimply_timeline_core::external_content::ExternalText::ImageUrl(url) => {
+                        DropPayload::ImageUrl(url)
+                    }
+                }
+            })
+    }
+
     fn drag_operation(&self, sender: &ProtocolObject<dyn NSDraggingInfo>) -> NSDragOperation {
         if !sender
             .draggingSourceOperationMask()
@@ -540,35 +700,46 @@ impl CanvasView {
             self.clear_drop_preview();
             return NSDragOperation::None;
         }
-        let Some(url) = super::media::file_urls(&sender.draggingPasteboard())
-            .into_iter()
-            .next()
-        else {
+        let pasteboard = sender.draggingPasteboard();
+        let Some(payload) = Self::drop_payload(&pasteboard) else {
             self.clear_drop_preview();
             return NSDragOperation::None;
         };
-        let Some(path) = url.to_file_path() else {
-            self.clear_drop_preview();
-            return NSDragOperation::None;
-        };
-        if self
-            .ivars()
-            .drop_source
-            .borrow()
-            .as_ref()
-            .is_none_or(|(current, _)| current != &path)
-        {
-            self.ivars()
-                .drop_source
-                .replace(Some((path.clone(), super::media::ScopedUrl::new(url))));
-        }
         let point = self.convertPoint_fromView(sender.draggingLocation(), None);
+        let point = glam::Vec2::new(point.x as f32, point.y as f32);
         let accepted = {
             let mut content = self.ivars().content.borrow_mut();
-            if let Content::Timeline(scene) = &mut *content {
-                scene.update_drop_preview(path, glam::Vec2::new(point.x as f32, point.y as f32))
-            } else {
-                false
+            let Content::Timeline(scene) = &mut *content else {
+                return NSDragOperation::None;
+            };
+            match payload {
+                DropPayload::Files(files) => {
+                    let Ok(paths) = super::media::file_url_paths(&files) else {
+                        return NSDragOperation::None;
+                    };
+                    let path = paths.first().expect("file URL list is not empty").clone();
+                    if self
+                        .ivars()
+                        .drop_source
+                        .borrow()
+                        .as_ref()
+                        .is_none_or(|(current, _)| current != &path)
+                    {
+                        self.ivars().drop_source.replace(Some((
+                            path.clone(),
+                            super::media::ScopedUrl::new(files[0].clone()),
+                        )));
+                    }
+                    scene.update_external_files_preview(&paths, point)
+                }
+                DropPayload::Text(text) => scene.update_text_drop_preview(text, point),
+                DropPayload::Mask(mask) => mask
+                    .parse()
+                    .is_ok_and(|modifier_id| scene.mask_drop_target(modifier_id, point)),
+                DropPayload::Image | DropPayload::ImageUrl(_) => {
+                    scene.clear_drop_preview();
+                    scene.external_drop_target(point)
+                }
             }
         };
         if accepted {
@@ -590,38 +761,128 @@ impl CanvasView {
         if self.drag_operation(sender) != NSDragOperation::Copy {
             return false;
         }
-        let point = self.convertPoint_fromView(sender.draggingLocation(), None);
-        let placement = {
-            let content = self.ivars().content.borrow();
-            let Content::Timeline(scene) = &*content else {
-                return false;
-            };
-            shrimply_timeline_core::import_queue::Placement {
-                start: shrimply_timeline_core::math::time_at_x(scene.view(), point.x),
-                target: shrimply_timeline_core::items::NewItemTarget::AtY(
-                    point.y.max(shrimply_timeline_core::metrics::RULER_HEIGHT)
-                        + scene.view().scroll_y,
-                ),
-                collision: shrimply_timeline_core::TimelineTools::new(
-                    self.ivars().session.preferences.clone(),
-                )
-                .state()
-                .drag_collision,
-            }
+        let pasteboard = sender.draggingPasteboard();
+        let Some(payload) = Self::drop_payload(&pasteboard) else {
+            self.clear_drop_preview();
+            return false;
         };
-        let result = self.ivars().imports.borrow_mut().enqueue(
-            super::media::file_urls(&sender.draggingPasteboard()),
-            &self.ivars().session,
-            super::media::Destination::Timeline(placement),
-        );
+        let point = self.convertPoint_fromView(sender.draggingLocation(), None);
+        let point = glam::Vec2::new(point.x as f32, point.y as f32);
+        let result = (|| match payload {
+            DropPayload::Files(urls) => self.perform_external_file_urls(urls, Some(point)),
+            payload => {
+                let content = match payload {
+                    DropPayload::Image => super::media::clipboard_image_path(&pasteboard)?
+                        .map(|path| {
+                            shrimply_timeline_core::external_content::ExternalDrop::Files(vec![
+                                path,
+                            ])
+                        })
+                        .ok_or_else(|| "dragged image has no readable image data".to_string()),
+                    DropPayload::ImageUrl(url) => {
+                        Ok(shrimply_timeline_core::external_content::ExternalDrop::ImageUrl(url))
+                    }
+                    DropPayload::Text(text) => {
+                        Ok(shrimply_timeline_core::external_content::ExternalDrop::Text(text))
+                    }
+                    DropPayload::Mask(mask) => {
+                        Ok(shrimply_timeline_core::external_content::ExternalDrop::Mask(mask))
+                    }
+                    DropPayload::Files(_) => unreachable!("file payload handled separately"),
+                };
+                content.and_then(|content| self.perform_external_drop(content, Some(point)))
+            }
+        })();
         self.clear_drop_preview();
         if let Err(error) = result {
-            let alert = objc2_app_kit::NSAlert::new(self.mtm());
-            alert.setInformativeText(&objc2_foundation::NSString::from_str(&error));
-            alert.runModal();
+            self.show_error(&error);
             return false;
         }
         true
+    }
+
+    fn perform_external_drop(
+        &self,
+        content: shrimply_timeline_core::external_content::ExternalDrop,
+        point: Option<glam::Vec2>,
+    ) -> Result<(), String> {
+        let mut canvas = self.ivars().content.borrow_mut();
+        let Content::Timeline(scene) = &mut *canvas else {
+            return Err("timeline drop reached a non-timeline canvas".into());
+        };
+        let action = scene.perform_external_drop(content, point)?;
+        drop(canvas);
+        match action {
+            shrimply_timeline_core::external_content::ExternalDropAction::Complete => Ok(()),
+            shrimply_timeline_core::external_content::ExternalDropAction::Importing(_) => Ok(()),
+            shrimply_timeline_core::external_content::ExternalDropAction::ConfirmRemux {
+                paths,
+                batch,
+            } => {
+                if !self.confirm_remux_prompt() {
+                    return Ok(());
+                }
+                let mut content = self.ivars().content.borrow_mut();
+                let Content::Timeline(scene) = &mut *content else {
+                    return Err("timeline closed while confirming media remux".into());
+                };
+                scene.begin_external_remux(paths, point, batch)
+            }
+        }
+    }
+
+    fn perform_external_file_urls(
+        &self,
+        urls: Vec<Retained<NSURL>>,
+        point: Option<glam::Vec2>,
+    ) -> Result<(), String> {
+        let (paths, scopes) = super::media::scoped_file_urls(urls)?;
+        let action = {
+            let mut content = self.ivars().content.borrow_mut();
+            let Content::Timeline(scene) = &mut *content else {
+                return Err("timeline drop reached a non-timeline canvas".into());
+            };
+            scene.perform_external_drop(
+                shrimply_timeline_core::external_content::ExternalDrop::Files(paths),
+                point,
+            )?
+        };
+        let batch = match action {
+            shrimply_timeline_core::external_content::ExternalDropAction::Importing(batch) => batch,
+            shrimply_timeline_core::external_content::ExternalDropAction::ConfirmRemux {
+                paths,
+                batch,
+            } => {
+                if !self.confirm_remux_prompt() {
+                    return Ok(());
+                }
+                let mut content = self.ivars().content.borrow_mut();
+                let Content::Timeline(scene) = &mut *content else {
+                    return Err("timeline closed while confirming media remux".into());
+                };
+                scene.begin_external_remux(paths, point, batch)?;
+                batch
+            }
+            shrimply_timeline_core::external_content::ExternalDropAction::Complete => {
+                return Err("file import completed without an asynchronous operation".into());
+            }
+        };
+        self.ivars()
+            .imports
+            .borrow_mut()
+            .retain_pending(batch, scopes);
+        Ok(())
+    }
+
+    fn confirm_remux_prompt(&self) -> bool {
+        let alert = objc2_app_kit::NSAlert::new(self.mtm());
+        alert.setMessageText(&NSString::from_str("Remux MKV/WebM to MP4?"));
+        alert.setInformativeText(&NSString::from_str(
+            "MP4 is the supported timeline format. The source files will be kept.",
+        ));
+        alert.addButtonWithTitle(&NSString::from_str("Remux"));
+        alert.addButtonWithTitle(&NSString::from_str("Cancel"));
+        alert.runModal() == objc2_app_kit::NSAlertFirstButtonReturn
     }
 
     fn point(&self, event: &NSEvent) -> glam::Vec2 {
@@ -634,16 +895,20 @@ impl CanvasView {
         self.sync_paint_tools();
         self.poll_audio_export()?;
         self.poll_frame_capture()?;
+        self.poll_caption_speech_probe()?;
+        self.poll_transcription_probe()?;
+        self.update_screen_recording()?;
         let size = self.bounds().size;
         if self.window().is_none_or(|window| !window.isKeyWindow())
             || self.isHiddenOrHasHiddenAncestor()
         {
-            self.cancel_preview_pointer();
+            self.teardown_preview_pointer();
         }
         if (self.window().is_none_or(|window| !window.isKeyWindow())
             || self.isHiddenOrHasHiddenAncestor())
             && let Content::Timeline(scene) = &mut *self.ivars().content.borrow_mut()
         {
+            self.release_relative_pan(scene);
             scene.pointer_exited();
             scene.pointer_cancelled();
         }
@@ -765,6 +1030,46 @@ impl CanvasView {
             }
         });
         drop(renderer);
+        self.update_screen_recording()?;
+        let (external_error, external_imports, caption_speech_updates, transcription_updates) = {
+            let mut content = self.ivars().content.borrow_mut();
+            match &mut *content {
+                Content::Timeline(scene) => {
+                    let mut imports = Vec::new();
+                    while let Some(event) = scene.take_external_import_event() {
+                        imports.push(event);
+                    }
+                    let mut transcription = Vec::new();
+                    while let Some(update) = scene.take_transcription_update() {
+                        transcription.push(update);
+                    }
+                    let mut caption_speech = Vec::new();
+                    while let Some(update) = scene.take_caption_speech_update() {
+                        caption_speech.push(update);
+                    }
+                    (scene.take_error(), imports, caption_speech, transcription)
+                }
+                Content::Preview(_) | Content::Meter(_) => {
+                    (None, Vec::new(), Vec::new(), Vec::new())
+                }
+            }
+        };
+        for event in external_imports {
+            self.ivars().imports.borrow_mut().finish_external(event);
+        }
+        if let Some(error) = external_error {
+            self.show_error(&error);
+        }
+        for update in caption_speech_updates {
+            if let Err(error) = self.handle_caption_speech_update(update) {
+                self.show_error(&error);
+            }
+        }
+        for update in transcription_updates {
+            if let Err(error) = self.handle_transcription_update(update) {
+                self.show_error(&error);
+            }
+        }
         for update in manim_updates {
             shrimply_state::manim_status::apply(
                 &self.ivars().session.project,
@@ -774,6 +1079,58 @@ impl CanvasView {
         }
         result
     }
+}
+
+impl CanvasView {
+    pub fn suspend_timeline(&self) {
+        if let Content::Timeline(scene) = &mut *self.ivars().content.borrow_mut() {
+            self.release_relative_pan(scene);
+            scene.suspend();
+            while let Some(event) = scene.take_external_import_event() {
+                self.ivars().imports.borrow_mut().finish_external(event);
+            }
+        }
+        if let Err(error) = self.update_screen_recording() {
+            self.show_error(&error);
+        }
+    }
+
+    fn release_relative_pan(
+        &self,
+        scene: &mut shrimply_timeline_core::scene::Scene,
+    ) -> Option<glam::Vec2> {
+        if !self.ivars().relative_pan_active.replace(false) {
+            return None;
+        }
+        let point = scene.end_relative_pointer();
+        let result = objc2_core_graphics::CGAssociateMouseAndMouseCursorPosition(true);
+        assert_eq!(
+            result,
+            objc2_core_graphics::CGError::Success,
+            "could not restore the macOS pointer after timeline pan"
+        );
+        objc2_app_kit::NSCursor::unhide();
+        point
+    }
+}
+
+fn closed_hand_software_cursor() -> shrimply_skia_adw_core::cursor::SoftwareCursor {
+    let cursor = objc2_app_kit::NSCursor::closedHandCursor();
+    let native = cursor.image();
+    let encoded = native
+        .TIFFRepresentation()
+        .expect("macOS closed-hand cursor must provide an image");
+    let image = skia_safe::Image::from_encoded(skia_safe::Data::new_copy(unsafe {
+        encoded.as_bytes_unchecked()
+    }))
+    .expect("macOS closed-hand cursor image must be decodable by Skia");
+    let hot_spot = cursor.hotSpot();
+    let size = native.size();
+    shrimply_skia_adw_core::cursor::SoftwareCursor::from_image(
+        image,
+        glam::Vec2::new(hot_spot.x as f32, hot_spot.y as f32),
+        glam::Vec2::new(size.width as f32, size.height as f32),
+    )
 }
 
 pub fn new(
@@ -790,8 +1147,15 @@ pub fn new(
         context_controls: RefCell::new(Vec::new()),
         context_error: RefCell::new(None),
         suppress_primary: Cell::new(false),
+        secondary_preview_active: Cell::new(false),
+        relative_pan_active: Cell::new(false),
         audio_export: RefCell::new(None),
+        caption_speech_probe: RefCell::new(None),
+        caption_speech_alert: RefCell::new(None),
+        transcription_probe: RefCell::new(None),
+        transcription_alert: RefCell::new(None),
         frame_capture: RefCell::new(None),
+        screen_recording: RefCell::new(None),
         drop_source: RefCell::new(None),
         imports,
         renderer: RefCell::new(Renderer::default()),
@@ -803,7 +1167,15 @@ pub fn new(
     view.setLayer(Some(view.ivars().renderer.borrow().layer()));
     view.setWantsLayer(true);
     if matches!(*view.ivars().content.borrow(), Content::Timeline(_)) {
-        view.registerForDraggedTypes(&NSArray::from_slice(&[unsafe { NSPasteboardTypeFileURL }]));
+        let mask_type = NSString::from_str(MASK_PASTEBOARD_TYPE);
+        view.registerForDraggedTypes(&NSArray::from_slice(&[
+            unsafe { NSPasteboardTypeFileURL },
+            unsafe { NSPasteboardTypeURL },
+            unsafe { NSPasteboardTypeString },
+            unsafe { NSPasteboardTypePNG },
+            unsafe { NSPasteboardTypeTIFF },
+            &mask_type,
+        ]));
     }
     view
 }

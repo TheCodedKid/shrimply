@@ -4,37 +4,33 @@ use std::rc::Rc;
 use adw::prelude::*;
 use gtk::{gdk, gio, glib};
 
-use crate::player_state::SharedPlayerState;
-use crate::project::Project;
-use crate::selection_state::SharedSelectionState;
 use uuid::Uuid;
 
 use super::TimelineRuntime;
 use super::external_content::{self, Content, Origin, Placement};
 
-pub(super) fn setup(
-    area: &gtk::GLArea,
-    project: Rc<RefCell<Project>>,
-    player_state: SharedPlayerState,
-    selection_state: SharedSelectionState,
-    runtime: Rc<RefCell<TimelineRuntime>>,
-) {
+pub(super) fn setup(area: &gtk::GLArea, runtime: Rc<RefCell<TimelineRuntime>>) {
     let mask_drop = gtk::DropTarget::new(glib::Bytes::static_type(), gdk::DragAction::COPY);
     mask_drop.set_preload(true);
-    let mask_motion_project = project.clone();
     let mask_motion_runtime = runtime.clone();
-    mask_drop.connect_motion(move |_, x, y| {
-        mask_target_at(
-            &mask_motion_project.borrow(),
-            mask_motion_runtime.borrow().scene.view(),
-            x,
-            y,
-        )
-        .map_or(gdk::DragAction::empty(), |_| gdk::DragAction::COPY)
+    mask_drop.connect_motion(move |target, x, y| {
+        let modifier_id = target
+            .value()
+            .and_then(|value| value.get::<glib::Bytes>().ok())
+            .and_then(|bytes| std::str::from_utf8(bytes.as_ref()).ok().map(str::to_owned))
+            .and_then(|text| Uuid::parse_str(&text).ok());
+        if modifier_id.is_some_and(|modifier_id| {
+            mask_motion_runtime
+                .borrow()
+                .scene
+                .mask_drop_target(modifier_id, super::vec2(x as f32, y as f32))
+        }) {
+            gdk::DragAction::COPY
+        } else {
+            gdk::DragAction::empty()
+        }
     });
     let mask_area = area.clone();
-    let mask_project = project.clone();
-    let mask_player_state = player_state.clone();
     let mask_runtime = runtime.clone();
     mask_drop.connect_drop(move |_, value, x, y| {
         let Ok(bytes) = value.get::<glib::Bytes>() else {
@@ -46,53 +42,9 @@ pub(super) fn setup(
         let Ok(modifier_id) = Uuid::parse_str(text) else {
             return false;
         };
-        assign_mask_source(
-            &mask_area,
-            &mask_project,
-            &mask_player_state,
-            &mask_runtime,
-            modifier_id,
-            x,
-            y,
-        )
+        assign_mask_source(&mask_area, &mask_runtime, modifier_id, x, y)
     });
     area.add_controller(mask_drop);
-
-    let mask_text_drop = gtk::DropTarget::new(String::static_type(), gdk::DragAction::COPY);
-    mask_text_drop.set_preload(true);
-    let mask_motion_project = project.clone();
-    let mask_motion_runtime = runtime.clone();
-    mask_text_drop.connect_motion(move |_, x, y| {
-        mask_target_at(
-            &mask_motion_project.borrow(),
-            mask_motion_runtime.borrow().scene.view(),
-            x,
-            y,
-        )
-        .map_or(gdk::DragAction::empty(), |_| gdk::DragAction::COPY)
-    });
-    let mask_area = area.clone();
-    let mask_project = project.clone();
-    let mask_player_state = player_state.clone();
-    let mask_runtime = runtime.clone();
-    mask_text_drop.connect_drop(move |_, value, x, y| {
-        let Ok(text) = value.get::<String>() else {
-            return false;
-        };
-        let Ok(modifier_id) = Uuid::parse_str(&text) else {
-            return false;
-        };
-        assign_mask_source(
-            &mask_area,
-            &mask_project,
-            &mask_player_state,
-            &mask_runtime,
-            modifier_id,
-            x,
-            y,
-        )
-    });
-    area.add_controller(mask_text_drop);
 
     let formats = gdk::ContentFormats::for_type(gdk::FileList::static_type())
         .union(&gdk::ContentFormats::for_type(gio::File::static_type()))
@@ -110,16 +62,24 @@ pub(super) fn setup(
     let enter_area = area.clone();
     let enter_runtime = runtime.clone();
     drop.connect_enter(move |target, x, y| {
-        update_preview(target.value().as_ref(), &enter_runtime, x, y);
+        let accepted = update_preview(target.value().as_ref(), &enter_runtime, x, y);
         enter_area.queue_render();
-        gdk::DragAction::COPY
+        if accepted {
+            gdk::DragAction::COPY
+        } else {
+            gdk::DragAction::empty()
+        }
     });
     let motion_area = area.clone();
     let motion_runtime = runtime.clone();
     drop.connect_motion(move |target, x, y| {
-        update_preview(target.value().as_ref(), &motion_runtime, x, y);
+        let accepted = update_preview(target.value().as_ref(), &motion_runtime, x, y);
         motion_area.queue_render();
-        gdk::DragAction::COPY
+        if accepted {
+            gdk::DragAction::COPY
+        } else {
+            gdk::DragAction::empty()
+        }
     });
     let leave_area = area.clone();
     let leave_runtime = runtime.clone();
@@ -131,6 +91,7 @@ pub(super) fn setup(
     let drop_area = area.clone();
     drop.connect_drop(move |target, value, x, y| {
         let Some(content) = external_content::from_value(value) else {
+            runtime.borrow_mut().scene.clear_drop_preview();
             let source_formats = target
                 .current_drop()
                 .map(|drop| drop.formats().to_str())
@@ -149,9 +110,6 @@ pub(super) fn setup(
         }
         let inserted = external_content::insert(
             &drop_area,
-            &project,
-            &player_state,
-            &selection_state,
             &runtime,
             content,
             Origin::Drop,
@@ -167,65 +125,29 @@ pub(super) fn setup(
     area.add_controller(drop);
 }
 
-fn mask_target_at(
-    project: &Project,
-    view: super::TimelineViewState,
-    x: f64,
-    y: f64,
-) -> Option<super::items::ItemKey> {
-    let target = super::items::hit_item_at(project, view, x, y)?;
-    (target.kind == super::items::TrackKind::Video).then_some(target)
-}
-
 fn assign_mask_source(
     area: &gtk::GLArea,
-    project: &Rc<RefCell<Project>>,
-    player_state: &SharedPlayerState,
     runtime: &Rc<RefCell<TimelineRuntime>>,
     modifier_id: Uuid,
     x: f64,
     y: f64,
 ) -> bool {
-    let source = {
-        let project = project.borrow();
-        let Some(target) = mask_target_at(&project, runtime.borrow().scene.view(), x, y) else {
-            return false;
-        };
-        let Some(track) = project.video_tracks.get(target.track_index) else {
-            return false;
-        };
-        let Some(item) = track.items.get(target.item_index) else {
-            return false;
-        };
-        shrimply_project::project::ItemAddress::Video {
-            sequence_path: Vec::new(),
-            track_id: track.id,
-            item_id: item.id,
+    match runtime
+        .borrow_mut()
+        .scene
+        .assign_mask_source_at(modifier_id, super::vec2(x as f32, y as f32))
+    {
+        Ok(accepted) => {
+            if accepted {
+                area.queue_render();
+            }
+            accepted
         }
-    };
-    let mut project = project.borrow_mut();
-    let changed = match shrimply_inspector_core::visual_modifiers::set_mask_source(
-        &mut project,
-        &source,
-        modifier_id,
-    ) {
-        Ok(changed) => changed,
-        Err(_) => return false,
-    };
-    drop(project);
-    if !changed {
-        return true;
+        Err(error) => {
+            tracing::warn!(%error, "Could not assign timeline mask source");
+            false
+        }
     }
-    crate::player_state::refresh_project(
-        player_state,
-        crate::player_state::ProjectChange {
-            video: true,
-            inspector: true,
-            ..Default::default()
-        },
-    );
-    area.queue_render();
-    true
 }
 
 fn update_preview(
@@ -233,16 +155,19 @@ fn update_preview(
     runtime: &Rc<RefCell<TimelineRuntime>>,
     x: f64,
     y: f64,
-) {
+) -> bool {
     let mut runtime = runtime.borrow_mut();
     let point = super::vec2(x as f32, y as f32);
     match value.and_then(external_content::from_value) {
         Some(Content::Text(text)) => runtime.scene.update_text_drop_preview(text, point),
-        Some(Content::File(path)) => {
-            runtime.scene.update_drop_preview(path, point);
+        Some(Content::Files(paths)) => runtime.scene.update_external_files_preview(&paths, point),
+        Some(Content::Texture(_)) | Some(Content::Url(_)) => {
+            runtime.scene.clear_drop_preview();
+            runtime.scene.external_drop_target(point)
         }
-        Some(Content::Texture(_)) | Some(Content::Url(_)) | None => {
-            runtime.scene.clear_drop_preview()
+        None => {
+            runtime.scene.clear_drop_preview();
+            false
         }
     }
 }

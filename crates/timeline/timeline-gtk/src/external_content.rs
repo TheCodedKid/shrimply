@@ -1,27 +1,16 @@
 use std::cell::RefCell;
-use std::io::Read;
 use std::path::PathBuf;
 use std::rc::Rc;
-use std::sync::mpsc::{self, TryRecvError};
-use std::thread;
-use std::time::Duration;
 
 use adw::prelude::*;
 use gtk::{gdk, gio, glib};
 
-use crate::player_state::{self, ProjectChange, SharedPlayerState};
-use crate::project::{CaptionItem, Project, Time, VideoItem, VideoItemContent, VideoTrack};
-use crate::selection_state::SharedSelectionState;
-
-use super::interaction::{
-    ask_remux_then_import_at, content_y, import_path_at, set_timeline_selection, show_error_dialog,
-};
-use super::items::{self, ItemKey, TrackKind};
-use super::{TimelineRuntime, import, x_to_time};
+use super::TimelineRuntime;
+use super::interaction::show_error_dialog;
 
 pub(super) enum Content {
     Text(String),
-    File(PathBuf),
+    Files(Vec<PathBuf>),
     Texture(gdk::Texture),
     Url(String),
 }
@@ -30,7 +19,7 @@ impl Content {
     pub(super) fn label(&self) -> &'static str {
         match self {
             Self::Text(_) => "text",
-            Self::File(_) => "file",
+            Self::Files(_) => "file",
             Self::Texture(_) => "texture",
             Self::Url(_) => "URL",
         }
@@ -49,417 +38,128 @@ pub(super) enum Placement {
     Timeline { x: f64, y: f64 },
 }
 
-#[allow(clippy::too_many_arguments)]
 pub(super) fn insert(
     area: &gtk::GLArea,
-    project: &Rc<RefCell<Project>>,
-    player_state: &SharedPlayerState,
-    selection_state: &SharedSelectionState,
     runtime: &Rc<RefCell<TimelineRuntime>>,
     content: Content,
     origin: Origin,
     placement: Placement,
 ) -> bool {
-    match content {
-        Content::Text(text) => insert_text(
-            area,
-            project,
-            player_state,
-            selection_state,
-            runtime,
-            text,
-            placement,
-        ),
+    let point = match placement {
+        Placement::Playhead => None,
+        Placement::Timeline { x, y } => Some(super::vec2(x as f32, y as f32)),
+    };
+    let content = match content {
+        Content::Text(text) => {
+            Ok(shrimply_timeline_core::external_content::ExternalDrop::Text(text))
+        }
         Content::Texture(texture) => {
             let bytes = texture.save_to_png_bytes();
-            let path = match shrimply_timeline_core::external_content::store_clipboard_image(
-                bytes.as_ref(),
-            ) {
-                Ok(path) => path,
-                Err(error) => {
-                    show_error_dialog(area, "Could not store image", &error);
-                    return false;
-                }
-            };
-            insert_file(
-                area,
-                project,
-                player_state,
-                selection_state,
-                runtime,
-                path,
-                origin,
-                placement,
+            shrimply_timeline_core::external_content::store_clipboard_image(bytes.as_ref()).map(
+                |path| shrimply_timeline_core::external_content::ExternalDrop::Files(vec![path]),
             )
         }
-        Content::File(path) => insert_file(
-            area,
-            project,
-            player_state,
-            selection_state,
-            runtime,
-            path,
-            origin,
-            placement,
-        ),
-        Content::Url(url) => download_image(
-            area,
-            project,
-            player_state,
-            selection_state,
-            runtime,
-            url,
-            origin,
-            placement,
-        ),
-    }
-}
-
-#[allow(clippy::too_many_arguments)]
-fn download_image(
-    area: &gtk::GLArea,
-    project: &Rc<RefCell<Project>>,
-    player_state: &SharedPlayerState,
-    selection_state: &SharedSelectionState,
-    runtime: &Rc<RefCell<TimelineRuntime>>,
-    url: String,
-    origin: Origin,
-    placement: Placement,
-) -> bool {
-    let (sender, receiver) = mpsc::channel();
-    let logged_url = url.clone();
-    thread::spawn(move || {
-        let result = (|| {
-            let client = reqwest::blocking::Client::builder()
-                .user_agent(concat!("shrimply/", env!("CARGO_PKG_VERSION")))
-                .timeout(Duration::from_secs(30))
-                .build()
-                .map_err(|error| error.to_string())?;
-            let response = client
-                .get(&url)
-                .header(reqwest::header::ACCEPT, "image/*")
-                .send()
-                .map_err(|error| error.to_string())?
-                .error_for_status()
-                .map_err(|error| error.to_string())?;
-            let response_content_type = response
-                .headers()
-                .get(reqwest::header::CONTENT_TYPE)
-                .and_then(|value| value.to_str().ok());
-            let extension = match response_content_type {
-                Some(content_type) => {
-                    shrimply_timeline_core::external_content::image_extension_for_content_type(
-                        content_type,
-                    )
-                    .ok_or_else(|| {
-                        format!("the dropped URL returned unsupported content type {content_type}")
-                    })?
-                }
-                None => shrimply_timeline_core::external_content::image_extension_for_url(&url)
-                    .ok_or_else(|| {
-                        "the dropped URL had no image content type or supported extension"
-                            .to_string()
-                    })?,
-            };
-            let mut bytes = Vec::new();
-            response
-                .take(100 * 1024 * 1024 + 1)
-                .read_to_end(&mut bytes)
-                .map_err(|error| error.to_string())?;
-            if bytes.len() > 100 * 1024 * 1024 {
-                return Err("the dropped image is larger than 100 MiB".to_string());
-            }
-            shrimply_timeline_core::external_content::store_clipboard_image_with_extension(
-                &bytes, extension,
-            )
-        })();
-        let _ = sender.send(result);
-    });
-
-    let area = area.clone();
-    let project = project.clone();
-    let player_state = player_state.clone();
-    let selection_state = selection_state.clone();
-    let runtime = runtime.clone();
-    glib::timeout_add_local(Duration::from_millis(50), move || {
-        match receiver.try_recv() {
-            Ok(Ok(path)) => {
-                if !insert_file(
-                    &area,
-                    &project,
-                    &player_state,
-                    &selection_state,
-                    &runtime,
-                    path,
-                    origin,
-                    placement,
-                ) {
-                    tracing::warn!("Downloaded dropped image could not be inserted");
-                }
-                glib::ControlFlow::Break
-            }
-            Ok(Err(error)) => {
-                tracing::warn!("Could not download dropped image url={logged_url}: {error}");
-                show_error_dialog(&area, "Could not import dropped image", &error);
-                glib::ControlFlow::Break
-            }
-            Err(TryRecvError::Empty) => glib::ControlFlow::Continue,
-            Err(TryRecvError::Disconnected) => {
-                tracing::warn!("Dropped image download worker disconnected");
-                glib::ControlFlow::Break
-            }
-        }
-    });
-    true
-}
-
-#[allow(clippy::too_many_arguments)]
-fn insert_file(
-    area: &gtk::GLArea,
-    project: &Rc<RefCell<Project>>,
-    player_state: &SharedPlayerState,
-    selection_state: &SharedSelectionState,
-    runtime: &Rc<RefCell<TimelineRuntime>>,
-    mut path: PathBuf,
-    origin: Origin,
-    placement: Placement,
-) -> bool {
-    let Some(kind) = import::file_kind(&path) else {
-        return false;
-    };
-    if matches!(origin, Origin::Clipboard)
-        && matches!(
-            kind,
-            import::FileKind::Image
-                | import::FileKind::Gif
-                | import::FileKind::Svg
-                | import::FileKind::Pdf
-        )
-    {
-        path = match shrimply_timeline_core::external_content::store_clipboard_visual_file(&path) {
-            Ok(Some(path)) => path,
-            Ok(None) => return false,
-            Err(error) => {
-                show_error_dialog(area, "Could not store image", &error);
-                return false;
-            }
-        };
-    }
-
-    let (start, target) = match placement {
-        Placement::Playhead => (
-            player_state::snapshot(player_state).position,
-            items::NewItemTarget::Automatic,
-        ),
-        Placement::Timeline { x, y } => {
-            let runtime = runtime.borrow();
-            let start = Time::from_seconds_f64(x_to_time(
-                x,
-                runtime.scene.view().scroll_seconds,
-                runtime.scene.view().seconds_per_pixel,
-            ));
-            (
-                runtime.scene.snap_repository.snap(start).unwrap_or(start),
-                items::NewItemTarget::AtY(content_y(runtime.scene.view(), y)),
-            )
+        Content::Files(paths) => stage_clipboard_paths(paths, origin)
+            .map(shrimply_timeline_core::external_content::ExternalDrop::Files),
+        Content::Url(url) => {
+            Ok(shrimply_timeline_core::external_content::ExternalDrop::ImageUrl(url))
         }
     };
-    if import::direct_media_kind(kind) {
-        import_path_at(
-            area,
-            project,
-            player_state,
-            selection_state,
-            runtime,
-            path,
-            start,
-            target,
-        );
-    } else if matches!(kind, import::FileKind::Mkv | import::FileKind::WebM) {
-        ask_remux_then_import_at(
-            area,
-            project,
-            player_state,
-            selection_state,
-            runtime,
-            path,
-            start,
-            target,
-        );
-    } else {
-        return false;
+    let result = content.and_then(|content| {
+        runtime
+            .borrow_mut()
+            .scene
+            .perform_external_drop(content, point)
+    });
+    match result {
+        Ok(shrimply_timeline_core::external_content::ExternalDropAction::Complete) => {
+            area.queue_render();
+            true
+        }
+        Ok(shrimply_timeline_core::external_content::ExternalDropAction::Importing(_)) => {
+            area.queue_render();
+            true
+        }
+        Ok(shrimply_timeline_core::external_content::ExternalDropAction::ConfirmRemux {
+            paths,
+            batch,
+        }) => {
+            confirm_remux(area, runtime, paths, point, batch);
+            true
+        }
+        Err(error) => {
+            show_error_dialog(area, "Could not insert timeline content", &error);
+            false
+        }
     }
-    true
 }
 
-#[allow(clippy::too_many_arguments)]
-fn insert_text(
+fn confirm_remux(
     area: &gtk::GLArea,
-    project: &Rc<RefCell<Project>>,
-    player_state: &SharedPlayerState,
-    selection_state: &SharedSelectionState,
     runtime: &Rc<RefCell<TimelineRuntime>>,
-    text: String,
-    placement: Placement,
-) -> bool {
-    let inserted = insert_text_core(
-        project,
-        player_state,
-        selection_state,
-        runtime,
-        text,
-        placement,
+    paths: Vec<PathBuf>,
+    point: Option<glam::Vec2>,
+    batch: shrimply_timeline_core::import_queue::BatchId,
+) {
+    let dialog = adw::AlertDialog::new(
+        Some("Remux MKV/WebM to MP4?"),
+        Some("MP4 is the supported timeline format. The source files will be kept."),
     );
-    if inserted {
-        area.queue_render();
+    dialog.add_responses_i18n(&[("cancel", "Cancel"), ("remux", "Remux")]);
+    dialog.set_close_response("cancel");
+    dialog.set_default_response(Some("remux"));
+    dialog.set_response_appearance("remux", adw::ResponseAppearance::Suggested);
+    let area = area.clone();
+    let runtime = runtime.clone();
+    dialog.choose(
+        Some(area.clone().upcast_ref::<gtk::Widget>()),
+        None::<&gio::Cancellable>,
+        move |response| {
+            if response.as_str() == "remux" {
+                if let Err(error) = runtime
+                    .borrow_mut()
+                    .scene
+                    .begin_external_remux(paths, point, batch)
+                {
+                    show_error_dialog(&area, "Could not remux source file", &error);
+                }
+            }
+            area.queue_render();
+        },
+    );
+}
+
+fn stage_clipboard_paths(paths: Vec<PathBuf>, origin: Origin) -> Result<Vec<PathBuf>, String> {
+    if matches!(origin, Origin::Drop) {
+        return Ok(paths);
     }
-    inserted
+    paths
+        .into_iter()
+        .map(|path| {
+            shrimply_timeline_core::external_content::store_clipboard_visual_file(&path)
+                .map(|stored| stored.unwrap_or(path))
+        })
+        .collect()
 }
 
 pub(crate) fn insert_text_at_playhead_core(
-    project: &Rc<RefCell<Project>>,
-    player_state: &SharedPlayerState,
-    selection_state: &SharedSelectionState,
     runtime: &Rc<RefCell<TimelineRuntime>>,
     text: String,
 ) -> bool {
-    insert_text_core(
-        project,
-        player_state,
-        selection_state,
-        runtime,
-        text,
-        Placement::Playhead,
-    )
-}
-
-#[allow(clippy::too_many_arguments)]
-fn insert_text_core(
-    project: &Rc<RefCell<Project>>,
-    player_state: &SharedPlayerState,
-    selection_state: &SharedSelectionState,
-    runtime: &Rc<RefCell<TimelineRuntime>>,
-    text: String,
-    placement: Placement,
-) -> bool {
-    if text.is_empty() {
-        return false;
-    }
-    let preview = match placement {
-        Placement::Playhead => None,
-        Placement::Timeline { x, y } => {
-            let runtime = runtime.borrow();
-            let Some(preview) = runtime
-                .scene
-                .text_preview(text.clone(), super::vec2(x as f32, y as f32))
-            else {
-                return false;
-            };
-            Some(preview)
-        }
-    };
-
-    let frame_step = project.borrow().frame_step();
-    let start = preview
-        .as_ref()
-        .map_or_else(
-            || player_state::snapshot(player_state).position,
-            |p| p.start,
-        )
-        .snapped(frame_step);
-    let end = preview.as_ref().map_or_else(
-        || {
-            start
-                .saturating_add(runtime.borrow().scene.default_visual_duration)
-                .snapped(frame_step)
-        },
-        |p| p.end,
-    );
-    let text = preview.as_ref().map_or(text, |p| p.text.clone());
-    let default_text_font_family = runtime.borrow().scene.default_text_font_family.clone();
-    let mut project_state = project.borrow_mut();
-    let (kind, track_index) = preview
-        .as_ref()
-        .map(|p| (p.kind, p.track_index))
-        .unwrap_or_else(|| {
-            let track_index = project_state
-                .video_tracks
-                .iter()
-                .position(|track| {
-                    track
-                        .items
-                        .iter()
-                        .all(|item| item.end <= start || item.start >= end)
-                })
-                .unwrap_or_else(|| {
-                    project_state.video_tracks.push(VideoTrack::default());
-                    project_state.video_tracks.len() - 1
-                });
-            (TrackKind::Video, track_index)
-        });
-    let item_index = match kind {
-        TrackKind::Caption => {
-            let Some(track) = project_state.caption_tracks.get_mut(track_index) else {
-                return false;
-            };
-            if end <= start {
-                return false;
-            }
-            items::insert_sorted(&mut track.items, CaptionItem::new(start, end, text))
-        }
-        TrackKind::Video => {
-            let canvas_size = project_state.canvas_size;
-            let Some(track) = project_state.video_tracks.get_mut(track_index) else {
-                return false;
-            };
-            if end <= start {
-                return false;
-            }
-            let mut item = VideoItem::text_item(canvas_size, start, end);
-            let VideoItemContent::Text(content) = &mut item.content else {
-                unreachable!("text item constructor returned another item type");
-            };
-            content.text = shrimply_core::timeline_value::TimelineValue::new_const(text);
-            content.font_families = vec![default_text_font_family];
-            items::insert_sorted(&mut track.items, item)
-        }
-        TrackKind::Audio => return false,
-    };
-    let selected = ItemKey {
-        kind,
-        track_index,
-        item_index,
-    };
-    let duration = project_state.duration();
-    crate::project::commit_edit(&project_state, "insert-external-text");
-    drop(project_state);
-
-    let project_state = project.borrow();
-    set_timeline_selection(
-        &project_state,
-        selection_state,
-        vec![selected],
-        Some(selected),
-    );
-    player_state::refresh_project(
-        player_state,
-        ProjectChange {
-            duration: Some(duration),
-            video: kind == TrackKind::Video,
-            captions: kind == TrackKind::Caption,
-            inspector: true,
-            ..ProjectChange::default()
-        },
-    );
-    true
+    runtime.borrow_mut().scene.insert_external_text(text, None)
 }
 
 pub(super) fn from_value(value: &glib::Value) -> Option<Content> {
     value
         .get::<gdk::FileList>()
         .ok()
-        .and_then(|files| files.files().into_iter().find_map(file_content))
-        .or_else(|| value.get::<gio::File>().ok().and_then(file_content))
+        .and_then(|files| content_from_files(files.files()))
+        .or_else(|| {
+            value
+                .get::<gio::File>()
+                .ok()
+                .and_then(|file| content_from_files([file]))
+        })
         .or_else(|| value.get::<gdk::Texture>().ok().map(Content::Texture))
         .or_else(|| {
             value
@@ -471,18 +171,45 @@ pub(super) fn from_value(value: &glib::Value) -> Option<Content> {
         .or_else(|| value.get::<String>().ok().map(content_from_text))
 }
 
-fn content_from_text(text: String) -> Content {
-    first_uri_path(&text)
-        .map(Content::File)
-        .or_else(|| first_http_url(&text).map(Content::Url))
-        .unwrap_or(Content::Text(text))
+fn content_from_files(files: impl IntoIterator<Item = gio::File>) -> Option<Content> {
+    let mut paths = Vec::new();
+    let mut url = None;
+    for file in files {
+        if let Some(path) = file_path(&file) {
+            paths.push(path);
+        } else {
+            let uri = file.uri();
+            if url.is_none() && (uri.starts_with("https://") || uri.starts_with("http://")) {
+                url = Some(uri.into());
+            }
+        }
+    }
+    if paths.is_empty() {
+        url.map(Content::Url)
+    } else {
+        Some(Content::Files(paths))
+    }
 }
 
-pub(super) fn supported_uri_path(text: &str) -> Option<PathBuf> {
-    first_uri_path(text).filter(|path| import::file_kind(path).is_some())
+pub(super) fn content_from_text(text: String) -> Content {
+    let paths = uri_paths(&text);
+    if !paths.is_empty() {
+        return Content::Files(paths);
+    }
+    match shrimply_timeline_core::external_content::classify_external_text(text) {
+        shrimply_timeline_core::external_content::ExternalText::Text(text) => Content::Text(text),
+        shrimply_timeline_core::external_content::ExternalText::ImageUrl(url) => Content::Url(url),
+    }
 }
 
-fn file_path(file: gio::File) -> Option<PathBuf> {
+pub(super) fn supported_uri_paths(text: &str) -> Vec<PathBuf> {
+    uri_paths(text)
+        .into_iter()
+        .filter(|path| shrimply_timeline_core::import::file_kind(path).is_some())
+        .collect()
+}
+
+fn file_path(file: &gio::File) -> Option<PathBuf> {
     file.path().or_else(|| {
         let uri = file.uri();
         glib::filename_from_uri(uri.as_str())
@@ -491,28 +218,14 @@ fn file_path(file: gio::File) -> Option<PathBuf> {
     })
 }
 
-fn file_content(file: gio::File) -> Option<Content> {
-    let uri = file.uri();
-    file_path(file).map(Content::File).or_else(|| {
-        (uri.starts_with("https://") || uri.starts_with("http://"))
-            .then(|| Content::Url(uri.into()))
-    })
-}
-
-fn first_uri_path(text: &str) -> Option<PathBuf> {
-    text.lines().find_map(|line| {
-        let line = line.trim();
-        if line.is_empty() || line.starts_with('#') || line == "copy" || line == "cut" {
-            return None;
-        }
-        let (path, _) = glib::filename_from_uri(line).ok()?;
-        Some(path)
-    })
-}
-
-fn first_http_url(text: &str) -> Option<String> {
+fn uri_paths(text: &str) -> Vec<PathBuf> {
     text.lines()
-        .map(str::trim)
-        .find(|line| line.starts_with("https://") || line.starts_with("http://"))
-        .map(str::to_owned)
+        .filter_map(|line| {
+            let line = line.trim();
+            if line.is_empty() || line.starts_with('#') || line == "copy" || line == "cut" {
+                return None;
+            }
+            glib::filename_from_uri(line).ok().map(|(path, _)| path)
+        })
+        .collect()
 }

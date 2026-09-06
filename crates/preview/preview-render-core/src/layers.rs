@@ -32,7 +32,7 @@ impl Scene {
             }
 
             let item = item.as_ref();
-            item.modifier_output_state()?;
+            let motion_blur_item = prepared.motion_blur_source.as_deref().unwrap_or(item);
             shrimply_project::project::validate_visual_transitions(item)?;
             let evaluation = VisualEvaluation::for_item_with_audio(project, item, time, audio);
             let transform = shrimply_evaluation::resolve_item_transform_with_audio(
@@ -42,14 +42,25 @@ impl Scene {
                 audio,
                 &mut self.expressions,
             );
+            let motion_blur_transform = if prepared.motion_blur_source.is_some() {
+                shrimply_evaluation::resolve_item_transform_with_audio(
+                    project,
+                    motion_blur_item,
+                    time,
+                    audio,
+                    &mut self.expressions,
+                )
+            } else {
+                transform
+            };
             let generated_transition =
                 shrimply_video_core::generated::transition(item, time, false);
             let mut motion_blur = shrimply_video_core::motion_blur::sample_transforms(
                 shrimply_video_core::motion_blur::Request {
                     project,
-                    item,
+                    item: motion_blur_item,
                     position: time,
-                    current: transform.composed(),
+                    current: motion_blur_transform.composed(),
                     content_accurate: self.requested_accuracy.content_accurate(),
                 },
                 &mut self.expressions,
@@ -62,7 +73,10 @@ impl Scene {
                 },
             )
             .and_then(|samples| {
-                shrimply_math_geometry::relative_motion_transforms(transform.composed(), samples)
+                shrimply_math_geometry::relative_motion_transforms(
+                    motion_blur_transform.composed(),
+                    samples,
+                )
             });
             let vector_source = matches!(
                 item.content,
@@ -79,6 +93,7 @@ impl Scene {
                         &address,
                         item,
                         time,
+                        &prepared.scope_positions,
                         evaluation.clone(),
                         project.canvas_size,
                         transform.composed(),
@@ -468,22 +483,15 @@ impl Scene {
                             time,
                             audio,
                             render_canvas,
+                            prepared.address.sequence_path(),
+                            prepared.address.track_id(),
                             &mut self.expressions,
                         )?;
                     let width = plan.width;
                     let height = plan.height;
                     (Source::Gaussian(Box::new(plan)), width, height)
                 }
-                VideoItemContent::Obj(scene) => {
-                    if matches!(
-                        scene.camera.source,
-                        shrimply_scene_3d::CameraSource::Tracking(_)
-                    ) {
-                        return Err(
-                            "Tracked OBJ cameras are not connected to the native preview renderer"
-                                .to_string(),
-                        );
-                    }
+                VideoItemContent::Obj(_) => {
                     let plan = self.objs.entry(item.id).or_default().prepare(
                         shrimply_video_core::obj::Request {
                             project,
@@ -492,7 +500,8 @@ impl Scene {
                             audio_analysis: audio,
                             render_canvas,
                             content_accurate: self.requested_accuracy.content_accurate(),
-                            tracked_camera: None,
+                            sequence_path: prepared.address.sequence_path(),
+                            track_id: prepared.address.track_id(),
                         },
                     )?;
                     let width = plan.width;
@@ -534,32 +543,19 @@ impl Scene {
             let effects = if let Some(effects) = vector_effects {
                 effects
             } else {
-                item.modifiers
-                    .iter()
-                    .enumerate()
-                    .filter(|(_, modifier)| modifier.enabled)
-                    .map(|(modifier_index, _)| {
-                        let effect = shrimply_video_core::raster_modifiers::modifier(
-                            shrimply_video_core::raster_modifiers::ModifierRequest {
-                                project,
-                                address: &address,
-                                item,
-                                position: time,
-                                modifier_index,
-                                require_complete_assets: false,
-                            },
-                            &evaluation,
-                            &mut self.expressions,
-                            self.requested_accuracy.content_accurate(),
-                        )?;
-                        effect.ok_or_else(|| {
-                            format!(
-                                "Clip {} has a modifier or mask that is not yet connected to Metal",
-                                item.id
-                            )
-                        })
-                    })
-                    .collect::<Result<Vec<_>, String>>()?
+                shrimply_video_core::raster_modifiers::after_source(
+                    shrimply_video_core::raster_modifiers::ChainRequest {
+                        project,
+                        address: &address,
+                        item,
+                        position: time,
+                        scope_positions: &prepared.scope_positions,
+                        require_complete_assets: false,
+                    },
+                    &evaluation,
+                    &mut self.expressions,
+                    self.requested_accuracy.content_accurate(),
+                )?
             };
             let parameters = Nv12LayerParams {
                 crop: [0.0; 4],

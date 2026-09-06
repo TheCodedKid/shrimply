@@ -102,7 +102,10 @@ impl MicRecording {
         let directory = shrimply_project::project::project_directory().join(RECORDING_DIR);
         fs::create_dir_all(&directory).map_err(|error| error.to_string())?;
         let path = directory.join(format!("{}.opus", Uuid::new_v4()));
-        write_opus(&path, &samples, sample_rate)?;
+        if let Err(error) = write_opus(&path, &samples, sample_rate) {
+            let _ = fs::remove_file(&path);
+            return Err(error);
+        }
         let frames = samples.len() / CHANNELS;
         let duration = Time::from_nanos(
             ((frames as u128 * 1_000_000_000_u128) / sample_rate as u128).min(u64::MAX as u128)

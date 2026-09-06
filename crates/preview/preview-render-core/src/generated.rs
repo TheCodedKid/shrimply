@@ -74,6 +74,7 @@ impl Scene {
         address: &ItemAddress,
         item: &VideoItem,
         position: Time,
+        scope_positions: &[Time],
         evaluation: VisualEvaluation,
         native: CanvasSize,
         transform: ComposedTransform2D,
@@ -90,12 +91,9 @@ impl Scene {
         let mut effects = Vec::new();
         let mut is_vector = true;
         let mut sample_method = item.sample_method.value_at(evaluation.local_time());
-        for (modifier_index, modifier) in item
-            .modifiers
-            .iter()
-            .enumerate()
-            .filter(|(_, modifier)| modifier.enabled)
-        {
+        let modifier_plan = shrimply_video_core::raster_modifiers::plan(item)?;
+        for modifier_index in modifier_plan.source {
+            let modifier = &item.modifiers[modifier_index];
             if is_vector
                 && modifier
                     .alpha_mask
@@ -118,24 +116,6 @@ impl Scene {
                     is_vector = false;
                     sample_method = effect.sample_method.value_at(evaluation.local_time());
                 }
-                ModifierEffect::Raster(_) if !is_vector => {
-                    effects.push(
-                        shrimply_video_core::raster_modifiers::modifier(
-                            shrimply_video_core::raster_modifiers::ModifierRequest {
-                                project,
-                                address,
-                                item,
-                                position,
-                                modifier_index,
-                                require_complete_assets: false,
-                            },
-                            &evaluation,
-                            &mut self.expressions,
-                            self.requested_accuracy.content_accurate(),
-                        )?
-                        .ok_or("Vector source's raster modifier is not yet connected to Metal")?,
-                    );
-                }
                 _ => {
                     return Err(
                         "Unsupported generated modifier or invalid vector/raster modifier order"
@@ -143,6 +123,25 @@ impl Scene {
                     );
                 }
             }
+        }
+        for modifier_index in modifier_plan.raster {
+            effects.push(
+                shrimply_video_core::raster_modifiers::modifier(
+                    shrimply_video_core::raster_modifiers::ModifierRequest {
+                        project,
+                        address,
+                        item,
+                        position,
+                        scope_positions,
+                        modifier_index,
+                        require_complete_assets: false,
+                    },
+                    &evaluation,
+                    &mut self.expressions,
+                    self.requested_accuracy.content_accurate(),
+                )?
+                .ok_or("Vector source's raster modifier is not yet connected to Metal")?,
+            );
         }
         let masks = shrimply_video_core::text::take_masks(&mut operations);
         let (visual, source_offset, morph_scene): (Box<dyn GeneratedVisual>, _, _) =

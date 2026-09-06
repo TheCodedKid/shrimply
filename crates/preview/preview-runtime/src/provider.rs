@@ -36,7 +36,7 @@ pub fn sample_camera(
     source: &shrimply_3dgs::TrackingCameraSource,
     time: shrimply_project::project::Time,
 ) -> Option<shrimply_project::project::TrackedCameraPreview> {
-    shrimply_video_cuda::camera_reconstruction::sample(id, source, time).map(|camera| {
+    shrimply_video_core::camera_reconstruction::sample(id, source, time).map(|camera| {
         shrimply_project::project::TrackedCameraPreview {
             position: camera.position,
             rotation: camera.rotation,

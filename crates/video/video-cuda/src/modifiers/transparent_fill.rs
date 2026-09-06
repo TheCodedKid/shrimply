@@ -1,12 +1,4 @@
-use shrimply_project::project::{Project, Time};
-use shrimply_video_modifiers::transparent_fill::TransparentFillModifier;
-
-use super::RasterModifierRuntime;
-use crate::{
-    gpu::modifiers::{CanvasRgbaFrame, GpuModifier, ModifierContext, ModifierModule},
-    layer::RasterVisual,
-    visual_source::VisualModifierContext,
-};
+use crate::gpu::modifiers::{CanvasRgbaFrame, GpuModifier, ModifierContext, ModifierModule};
 
 pub(crate) use shrimply_video_core::transparent_fill::{
     AnalysisFrame, TransparentFillMaskCache, analysis_cache_key, analysis_frames, cache_key,
@@ -47,32 +39,6 @@ impl GpuModifier for shrimply_video_core::transparent_fill::ResolvedMask {
         }
         .map_err(|error| format!("launch transparent fill mask kernel: {error:?}"))?;
         Ok(pass.finish(context))
-    }
-}
-
-impl RasterModifierRuntime for TransparentFillModifier {
-    fn apply_raster(
-        &self,
-        mut input: RasterVisual,
-        context: &mut VisualModifierContext<'_>,
-    ) -> Result<RasterVisual, String> {
-        if self.points.is_empty() {
-            return Ok(input);
-        }
-        let Some(resolved) = shrimply_video_core::transparent_fill::resolve(
-            context.project,
-            context.address,
-            context.item,
-            context.modifier_id,
-            context.modifier_index,
-            context.position,
-            context.require_complete_assets,
-        )?
-        else {
-            return Ok(input);
-        };
-        input.push_pixel(Box::new(resolved));
-        Ok(input)
     }
 }
 

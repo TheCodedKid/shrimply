@@ -4,13 +4,14 @@ use shrimply_evaluation::{
 };
 use shrimply_project::project::{ItemAddress, Project, Time, VideoItem};
 use shrimply_render_core::{VideoSampleMethod, effects::PixelEffect};
-use shrimply_video_modifiers::{ModifierEffect, RasterModifierEffect};
+use shrimply_video_modifiers::{ModifierEffect, ModifierModel, RasterModifierEffect};
 
 pub enum Operation {
     Pixel(PixelEffect),
     Dithering(Dithering),
     Sam2Mask(crate::sam2::ResolvedMask),
     TransparentFillMask(crate::transparent_fill::ResolvedMask),
+    Mask(ExternalMask),
     Transform(shrimply_math_geometry::ComposedTransform2D),
     Opacity(f32),
     Sampling(VideoSampleMethod),
@@ -63,9 +64,31 @@ impl Operation {
             Self::Pixel(_)
             | Self::Dithering(_)
             | Self::Sam2Mask(_)
-            | Self::TransparentFillMask(_) => return false,
+            | Self::TransparentFillMask(_)
+            | Self::Mask(_) => return false,
         }
         true
+    }
+}
+
+pub struct ExternalMask {
+    pub source: Option<ExternalDependency>,
+    pub luminance: bool,
+    pub invert: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ExternalDependency {
+    pub address: ItemAddress,
+    pub scope_positions: Vec<Time>,
+}
+
+impl ExternalDependency {
+    pub fn position(&self) -> Time {
+        *self
+            .scope_positions
+            .last()
+            .expect("external dependency has a sequence scope position")
     }
 }
 
@@ -79,8 +102,126 @@ pub struct ModifierRequest<'a> {
     pub address: &'a ItemAddress,
     pub item: &'a VideoItem,
     pub position: Time,
+    pub scope_positions: &'a [Time],
     pub modifier_index: usize,
     pub require_complete_assets: bool,
+}
+
+pub struct ChainRequest<'a> {
+    pub project: &'a Project,
+    pub address: &'a ItemAddress,
+    pub item: &'a VideoItem,
+    pub position: Time,
+    pub scope_positions: &'a [Time],
+    pub require_complete_assets: bool,
+}
+
+pub struct ModifierPlan {
+    pub source: Vec<usize>,
+    pub raster: Vec<usize>,
+}
+
+pub fn plan(item: &VideoItem) -> Result<ModifierPlan, String> {
+    item.modifier_output_state()?;
+    let mut source = Vec::new();
+    let mut raster = Vec::new();
+    for (index, modifier) in item.modifiers.iter().enumerate() {
+        if !modifier.enabled {
+            continue;
+        }
+        match &modifier.effect {
+            ModifierEffect::Raster(_) => raster.push(index),
+            _ => source.push(index),
+        }
+    }
+    Ok(ModifierPlan { source, raster })
+}
+
+/// Resolves the raster portion of a modifier chain after its source renderer has run.
+/// Source renderers consume their native stages, such as OBJ scene entries, before
+/// producing the RGBA input for this chain.
+pub fn after_source(
+    request: ChainRequest<'_>,
+    evaluation: &VisualEvaluation,
+    expressions: &mut TransformExpressionCache,
+    content_accurate: bool,
+) -> Result<Vec<Modifier>, String> {
+    let mut resolved = Vec::new();
+    for modifier_index in plan(request.item)?.raster {
+        let visual_modifier = &request.item.modifiers[modifier_index];
+        let name = visual_modifier.effect.display_name();
+        let modifier = modifier(
+            ModifierRequest {
+                project: request.project,
+                address: request.address,
+                item: request.item,
+                position: request.position,
+                scope_positions: request.scope_positions,
+                modifier_index,
+                require_complete_assets: request.require_complete_assets,
+            },
+            evaluation,
+            expressions,
+            content_accurate,
+        )?
+        .ok_or_else(|| {
+            format!(
+                "modifier {} ({name}) did not produce a raster operation",
+                modifier_index + 1
+            )
+        })?;
+        resolved.push(modifier);
+    }
+    Ok(resolved)
+}
+
+pub fn external_dependencies(request: ChainRequest<'_>) -> Result<Vec<ExternalDependency>, String> {
+    let mut dependencies = Vec::new();
+    for index in plan(request.item)?.raster {
+        let modifier = &request.item.modifiers[index];
+        let ModifierEffect::Raster(effect) = &modifier.effect else {
+            continue;
+        };
+        let RasterModifierEffect::Mask(mask) = &**effect else {
+            continue;
+        };
+        let Some(source) = external_mask_source(
+            request.project,
+            request.address,
+            request.position,
+            request.scope_positions,
+            mask.item_id,
+        ) else {
+            continue;
+        };
+        if !dependencies.contains(&source) {
+            dependencies.push(source);
+        }
+    }
+    Ok(dependencies)
+}
+
+fn external_mask_source(
+    project: &Project,
+    address: &ItemAddress,
+    position: Time,
+    scope_positions: &[Time],
+    item_id: Option<uuid::Uuid>,
+) -> Option<ExternalDependency> {
+    let item_id = item_id?;
+    let tracks = project.video_tracks_for_path(address.sequence_path())?;
+    let active =
+        crate::sequence::active_tracks(tracks, position, Some(std::slice::from_ref(&item_id)))
+            .into_iter()
+            .find(|active| active.item.id == item_id)?;
+    Some(ExternalDependency {
+        address: ItemAddress::Video {
+            sequence_path: address.sequence_path().to_vec(),
+            track_id: active.track_id,
+            item_id,
+        },
+        scope_positions: scope_positions.to_vec(),
+    })
 }
 
 pub fn modifier(
@@ -130,6 +271,18 @@ pub fn modifier(
             request.require_complete_assets,
         )?
         .map(Operation::TransparentFillMask),
+        RasterModifierEffect::Mask(mask) => Some(Operation::Mask(ExternalMask {
+            source: external_mask_source(
+                request.project,
+                request.address,
+                request.position,
+                request.scope_positions,
+                mask.item_id,
+            ),
+            luminance: mask.mode.value_at(evaluation.local_time())
+                == shrimply_video_modifiers::mask::MaskMode::Luminance,
+            invert: mask.invert,
+        })),
         _ => operation(effect, evaluation, expressions, content_accurate)?,
     };
     Ok(operation.map(|operation| Modifier {

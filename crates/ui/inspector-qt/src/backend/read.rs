@@ -626,6 +626,7 @@ impl qobject::InspectorBackend {
 
     pub fn control_tooltip(&self, category: i32, item: i32, control: i32) -> QString {
         let control_index = control;
+        let target = self.document().map(|document| document.target.clone());
         self.control(category, item, control)
             .map_or_else(QString::default, |control| {
                 if control.kind == ControlKind::Analysis {
@@ -644,10 +645,11 @@ impl qobject::InspectorBackend {
                             ControlKind::AudioCache | ControlKind::VisualCache
                         ) {
                             QString::from(
-                                crate::tracked_cache_control(control.kind, id).map_or_else(
-                                    || control.tooltip.clone(),
-                                    |status| status.tooltip,
-                                ),
+                                crate::tracked_cache_control(control.kind, id, target.as_ref())
+                                    .map_or_else(
+                                        || control.tooltip.clone(),
+                                        |status| status.tooltip,
+                                    ),
                             )
                         } else {
                             shrimply_i18n_qt::text(&control.tooltip)
@@ -692,7 +694,9 @@ impl qobject::InspectorBackend {
                 ) {
                     control
                         .target_id
-                        .and_then(|id| crate::tracked_cache_control(control.kind, id))
+                        .and_then(|id| {
+                            crate::tracked_cache_control(control.kind, id, target.as_ref())
+                        })
                         .map_or_else(
                             || shrimply_i18n_qt::text(&control.value),
                             |status| shrimply_i18n_qt::text(status.label),
@@ -729,7 +733,9 @@ impl qobject::InspectorBackend {
                 ) {
                     let status = control
                         .target_id
-                        .and_then(|id| crate::tracked_cache_control(control.kind, id))
+                        .and_then(|id| {
+                            crate::tracked_cache_control(control.kind, id, target.as_ref())
+                        })
                         .and_then(|status| match component {
                             0 => Some(status.progress),
                             1 => Some(f64::from(u8::from(status.baking))),
@@ -849,6 +855,7 @@ impl qobject::InspectorBackend {
 
     pub fn control_sensitive(&self, category: i32, item: i32, control: i32) -> bool {
         let control_index = control;
+        let target = self.document().map(|document| document.target.clone());
         self.control(category, item, control)
             .is_some_and(|control| {
                 if control.kind == ControlKind::Analysis {
@@ -862,7 +869,9 @@ impl qobject::InspectorBackend {
                         ControlKind::AudioCachePreset | ControlKind::VisualCacheQuality
                     ) && control
                         .target_id
-                        .and_then(|id| crate::tracked_cache_control(control.kind, id))
+                        .and_then(|id| {
+                            crate::tracked_cache_control(control.kind, id, target.as_ref())
+                        })
                         .is_some_and(|status| status.baking))
             })
     }

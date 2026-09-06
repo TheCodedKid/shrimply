@@ -648,7 +648,7 @@ impl VideoExportRenderer {
         position: Time,
         background_alpha: u8,
     ) -> Result<CompositedVideoFrame, String> {
-        self.render_items_inner(project, position, background_alpha, None, None, false)
+        self.render_items_inner(project, position, background_alpha, None, None, None, false)
     }
 
     pub fn render_items(
@@ -667,8 +667,18 @@ impl VideoExportRenderer {
             background_alpha,
             Some(item_ids),
             None,
+            None,
             false,
         )
+    }
+
+    pub fn render_track(
+        &mut self,
+        project: &Project,
+        position: Time,
+        track: &shrimply_project::project::TrackAddress,
+    ) -> Result<CompositedVideoFrame, String> {
+        self.render_items_inner(project, position, 0, None, Some(track), None, false)
     }
 
     pub(crate) fn render_cache_item(
@@ -710,6 +720,7 @@ impl VideoExportRenderer {
             position,
             0,
             Some(std::slice::from_ref(root_item_id)),
+            None,
             Some(address),
             snap_cache_item,
         )
@@ -721,6 +732,7 @@ impl VideoExportRenderer {
         position: Time,
         background_alpha: u8,
         item_ids: Option<&[Uuid]>,
+        capture_track: Option<&shrimply_project::project::TrackAddress>,
         cache_item: Option<&ItemAddress>,
         snap_cache_item: bool,
     ) -> Result<CompositedVideoFrame, String> {
@@ -747,6 +759,7 @@ impl VideoExportRenderer {
             },
             &audio_analysis,
             item_ids,
+            capture_track,
             cache_item,
             snap_cache_item,
             None,
@@ -779,6 +792,7 @@ impl VideoExportRenderer {
                         },
                         &audio_analysis,
                         item_ids,
+                        capture_track,
                         cache_item,
                         snap_cache_item,
                         None,
@@ -1062,6 +1076,7 @@ fn video_compositor_worker(
                     &audio_analysis,
                     None,
                     None,
+                    None,
                     false,
                     preview_exclusion,
                     Some(&decode_control),
@@ -1090,6 +1105,7 @@ fn video_compositor_worker(
                                 compositor,
                                 RenderMode::Preview { accuracy },
                                 &audio_analysis,
+                                None,
                                 None,
                                 None,
                                 false,

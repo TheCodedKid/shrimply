@@ -84,6 +84,26 @@ public float material_shadow_coverage(
     return saturate(alpha);
 }
 
+public float3 material_shadow_transmittance(
+    float4 base_color,
+    float coverage,
+    float metallic,
+    float cosine,
+    PbrSettings settings)
+{
+    float fresnel = pbr_fresnel(
+        float3(1.0),
+        0.0,
+        abs(cosine),
+        settings.ior).r;
+    float transmission = saturate(
+        settings.transmission * (1.0 - metallic) * (1.0 - fresnel));
+    return lerp(
+        float3(1.0),
+        saturate(base_color.rgb) * transmission,
+        coverage);
+}
+
 public bool material_hit_accepted(
     uint material_index,
     float2 barycentrics,

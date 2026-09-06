@@ -44,34 +44,8 @@ impl VisualElement for ObjElement {
         track_id: Uuid,
         _cache: &mut VisualSourceCache,
     ) -> Result<VisualRender, String> {
-        let VideoItemContent::Obj(scene) = &request.item.content else {
+        let VideoItemContent::Obj(_) = &request.item.content else {
             return Err("OBJ renderer received a non-OBJ visual".to_string());
-        };
-        let tracked_camera = if let shrimply_scene_3d::CameraSource::Tracking(source) =
-            &scene.camera.source
-            && source.track_id != track_id
-            && request
-                .project
-                .video_tracks
-                .iter()
-                .any(|track| track.id == source.track_id)
-        {
-            crate::camera_reconstruction::sample(
-                request.item.id,
-                source,
-                request
-                    .position
-                    .signed_sub(request.item.start)
-                    .saturating_add(request.item.animation_time_offset),
-            )
-            .map(|camera| shrimply_video_core::obj::Camera {
-                position: camera.position,
-                rotation: camera.rotation,
-                projection: camera.projection,
-                vertical_fov_degrees: camera.vertical_fov_degrees,
-            })
-        } else {
-            None
         };
         let prepared = self.state.prepare(shrimply_video_core::obj::Request {
             project: request.project,
@@ -80,7 +54,8 @@ impl VisualElement for ObjElement {
             audio_analysis: request.audio_analysis,
             render_canvas: request.render_canvas,
             content_accurate: request.accuracy.content_accurate(),
-            tracked_camera,
+            sequence_path: request.sequence_path,
+            track_id,
         })?;
         let cached = self.cached.as_ref().filter(|cached| {
             let mut cached_uniforms = cached.uniforms;

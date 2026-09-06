@@ -44,20 +44,31 @@ impl Source {
         position: shrimply_math_core::Time,
         audio: &FrameAudioAnalysis,
         canvas: CanvasSize,
+        sequence_path: &[uuid::Uuid],
+        track_id: uuid::Uuid,
         expressions: &mut TransformExpressionCache,
     ) -> Result<Prepared, String> {
-        let VideoItemContent::Gaussian(scene) = &item.content else {
+        let VideoItemContent::Gaussian(_) = &item.content else {
             return Err("Gaussian source received a different visual type".into());
         };
-        if matches!(
-            scene.camera.source,
-            shrimply_3dgs::CameraSource::Tracking(_)
-        ) {
-            return Err(
-                "Tracked Gaussian cameras are not connected to this native renderer".into(),
+        let mut params = evaluate(project, item, position, audio, expressions)?;
+        if let Some(camera) = crate::camera_reconstruction::sample_for_visual(
+            project,
+            item,
+            sequence_path,
+            track_id,
+            position,
+        )? {
+            apply_tracking(
+                &mut params,
+                TrackingSample {
+                    position: camera.position,
+                    rotation: camera.rotation,
+                    projection: camera.projection,
+                    vertical_fov_degrees: camera.vertical_fov_degrees,
+                },
             );
         }
-        let params = evaluate(project, item, position, audio, expressions)?;
         Ok(Prepared {
             session: self.session.clone(),
             params,

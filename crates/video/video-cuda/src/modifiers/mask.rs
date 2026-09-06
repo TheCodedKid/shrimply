@@ -2,13 +2,10 @@ use std::rc::Rc;
 
 use shrimply_cuda::LaunchConfig;
 
-use super::RasterModifierRuntime;
 use crate::gpu::VisualFrame;
 use crate::gpu::modifiers::{CanvasRgbaFrame, GpuModifier, ModifierContext};
 use crate::layer::{PreservingRasterModifier, RasterVisual, VisualState};
-use crate::visual_source::VisualModifierContext;
 use shrimply_render_core::MaskParams;
-use shrimply_video_modifiers::mask::{MaskMode, MaskModifier};
 
 struct Resolved {
     mask: Option<Rc<VisualFrame>>,
@@ -21,6 +18,19 @@ struct Pending {
     mask: Option<Rc<VisualFrame>>,
     luminance: bool,
     invert: bool,
+}
+
+pub(super) fn apply(
+    mut input: RasterVisual,
+    effect: &shrimply_video_core::raster_modifiers::ExternalMask,
+    mask: Option<Rc<VisualFrame>>,
+) -> RasterVisual {
+    input.push_preserving_pixel(Box::new(Pending {
+        mask,
+        luminance: effect.luminance,
+        invert: effect.invert,
+    }));
+    input
 }
 
 impl PreservingRasterModifier for Pending {
@@ -84,20 +94,5 @@ impl GpuModifier for Resolved {
         }
         .map_err(|error| format!("launch mask CUDA kernel: {error:?}"))?;
         Ok(pass.finish(context))
-    }
-}
-
-impl RasterModifierRuntime for MaskModifier {
-    fn apply_raster(
-        &self,
-        mut input: RasterVisual,
-        context: &mut VisualModifierContext<'_>,
-    ) -> Result<RasterVisual, String> {
-        input.push_preserving_pixel(Box::new(Pending {
-            mask: context.mask_source.clone(),
-            luminance: self.mode.value_at(context.evaluation.local_time()) == MaskMode::Luminance,
-            invert: self.invert,
-        }));
-        Ok(input)
     }
 }

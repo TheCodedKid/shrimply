@@ -34,6 +34,22 @@ float3 shadow_visibility(
     return shadow.visible != 0 ? shadow.transmittance : float3(0.0);
 }
 
+struct ToonShadowTracer : IToonShadowTracer
+{
+    float visibility(
+        float3 world_position,
+        float3 normal,
+        float3 direction,
+        float maximum)
+    {
+        return saturate(luminance(shadow_visibility(
+            world_position,
+            normal,
+            direction,
+            maximum)));
+    }
+};
+
 float3 sample_pbr_sun(
     SunLight source,
     float3 world_position,
@@ -120,6 +136,23 @@ float3 sample_pbr_point(
     return color / float(sample_count);
 }
 
+struct ObjPbrEnvironmentTracer : IPbrEnvironmentTracer
+{
+    float3 radiance(float3 world_origin, float3 direction, out bool composed_hit)
+    {
+        return sample_environment(world_origin, direction, 0.0, composed_hit);
+    }
+
+    float3 visibility(float3 world_position, float3 normal, float3 direction)
+    {
+        return shadow_visibility(
+            world_position,
+            normal,
+            direction,
+            RAY_MAXIMUM);
+    }
+};
+
 float3 sample_pbr_environment(
     float3 world_position,
     float3 normal,
@@ -130,63 +163,16 @@ float3 sample_pbr_environment(
     PbrSettings settings,
     inout uint state)
 {
-    uint candidate_count = uint(scene.pbr.light_sampling_quality);
-    if (scene.pbr.render_quality == RenderQuality::Interactive)
-        candidate_count = MINIMUM_VARIANCE_SAMPLES;
-
-    float3 selected_light = float3(0.0);
-    float3 selected_contribution = float3(0.0);
-    float selected_target = 0.0;
-    float reservoir_weight_sum = 0.0;
-    for (uint candidate_index = 0; candidate_index < candidate_count; ++candidate_index)
-    {
-        float3 light = sample_unit_sphere(state);
-        bool composed_hit;
-        float3 radiance = sample_environment(
-            world_position,
-            light,
-            0.0,
-            composed_hit);
-        if (!composed_hit)
-            radiance *= scene.environment.intensity;
-        float bsdf_pdf = pbr_reflection_pdf(
-            normal,
-            view,
-            light,
-            metallic,
-            roughness,
-            settings);
-        float mis_weight = power_heuristic(UNIFORM_ENVIRONMENT_PDF, bsdf_pdf);
-        float3 contribution = pbr_light(
-            normal,
-            view,
-            light,
-            radiance,
-            base_color,
-            metallic,
-            roughness,
-            float3(1.0),
-            settings) * mis_weight;
-        float target = max(luminance(contribution), 0.0);
-        float reservoir_weight = target / UNIFORM_ENVIRONMENT_PDF;
-        reservoir_weight_sum += reservoir_weight;
-        if (reservoir_weight > 0.0
-            && random_float(state) * reservoir_weight_sum < reservoir_weight)
-        {
-            selected_light = light;
-            selected_contribution = contribution;
-            selected_target = target;
-        }
-    }
-
-    if (selected_target <= 0.0)
-        return float3(0.0);
-
-    float3 visibility = shadow_visibility(
+    ObjPbrEnvironmentTracer tracer;
+    return integrate_pbr_environment(
+        scene,
         world_position,
         normal,
-        selected_light,
-        RAY_MAXIMUM);
-    return selected_contribution * visibility * reservoir_weight_sum
-        / (float(candidate_count) * selected_target);
+        view,
+        base_color,
+        metallic,
+        roughness,
+        settings,
+        state,
+        tracer);
 }

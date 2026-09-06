@@ -15,6 +15,14 @@ pub struct SoftwareCursor {
 }
 
 impl SoftwareCursor {
+    pub fn from_image(image: Image, hot_spot: Vec2, size: Vec2) -> Self {
+        Self {
+            image,
+            hot_spot,
+            size,
+        }
+    }
+
     pub fn from_rgba_premultiplied(
         pixels: &[u8],
         width: u32,
@@ -32,11 +40,7 @@ impl SoftwareCursor {
             None,
         );
         let image = images::raster_from_data(&info, Data::new_copy(pixels), row_bytes)?;
-        Some(Self {
-            image,
-            hot_spot,
-            size,
-        })
+        Some(Self::from_image(image, hot_spot, size))
     }
 
     pub fn draw(&self, canvas: &Canvas, position: Vec2) {

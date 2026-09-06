@@ -49,13 +49,6 @@ impl CanvasView {
             } else {
                 PreviewResponse::IGNORED
             };
-            if let Some(address) = &selected
-                && project
-                    .video_item(address)
-                    .is_some_and(|item| item.tracking_camera_source().is_some())
-            {
-                return Err("Tracked camera preview requires the camera reconstruction backend, which is not connected to Metal yet".into());
-            }
             state.sync_guides(&project.preview_guides, prefs.preview_guides_visible);
             let size = self.bounds().size;
             let viewport = guides::viewport(
@@ -85,8 +78,14 @@ impl CanvasView {
                         guides: state
                             .guides_visible
                             .then_some(project.preview_guides.as_ref()),
-                        camera_sampler: |_, _, _| {
-                            unreachable!("tracked camera was checked before provider preparation")
+                        camera_sampler: |id, source, time| {
+                            shrimply_video_core::camera_reconstruction::sample(id, source, time)
+                                .map(|camera| shrimply_project::project::TrackedCameraPreview {
+                                    position: camera.position,
+                                    rotation: camera.rotation,
+                                    projection: camera.projection,
+                                    vertical_fov_degrees: camera.vertical_fov_degrees,
+                                })
                         },
                     },
                 )?;
@@ -106,24 +105,24 @@ impl CanvasView {
         self.apply_preview_response(response)
     }
 
-    pub(in crate::macos::canvas) fn preview_pointer_event(&self, event: PointerEvent<'_>) {
+    pub(in crate::macos::canvas) fn preview_pointer_event(&self, event: PointerEvent<'_>) -> bool {
         let result = self.prepare_preview().and_then(|()| {
             if self.preview_caption_pointer(&event)? {
-                return Ok(());
+                return Ok(true);
             }
             let response = {
                 let mut content = self.ivars().content.borrow_mut();
                 let Content::Preview(state) = &mut *content else {
-                    return Ok(());
+                    return Ok(false);
                 };
                 if state.guide_input.active() || state.controller.sequence == PointerSequence::Guide
                 {
-                    return Ok(());
+                    return Ok(true);
                 }
                 if matches!(event, PointerEvent::Hover(_))
                     && state.guide_input.cursor() != GuideCursor::Default
                 {
-                    return Ok(());
+                    return Ok(true);
                 }
                 match event {
                     PointerEvent::Begin(input) => state.last_sample = Some(input.sample),
@@ -133,7 +132,7 @@ impl CanvasView {
                                 && previous.pressure == input.sample.pressure
                                 && previous.tilt == input.sample.tilt
                         }) {
-                            return Ok(());
+                            return Ok(true);
                         }
                         state.last_sample = Some(input.sample);
                     }
@@ -146,10 +145,15 @@ impl CanvasView {
                     event,
                 )
             };
-            self.apply_preview_response(response)
+            self.apply_preview_response(response)?;
+            Ok(response.handled)
         });
-        if let Err(error) = result {
-            self.show_error(&error);
+        match result {
+            Ok(handled) => handled,
+            Err(error) => {
+                self.show_error(&error);
+                true
+            }
         }
     }
 

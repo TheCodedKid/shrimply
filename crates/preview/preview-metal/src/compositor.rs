@@ -8,6 +8,11 @@ use std::time::Duration;
 
 const FRAME_POLL_INTERVAL: Duration = Duration::from_millis(1);
 
+type ExternalMaskBuffers = Vec<(
+    shrimply_video_core::raster_modifiers::ExternalDependency,
+    shrimply_render_metal::Buffer,
+)>;
+
 /// Renders an accurate frame through the preview compositor and encodes it as PNG.
 /// This blocks on media decoding and GPU completion; call it from a worker thread.
 /// Caption overlays use preview-pixel sizing and are drawn separately by the host.
@@ -241,9 +246,34 @@ impl Compositor {
         let mut used_manim = HashSet::new();
         self.used_layered_sources.clear();
         let started = std::time::Instant::now();
+        let mut external_masks = ExternalMaskBuffers::new();
+        for external in &plan.external_layers {
+            let Some(layers) = self.render_layers(
+                &external.layers,
+                (plan.width, plan.height),
+                &external_masks,
+                &mut effect_submissions,
+                &mut used_sources,
+                &mut used_manim,
+            )?
+            else {
+                self.deferred_submissions.append(&mut effect_submissions);
+                self.queued = Some(plan);
+                return Ok(());
+            };
+            let (buffer, submission) = self
+                .compute
+                .as_mut()
+                .expect("initialized Metal compositor")
+                .composite_buffers(&layers, plan.width, plan.height, 0)?
+                .into_parts();
+            effect_submissions.push(submission);
+            external_masks.push((external.dependency.clone(), buffer));
+        }
         let rendered = self.render_layers(
             &plan.layers,
             (plan.width, plan.height),
+            &external_masks,
             &mut effect_submissions,
             &mut used_sources,
             &mut used_manim,
@@ -287,6 +317,7 @@ impl Compositor {
         &mut self,
         source_layers: &[shrimply_preview_render_core::Layer],
         size: (u32, u32),
+        external_masks: &ExternalMaskBuffers,
         effect_submissions: &mut Vec<shrimply_render_metal::Submission>,
         used_sources: &mut HashSet<u32>,
         used_manim: &mut HashSet<uuid::Uuid>,
@@ -305,6 +336,7 @@ impl Compositor {
                 let Some(mut rendered) = self.render_raster_morph(
                     morph,
                     size,
+                    external_masks,
                     used_sources,
                     used_manim,
                     effect_submissions,
@@ -329,6 +361,7 @@ impl Compositor {
                     let Some(children) = self.render_layers(
                         children,
                         size,
+                        external_masks,
                         effect_submissions,
                         used_sources,
                         used_manim,
@@ -379,6 +412,18 @@ impl Compositor {
                     (rendered.buffer, Some(rendered.row_bytes))
                 }
                 Source::Obj(plan) => {
+                    let composite_background = if layers.is_empty() {
+                        None
+                    } else {
+                        let (buffer, submission) = self
+                            .compute
+                            .as_mut()
+                            .expect("initialized Metal compositor")
+                            .composite_buffers(&layers, size.0, size.1, 0)?
+                            .into_parts();
+                        effect_submissions.push(submission);
+                        Some(buffer)
+                    };
                     if self.obj.is_none() {
                         self.obj = Some(shrimply_render_3d_metal::Renderer::new(
                             self.compute.as_ref().expect("initialized Metal compositor"),
@@ -391,6 +436,13 @@ impl Compositor {
                         .render(
                             self.compute.as_ref().expect("initialized Metal compositor"),
                             plan,
+                            composite_background.as_ref().map(|buffer| {
+                                shrimply_render_3d_metal::CompositeBackground {
+                                    buffer,
+                                    width: size.0,
+                                    height: size.1,
+                                }
+                            }),
                         )?;
                     (rendered.buffer, Some(rendered.row_bytes))
                 }
@@ -525,6 +577,9 @@ impl Compositor {
                 state,
                 &layer.effects,
                 layer.render_size,
+                external_masks,
+                size,
+                layer.output_transform,
                 effect_submissions,
                 self.sam2_analysis_target.as_ref(),
                 &mut self.sam2_proxy_buffer,
@@ -576,6 +631,7 @@ impl Compositor {
         &mut self,
         morph: &shrimply_preview_render_core::RasterMorph,
         size: (u32, u32),
+        external_masks: &ExternalMaskBuffers,
         used_sources: &mut HashSet<u32>,
         used_manim: &mut HashSet<uuid::Uuid>,
         final_submissions: &mut Vec<shrimply_render_metal::Submission>,
@@ -595,6 +651,7 @@ impl Compositor {
                 let source = self.materialize_morph_endpoint(
                     &morph.outgoing,
                     size,
+                    external_masks,
                     &mut submissions,
                     used_sources,
                     used_manim,
@@ -602,6 +659,7 @@ impl Compositor {
                 let target = self.materialize_morph_endpoint(
                     &morph.incoming,
                     size,
+                    external_masks,
                     &mut submissions,
                     used_sources,
                     used_manim,
@@ -750,6 +808,7 @@ impl Compositor {
         &mut self,
         layer: &shrimply_preview_render_core::Layer,
         size: (u32, u32),
+        external_masks: &ExternalMaskBuffers,
         submissions: &mut Vec<shrimply_render_metal::Submission>,
         used_sources: &mut HashSet<u32>,
         used_manim: &mut HashSet<uuid::Uuid>,
@@ -757,6 +816,7 @@ impl Compositor {
         let Some(mut rendered) = self.render_layers(
             std::slice::from_ref(layer),
             size,
+            external_masks,
             submissions,
             used_sources,
             used_manim,

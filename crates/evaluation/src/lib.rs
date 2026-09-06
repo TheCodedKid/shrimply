@@ -310,7 +310,7 @@ pub fn resolve_obj_scene(
             ior: resolve_scalar(&scene.material.ior, eval, cache),
             path_tracing: scene.material.path_tracing,
             light_sampling_quality: scene.material.light_sampling_quality,
-            optix_denoising: scene.material.optix_denoising,
+            denoising: scene.material.denoising,
             normal_mode: scene.material.normal_mode,
             shading_model: scene.material.shading_model,
             toon: ResolvedToonMaterial {

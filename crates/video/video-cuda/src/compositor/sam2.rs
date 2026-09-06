@@ -47,6 +47,7 @@ impl crate::sam2_analysis::ProxyFrameSource for ProxyFrameSource {
                 },
                 &audio_analysis,
                 None,
+                None,
                 Some(&request.target.address),
                 false,
                 None,

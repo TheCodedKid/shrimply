@@ -10,6 +10,7 @@ pub(super) fn render_project_frame(
     mode: RenderMode,
     audio_analysis: &FrameAudioAnalysis,
     item_ids: Option<&[Uuid]>,
+    capture_track: Option<&shrimply_project::project::TrackAddress>,
     cache_item: Option<&ItemAddress>,
     snap_cache_item: bool,
     excluded_item_id: Option<Uuid>,
@@ -70,6 +71,17 @@ pub(super) fn render_project_frame(
         active_items.truncate(selected_end);
     }
     active_items.retain(|active| Some(active.item.id) != excluded_item_id);
+    if let Some(shrimply_project::project::TrackAddress::Video {
+        sequence_path,
+        track_id,
+    }) = capture_track
+    {
+        if let Some(root_item_id) = sequence_path.first() {
+            active_items.retain(|active| active.item.id == *root_item_id);
+        } else {
+            active_items.retain(|active| active.track_id == *track_id);
+        }
+    }
     if let Some(cache_item_id) = cache_item.filter(|address| address.sequence_path().is_empty()) {
         for active in &mut active_items {
             if active.track_id == cache_item_id.track_id()
@@ -107,16 +119,18 @@ pub(super) fn render_project_frame(
         audio_analysis: audio_analysis.clone(),
         loading: false,
         loading_placeholder: false,
-        mask_layers: HashMap::new(),
+        mask_layers: Vec::new(),
         alpha_mask_layers: HashMap::new(),
         render_stack: Vec::new(),
         sequence_stack: Vec::new(),
         sequence_path: Vec::new(),
+        scope_positions: vec![position],
         manim_updates: Vec::new(),
         decode_control,
         superseded: false,
         clip_transition: None,
         cache_item: cache_item.cloned(),
+        capture_track: capture_track.cloned(),
         snap_cache_item,
         excluded_item_id,
     };
@@ -140,19 +154,16 @@ pub(super) fn render_project_frame(
         if morphed_items.contains(&active.item.id) {
             continue;
         }
-        if let Some(transition) = active.clip_transition.filter(|transition| {
-            transition.definition.kind == VisualClipTransitionKind::Morph
-                && transition.role == ClipTransitionRole::Outgoing
-        }) && let Some(incoming) = active_items[active_index + 1..].iter().find(|candidate| {
-            candidate.track_id == active.track_id
-                && candidate
-                    .clip_transition
-                    .is_some_and(|candidate_transition| {
-                        candidate_transition.definition.kind == VisualClipTransitionKind::Morph
-                            && candidate_transition.role == ClipTransitionRole::Incoming
-                            && candidate_transition.progress == transition.progress
-                    })
-        }) {
+        if let Some(endpoint) =
+            shrimply_video_core::sequence::morph_endpoint(&active_items, active_index)
+            && active
+                .clip_transition
+                .is_some_and(|transition| transition.role == ClipTransitionRole::Outgoing)
+        {
+            let transition = active
+                .clip_transition
+                .expect("Morph endpoint must have a transition");
+            let incoming = &active_items[endpoint.peer_index];
             morphed_items.insert(incoming.item.id);
             match renderer.render_morph_pair(
                 active.track_index,
@@ -193,7 +204,16 @@ pub(super) fn render_project_frame(
             active.clip_transition.is_some(),
         );
         let item = held_item.as_ref();
-        let cached_item = match crate::modifier_cache::effective_item(item, project.canvas_size) {
+        let address = ItemAddress::Video {
+            sequence_path: Vec::new(),
+            track_id: active.track_id,
+            item_id: item.id,
+        };
+        let cached_item = match shrimply_video_core::modifier_cache::effective_item(
+            &address,
+            item,
+            project.canvas_size,
+        ) {
             Ok(item) => item,
             Err(error) => {
                 errors.push(format!(
@@ -248,6 +268,7 @@ pub(super) fn render_project_frame(
                 active.track_index,
                 active.track_id,
                 item,
+                cached_item.as_ref().map(|_| held_item.as_ref()),
                 routes,
                 cache_item.is_some_and(|address| {
                     address
@@ -397,16 +418,21 @@ pub(super) struct FrameItemRenderer<'a> {
     audio_analysis: FrameAudioAnalysis,
     loading: bool,
     loading_placeholder: bool,
-    mask_layers: HashMap<Uuid, Rc<crate::gpu::VisualFrame>>,
+    mask_layers: Vec<(
+        shrimply_video_core::raster_modifiers::ExternalDependency,
+        Rc<crate::gpu::VisualFrame>,
+    )>,
     alpha_mask_layers: HashMap<(Vec<Uuid>, Uuid, u32), Rc<crate::gpu::VisualFrame>>,
-    render_stack: Vec<Uuid>,
+    render_stack: Vec<ItemAddress>,
     pub(super) sequence_stack: Vec<Uuid>,
     pub(super) sequence_path: Vec<Uuid>,
+    scope_positions: Vec<Time>,
     manim_updates: Vec<shrimply_state::manim_status::Update>,
     pub(super) decode_control: Option<&'a DecodeControl>,
     superseded: bool,
     pub(super) clip_transition: Option<ActiveClipTransition>,
     pub(super) cache_item: Option<ItemAddress>,
+    capture_track: Option<shrimply_project::project::TrackAddress>,
     pub(super) snap_cache_item: bool,
     excluded_item_id: Option<Uuid>,
 }
@@ -510,8 +536,22 @@ impl FrameItemRenderer<'_> {
                 }
             }
         }
+        if let Some(shrimply_project::project::TrackAddress::Video {
+            sequence_path,
+            track_id,
+        }) = self.capture_track.as_ref()
+            && sequence_path.get(self.sequence_path.len()) == Some(&item.id)
+        {
+            let child_depth = self.sequence_path.len() + 1;
+            if let Some(child_id) = sequence_path.get(child_depth) {
+                active.retain(|(_, _, child, _, _)| child.id == *child_id);
+            } else {
+                active.retain(|(_, child_track_id, _, _, _)| child_track_id == track_id);
+            }
+        }
         self.sequence_stack.push(reference.sequence_id);
         self.sequence_path.push(item.id);
+        self.scope_positions.push(position);
         let outer_position = self.position;
         let outer_clip_transition = self.clip_transition;
         self.position = position;
@@ -520,26 +560,31 @@ impl FrameItemRenderer<'_> {
         let children_measurement =
             shrimply_benchmarking::measure("Folded sequence / Render children");
         let mut morphed_items = HashSet::new();
-        for (active_index, (track_index, track_id, child, transition, previous)) in
-            active.iter().enumerate()
-        {
+        let morph_candidates = active
+            .iter()
+            .map(|(track_index, track_id, child, transition, previous)| {
+                shrimply_video_core::sequence::ActiveVideoItem {
+                    track_index: *track_index,
+                    track_id: *track_id,
+                    item: child,
+                    clip_transition: *transition,
+                    previous: previous.as_ref(),
+                }
+            })
+            .collect::<Vec<_>>();
+        for active_index in 0..active.len() {
+            let (track_index, track_id, child, transition, previous) = &active[active_index];
             abort_render_if_superseded!(self.decode_control, break);
             if morphed_items.contains(&child.id) {
                 continue;
             }
-            if let Some(transition) = transition.filter(|transition| {
-                transition.definition.kind == VisualClipTransitionKind::Morph
-                    && transition.role == ClipTransitionRole::Outgoing
-            }) && let Some((_, _, incoming, _, _)) = active[active_index + 1..].iter().find(
-                |(_, candidate_track_id, _, candidate_transition, _)| {
-                    *candidate_track_id == *track_id
-                        && candidate_transition.is_some_and(|candidate_transition| {
-                            candidate_transition.definition.kind == VisualClipTransitionKind::Morph
-                                && candidate_transition.role == ClipTransitionRole::Incoming
-                                && candidate_transition.progress == transition.progress
-                        })
-                },
-            ) {
+            if let Some(endpoint) =
+                shrimply_video_core::sequence::morph_endpoint(&morph_candidates, active_index)
+                && transition
+                    .is_some_and(|transition| transition.role == ClipTransitionRole::Outgoing)
+            {
+                let transition = transition.expect("Morph endpoint must have a transition");
+                let incoming = &active[endpoint.peer_index].2;
                 morphed_items.insert(incoming.id);
                 match self.render_morph_pair(
                     *track_index,
@@ -566,14 +611,23 @@ impl FrameItemRenderer<'_> {
                 position,
                 transition.is_some(),
             );
-            let cached_child =
-                match crate::modifier_cache::effective_item(&child, self.project.canvas_size) {
-                    Ok(item) => item,
-                    Err(value) => {
-                        error = Some(value);
-                        break;
-                    }
-                };
+            let motion_blur_source = child.as_ref();
+            let address = ItemAddress::Video {
+                sequence_path: self.sequence_path.clone(),
+                track_id: *track_id,
+                item_id: child.id,
+            };
+            let cached_child = match shrimply_video_core::modifier_cache::effective_item(
+                &address,
+                &child,
+                self.project.canvas_size,
+            ) {
+                Ok(item) => item,
+                Err(value) => {
+                    error = Some(value);
+                    break;
+                }
+            };
             let child = cached_child.as_ref().unwrap_or(&child);
             self.clip_transition = *transition;
             let previous = cached_child
@@ -605,6 +659,7 @@ impl FrameItemRenderer<'_> {
                 *track_index,
                 *track_id,
                 child,
+                cached_child.as_ref().map(|_| motion_blur_source),
                 routes,
                 cache_path_child,
                 transmission_background.as_deref(),
@@ -644,6 +699,7 @@ impl FrameItemRenderer<'_> {
         drop(children_measurement);
         self.clip_transition = outer_clip_transition;
         self.position = outer_position;
+        self.scope_positions.pop();
         self.sequence_path.pop();
         self.sequence_stack.pop();
         if let Some(error) = error {
@@ -669,6 +725,7 @@ impl FrameItemRenderer<'_> {
         track_index: usize,
         track_id: Uuid,
         item: &VideoItem,
+        motion_blur_source: Option<&VideoItem>,
         routes: VideoDecodeRoutes,
         ignore_visibility: bool,
         transmission_background: Option<&crate::gpu::VisualFrame>,
@@ -677,6 +734,7 @@ impl FrameItemRenderer<'_> {
             track_index,
             track_id,
             item,
+            motion_blur_source,
             routes,
             ignore_visibility,
             transmission_background,
@@ -730,6 +788,7 @@ impl FrameItemRenderer<'_> {
         track_index: usize,
         track_id: Uuid,
         item: &VideoItem,
+        motion_blur_source: Option<&VideoItem>,
         routes: VideoDecodeRoutes,
         ignore_visibility: bool,
         transmission_background: Option<&crate::gpu::VisualFrame>,
@@ -739,6 +798,7 @@ impl FrameItemRenderer<'_> {
             track_index,
             track_id,
             item,
+            motion_blur_source,
             routes,
             ignore_visibility,
             transmission_background,
@@ -762,19 +822,26 @@ impl FrameItemRenderer<'_> {
         track_index: usize,
         track_id: Uuid,
         item: &VideoItem,
+        motion_blur_source: Option<&VideoItem>,
         routes: VideoDecodeRoutes,
         ignore_visibility: bool,
         transmission_background: Option<&crate::gpu::VisualFrame>,
     ) -> Result<Option<(Visual, shrimply_project::project::CanvasSize)>, String> {
         abort_render_if_superseded!(self.decode_control, return Ok(None));
-        if self.render_stack.contains(&item.id) {
+        let address = ItemAddress::Video {
+            sequence_path: self.sequence_path.clone(),
+            track_id,
+            item_id: item.id,
+        };
+        if self.render_stack.contains(&address) {
             return Err(format!("cyclic mask reference involving item {}", item.id));
         }
-        self.render_stack.push(item.id);
+        self.render_stack.push(address);
         let result = self.render_item_inner(
             track_index,
             track_id,
             item,
+            motion_blur_source,
             routes,
             ignore_visibility,
             transmission_background,
@@ -788,11 +855,24 @@ impl FrameItemRenderer<'_> {
         track_index: usize,
         track_id: Uuid,
         item: &VideoItem,
+        motion_blur_source: Option<&VideoItem>,
         routes: VideoDecodeRoutes,
         ignore_visibility: bool,
         transmission_background: Option<&crate::gpu::VisualFrame>,
     ) -> Result<Option<(Visual, shrimply_project::project::CanvasSize)>, String> {
-        let cached_item = crate::modifier_cache::effective_item(item, self.project.canvas_size)?;
+        let address = ItemAddress::Video {
+            sequence_path: self.sequence_path.clone(),
+            track_id,
+            item_id: item.id,
+        };
+        let cached_item = shrimply_video_core::modifier_cache::effective_item(
+            &address,
+            item,
+            self.project.canvas_size,
+        )?;
+        let motion_blur_source = motion_blur_source
+            .or_else(|| cached_item.as_ref().map(|_| item))
+            .unwrap_or(item);
         let item = cached_item.as_ref().unwrap_or(item);
         let cache_item = self.cache_item.as_ref().is_some_and(|address| {
             address.sequence_path() == self.sequence_path
@@ -861,7 +941,27 @@ impl FrameItemRenderer<'_> {
             shrimply_project::project::VideoItemContent::Obj(_)
                 | shrimply_project::project::VideoItemContent::Gaussian(_)
         );
-        let motion_blur_transforms = self.motion_blur_transforms(item, transform, scene_3d);
+        let motion_blur_scene_3d = matches!(
+            &motion_blur_source.content,
+            shrimply_project::project::VideoItemContent::Obj(_)
+                | shrimply_project::project::VideoItemContent::Gaussian(_)
+        );
+        let motion_blur_transform = if std::ptr::eq(motion_blur_source, item) {
+            transform
+        } else {
+            resolve_item_transform_with_audio(
+                self.project,
+                motion_blur_source,
+                self.position,
+                &self.audio_analysis,
+                &mut self.cache.expressions,
+            )
+        };
+        let motion_blur_transforms = self.motion_blur_transforms(
+            motion_blur_source,
+            motion_blur_transform,
+            motion_blur_scene_3d,
+        );
         let render_canvas = if cache_host {
             self.project.canvas_size
         } else {
@@ -886,6 +986,7 @@ impl FrameItemRenderer<'_> {
         let audio_analysis = self.audio_analysis.clone();
         let request = VisualRenderRequest {
             project: self.project,
+            sequence_path: &self.sequence_path,
             item,
             position: content_position,
             audio_analysis: &audio_analysis,
@@ -1026,23 +1127,10 @@ impl FrameItemRenderer<'_> {
                 visual = crate::alpha_mask::apply(visual, mask)?;
             }
 
-            for (modifier_index, modifier) in item.modifiers.iter().enumerate() {
+            let modifier_plan = shrimply_video_core::raster_modifiers::plan(item)?;
+            for modifier_index in modifier_plan.source {
                 abort_render_if_superseded!(self.decode_control, return Ok(None));
-                if !modifier.enabled {
-                    continue;
-                }
-                let mask_source = match &modifier.effect {
-                    shrimply_video_modifiers::ModifierEffect::Raster(effect) => match &**effect {
-                        shrimply_video_modifiers::RasterModifierEffect::Mask(mask) => {
-                            self.mask_source(mask.item_id)?
-                        }
-                        _ => None,
-                    },
-                    _ => None,
-                };
-                if self.loading && !self.loading_placeholder {
-                    return Ok(None);
-                }
+                let modifier = &item.modifiers[modifier_index];
                 let alpha_mask = modifier
                     .alpha_mask
                     .as_ref()
@@ -1050,32 +1138,59 @@ impl FrameItemRenderer<'_> {
                     .map(|mask| {
                         resolve_shape_alpha_mask(mask, &evaluation, &mut self.cache.expressions)
                     });
-                let mut context = VisualModifierContext::new(
-                    self.project,
-                    &address,
-                    item,
-                    content_position,
-                    modifier.id,
-                    modifier_index,
-                    &evaluation,
-                    &mut self.cache.expressions,
-                );
+                let mut context =
+                    VisualModifierContext::new(item, &evaluation, &mut self.cache.expressions);
                 context.accuracy = self.mode.accuracy();
-                context.require_complete_assets =
-                    matches!(self.mode, RenderMode::ExportContentAccurate { .. });
-                context.mask_source = mask_source;
                 let masked = alpha_mask.is_some();
                 if let Some(mask) = alpha_mask {
                     visual.begin_alpha_mask(mask);
                 }
-                visual = crate::modifiers::apply(&modifier.effect, visual, &mut context)?;
+                visual = crate::modifiers::apply_source(&modifier.effect, visual, &mut context)?;
+                if masked {
+                    visual.end_alpha_mask();
+                }
+            }
+            for modifier_index in modifier_plan.raster {
+                abort_render_if_superseded!(self.decode_control, return Ok(None));
+                let modifier = shrimply_video_core::raster_modifiers::modifier(
+                    shrimply_video_core::raster_modifiers::ModifierRequest {
+                        project: self.project,
+                        address: &address,
+                        item,
+                        position: self.position,
+                        scope_positions: &self.scope_positions,
+                        modifier_index,
+                        require_complete_assets: matches!(
+                            self.mode,
+                            RenderMode::ExportContentAccurate { .. }
+                        ),
+                    },
+                    &evaluation,
+                    &mut self.cache.expressions,
+                    self.mode.accuracy().content_accurate(),
+                )?
+                .ok_or("shared raster modifier did not resolve an operation")?;
+                let mask_source = match &modifier.operation {
+                    shrimply_video_core::raster_modifiers::Operation::Mask(mask) => {
+                        self.mask_source(mask.source.as_ref())?
+                    }
+                    _ => None,
+                };
+                if self.loading && !self.loading_placeholder {
+                    return Ok(None);
+                }
+                let masked = modifier.alpha_mask.is_some();
+                if let Some(mask) = modifier.alpha_mask {
+                    visual.begin_alpha_mask(mask);
+                }
+                visual = crate::modifiers::apply_resolved(modifier.operation, visual, mask_source)?;
                 if masked {
                     visual.end_alpha_mask();
                 }
             }
         }
         if !cache_branch && let Some(samples) = motion_blur_transforms {
-            visual.push_motion_blur(transform.composed(), samples);
+            visual.push_motion_blur(motion_blur_transform.composed(), samples);
         }
         if !scene_3d && !cache_branch {
             apply_visual_transition(&mut visual, item, self.position, transform.position);
@@ -1140,6 +1255,10 @@ impl FrameItemRenderer<'_> {
             Rc::clone(cached)
         } else {
             let outer_position = self.position;
+            let outer_scope_position = *self
+                .scope_positions
+                .last()
+                .expect("frame renderer has an active sequence scope");
             let outer_transition = self.clip_transition;
             let volume_revision = self.sessions.volume_revision;
             let outer_audio = self.audio_analysis.clone();
@@ -1148,6 +1267,10 @@ impl FrameItemRenderer<'_> {
                 let (source_position, target_position) =
                     shrimply_math_media::clip_transition_bounds(outgoing.end, duration);
                 self.position = source_position;
+                *self
+                    .scope_positions
+                    .last_mut()
+                    .expect("frame renderer has an active sequence scope") = source_position;
                 self.audio_analysis = FrameAudioAnalysis {
                     volume: self.sessions.volume.sample(
                         self.project,
@@ -1165,12 +1288,17 @@ impl FrameItemRenderer<'_> {
                     track_index,
                     track_id,
                     outgoing,
+                    None,
                     VideoDecodeRoutes::default(),
                     false,
                     source_background.as_deref(),
                 )?;
                 abort_render_if_superseded!(self.decode_control, return Ok(None));
                 self.position = target_position;
+                *self
+                    .scope_positions
+                    .last_mut()
+                    .expect("frame renderer has an active sequence scope") = target_position;
                 self.audio_analysis = FrameAudioAnalysis {
                     volume: self.sessions.volume.sample(
                         self.project,
@@ -1188,6 +1316,7 @@ impl FrameItemRenderer<'_> {
                     track_index,
                     track_id,
                     incoming,
+                    None,
                     VideoDecodeRoutes::default(),
                     false,
                     target_background.as_deref(),
@@ -1226,6 +1355,10 @@ impl FrameItemRenderer<'_> {
                 }))
             })();
             self.position = outer_position;
+            *self
+                .scope_positions
+                .last_mut()
+                .expect("frame renderer has an active sequence scope") = outer_scope_position;
             self.clip_transition = outer_transition;
             self.audio_analysis = outer_audio;
             let Some(created) = created? else {
@@ -1454,6 +1587,7 @@ impl FrameItemRenderer<'_> {
         };
         let request = VisualRenderRequest {
             project: self.project,
+            sequence_path: &self.sequence_path,
             item: &alpha_item,
             position: self.position,
             audio_analysis: &self.audio_analysis,
@@ -1528,55 +1662,79 @@ impl FrameItemRenderer<'_> {
 
     fn mask_source(
         &mut self,
-        item_id: Option<Uuid>,
+        source: Option<&shrimply_video_core::raster_modifiers::ExternalDependency>,
     ) -> Result<Option<Rc<crate::gpu::VisualFrame>>, String> {
         abort_render_if_superseded!(self.decode_control, return Ok(None));
-        let Some(item_id) = item_id else {
+        let Some(source) = source else {
             return Ok(None);
         };
-        if let Some(layer) = self.mask_layers.get(&item_id) {
+        if let Some((_, layer)) = self
+            .mask_layers
+            .iter()
+            .find(|(dependency, _)| dependency == source)
+        {
             return Ok(Some(layer.clone()));
         }
-        let Some((track_index, track_id, item, previous)) = self
+        let address = &source.address;
+        if address.sequence_path() != self.sequence_path {
+            return Err("mask source resolved outside the active sequence".to_string());
+        }
+        if source.scope_positions != self.scope_positions {
+            return Err("mask source sequence timing diverged from its owner".to_string());
+        }
+        let tracks = self
             .project
-            .video_tracks
-            .iter()
-            .enumerate()
-            .find_map(|(track_index, track)| {
-                if !track.enabled {
-                    return None;
-                }
-                track
-                    .items
-                    .iter()
-                    .find(|item| {
-                        item.id == item_id
-                            && self.position >= item.start
-                            && self.position < item.end
-                    })
-                    .map(|item| {
-                        (
-                            track_index,
-                            track.id,
-                            item.clone(),
-                            preload::predecessor(&track.items, item.id).cloned(),
-                        )
-                    })
-            })
-        else {
+            .video_tracks_for_path(address.sequence_path())
+            .ok_or("mask source sequence no longer exists")?;
+        let Some(active) = shrimply_video_core::sequence::active_tracks(
+            tracks,
+            source.position(),
+            Some(std::slice::from_ref(&address.item_id())),
+        )
+        .into_iter()
+        .find(|active| {
+            active.track_id == address.track_id() && active.item.id == address.item_id()
+        }) else {
             return Ok(None);
         };
-        let cached_item = crate::modifier_cache::effective_item(&item, self.project.canvas_size)?;
+        let track_index = active.track_index;
+        let track_id = active.track_id;
+        let source_transition = active.clip_transition;
+        let previous = active.previous.cloned();
+        let item = shrimply_video_core::clip_transition::held_item(
+            active.item,
+            source.position(),
+            source_transition.is_some(),
+        )
+        .into_owned();
+        let cached_item = shrimply_video_core::modifier_cache::effective_item(
+            address,
+            &item,
+            self.project.canvas_size,
+        )?;
+        let motion_blur_source = &item;
         let item = cached_item.as_ref().unwrap_or(&item);
         let previous = cached_item.is_none().then_some(previous.as_ref()).flatten();
         let routes = self.decode_routes(track_id, previous, item);
-        let Some(layer) = self.render_item(track_index, track_id, item, routes, true, None)? else {
+        let outer_transition = self.clip_transition;
+        self.clip_transition = source_transition;
+        let rendered = self.render_item(
+            track_index,
+            track_id,
+            item,
+            cached_item.as_ref().map(|_| motion_blur_source),
+            routes,
+            true,
+            None,
+        );
+        self.clip_transition = outer_transition;
+        let Some(layer) = rendered? else {
             return Ok(None);
         };
         let layer = self
             .compositor
             .render_layer_to_rgba(self.project.canvas_size, &layer)?;
-        self.mask_layers.insert(item_id, layer.clone());
+        self.mask_layers.push((source.clone(), layer.clone()));
         Ok(Some(layer))
     }
 }

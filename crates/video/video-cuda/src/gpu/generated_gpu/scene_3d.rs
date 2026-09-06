@@ -372,8 +372,8 @@ impl Scene3dRenderer {
             self.environments
                 .retain(|cached, _| cached.asset() != identity.asset() || cached == identity);
         }
-        let denoise = params.optix_denoising
-            && params.shading_model == shrimply_render_3d::obj::ShadingModel::Pbr;
+        let denoise =
+            params.denoising && params.shading_model == shrimply_render_3d::obj::ShadingModel::Pbr;
         self.ensure_target(width, height, denoise)?;
         if let Some(background) = transmission_background {
             self.upload_transmission_background(background)?;
