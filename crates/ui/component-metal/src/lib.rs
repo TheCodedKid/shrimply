@@ -1,10 +1,8 @@
 #![cfg(target_os = "macos")]
 
 use objc2::rc::Retained;
-use objc2::{DefinedClass, MainThreadOnly, define_class, msg_send};
-use objc2_app_kit::{
-    NSEvent, NSEventModifierFlags, NSTrackingArea, NSTrackingAreaOptions, NSView,
-};
+use objc2::{AnyThread, DefinedClass, MainThreadOnly, define_class, msg_send};
+use objc2_app_kit::{NSEvent, NSEventModifierFlags, NSTrackingArea, NSTrackingAreaOptions, NSView};
 use objc2_foundation::{MainThreadMarker, NSObjectProtocol, NSRect, NSSize};
 use shrimply_keyframe_graph_core::{
     FrameGraphComponentAction, FrameGraphComponents, FrameGraphKey, FrameGraphModifiers,
@@ -18,7 +16,7 @@ use std::rc::Rc;
 pub type SharedFrameGraphState = Rc<RefCell<FrameGraphComponents>>;
 pub type FrameGraphActionHandler = Rc<dyn Fn(FrameGraphComponentAction)>;
 
-struct GraphViewIvars {
+pub struct GraphViewIvars {
     renderer: RefCell<Renderer>,
     state: SharedFrameGraphState,
     on_action: FrameGraphActionHandler,
@@ -192,7 +190,10 @@ impl FrameGraphView {
     fn pointer_moved(&self, event: &NSEvent) {
         let point = self.point(event);
         self.ivars().pointer.set(Some(point));
-        self.ivars().state.borrow_mut().pointer_moved(point.0, point.1);
+        self.ivars()
+            .state
+            .borrow_mut()
+            .pointer_moved(point.0, point.1);
         self.render();
     }
 
@@ -237,13 +238,20 @@ impl FrameGraphView {
     }
 
     fn dispatch(&self, actions: Vec<FrameGraphComponentAction>) {
-        for action in actions { (self.ivars().on_action)(action); }
+        for action in actions {
+            (self.ivars().on_action)(action);
+        }
     }
 
     pub fn render(&self) {
         let size = self.bounds().size;
-        if self.window().is_none() || size.width <= 0.0 || size.height <= 0.0 { return; }
-        let scale = self.window().expect("frame graph attached").backingScaleFactor();
+        if self.window().is_none() || size.width <= 0.0 || size.height <= 0.0 {
+            return;
+        }
+        let scale = self
+            .window()
+            .expect("frame graph attached")
+            .backingScaleFactor();
         let mut renderer = self.ivars().renderer.borrow_mut();
         renderer.layer().setContentsScale(scale);
         renderer.layer().setDrawableSize(NSSize::new(
@@ -254,7 +262,10 @@ impl FrameGraphView {
             canvas.clear(shrimply_cross_ui_theme::current().view_bg);
             canvas.scale((scale as f32, scale as f32));
             let painter = TimelinePainter::new(canvas);
-            self.ivars().state.borrow_mut().draw(&painter, size.width, size.height);
+            self.ivars()
+                .state
+                .borrow_mut()
+                .draw(&painter, size.width, size.height);
         });
     }
 }
@@ -271,7 +282,8 @@ pub fn frame_graph_view(
         tracking_area: RefCell::new(None),
         pointer: Cell::new(None),
     });
-    let view: Retained<FrameGraphView> = unsafe { msg_send![super(view), initWithFrame: NSRect::ZERO] };
+    let view: Retained<FrameGraphView> =
+        unsafe { msg_send![super(view), initWithFrame: NSRect::ZERO] };
     view.setLayer(Some(view.ivars().renderer.borrow().layer()));
     view.setWantsLayer(true);
     view

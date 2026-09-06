@@ -11,6 +11,53 @@ pub const MAX_DRAG_STEPS: i64 = 1_000_000;
 pub const DEFAULT_MINIMUM: i64 = -1_000_000;
 pub const DEFAULT_MAXIMUM: i64 = 1_000_000;
 
+#[derive(Clone, Copy, Debug)]
+pub struct NumberDrag {
+    start: Fraction,
+    accumulated_x: f64,
+    moved: bool,
+}
+
+impl NumberDrag {
+    pub fn begin(start: Fraction) -> Self {
+        Self {
+            start,
+            accumulated_x: 0.0,
+            moved: false,
+        }
+    }
+
+    pub fn update_absolute(&mut self, offset_x: f64) -> bool {
+        self.accumulated_x = offset_x;
+        self.accept_movement()
+    }
+
+    pub fn update_relative(&mut self, delta_x: f64) -> bool {
+        self.accumulated_x += delta_x;
+        self.accept_movement()
+    }
+
+    pub fn value(&self, config: &NumberConfig) -> Fraction {
+        dragged_value(config, self.start, self.accumulated_x)
+    }
+
+    pub fn moved(&self) -> bool {
+        self.moved
+    }
+
+    pub fn is_click(&self, final_offset_x: f64) -> bool {
+        !self.moved && final_offset_x.abs() < DRAG_THRESHOLD_PIXELS
+    }
+
+    fn accept_movement(&mut self) -> bool {
+        if !self.moved && self.accumulated_x.abs() < DRAG_THRESHOLD_PIXELS {
+            return false;
+        }
+        self.moved = true;
+        true
+    }
+}
+
 #[derive(Clone, Copy)]
 pub struct NumberConfig {
     pub minimum: Fraction,

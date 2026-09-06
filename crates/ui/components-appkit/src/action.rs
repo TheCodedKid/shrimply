@@ -1,15 +1,16 @@
 use objc2::ffi::{OBJC_ASSOCIATION_RETAIN_NONATOMIC, objc_setAssociatedObject};
 use objc2::rc::Retained;
-use objc2::{MainThreadOnly, define_class, msg_send, sel};
+use objc2::{DefinedClass, MainThreadOnly, define_class, msg_send, sel};
 use objc2_app_kit::NSControl;
 use objc2_foundation::{MainThreadMarker, NSObject, NSObjectProtocol};
 use std::cell::RefCell;
 use std::ffi::c_void;
 
 static ACTION_TARGET_KEY: u8 = 0;
+type ControlCallback = Box<dyn FnMut(&NSControl)>;
 
 struct ActionIvars {
-    callback: RefCell<Box<dyn FnMut(&NSControl)>>,
+    callback: RefCell<ControlCallback>,
 }
 
 define_class!(
@@ -28,7 +29,11 @@ define_class!(
     }
 );
 
-pub fn attach(control: &NSControl, callback: impl FnMut(&NSControl) + 'static, mtm: MainThreadMarker) {
+pub fn attach(
+    control: &NSControl,
+    callback: impl FnMut(&NSControl) + 'static,
+    mtm: MainThreadMarker,
+) {
     let target = ActionTarget::alloc(mtm).set_ivars(ActionIvars {
         callback: RefCell::new(Box::new(callback)),
     });
@@ -44,4 +49,3 @@ pub fn attach(control: &NSControl, callback: impl FnMut(&NSControl) + 'static, m
         );
     }
 }
-

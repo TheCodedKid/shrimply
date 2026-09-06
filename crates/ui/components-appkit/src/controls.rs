@@ -1,15 +1,15 @@
 use crate::action;
+use objc2::MainThreadOnly;
 use objc2::rc::Retained;
-use objc2::{AnyThread, MainThreadOnly};
 use objc2_app_kit::{
-    NSBezelStyle, NSButton, NSColor, NSColorWell, NSComboBox, NSControl, NSControlStateValueOn,
-    NSFont, NSImage, NSLayoutAttribute, NSProgressIndicator, NSProgressIndicatorStyle,
-    NSScrollView, NSSegmentedControl, NSStackView, NSStackViewDistribution, NSTextAlignment,
-    NSTextField, NSUserInterfaceLayoutOrientation, NSView,
+    NSBezelStyle, NSButton, NSColor, NSColorWell, NSComboBox, NSControlStateValueOff,
+    NSControlStateValueOn, NSFont, NSImage, NSLayoutAttribute, NSProgressIndicator,
+    NSProgressIndicatorStyle, NSScrollView, NSSegmentedControl, NSStackView,
+    NSStackViewDistribution, NSTextAlignment, NSTextField, NSUserInterfaceLayoutOrientation,
+    NSView,
 };
-use objc2_foundation::{MainThreadMarker, NSEdgeInsets, NSPoint, NSRect, NSSize, NSString};
+use objc2_foundation::{MainThreadMarker, NSPoint, NSRect, NSSize, NSString};
 use shrimply_math_color::Color;
-use std::cell::RefCell;
 use std::rc::Rc;
 
 pub use shrimply_component_core::selector::StringChoice;
@@ -67,7 +67,9 @@ impl StringSelector {
             let combo = NSComboBox::initWithFrame(NSComboBox::alloc(mtm), NSRect::ZERO);
             combo.setCompletes(true);
             for choice in &choices {
-                combo.addItemWithObjectValue(&NSString::from_str(&choice.label));
+                unsafe {
+                    combo.addItemWithObjectValue(&NSString::from_str(&choice.label));
+                }
             }
             let selected = shrimply_component_core::selector::selected_index(value, &choices);
             combo.selectItemAtIndex(selected as isize);
@@ -88,7 +90,9 @@ impl StringSelector {
                 },
                 mtm,
             );
-            Self { view: combo.into_super() }
+            Self {
+                view: combo.into_super().into_super().into_super(),
+            }
         } else {
             let popup = objc2_app_kit::NSPopUpButton::initWithFrame_pullsDown(
                 objc2_app_kit::NSPopUpButton::alloc(mtm),
@@ -98,9 +102,9 @@ impl StringSelector {
             for choice in &choices {
                 popup.addItemWithTitle(&NSString::from_str(&choice.label));
             }
-            popup.selectItemAtIndex(
-                shrimply_component_core::selector::selected_index(value, &choices) as isize,
-            );
+            popup.selectItemAtIndex(shrimply_component_core::selector::selected_index(
+                value, &choices,
+            ) as isize);
             let choices = Rc::new(choices);
             action::attach(
                 &popup,
@@ -117,11 +121,15 @@ impl StringSelector {
                 },
                 mtm,
             );
-            Self { view: popup.into_super() }
+            Self {
+                view: popup.into_super().into_super().into_super(),
+            }
         }
     }
 
-    pub fn view(&self) -> &NSView { &self.view }
+    pub fn view(&self) -> &NSView {
+        &self.view
+    }
 }
 
 pub fn switch_row(
@@ -131,17 +139,26 @@ pub fn switch_row(
     on_change: impl Fn(bool) + 'static,
     mtm: MainThreadMarker,
 ) -> Retained<NSStackView> {
-    let button = NSButton::checkboxWithTitle_target_action(
-        &NSString::from_str(label),
-        None,
-        None,
-        mtm,
-    );
-    button.setState(if active { NSControlStateValueOn } else { 0 });
+    let button = unsafe {
+        NSButton::checkboxWithTitle_target_action(&NSString::from_str(label), None, None, mtm)
+    };
+    button.setState(if active {
+        NSControlStateValueOn
+    } else {
+        NSControlStateValueOff
+    });
     button.setToolTip(tooltip.map(NSString::from_str).as_deref());
     action::attach(
         &button,
-        move |control| on_change(control.state() == NSControlStateValueOn),
+        move |control| {
+            on_change(
+                control
+                    .downcast_ref::<NSButton>()
+                    .expect("switch sender")
+                    .state()
+                    == NSControlStateValueOn,
+            )
+        },
         mtm,
     );
     let row = stack(false, 0.0, mtm);
@@ -182,7 +199,9 @@ impl ColorPicker {
         Self { view: well }
     }
 
-    pub fn view(&self) -> &NSColorWell { &self.view }
+    pub fn view(&self) -> &NSColorWell {
+        &self.view
+    }
 }
 
 fn native_color(color: Color<u8>) -> Retained<NSColor> {
@@ -194,7 +213,9 @@ fn native_color(color: Color<u8>) -> Retained<NSColor> {
     )
 }
 
-fn channel(value: f64) -> u8 { (value * 255.0).round().clamp(0.0, 255.0) as u8 }
+fn channel(value: f64) -> u8 {
+    (value * 255.0).round().clamp(0.0, 255.0) as u8
+}
 
 pub fn split_button(
     primary: &str,
@@ -204,14 +225,14 @@ pub fn split_button(
     mtm: MainThreadMarker,
 ) -> Retained<NSStackView> {
     let row = stack(false, 1.0, mtm);
-    let primary = NSButton::buttonWithTitle_target_action(
-        &NSString::from_str(primary), None, None, mtm,
-    );
+    let primary = unsafe {
+        NSButton::buttonWithTitle_target_action(&NSString::from_str(primary), None, None, mtm)
+    };
     primary.setBezelStyle(NSBezelStyle::Push);
     action::attach(&primary, move |_| on_primary(), mtm);
-    let secondary = NSButton::buttonWithTitle_target_action(
-        &NSString::from_str(secondary), None, None, mtm,
-    );
+    let secondary = unsafe {
+        NSButton::buttonWithTitle_target_action(&NSString::from_str(secondary), None, None, mtm)
+    };
     secondary.setBezelStyle(NSBezelStyle::Push);
     action::attach(&secondary, move |_| on_secondary(), mtm);
     row.addArrangedSubview(&primary);
@@ -234,45 +255,61 @@ pub struct ProgressButton {
 impl ProgressButton {
     pub fn new(label: &str, mtm: MainThreadMarker) -> Self {
         let root = stack(false, 6.0, mtm);
-        let indicator = NSProgressIndicator::initWithFrame(
-            NSProgressIndicator::alloc(mtm), NSRect::ZERO,
-        );
+        let indicator =
+            NSProgressIndicator::initWithFrame(NSProgressIndicator::alloc(mtm), NSRect::ZERO);
         indicator.setStyle(NSProgressIndicatorStyle::Spinning);
         indicator.setDisplayedWhenStopped(false);
         indicator.setHidden(true);
-        indicator.widthAnchor().constraintEqualToConstant(16.0).setActive(true);
-        indicator.heightAnchor().constraintEqualToConstant(16.0).setActive(true);
-        let button = NSButton::buttonWithTitle_target_action(
-            &NSString::from_str(label), None, None, mtm,
-        );
+        indicator
+            .widthAnchor()
+            .constraintEqualToConstant(16.0)
+            .setActive(true);
+        indicator
+            .heightAnchor()
+            .constraintEqualToConstant(16.0)
+            .setActive(true);
+        let button = unsafe {
+            NSButton::buttonWithTitle_target_action(&NSString::from_str(label), None, None, mtm)
+        };
         button.setEnabled(false);
         root.addArrangedSubview(&indicator);
         root.addArrangedSubview(&button);
         Self { root, indicator }
     }
 
-    pub fn view(&self) -> &NSStackView { &self.root }
+    pub fn view(&self) -> &NSStackView {
+        &self.root
+    }
 
     pub fn set_state(&self, state: ProgressButtonState) {
         match state {
             ProgressButtonState::Idle => {
-                unsafe { self.indicator.stopAnimation(None); }
+                unsafe {
+                    self.indicator.stopAnimation(None);
+                }
                 self.indicator.setHidden(true);
             }
             ProgressButtonState::Indeterminate => {
                 self.indicator.setIndeterminate(true);
                 self.indicator.setHidden(false);
-                unsafe { self.indicator.startAnimation(None); }
+                unsafe {
+                    self.indicator.startAnimation(None);
+                }
             }
             ProgressButtonState::Progress(value) => {
-                unsafe { self.indicator.stopAnimation(None); }
+                unsafe {
+                    self.indicator.stopAnimation(None);
+                }
                 self.indicator.setStyle(NSProgressIndicatorStyle::Bar);
                 self.indicator.setIndeterminate(false);
                 self.indicator.setMinValue(0.0);
                 self.indicator.setMaxValue(1.0);
                 self.indicator.setDoubleValue(value.clamp(0.0, 1.0));
                 self.indicator.setHidden(false);
-                self.indicator.widthAnchor().constraintEqualToConstant(48.0).setActive(true);
+                self.indicator
+                    .widthAnchor()
+                    .constraintEqualToConstant(48.0)
+                    .setActive(true);
             }
         }
     }
@@ -287,7 +324,11 @@ impl ReadOnlyField {
         let root = stack(false, 4.0, mtm);
         let field = NSTextField::labelWithString(&NSString::from_str(value), mtm);
         field.setSelectable(true);
-        field.setAlignment(if right_aligned { NSTextAlignment::Right } else { NSTextAlignment::Left });
+        field.setAlignment(if right_aligned {
+            NSTextAlignment::Right
+        } else {
+            NSTextAlignment::Left
+        });
         root.addArrangedSubview(&field);
         Self { root }
     }
@@ -299,37 +340,47 @@ impl ReadOnlyField {
         mtm: MainThreadMarker,
     ) -> Self {
         let this = Self::new(value, true, mtm);
-        let button = NSButton::buttonWithImage_target_action(
-            &symbol("folder", action_label), None, None, mtm,
-        );
+        let button = unsafe {
+            NSButton::buttonWithImage_target_action(
+                &symbol("folder", action_label),
+                None,
+                None,
+                mtm,
+            )
+        };
         button.setToolTip(Some(&NSString::from_str(action_label)));
         action::attach(&button, move |_| on_action(), mtm);
         this.root.addArrangedSubview(&button);
         this
     }
 
-    pub fn view(&self) -> &NSStackView { &self.root }
+    pub fn view(&self) -> &NSStackView {
+        &self.root
+    }
 }
 
 pub struct Tabs {
     root: Retained<NSStackView>,
-    content: Retained<NSView>,
-    pages: Rc<Vec<Retained<NSView>>>,
 }
 
 impl Tabs {
     pub fn new(pages: Vec<(&str, Retained<NSView>)>, mtm: MainThreadMarker) -> Self {
         assert!(!pages.is_empty(), "tabs need at least one page");
         let root = stack(true, 8.0, mtm);
-        let selector = NSSegmentedControl::segmentedControlWithLabels_trackingMode_target_action(
-            &objc2_foundation::NSArray::from_retained_slice(
-                &pages.iter().map(|(label, _)| NSString::from_str(label)).collect::<Vec<_>>(),
-            ),
-            objc2_app_kit::NSSegmentSwitchTracking::SelectOne,
-            None,
-            None,
-            mtm,
-        );
+        let selector = unsafe {
+            NSSegmentedControl::segmentedControlWithLabels_trackingMode_target_action(
+                &objc2_foundation::NSArray::from_retained_slice(
+                    &pages
+                        .iter()
+                        .map(|(label, _)| NSString::from_str(label))
+                        .collect::<Vec<_>>(),
+                ),
+                objc2_app_kit::NSSegmentSwitchTracking::SelectOne,
+                None,
+                None,
+                mtm,
+            )
+        };
         selector.setSelectedSegment(0);
         let content = NSView::initWithFrame(NSView::alloc(mtm), NSRect::ZERO);
         let page_views = Rc::new(pages.into_iter().map(|(_, view)| view).collect::<Vec<_>>());
@@ -338,11 +389,17 @@ impl Tabs {
             page.setHidden(index != 0);
             content.addSubview(page);
             for constraint in [
-                page.leadingAnchor().constraintEqualToAnchor(&content.leadingAnchor()),
-                page.trailingAnchor().constraintEqualToAnchor(&content.trailingAnchor()),
-                page.topAnchor().constraintEqualToAnchor(&content.topAnchor()),
-                page.bottomAnchor().constraintEqualToAnchor(&content.bottomAnchor()),
-            ] { constraint.setActive(true); }
+                page.leadingAnchor()
+                    .constraintEqualToAnchor(&content.leadingAnchor()),
+                page.trailingAnchor()
+                    .constraintEqualToAnchor(&content.trailingAnchor()),
+                page.topAnchor()
+                    .constraintEqualToAnchor(&content.topAnchor()),
+                page.bottomAnchor()
+                    .constraintEqualToAnchor(&content.bottomAnchor()),
+            ] {
+                constraint.setActive(true);
+            }
         }
         let callback_pages = page_views.clone();
         action::attach(
@@ -361,10 +418,12 @@ impl Tabs {
         root.addArrangedSubview(&selector);
         root.addArrangedSubview(&content);
         root.setDistribution(NSStackViewDistribution::Fill);
-        Self { root, content, pages: page_views }
+        Self { root }
     }
 
-    pub fn view(&self) -> &NSStackView { &self.root }
+    pub fn view(&self) -> &NSStackView {
+        &self.root
+    }
 }
 
 pub fn playback_shortcuts(
@@ -373,13 +432,20 @@ pub fn playback_shortcuts(
     mtm: MainThreadMarker,
 ) -> Retained<NSStackView> {
     let row = stack(false, 6.0, mtm);
-    let play = NSButton::buttonWithTitle_target_action(
-        &NSString::from_str("Play / Pause (Space)"), None, None, mtm,
-    );
+    let play = unsafe {
+        NSButton::buttonWithTitle_target_action(
+            &NSString::from_str("Play / Pause (Space)"),
+            None,
+            None,
+            mtm,
+        )
+    };
+    play.setKeyEquivalent(&NSString::from_str(" "));
     action::attach(&play, move |_| on_toggle(), mtm);
-    let speed = NSButton::buttonWithTitle_target_action(
-        &NSString::from_str("Speed (L)"), None, None, mtm,
-    );
+    let speed = unsafe {
+        NSButton::buttonWithTitle_target_action(&NSString::from_str("Speed (L)"), None, None, mtm)
+    };
+    speed.setKeyEquivalent(&NSString::from_str("l"));
     action::attach(&speed, move |_| on_speed(), mtm);
     row.addArrangedSubview(&play);
     row.addArrangedSubview(&speed);
@@ -404,15 +470,18 @@ pub fn live_performance(mtm: MainThreadMarker) -> Retained<NSScrollView> {
     let content = stack(true, 2.0, mtm);
     if rows.is_empty() {
         content.addArrangedSubview(&NSTextField::labelWithString(
-            &NSString::from_str("No performance samples"), mtm,
+            &NSString::from_str("No performance samples"),
+            mtm,
         ));
     } else {
         for row in rows {
             let label = NSTextField::labelWithString(
-                &NSString::from_str(&format!("{} · {}", row.title, row.subtitle)), mtm,
+                &NSString::from_str(&format!("{} · {}", row.title, row.subtitle)),
+                mtm,
             );
             label.setFont(Some(&NSFont::monospacedSystemFontOfSize_weight(
-                NSFont::smallSystemFontSize(), unsafe { objc2_app_kit::NSFontWeightRegular },
+                NSFont::smallSystemFontSize(),
+                unsafe { objc2_app_kit::NSFontWeightRegular },
             )));
             content.addArrangedSubview(&label);
         }
@@ -423,6 +492,8 @@ pub fn live_performance(mtm: MainThreadMarker) -> Retained<NSScrollView> {
 
 fn symbol(name: &str, label: &str) -> Retained<NSImage> {
     NSImage::imageWithSystemSymbolName_accessibilityDescription(
-        &NSString::from_str(name), Some(&NSString::from_str(label)),
-    ).unwrap_or_else(|| panic!("macOS must provide the {name} system symbol"))
+        &NSString::from_str(name),
+        Some(&NSString::from_str(label)),
+    )
+    .unwrap_or_else(|| panic!("macOS must provide the {name} system symbol"))
 }

@@ -16,4 +16,4 @@ shrimply-interpolation = { path = "../../interpolation" }
 shrimply-keyframe-graph-core = { path = "../../timeline/keyframe-graph-core" }
 shrimply-math-color = { path = "../../math/color" }
 shrimply-math-core = { path = "../../math/core" }
-
+uuid.workspace = true

@@ -6,6 +6,44 @@ pub struct TypoMark {
     pub corrections: Vec<String>,
 }
 
+#[derive(Clone, Debug)]
+pub struct TextCommit {
+    dirty: bool,
+    latest: String,
+    committed: String,
+}
+
+impl TextCommit {
+    pub fn new(value: &str) -> Self {
+        Self {
+            dirty: false,
+            latest: value.to_string(),
+            committed: value.to_string(),
+        }
+    }
+
+    pub fn changed(&mut self, value: String) {
+        self.latest = value;
+        self.dirty = true;
+    }
+
+    pub fn synchronize(&mut self, value: String) {
+        self.dirty = false;
+        self.latest.clone_from(&value);
+        self.committed = value;
+    }
+
+    pub fn take_commit(&mut self) -> bool {
+        if !self.dirty || self.latest == self.committed {
+            self.dirty = false;
+            return false;
+        }
+        self.committed.clone_from(&self.latest);
+        self.dirty = false;
+        true
+    }
+}
+
 pub fn limited_text(text: &str, max_length: Option<usize>) -> String {
     match max_length {
         Some(max_length) => text.chars().take(max_length).collect(),

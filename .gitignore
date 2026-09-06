@@ -44,3 +44,4 @@ latex_cache/
 *.synctex.gz
 .gradio/certificate.pem
 TODO.md
+TODO-appkit-components.md

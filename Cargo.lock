@@ -5538,6 +5538,7 @@ dependencies = [
  "shrimply-keyframe-graph-core",
  "shrimply-math-color",
  "shrimply-math-core",
+ "uuid",
 ]
 
 [[package]]
