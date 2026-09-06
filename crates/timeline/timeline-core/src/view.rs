@@ -68,7 +68,10 @@ pub struct TimelineScrollEvent {
     pub delta: Vec2,
     pub ctrl: bool,
     pub pointer: Option<Vec2>,
+    pub input: TimelineScrollInput,
 }
+
+pub use shrimply_skia_adw_core::slider::ScrollInput as TimelineScrollInput;
 
 #[derive(Clone, Copy)]
 pub struct TimelineOverscroll {

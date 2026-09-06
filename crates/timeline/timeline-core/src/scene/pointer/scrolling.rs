@@ -5,6 +5,7 @@ pub(super) fn handle_scroll(
     view: &mut TimelineViewState,
     delta: Vec2,
     ctrl: bool,
+    input: TimelineScrollInput,
     pointer: Option<Vec2>,
     timeline_width: f64,
     height: f64,
@@ -51,15 +52,23 @@ pub(super) fn handle_scroll(
         );
         None
     } else {
-        let delta = if delta.x.abs() > f32::EPSILON {
-            delta.x as f64
-        } else {
-            delta.y as f64
+        let (horizontal_delta, vertical_delta) = match input {
+            TimelineScrollInput::Wheel => (
+                if delta.x.abs() > f32::EPSILON {
+                    delta.x as f64
+                } else {
+                    delta.y as f64
+                },
+                0.0,
+            ),
+            TimelineScrollInput::Surface => (delta.x as f64, delta.y as f64),
         };
-        let target = view.scroll_seconds + delta * view.seconds_per_pixel;
+        let target = view.scroll_seconds + horizontal_delta * view.seconds_per_pixel;
         let max_scroll =
             max_horizontal_scroll_seconds(duration_seconds, timeline_width, view.seconds_per_pixel);
-        let overscroll = if target < 0.0 {
+        let overscroll = if horizontal_delta.abs() <= f64::EPSILON {
+            None
+        } else if target < 0.0 {
             Some((
                 TimelineOverscrollEdge::Left,
                 (-target / view.seconds_per_pixel)
@@ -75,6 +84,7 @@ pub(super) fn handle_scroll(
             None
         };
         view.scroll_seconds = target;
+        view.scroll_y += vertical_delta;
         view.clamp(
             duration_seconds,
             timeline_width,
