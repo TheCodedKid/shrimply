@@ -7,9 +7,9 @@ use gtk::{gdk, glib};
 use num_traits::ToPrimitive;
 use num_traits::{NumCast, PrimInt};
 use shrimply_component_core::number::{
-    DEFAULT_DRAG_PIXELS, DEFAULT_MAXIMUM, DEFAULT_MINIMUM, DRAG_THRESHOLD_PIXELS,
-    NumberConfig as NumberPickerConfig, accepted_value, finite_fraction_or, format_value,
-    parse_fraction, positive_fraction_or,
+    DEFAULT_DRAG_PIXELS, DEFAULT_MAXIMUM, DEFAULT_MINIMUM, NumberConfig as NumberPickerConfig,
+    NumberDrag, accepted_value, finite_fraction_or, format_value, parse_fraction,
+    positive_fraction_or,
 };
 use shrimply_math_core::Fraction;
 use shrimply_math_core::{
@@ -302,23 +302,17 @@ impl NumberPickerBuilder {
 
         let outside_click = Rc::new(RefCell::new(None));
 
-        let drag_start_value = Rc::new(Cell::new(value.get()));
-        let drag_accumulated_x = Rc::new(Cell::new(0.0));
-        let drag_moved = Rc::new(Cell::new(false));
+        let drag_state = Rc::new(Cell::new(NumberDrag::begin(value.get())));
         let pointer_lock_attempted = Rc::new(Cell::new(false));
         let pointer_lock = Rc::new(RefCell::new(None));
         let drag = gtk::GestureDrag::new();
         {
             let value = value.clone();
-            let drag_start_value = drag_start_value.clone();
-            let drag_accumulated_x = drag_accumulated_x.clone();
-            let drag_moved = drag_moved.clone();
+            let drag_state = drag_state.clone();
             let pointer_lock_attempted = pointer_lock_attempted.clone();
             drag.connect_drag_begin(move |_, _, _| {
                 tracing::trace!("number_picker: drag_begin");
-                drag_start_value.set(value.get());
-                drag_accumulated_x.set(0.0);
-                drag_moved.set(false);
+                drag_state.set(NumberDrag::begin(value.get()));
                 pointer_lock_attempted.set(false);
             });
         }
@@ -331,15 +325,13 @@ impl NumberPickerBuilder {
             let rotating_icon = rotating_icon.clone();
             let config = config.clone();
             let on_change = on_change.clone();
-            let drag_start_value = drag_start_value.clone();
-            let drag_accumulated_x = drag_accumulated_x.clone();
-            let drag_moved = drag_moved.clone();
+            let drag_state = drag_state.clone();
             let pointer_lock_attempted = pointer_lock_attempted.clone();
             let pointer_lock = pointer_lock.clone();
             drag.connect_drag_update(move |_, offset_x, _| {
                 tracing::trace!(
                     "number_picker: drag_update offset_x={offset_x:.3} moved={} lock={} attempted={}",
-                    drag_moved.get(),
+                    drag_state.get().moved(),
                     pointer_lock.borrow().is_some(),
                     pointer_lock_attempted.get()
                 );
@@ -347,20 +339,18 @@ impl NumberPickerBuilder {
                     return;
                 }
 
-                if offset_x.abs() < DRAG_THRESHOLD_PIXELS && !drag_moved.get() {
+                let mut drag_value = drag_state.get();
+                if !drag_value.update_absolute(offset_x) {
                     return;
                 }
-
-                drag_accumulated_x.set(offset_x);
-                drag_moved.set(true);
+                drag_state.set(drag_value);
                 apply_drag_offset(
                     &value,
                     &value_label,
                     rotating_icon.as_ref(),
                     &config,
                     on_change.as_ref(),
-                    drag_start_value.get(),
-                    drag_accumulated_x.get(),
+                    drag_value,
                 );
                 if !pointer_lock_attempted.replace(true) {
                     let value = value.clone();
@@ -368,26 +358,20 @@ impl NumberPickerBuilder {
                     let rotating_icon = rotating_icon.clone();
                     let config = config.clone();
                     let on_change = on_change.clone();
-                    let drag_start_value = drag_start_value.clone();
-                    let drag_accumulated_x = drag_accumulated_x.clone();
-                    let drag_moved = drag_moved.clone();
+                    let drag_state = drag_state.clone();
                     *pointer_lock.borrow_mut() = PointerLock::new(&display, move |offset_x| {
-                        drag_accumulated_x.set(drag_accumulated_x.get() + offset_x);
-                        if drag_accumulated_x.get().abs() < DRAG_THRESHOLD_PIXELS
-                            && !drag_moved.get()
-                        {
+                        let mut drag_value = drag_state.get();
+                        if !drag_value.update_relative(offset_x) {
                             return;
                         }
-
-                        drag_moved.set(true);
+                        drag_state.set(drag_value);
                         apply_drag_offset(
                             &value,
                             &value_label,
                             rotating_icon.as_ref(),
                             &config,
                             on_change.as_ref(),
-                            drag_start_value.get(),
-                            drag_accumulated_x.get(),
+                            drag_value,
                         );
                     });
                     set_display_cursor(&stack, &display, &display_content, Some("none"));
@@ -406,15 +390,15 @@ impl NumberPickerBuilder {
             let on_change = on_change.clone();
             let on_commit = on_commit.clone();
             let outside_click = outside_click.clone();
-            let drag_moved = drag_moved.clone();
+            let drag_state = drag_state.clone();
             let pointer_lock = pointer_lock.clone();
             drag.connect_drag_end(move |_, offset_x, _| {
                 tracing::trace!(
                     "number_picker: drag_end offset_x={offset_x:.3} moved={} lock={}",
-                    drag_moved.get(),
+                    drag_state.get().moved(),
                     pointer_lock.borrow().is_some()
                 );
-                if !drag_moved.get() && offset_x.abs() < DRAG_THRESHOLD_PIXELS {
+                if drag_state.get().is_click(offset_x) {
                     begin_edit(&stack, &entry, value.get(), &config);
                     schedule_outside_click(
                         stack.clone(),
@@ -427,7 +411,7 @@ impl NumberPickerBuilder {
                         on_commit.clone(),
                         outside_click.clone(),
                     );
-                } else if drag_moved.get() {
+                } else if drag_state.get().moved() {
                     on_commit(value.get());
                 }
                 release_pointer_lock(&pointer_lock);
@@ -1453,10 +1437,8 @@ fn apply_drag_offset(
     rotating_icon: Option<&RotatingIcon>,
     config: &NumberPickerConfig,
     on_change: &dyn Fn(Fraction),
-    drag_start_value: Fraction,
-    offset_x: f64,
+    drag: NumberDrag,
 ) {
-    let steps = shrimply_component_core::number::drag_steps(offset_x, config.drag_pixels);
     let started = Instant::now();
     let changed = set_value(
         value,
@@ -1464,12 +1446,12 @@ fn apply_drag_offset(
         rotating_icon,
         config,
         on_change,
-        drag_start_value + config.drag_step * fraction_from_integer(steps),
+        drag.value(config),
     );
     let elapsed = started.elapsed();
     if elapsed >= SLOW_NUMBER_PICKER_LOG_THRESHOLD {
         tracing::debug!(
-            "number_picker: apply_drag_offset offset_x={offset_x:.3} steps={steps} changed={changed} elapsed_us={}",
+            "number_picker: apply_drag_offset changed={changed} elapsed_us={}",
             elapsed.as_micros(),
         );
     }

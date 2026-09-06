@@ -5,7 +5,7 @@ use std::time::Duration;
 use gtk::glib::{self, SourceId};
 use gtk::prelude::*;
 use gtk::{gio, gio::prelude::ActionMapExt};
-use shrimply_component_core::text::{TypoMark, limited_text, typo_marks};
+use shrimply_component_core::text::{TextCommit, TypoMark, limited_text, typo_marks};
 use sourceview5::prelude::*;
 
 const MAX_TYPO_CORRECTIONS: usize = 6;
@@ -172,9 +172,7 @@ impl MultilineTextInputBuilder {
                 if let Some(source_id) = pending.source_id.take() {
                     source_id.remove();
                 }
-                pending.dirty = false;
-                text.clone_into(&mut pending.latest_text);
-                text.clone_into(&mut pending.committed_text);
+                pending.state.synchronize(text);
             }) as Rc<dyn Fn(&str)>
         };
         MultilineTextInput {
@@ -186,18 +184,14 @@ impl MultilineTextInputBuilder {
 
 struct PendingCommit {
     source_id: Option<SourceId>,
-    dirty: bool,
-    latest_text: String,
-    committed_text: String,
+    state: TextCommit,
 }
 
 impl PendingCommit {
     fn new(value: &str) -> Self {
         Self {
             source_id: None,
-            dirty: false,
-            latest_text: value.to_string(),
-            committed_text: value.to_string(),
+            state: TextCommit::new(value),
         }
     }
 }
@@ -217,8 +211,7 @@ fn schedule_pending_commit(
     if let Some(source_id) = pending.source_id.replace(source_id) {
         source_id.remove();
     }
-    pending.dirty = true;
-    pending.latest_text = text;
+    pending.state.changed(text);
 }
 
 fn flush_pending_commit(
@@ -228,21 +221,12 @@ fn flush_pending_commit(
 ) {
     let should_commit = {
         let mut pending = pending.borrow_mut();
-        if !pending.dirty {
-            return;
-        }
         if let Some(source_id) = pending.source_id.take()
             && remove_source
         {
             source_id.remove();
         }
-        if pending.latest_text == pending.committed_text {
-            pending.dirty = false;
-            return;
-        }
-        pending.committed_text = pending.latest_text.clone();
-        pending.dirty = false;
-        true
+        pending.state.take_commit()
     };
     if should_commit {
         on_commit();
