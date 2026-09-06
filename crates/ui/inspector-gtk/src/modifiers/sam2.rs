@@ -21,6 +21,10 @@ pub fn add_rows(value: &Sam2Modifier, out: &gtk::Box, id: Uuid, context: &Inspec
         .selected_item
         .clone()
         .expect("SAM2 inspector must have a selected item");
+    let analysis_target = Rc::new(shrimply_video_core::sam2::analysis::AnalysisTarget {
+        address: key.clone(),
+        modifier_id: id,
+    });
     let target = InspectorTarget::Item(key);
     let section = context
         .inspector_core
@@ -243,11 +247,17 @@ pub fn add_rows(value: &Sam2Modifier, out: &gtk::Box, id: Uuid, context: &Inspec
     motion.connect_enter({
         let analyze = analyze.clone();
         let hovered = hovered.clone();
+        let analysis_target = analysis_target.clone();
         move |_, _, _| {
             hovered.set(true);
             update_analysis_status(
                 &analyze,
-                &sam2_analysis_control(id, generation, prompt_signature, can_analyze),
+                &sam2_analysis_control(
+                    analysis_target.as_ref(),
+                    generation,
+                    prompt_signature,
+                    can_analyze,
+                ),
                 true,
             );
         }
@@ -255,11 +265,17 @@ pub fn add_rows(value: &Sam2Modifier, out: &gtk::Box, id: Uuid, context: &Inspec
     motion.connect_leave({
         let analyze = analyze.clone();
         let hovered = hovered.clone();
+        let analysis_target = analysis_target.clone();
         move |_| {
             hovered.set(false);
             update_analysis_status(
                 &analyze,
-                &sam2_analysis_control(id, generation, prompt_signature, can_analyze),
+                &sam2_analysis_control(
+                    analysis_target.as_ref(),
+                    generation,
+                    prompt_signature,
+                    can_analyze,
+                ),
                 false,
             );
         }
@@ -267,16 +283,27 @@ pub fn add_rows(value: &Sam2Modifier, out: &gtk::Box, id: Uuid, context: &Inspec
     analyze.widget().add_controller(motion);
     update_analysis_status(
         &analyze,
-        &sam2_analysis_control(id, generation, prompt_signature, can_analyze),
+        &sam2_analysis_control(
+            analysis_target.as_ref(),
+            generation,
+            prompt_signature,
+            can_analyze,
+        ),
         false,
     );
     if generation > 0 {
         let analyze = analyze.clone();
+        let analysis_target = analysis_target.clone();
         glib::timeout_add_local(Duration::from_millis(50), move || {
             if analyze.widget().parent().is_none() {
                 return glib::ControlFlow::Break;
             }
-            let analysis = sam2_analysis_control(id, generation, prompt_signature, can_analyze);
+            let analysis = sam2_analysis_control(
+                analysis_target.as_ref(),
+                generation,
+                prompt_signature,
+                can_analyze,
+            );
             let finished = !analysis.running && !analysis.cancelling;
             update_analysis_status(&analyze, &analysis, hovered.get());
             if finished {

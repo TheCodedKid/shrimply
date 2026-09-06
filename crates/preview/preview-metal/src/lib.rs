@@ -48,6 +48,8 @@ struct Slots {
     request: Option<Request>,
     completed: Option<(Target, Result<compositor::Presented, String>)>,
     manim_updates: Vec<shrimply_state::manim_status::Update>,
+    sam2_errors: Vec<String>,
+    schedule_sam2: bool,
     stop: bool,
 }
 
@@ -93,9 +95,23 @@ impl Renderer {
             playback_observer,
         });
         let state = shared.clone();
+        let sam2_scheduler = shrimply_video_core::sam2::analysis::Scheduler::new({
+            let shared = Arc::downgrade(&shared);
+            move || {
+                let Some(shared) = shared.upgrade() else {
+                    return;
+                };
+                shared
+                    .slots
+                    .lock()
+                    .expect("Metal preview slots poisoned")
+                    .schedule_sam2 = true;
+                shared.wake.notify_one();
+            }
+        });
         let worker = thread::Builder::new()
             .name("preview-metal".into())
-            .spawn(move || worker(state))
+            .spawn(move || worker(state, sam2_scheduler))
             .expect("start Metal preview worker");
         Self {
             shared,
@@ -188,6 +204,9 @@ impl Renderer {
             .lock()
             .expect("Metal preview slots poisoned");
         self.manim_updates.append(&mut slots.manim_updates);
+        if let Some(error) = slots.sam2_errors.pop() {
+            self.error = Some(error);
+        }
         // Present a completed scrub frame before replacing the requested target.
         if let Some((completed_target, result)) = slots.completed.take()
             && completed_target.revision == self.revision
@@ -272,7 +291,7 @@ impl Drop for Renderer {
     }
 }
 
-fn worker(shared: Arc<Shared>) {
+fn worker(shared: Arc<Shared>, mut sam2_scheduler: shrimply_video_core::sam2::analysis::Scheduler) {
     let mut renderer = compositor::Compositor::default();
     let mut current: Option<Request> = None;
     let mut timings = BTreeMap::<u64, RequestTiming>::new();
@@ -281,7 +300,7 @@ fn worker(shared: Arc<Shared>) {
     let mut slow_request_reported = false;
     loop {
         let mut slots = shared.slots.lock().expect("Metal preview slots poisoned");
-        while !slots.stop && slots.request.is_none() && !active {
+        while !slots.stop && slots.request.is_none() && !slots.schedule_sam2 && !active {
             slots = shared
                 .wake
                 .wait(slots)
@@ -290,6 +309,11 @@ fn worker(shared: Arc<Shared>) {
         if slots.stop {
             return;
         }
+        let schedule_sam2 = std::mem::take(&mut slots.schedule_sam2);
+        if schedule_sam2 {
+            sam2_scheduler.consume_notification();
+        }
+        let mut project_changed = false;
         if let Some(request) = slots.request.take() {
             if current
                 .as_ref()
@@ -311,9 +335,13 @@ fn worker(shared: Arc<Shared>) {
             );
             current = Some(request);
             slow_request_reported = false;
+            project_changed = true;
         }
         drop(slots);
         let request = current.as_ref().expect("Metal preview request is active");
+        if schedule_sam2 || project_changed {
+            schedule_sam2_analysis(&request.project, &mut sam2_scheduler, &shared);
+        }
         let result = objc2::rc::autoreleasepool(|_| {
             renderer.update(&request.project, request.target.time, request.request_id)
         });
@@ -384,6 +412,39 @@ fn worker(shared: Arc<Shared>) {
                     .wait_timeout(slots, FRAME_POLL_INTERVAL)
                     .expect("Metal preview slots poisoned"),
             );
+        }
+    }
+}
+
+fn schedule_sam2_analysis(
+    project: &Project,
+    scheduler: &mut shrimply_video_core::sam2::analysis::Scheduler,
+    shared: &Arc<Shared>,
+) {
+    let errors = shared.clone();
+    match scheduler.schedule_next_with(
+        project,
+        compositor::Sam2ProxyFrameSource::new,
+        move |error| {
+            tracing::error!(%error, "Metal SAM2 analysis failed");
+            errors
+                .slots
+                .lock()
+                .expect("Metal preview slots poisoned")
+                .sam2_errors
+                .push(error);
+            errors.wake.notify_one();
+        },
+    ) {
+        Ok(_) => {}
+        Err(error) => {
+            shared
+                .slots
+                .lock()
+                .expect("Metal preview slots poisoned")
+                .sam2_errors
+                .push(error);
+            shared.wake.notify_one();
         }
     }
 }

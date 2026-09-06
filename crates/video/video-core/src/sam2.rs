@@ -8,7 +8,7 @@ use std::{
 
 use cached::{Cached, stores::LruCache};
 use rusqlite::{Connection, OptionalExtension, params};
-use shrimply_project::project::{Project, Time, VideoItem};
+use shrimply_project::project::{ItemAddress, Project, Time, VideoItem};
 use shrimply_video_modifiers::{ModifierEffect, RasterModifierEffect, sam2::Sam2Modifier};
 use uuid::Uuid;
 
@@ -20,10 +20,11 @@ pub const MASK_LOGIT_QUANTIZATION_SCALE: f32 = 16.0;
 const MASK_PIXELS: usize = MASK_SIZE as usize * MASK_SIZE as usize;
 const MASK_CACHE_DIRECTORY: &str = "cache";
 const MASK_CACHE_DATABASE: &str = "cache/sam2-masks.sqlite";
-const MASK_CACHE_VERSION: i64 = 5;
+const MASK_CACHE_VERSION: i64 = 6;
 const MASK_MEMORY_FRAMES: usize = 64;
 
 pub struct ResolvedMask {
+    pub target: analysis::AnalysisTarget,
     pub modifier_id: Uuid,
     pub cache_key: String,
     pub frame: i64,
@@ -35,6 +36,7 @@ pub struct ResolvedMask {
 
 pub fn resolve(
     project: &Project,
+    address: &ItemAddress,
     item: &VideoItem,
     position: Time,
     modifier_id: Uuid,
@@ -60,12 +62,16 @@ pub fn resolve(
         .ok_or("project frame rate must be positive for SAM2 video tracking")?;
     let prompt_time =
         shrimply_project::project::generated_item_time(item, frame_position).unwrap_or(Time::ZERO);
-    let cache_key = cache_key(project, item, modifier_id, modifier_index, modifier);
+    let cache_key = cache_key(project, address, modifier_id, modifier_index, modifier)?;
     let mask = Sam2MaskCache::shared().get(&cache_key, frame);
     if mask.is_none() && require_mask {
         return Err("Segment Anything 2 mask is unavailable; analyze it again".to_string());
     }
     Ok(Some(ResolvedMask {
+        target: analysis::AnalysisTarget {
+            address: address.clone(),
+            modifier_id,
+        },
         modifier_id,
         cache_key,
         frame,
@@ -76,7 +82,11 @@ pub fn resolve(
     }))
 }
 
-pub fn invalidate_item_analysis(item: &VideoItem, modifier_id: Uuid) -> bool {
+pub fn invalidate_item_analysis(
+    address: &ItemAddress,
+    item: &VideoItem,
+    modifier_id: Uuid,
+) -> bool {
     let Some(modifier) = item
         .modifiers
         .iter()
@@ -91,7 +101,10 @@ pub fn invalidate_item_analysis(item: &VideoItem, modifier_id: Uuid) -> bool {
         return false;
     };
     analysis::invalidate_if_stale(
-        modifier_id,
+        &analysis::AnalysisTarget {
+            address: address.clone(),
+            modifier_id,
+        },
         modifier.analysis_generation,
         modifier.prompt_signature(),
     )
@@ -248,14 +261,23 @@ impl Sam2MaskCache {
             .expect("commit discarding incomplete SAM2 analysis");
     }
 
-    pub fn analysis_complete(&self, key: &str) -> bool {
+    pub fn analysis_complete(&self, key: &str, frame_count: usize) -> bool {
+        let Ok(frame_count) = i64::try_from(frame_count) else {
+            return false;
+        };
         self.store
             .lock()
             .expect("SAM2 mask cache lock is poisoned")
             .connection
             .query_row(
-                "SELECT 1 FROM analyses WHERE cache_key = ?1",
-                params![key],
+                "SELECT 1 FROM analyses
+                 WHERE cache_key = ?1
+                   AND (SELECT COUNT(*) FROM masks
+                        WHERE masks.cache_key = analyses.cache_key
+                          AND masks.cache_version = ?2) = ?3
+                   AND (SELECT COUNT(*) FROM masks
+                        WHERE masks.cache_key = analyses.cache_key) = ?3",
+                params![key, MASK_CACHE_VERSION, frame_count],
                 |_| Ok(()),
             )
             .optional()
@@ -266,36 +288,41 @@ impl Sam2MaskCache {
 
 pub fn cache_key(
     project: &Project,
-    item: &VideoItem,
+    address: &ItemAddress,
     modifier_id: Uuid,
     modifier_index: usize,
     modifier: &Sam2Modifier,
-) -> String {
+) -> Result<String, String> {
     let mut hasher = DefaultHasher::new();
-    let mut analyzed_item = item.clone();
-    analyzed_item.modifiers.truncate(modifier_index);
-    serde_json::to_string(&analyzed_item)
-        .expect("serialize SAM2 input item")
+    let render_project =
+        crate::modifier_input::render_input_project(project, address, modifier_index)?;
+    serde_json::to_vec(&render_project)
+        .expect("serialize SAM2 render input project")
         .hash(&mut hasher);
-    project.fps.hash(&mut hasher);
-    project.canvas_size.width.hash(&mut hasher);
-    project.canvas_size.height.hash(&mut hasher);
-    if item.uses_file_asset() {
-        item.file.snapshot().ok().hash(&mut hasher);
-    }
+    let mut assets = render_project
+        .assets()
+        .into_iter()
+        .map(|asset| (asset.path().to_path_buf(), asset.snapshot().ok()))
+        .collect::<Vec<_>>();
+    assets.sort_unstable_by(|left, right| left.0.cmp(&right.0));
+    assets.hash(&mut hasher);
+    address.hash(&mut hasher);
     modifier.prompt_signature().hash(&mut hasher);
-    format!(
+    Ok(format!(
         "{MASK_CACHE_VERSION}:{modifier_id}:{}:{:016x}:{}:{}",
         modifier.analysis_generation,
         hasher.finish(),
         project.canvas_size.width,
         project.canvas_size.height,
-    )
+    ))
 }
 
 pub fn validate_cache(project: &Project) -> Result<(), String> {
     let cache = Sam2MaskCache::shared();
-    for item in project.video_tracks.iter().flat_map(|track| &track.items) {
+    for address in crate::sequence::video_item_addresses(project)? {
+        let item = project
+            .video_item(&address)
+            .ok_or_else(|| format!("SAM2 item {} no longer exists", address.item_id()))?;
         for (modifier_index, modifier) in item.modifiers.iter().enumerate() {
             if !modifier.enabled {
                 continue;
@@ -309,8 +336,9 @@ pub fn validate_cache(project: &Project) -> Result<(), String> {
             if sam2.points.is_empty() && sam2.box_prompt.is_none() {
                 continue;
             }
-            let key = cache_key(project, item, modifier.id, modifier_index, sam2);
-            if sam2.analysis_generation == 0 || !cache.analysis_complete(&key) {
+            let key = cache_key(project, &address, modifier.id, modifier_index, sam2)?;
+            let frame_count = analysis::analysis_frame_count(project, &address)?;
+            if sam2.analysis_generation == 0 || !cache.analysis_complete(&key, frame_count) {
                 return Err(format!(
                     "Segment Anything 2 on item {} must be analyzed before export",
                     item.id

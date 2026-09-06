@@ -11,8 +11,7 @@ use std::{
 use cached::{Cached, stores::LruCache};
 use rusqlite::{Connection, OptionalExtension, params};
 use shrimply_project::project::{
-    ItemAddress, Project, Time, TrackMut, VideoItem, VideoItemContent, VisualTrack,
-    video_source_time_at,
+    ItemAddress, Project, Time, VideoItem, VideoItemContent, VisualTrack, video_source_time_at,
 };
 use shrimply_video_modifiers::{
     ModifierEffect, RasterModifierEffect, transparent_fill::TransparentFillModifier,
@@ -20,6 +19,7 @@ use shrimply_video_modifiers::{
 use uuid::Uuid;
 
 pub mod analysis;
+pub use crate::modifier_input::render_input_project;
 
 const CACHE_DATABASE: &str = "cache/transparent-fill-masks.sqlite";
 const CACHE_VERSION: i64 = 3;
@@ -449,34 +449,6 @@ pub fn analysis_cache_key(
     format!("{CACHE_VERSION}:{modifier_id}:{:016x}", hasher.finish())
 }
 
-pub fn render_input_project(
-    project: &Project,
-    address: &ItemAddress,
-    modifier_index: usize,
-) -> Result<Project, String> {
-    let mut render_project = project.clone();
-    render_project.format_version = 0;
-    render_project.name.clear();
-    render_project.expanded_sequence_paths.clear();
-    render_project.cursor_position = None;
-    render_project.timeline_zoom = None;
-    render_project.preview_guides = Box::default();
-    let target_item_id = address.item_id();
-    let TrackMut::Video(track) = render_project
-        .track_mut(&address.track())
-        .ok_or_else(|| "transparent fill track no longer exists".to_string())?
-    else {
-        return Err("transparent fill requires a video track".to_string());
-    };
-    remove_incoming_transition(track, target_item_id);
-    render_project
-        .video_item_mut(address)
-        .ok_or_else(|| "transparent fill item no longer exists".to_string())?
-        .modifiers
-        .truncate(modifier_index);
-    Ok(render_project)
-}
-
 #[derive(Clone, Copy)]
 pub struct AnalysisFrame {
     pub timeline_position: Time,
@@ -562,22 +534,6 @@ fn target_sequence_position(
     }
     let item = project.video_item(address)?;
     (position >= item.start && position < item.end).then_some(position)
-}
-
-fn remove_incoming_transition(
-    track: &mut shrimply_project::project::VisualTrack,
-    target_item_id: Uuid,
-) {
-    for item in &mut track.items {
-        if item
-            .transitions
-            .to_next
-            .as_ref()
-            .is_some_and(|transition| transition.target_item_id == target_item_id)
-        {
-            item.transitions.to_next = None;
-        }
-    }
 }
 
 pub fn cache_key(

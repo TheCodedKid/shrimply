@@ -461,7 +461,7 @@ pub struct MeshGeometry {
 #[derive(Clone, Copy, Debug)]
 pub struct AccelerationInstance {
     pub geometry_index: u32,
-    pub transform: [f32; 12],
+    pub transform: [f32; 16],
 }
 
 pub struct ObjRenderSession {
@@ -537,7 +537,7 @@ impl ObjRenderSession {
             }],
             acceleration_instances: vec![AccelerationInstance {
                 geometry_index: 0,
-                transform: vulkan_transform(Mat4::IDENTITY),
+                transform: Mat4::IDENTITY.to_cols_array(),
             }],
             mesh_instances: vec![obj::MeshInstance {
                 model: Mat4::IDENTITY.to_cols_array(),
@@ -589,7 +589,7 @@ impl ObjRenderSession {
             }],
             acceleration_instances: vec![AccelerationInstance {
                 geometry_index: 0,
-                transform: vulkan_transform(Mat4::IDENTITY),
+                transform: Mat4::IDENTITY.to_cols_array(),
             }],
             mesh_instances: vec![obj::MeshInstance {
                 model: Mat4::IDENTITY.to_cols_array(),
@@ -823,7 +823,7 @@ impl ObjRenderSession {
             }
             acceleration_instances.push(AccelerationInstance {
                 geometry_index: geometry_index as u32,
-                transform: vulkan_transform(local_to_scene),
+                transform: local_to_scene.to_cols_array(),
             });
             let second_material = material_offset + geometry.primitive_counts[0];
             mesh_instances.push(obj::MeshInstance {
@@ -856,7 +856,7 @@ impl ObjRenderSession {
             });
             acceleration_instances.push(AccelerationInstance {
                 geometry_index: 0,
-                transform: vulkan_transform(normalization),
+                transform: normalization.to_cols_array(),
             });
             mesh_instances.push(obj::MeshInstance {
                 model: normalization.to_cols_array(),
@@ -994,24 +994,6 @@ fn object_matrix(transform: shrimply_scene_3d::ResolvedTransform3d) -> Mat4 {
         shrimply_transform_3d::rotation(transform.rotation_degrees, transform.rotation_order),
         transform.position,
     ) * Mat4::from_translation(-transform.anchor)
-}
-
-fn vulkan_transform(matrix: Mat4) -> [f32; 12] {
-    let columns = matrix.to_cols_array();
-    [
-        columns[0],
-        columns[4],
-        columns[8],
-        columns[12],
-        columns[1],
-        columns[5],
-        columns[9],
-        columns[13],
-        columns[2],
-        columns[6],
-        columns[10],
-        columns[14],
-    ]
 }
 
 fn combined_bounds(positions: &[[f32; 4]]) -> Result<(Vec3, f32), Render3dError> {

@@ -1,23 +1,3 @@
-float aces_tone_map(float value)
-{
-    return saturate((value * (2.51 * value + 0.03))
-        / (value * (2.43 * value + 0.59) + 0.14));
-}
-
-float linear_to_srgb(float value)
-{
-    return value <= 0.0031308
-        ? value * 12.92
-        : 1.055 * pow(value, 1.0 / 2.4) - 0.055;
-}
-
-float srgb_to_linear(float value)
-{
-    return value <= 0.04045
-        ? value / 12.92
-        : pow((value + 0.055) / 1.055, 2.4);
-}
-
 float wrap_texture_coordinate(float value, uint mode)
 {
     if (mode == 0)
@@ -84,4 +64,3 @@ float4 surface_base_color(uint first, float3 barycentric, MeshMaterial material)
         srgb_to_linear(sampled.b));
     return material.base_color_factor * vertex_color * sampled;
 }
-

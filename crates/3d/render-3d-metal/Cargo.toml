@@ -1,0 +1,17 @@
+[package]
+name = "shrimply-render-3d-metal"
+version = "0.1.0"
+edition = "2024"
+build = "build.rs"
+
+[build-dependencies]
+serde_json.workspace = true
+shrimply-slang-build = { path = "../../slang-build" }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2.workspace = true
+objc2-foundation.workspace = true
+objc2-metal.workspace = true
+shrimply-render-3d = { path = "../render-3d" }
+shrimply-render-metal = { path = "../../render-metal" }
+shrimply-video-core = { path = "../../video/video-core" }

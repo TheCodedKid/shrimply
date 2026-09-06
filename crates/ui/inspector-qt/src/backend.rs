@@ -39,12 +39,20 @@ fn analysis_presentation(
             generation,
             prompt_signature,
             can_analyze,
-        } => Some(shrimply_inspector_core::sam2_analysis_control(
-            modifier_id,
-            generation,
-            prompt_signature,
-            can_analyze,
-        )),
+        } => {
+            let InspectorTarget::Item(address) = target? else {
+                return None;
+            };
+            Some(shrimply_inspector_core::sam2_analysis_control(
+                &shrimply_video_core::sam2::analysis::AnalysisTarget {
+                    address: address.clone(),
+                    modifier_id,
+                },
+                generation,
+                prompt_signature,
+                can_analyze,
+            ))
+        }
         shrimply_inspector_core::InspectorControlAction::ToggleTransparentFillAnalysis {
             modifier_id,
         } => super::transparent_fill_analysis_control(target?, modifier_id).ok(),

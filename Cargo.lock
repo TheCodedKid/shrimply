@@ -5908,6 +5908,7 @@ dependencies = [
  "shrimply-timeline",
  "shrimply-tts",
  "shrimply-tts-gtk",
+ "shrimply-video-core",
  "shrimply-video-cuda",
  "shrimply-video-generation",
  "shrimply-video-generation-gtk",
@@ -5946,6 +5947,7 @@ dependencies = [
  "shrimply-state",
  "shrimply-timeline",
  "shrimply-tts",
+ "shrimply-video-core",
  "shrimply-video-modifiers",
  "uuid",
 ]
@@ -6535,6 +6537,7 @@ dependencies = [
  "shrimply-preview-core",
  "shrimply-preview-render-core",
  "shrimply-project",
+ "shrimply-render-3d-metal",
  "shrimply-render-core",
  "shrimply-render-metal",
  "shrimply-state",
@@ -6593,6 +6596,7 @@ dependencies = [
  "shrimply-preview-core",
  "shrimply-project",
  "shrimply-render-core",
+ "shrimply-scene-3d",
  "shrimply-state",
  "shrimply-video-core",
  "shrimply-video-modifiers",
@@ -6776,6 +6780,20 @@ dependencies = [
  "shrimply-scene-3d",
  "shrimply-slang-build",
  "shrimply-transform-3d",
+]
+
+[[package]]
+name = "shrimply-render-3d-metal"
+version = "0.1.0"
+dependencies = [
+ "objc2",
+ "objc2-foundation",
+ "objc2-metal",
+ "serde_json",
+ "shrimply-render-3d",
+ "shrimply-render-metal",
+ "shrimply-slang-build",
+ "shrimply-video-core",
 ]
 
 [[package]]
@@ -7183,11 +7201,16 @@ dependencies = [
  "shrimply-paint-skia",
  "shrimply-preview-skia",
  "shrimply-project",
+ "shrimply-render-3d",
  "shrimply-render-core",
+ "shrimply-scene-3d",
  "shrimply-server-client",
+ "shrimply-shape-3d",
  "shrimply-text-3d",
+ "shrimply-transform-3d",
  "shrimply-video-modifiers",
  "skia-safe",
+ "tempfile",
  "tracing",
  "uuid",
  "vtracer",

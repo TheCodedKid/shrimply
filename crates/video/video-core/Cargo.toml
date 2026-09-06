@@ -34,6 +34,10 @@ pangocairo.workspace = true
 shrimply-project = { path = "../../project/project" }
 shrimply-server-client = { path = "../../server-client" }
 shrimply-text-3d = { path = "../../3d/text-3d" }
+shrimply-shape-3d = { path = "../../3d/shape-3d" }
+shrimply-render-3d = { path = "../../3d/render-3d" }
+shrimply-scene-3d = { path = "../../3d/scene-3d" }
+shrimply-transform-3d = { path = "../../3d/transform-3d" }
 shrimply-3dgs = { path = "../../3d/3dgs" }
 skia-safe = { workspace = true, features = ["textlayout", "svg"] }
 serde_json.workspace = true
@@ -41,3 +45,4 @@ vtracer.workspace = true
 hashbrown.workspace = true
 rusqlite = { workspace = true, features = ["bundled"] }
 png.workspace = true
+tempfile.workspace = true

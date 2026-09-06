@@ -29,6 +29,9 @@ fn main() {
             .file_stem()
             .and_then(|name| name.to_str())
             .expect("Slang module filename must be UTF-8");
+        if module == "obj_compute" {
+            continue;
+        }
         let artifacts = compiler.compile(&source, shrimply_slang_build::Target::Spirv, &[]);
         let reflected: Value = serde_json::from_slice(&artifacts.reflection)
             .unwrap_or_else(|error| panic!("parse Slang reflection for {module}: {error}"));

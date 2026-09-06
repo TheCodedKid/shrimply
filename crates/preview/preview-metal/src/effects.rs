@@ -166,6 +166,8 @@ pub(super) fn apply_modifiers(
     operations: &[shrimply_video_core::raster_modifiers::Modifier],
     size: (u32, u32),
     submissions: &mut Vec<Submission>,
+    sam2_target: Option<&shrimply_video_core::sam2::analysis::AnalysisTarget>,
+    sam2_proxy: &mut Option<Buffer>,
 ) -> Result<(SpatialState, Buffer), String> {
     use shrimply_video_core::raster_modifiers::Operation;
     for modifier in operations {
@@ -193,8 +195,22 @@ pub(super) fn apply_modifiers(
                         apply_dithering(renderer, input, state, effect, size, submissions)?;
                 }
                 Operation::Sam2Mask(effect) => {
-                    (state, input) =
-                        apply_sam2_mask(renderer, input, state, effect, size, submissions)?;
+                    if sam2_target == Some(&effect.target) {
+                        (state, input) =
+                            materialize_mask_input(renderer, input, state, size, submissions)?;
+                        if sam2_proxy.is_none() {
+                            *sam2_proxy = Some(capture_sam2_proxy(
+                                renderer,
+                                &input,
+                                size.0,
+                                size.1,
+                                submissions,
+                            )?);
+                        }
+                    } else {
+                        (state, input) =
+                            apply_sam2_mask(renderer, input, state, effect, size, submissions)?;
+                    }
                 }
                 Operation::TransparentFillMask(effect) => {
                     (state, input) = apply_transparent_fill_mask(
@@ -230,6 +246,41 @@ pub(super) fn apply_modifiers(
         }
     }
     Ok((state, input))
+}
+
+fn capture_sam2_proxy(
+    renderer: &mut Renderer,
+    input: &Buffer,
+    input_width: u32,
+    input_height: u32,
+    submissions: &mut Vec<Submission>,
+) -> Result<Buffer, String> {
+    if input_width == 0 || input_height == 0 {
+        return Err("SAM2 proxy source dimensions must be nonzero".to_string());
+    }
+    let side = shrimply_video_core::sam2::MODEL_SIZE;
+    let count = usize::try_from(u64::from(side) * u64::from(side))
+        .map_err(|_| "SAM2 proxy dimensions overflow")?;
+    let output = renderer.allocate(
+        count
+            .checked_mul(size_of::<u32>())
+            .ok_or("SAM2 proxy size overflow")?,
+    )?;
+    let mut arguments = renderer.arguments("sam2_proxy")?;
+    arguments
+        .set("input", &input.address().to_ne_bytes())?
+        .set("output", &output.address().to_ne_bytes())?
+        .set("params.input_width", &input_width.to_ne_bytes())?
+        .set("params.input_height", &input_height.to_ne_bytes())?
+        .set("params.model_size", &side.to_ne_bytes())?;
+    submissions.push(unsafe {
+        renderer.dispatch(
+            arguments,
+            vec![input.clone(), output.clone()],
+            [count, 1, 1],
+        )
+    }?);
+    Ok(output)
 }
 
 fn materialize_mask_input(

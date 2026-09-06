@@ -481,6 +481,7 @@ pub fn visual_modifier_presentations(
                     }
                     RasterModifierEffect::Sam2(value) => {
                         Some(VisualModifierBodyPresentation::Sam2(sam2::presentation(
+                            address,
                             value,
                             index,
                             modifier.id,

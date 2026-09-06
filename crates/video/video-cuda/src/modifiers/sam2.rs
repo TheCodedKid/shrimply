@@ -21,7 +21,7 @@ impl GpuModifier for shrimply_video_core::sam2::ResolvedMask {
         context: &mut ModifierContext<'_>,
         input: CanvasRgbaFrame,
     ) -> Result<CanvasRgbaFrame, String> {
-        if context.capture_sam2(self.modifier_id, &input)? {
+        if context.capture_sam2(&self.target, &input)? {
             return Ok(input);
         }
         let Some(mask) = &self.mask else {
@@ -66,6 +66,7 @@ impl RasterModifierRuntime for Sam2Modifier {
         }
         let Some(resolved) = shrimply_video_core::sam2::resolve(
             context.project,
+            context.address,
             context.item,
             context.position,
             context.modifier_id,

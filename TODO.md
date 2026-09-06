@@ -8,18 +8,13 @@ Implementation owner: primary agent. Other agents review only; no implementation
 
 ## Current priorities
 
-- [ ] Move reusable SAM2 and transparent-fill planning, cache ownership, and lifecycle orchestration into `video-core`; keep AppKit/Metal and CUDA as thin upload/dispatch bridges over the shared Slang kernels.
-- [ ] Refactor the shared OBJ Slang ray pipeline into a compute-raytracing form usable by CUDA and Metal, move scene preparation into `-core`, and connect the Metal BLAS/TLAS bridge; AppKit must fail explicitly when the device lacks ray tracing or the shared Metal shader is unavailable.
+- [ ] Share OBJ camera-ray generation between the existing ray pipeline and the Metal compute path, then complete alpha materials, textures, environments, grounds, outlines and transmission while preserving CUDA; unsupported modes fail explicitly.
 - [ ] Move remaining reusable source/effect orchestration into `-core`; keep Metal and CUDA crates as resource/execution bridges.
 - [ ] Connect tracked-camera sampling to native rendering and preview geometry.
 
 ## Preview
 
 - [ ] Fix any remaining AppKit interaction gaps reported during use through the shared preview interaction core.
-
-## AppKit
-
-- [ ] Rebuild Settings as a compact native macOS preferences window following Apple HIG spacing and grouping; label the Apple-silicon memory limit as a unified renderer memory budget and keep persistence in preferences-core.
 
 ## Timeline
 

@@ -474,11 +474,31 @@ impl Scene {
                     let height = plan.height;
                     (Source::Gaussian(Box::new(plan)), width, height)
                 }
-                VideoItemContent::Obj(_) => (
-                    Source::Obj,
-                    project.canvas_size.width.max(1),
-                    project.canvas_size.height.max(1),
-                ),
+                VideoItemContent::Obj(scene) => {
+                    if matches!(
+                        scene.camera.source,
+                        shrimply_scene_3d::CameraSource::Tracking(_)
+                    ) {
+                        return Err(
+                            "Tracked OBJ cameras are not connected to the native preview renderer"
+                                .to_string(),
+                        );
+                    }
+                    let plan = self.objs.entry(item.id).or_default().prepare(
+                        shrimply_video_core::obj::Request {
+                            project,
+                            item,
+                            position: time,
+                            audio_analysis: audio,
+                            render_canvas,
+                            content_accurate: self.requested_accuracy.content_accurate(),
+                            tracked_camera: None,
+                        },
+                    )?;
+                    let width = plan.width;
+                    let height = plan.height;
+                    (Source::Obj(Box::new(plan)), width, height)
+                }
                 _ => {
                     let Some(media::Frame::Image(image)) =
                         self.media.frame(&prepared.address, media::Plane::Content)

@@ -13,9 +13,10 @@ use objc2::runtime::ProtocolObject;
 use objc2::{AnyThread, DefinedClass, MainThreadOnly, define_class, msg_send, sel};
 use objc2_app_kit::{
     NSAlert, NSApplication, NSApplicationActivationPolicy, NSApplicationDelegate,
-    NSBackingStoreType, NSColorWell, NSControl, NSControlStateValueOff, NSControlStateValueOn,
-    NSMenuItem, NSPopUpButton, NSTextField, NSToolbar, NSToolbarDelegate, NSToolbarDisplayMode,
-    NSToolbarItem, NSWindow, NSWindowDelegate, NSWindowStyleMask, NSWindowToolbarStyle,
+    NSBackingStoreType, NSButton, NSColorWell, NSControl, NSControlStateValueOff,
+    NSControlStateValueOn, NSMenuItem, NSPopUpButton, NSTextField, NSToolbar, NSToolbarDelegate,
+    NSToolbarDisplayMode, NSToolbarItem, NSWindow, NSWindowDelegate, NSWindowStyleMask,
+    NSWindowToolbarStyle,
 };
 use objc2_foundation::{
     MainThreadMarker, NSArray, NSNotification, NSObject, NSObjectProtocol, NSPoint, NSRect,
@@ -42,6 +43,8 @@ struct EditorIvars {
     fullscreen_preview: Cell<bool>,
     fullscreen: RefCell<fullscreen::State>,
     settings_window: RefCell<Option<Retained<NSWindow>>>,
+    settings_blender_probe:
+        RefCell<Option<std::sync::mpsc::Receiver<Result<std::path::PathBuf, String>>>>,
     event_monitor: OnceCell<Retained<objc2::runtime::AnyObject>>,
     title: String,
 }
@@ -153,6 +156,7 @@ define_class!(
     impl Editor {
         #[unsafe(method(renderFrame:))]
         fn render_frame(&self, _timer: &objc2_foundation::NSTimer) {
+            self.poll_blender_probe();
             let session = self.ivars().session.get().expect("project loaded");
             let imported = self.ivars().imports.borrow_mut().poll(session);
             if let Err(error) = imported { self.show_error(&error); }
@@ -221,6 +225,10 @@ define_class!(
 
         #[unsafe(method(showSettings:))]
         fn show_settings(&self, _sender: &NSObject) {
+            if let Some(window) = self.ivars().settings_window.borrow().as_ref() {
+                window.makeKeyAndOrderFront(None);
+                return;
+            }
             self.ivars().settings_window.replace(Some(settings::show(self)));
         }
 
@@ -228,25 +236,15 @@ define_class!(
         fn change_numeric_preference(&self, sender: &NSControl) {
             let Some((id, scale)) = settings::numeric_preference(sender.tag()) else { return };
             let value = (sender.doubleValue() * scale as f64).round() as i64;
+            let store = &self.ivars().session.get().expect("project loaded").preferences;
             if let Err(error) = shrimply_state::preferences::set_value(
-                &self.ivars().session.get().expect("project loaded").preferences,
+                store,
                 id,
                 shrimply_state::preferences::PreferenceValue::Integer(value),
             ) {
                 self.show_error(error);
             }
-        }
-
-        #[unsafe(method(changeChoicePreference:))]
-        fn change_choice_preference(&self, sender: &NSPopUpButton) {
-            let Some(id) = settings::choice_preference(sender.tag()) else { return };
-            if let Err(error) = shrimply_state::preferences::set_value(
-                &self.ivars().session.get().expect("project loaded").preferences,
-                id,
-                shrimply_state::preferences::PreferenceValue::Integer(sender.indexOfSelectedItem() as i64),
-            ) {
-                self.show_error(error);
-            }
+            sender.setDoubleValue(settings::numeric_value(store, id, scale));
         }
 
         #[unsafe(method(changeDefaultFont:))]
@@ -282,20 +280,45 @@ define_class!(
         }
 
         #[unsafe(method(chooseBlender:))]
-        fn choose_blender(&self, _sender: &NSObject) {
-            if let Err(error) = settings::choose_blender(
-                &self.ivars().session.get().expect("project loaded").preferences,
-                self.mtm(),
-            ) {
-                self.show_error(&error);
+        fn choose_blender(&self, _sender: &NSButton) {
+            if self.ivars().settings_blender_probe.borrow().is_some() {
+                return;
+            }
+            match settings::choose_blender_path(self.mtm()) {
+                Ok(Some(path)) => {
+                    let (sender, receiver) = std::sync::mpsc::channel();
+                    std::thread::spawn(move || {
+                        let _ = sender.send(shrimply_state::preferences::validate_blender_binary(&path));
+                    });
+                    self.ivars().settings_blender_probe.replace(Some(receiver));
+                    if let Some(window) = self.ivars().settings_window.borrow().as_ref() {
+                        let current = shrimply_state::preferences::snapshot(
+                            &self.ivars().session.get().expect("project loaded").preferences,
+                        );
+                        settings::sync_blender_window(
+                            window,
+                            current.blender_binary.as_deref(),
+                            true,
+                            self.mtm(),
+                        );
+                    }
+                }
+                Ok(None) => {}
+                Err(error) => self.show_error(&error),
             }
         }
 
         #[unsafe(method(clearBlender:))]
-        fn clear_blender(&self, _sender: &NSObject) {
-            shrimply_state::preferences::apply_blender_binary(
-                &self.ivars().session.get().expect("project loaded").preferences,
-                None,
+        fn clear_blender(&self, sender: &NSButton) {
+            let store = &self.ivars().session.get().expect("project loaded").preferences;
+            shrimply_state::preferences::apply_blender_binary(store, None);
+            let snapshot = shrimply_state::preferences::snapshot(store);
+            let window = sender.window().expect("Blender button has a settings window");
+            settings::sync_blender_window(
+                &window,
+                snapshot.blender_binary.as_deref(),
+                false,
+                self.mtm(),
             );
         }
 
@@ -329,6 +352,50 @@ define_class!(
 impl Editor {
     fn show_error(&self, error: &str) {
         error_alert::show(self.mtm(), error);
+    }
+
+    fn poll_blender_probe(&self) {
+        let result = {
+            let mut pending = self.ivars().settings_blender_probe.borrow_mut();
+            let Some(receiver) = pending.as_ref() else {
+                return;
+            };
+            match receiver.try_recv() {
+                Ok(result) => {
+                    pending.take();
+                    Some(result)
+                }
+                Err(std::sync::mpsc::TryRecvError::Empty) => None,
+                Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                    pending.take();
+                    Some(Err("Blender validation worker stopped unexpectedly".into()))
+                }
+            }
+        };
+        let Some(result) = result else {
+            return;
+        };
+        let store = &self
+            .ivars()
+            .session
+            .get()
+            .expect("project loaded")
+            .preferences;
+        if let Ok(path) = &result {
+            shrimply_state::preferences::apply_blender_binary(store, Some(path.clone()));
+        }
+        let snapshot = shrimply_state::preferences::snapshot(store);
+        if let Some(window) = self.ivars().settings_window.borrow().as_ref() {
+            settings::sync_blender_window(
+                window,
+                snapshot.blender_binary.as_deref(),
+                false,
+                self.mtm(),
+            );
+        }
+        if let Err(error) = result {
+            self.show_error(&error);
+        }
     }
 
     fn step(&self, forward: bool) {
@@ -432,6 +499,7 @@ pub fn run(project: Option<&Path>) {
         fullscreen_preview: Cell::new(false),
         fullscreen: RefCell::new(fullscreen::State::default()),
         settings_window: RefCell::new(None),
+        settings_blender_probe: RefCell::new(None),
         event_monitor: OnceCell::new(),
         title,
     });

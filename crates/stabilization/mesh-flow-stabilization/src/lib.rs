@@ -8,6 +8,14 @@ use opencv::prelude::*;
 use opencv::{imgproc, video, videoio};
 use shrimply_math_core::{Time, fraction_as_u32_ratio, frame_rate_from_f64};
 
+opencv::opencv_branch_5! {
+    use opencv::features::good_features_to_track;
+}
+
+opencv::not_opencv_branch_5! {
+    use opencv::imgproc::good_features_to_track;
+}
+
 const MAXIMUM_FEATURES: i32 = 1_000;
 const FEATURE_QUALITY: f64 = 0.01;
 const MINIMUM_FEATURE_DISTANCE: f64 = 12.0;
@@ -211,7 +219,7 @@ fn tracked_features(previous: &Mat, current: &Mat) -> Result<Vec<[f32; 6]>, Stri
     imgproc::cvt_color_def(current, &mut current_gray, imgproc::COLOR_BGR2GRAY)
         .map_err(|error| error.to_string())?;
     let mut previous_points = Vector::<Point2f>::new();
-    imgproc::good_features_to_track(
+    good_features_to_track(
         &previous_gray,
         &mut previous_points,
         MAXIMUM_FEATURES,

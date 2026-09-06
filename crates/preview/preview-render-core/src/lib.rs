@@ -13,7 +13,7 @@ use shrimply_evaluation::{
 use shrimply_math_core::Time;
 pub use shrimply_preview_core::accuracy::CompositeAccuracy;
 use shrimply_preview_core::accuracy::{FINAL_PREVIEW_DELAY, LOCAL_SCRUB_WINDOW_SECONDS};
-use shrimply_project::project::{Project, VideoItemContent, video_source_time_at};
+use shrimply_project::project::{ItemAddress, Project, VideoItemContent, video_source_time_at};
 use shrimply_render_core::{LayerKind, Nv12LayerParams, TextureAddressMode};
 use skia_safe::Image;
 use std::time::Instant;
@@ -48,7 +48,7 @@ pub enum Source {
     RasterMorph(Box<RasterMorph>),
     LayeredImage(Box<shrimply_video_core::layered_image::Prepared>),
     Gaussian(Box<shrimply_video_core::gaussian::Prepared>),
-    Obj,
+    Obj(Box<shrimply_video_core::obj::Prepared>),
 }
 
 pub struct RasterMorph {
@@ -111,6 +111,7 @@ pub struct Scene {
     requested_accuracy: CompositeAccuracy,
     prepared: Option<(Time, u64, CompositeAccuracy)>,
     excluded_item_id: Option<uuid::Uuid>,
+    capture_item: Option<ItemAddress>,
     audio_sampler: shrimply_audio::streaming::FrameAudioSampler,
     audio_revision: u64,
     audio_pending: bool,
@@ -131,6 +132,7 @@ pub struct Scene {
     blender_loading_image: Option<(shrimply_project::project::CanvasSize, Image)>,
     blender_loading: bool,
     gaussians: std::collections::HashMap<uuid::Uuid, shrimply_video_core::gaussian::Source>,
+    objs: std::collections::HashMap<uuid::Uuid, shrimply_video_core::obj::State>,
     stabilization_pending: bool,
 }
 
@@ -142,6 +144,13 @@ impl Scene {
     pub fn set_exclusion(&mut self, excluded_item_id: Option<uuid::Uuid>) {
         if self.excluded_item_id != excluded_item_id {
             self.excluded_item_id = excluded_item_id;
+            self.prepared = None;
+        }
+    }
+
+    pub fn set_capture_item(&mut self, capture_item: Option<ItemAddress>) {
+        if self.capture_item != capture_item {
+            self.capture_item = capture_item;
             self.prepared = None;
         }
     }
@@ -179,6 +188,7 @@ impl Scene {
         self.blender_loading_image = None;
         self.blender_loading = false;
         self.gaussians.clear();
+        self.objs.clear();
         self.stabilization_pending = false;
     }
 
@@ -199,6 +209,11 @@ impl Scene {
             project
                 .video_item_by_id(*item_id)
                 .is_some_and(|item| source.matches(item))
+        });
+        self.objs.retain(|item_id, state| {
+            project
+                .video_item_by_id(*item_id)
+                .is_some_and(|item| state.matches(item))
         });
         let now = Instant::now();
         if self.previous_time != Some(time) {
