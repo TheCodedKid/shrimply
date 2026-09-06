@@ -67,6 +67,7 @@ ICONDIR ?= $(DATADIR)/icons/hicolor/scalable/apps
 DESKTOP_FILE := assets/dev.shrimply.Shrimply.desktop
 QT_DESKTOP_FILE := assets/dev.shrimply.Shrimply.Qt.desktop
 APP_ICON := assets/icons/dev.shrimply.Shrimply.svg
+APPKIT_ICON_SOURCE := assets/icons/dev.shrimply.Shrimply-macos.svg
 APPKIT_ICON := assets/icons/dev.shrimply.Shrimply.png
 APPKIT_ICON_SIZE := 512
 RSVG_CONVERT ?= rsvg-convert
@@ -146,7 +147,7 @@ dev: native-deps cuda-artifacts
 APPKIT_BUILD_ENV = $(SLANG_LIBRARY_ENV) RUSTFLAGS="-C prefer-dynamic -C link-arg=-Wl,-rpath,$(RUST_LIBDIR)" LIBRARY_PATH="$$(brew --prefix)/lib" PKG_CONFIG="$$(brew --prefix pkgconf)/bin/pkg-config" CLANG_PATH="$$(brew --prefix llvm@18)/bin/clang" LIBCLANG_PATH="$$(brew --prefix llvm@18)/lib" SLANG_SOURCE_DIR=$(SLANG_SOURCE_DIR) SLANG_BUILD_DIR=$(SLANG_BUILD_DIR)
 
 .PHONY: appkit-build appkit-check appkit-components-check appkit-components-showcase
-$(APPKIT_ICON): $(APP_ICON)
+$(APPKIT_ICON): $(APPKIT_ICON_SOURCE)
 	$(RSVG_CONVERT) --width $(APPKIT_ICON_SIZE) --height $(APPKIT_ICON_SIZE) $< --output $@
 
 appkit-build: $(APPKIT_ICON)
