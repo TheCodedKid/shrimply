@@ -1,0 +1,11 @@
+[package]
+name = "shrimply-framegraph-core"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+shrimply-interpolation = { path = "../../interpolation" }
+shrimply-keyframe-graph-core = { path = "../../timeline/keyframe-graph-core" }
+shrimply-math-core = { path = "../../math/core" }
+shrimply-skia-adw-core = { path = "../skia-adw-core" }
+uuid.workspace = true

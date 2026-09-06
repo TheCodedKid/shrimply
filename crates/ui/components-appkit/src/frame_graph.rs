@@ -1,43 +1,21 @@
-use crate::{action, stack};
-use objc2::ffi::{OBJC_ASSOCIATION_RETAIN_NONATOMIC, objc_setAssociatedObject};
+use crate::{StringChoice, action, column_append, column_stack, controls::show_searchable_popover_at, row_stack};
 use objc2::rc::{Retained, Weak};
-use objc2::{DefinedClass, MainThreadOnly, define_class, msg_send, sel};
-use objc2_app_kit::{NSButton, NSImage, NSLayoutConstraint, NSMenu, NSMenuItem, NSStackView};
-use objc2_foundation::{MainThreadMarker, NSObject, NSObjectProtocol, NSPoint, NSString};
+use objc2_app_kit::{NSButton, NSImage, NSLayoutConstraint, NSStackView};
+use objc2_foundation::{MainThreadMarker, NSPoint, NSString};
 use shrimply_interpolation::Interpolation;
 use shrimply_keyframe_graph_core::{
     FrameGraphAction, FrameGraphComponentAction, FrameGraphComponents, FrameGraphState,
     FrameGraphStatus,
 };
+use shrimply_framegraph_core::FrameGraphCommand;
 use shrimply_math_core::Time;
 use std::cell::RefCell;
-use std::ffi::c_void;
 use std::rc::Rc;
 
-pub use shrimply_component_metal::SharedFrameGraphState;
+pub use shrimply_framegraph_core::SharedFrameGraphState;
 
 type ActionHandler = Rc<dyn Fn(FrameGraphComponentAction)>;
 type StatusHandler = Rc<dyn Fn(FrameGraphStatus)>;
-
-static MENU_TARGET_KEY: u8 = 0;
-
-struct MenuTargetIvars {
-    callback: RefCell<Box<dyn FnMut()>>,
-}
-
-define_class!(
-    #[unsafe(super(NSObject))]
-    #[thread_kind = MainThreadOnly]
-    #[ivars = MenuTargetIvars]
-    struct MenuTarget;
-
-    unsafe impl NSObjectProtocol for MenuTarget {}
-
-    impl MenuTarget {
-        #[unsafe(method(invoke:))]
-        fn invoke(&self, _sender: &NSMenuItem) { (self.ivars().callback.borrow_mut())(); }
-    }
-);
 
 #[derive(Clone)]
 pub struct FrameGraph {
@@ -72,7 +50,7 @@ impl FrameGraph {
         on_action: impl Fn(FrameGraphComponentAction) + 'static,
         mtm: MainThreadMarker,
     ) -> Self {
-        Self::with_shared_components(Rc::new(RefCell::new(state)), on_action, mtm)
+        Self::with_shared_components(SharedFrameGraphState::new(state), on_action, mtm)
     }
 
     pub fn with_shared_components(
@@ -82,8 +60,8 @@ impl FrameGraph {
     ) -> Self {
         let on_action: ActionHandler = Rc::new(on_action);
         let status_handlers = Rc::new(RefCell::new(Vec::<StatusHandler>::new()));
-        let root = stack(true, 0.0, mtm);
-        let controls = stack(false, 6.0, mtm);
+        let root = column_stack(0.0, mtm);
+        let controls = row_stack(6.0, mtm);
         let spacer = objc2_app_kit::NSView::new(mtm);
         controls.addArrangedSubview(&spacer);
         let previous = graph_button("backward.end", "Previous keyframe", mtm);
@@ -92,14 +70,16 @@ impl FrameGraph {
         controls.addArrangedSubview(&previous);
         controls.addArrangedSubview(&toggle);
         controls.addArrangedSubview(&next);
-        root.addArrangedSubview(&controls);
+        column_append(&root, &controls);
 
         let view_slot = Rc::new(RefCell::new(
             None::<Weak<shrimply_component_metal::FrameGraphView>>,
         ));
+        let sync_slot = Rc::new(RefCell::new(None::<Rc<dyn Fn()>>));
         let action_state = state.clone();
         let action_handler = on_action.clone();
         let action_view = view_slot.clone();
+        let action_sync = sync_slot.clone();
         let view = shrimply_component_metal::frame_graph_view(
             state.clone(),
             Rc::new(move |component_action| {
@@ -125,15 +105,18 @@ impl FrameGraph {
                 } else {
                     action_handler(component_action);
                 }
+                if let Some(sync) = action_sync.borrow().as_ref() {
+                    sync();
+                }
             }),
             mtm,
         );
         view_slot.replace(Some(Weak::new(&view)));
         let height = view
             .heightAnchor()
-            .constraintEqualToConstant(f64::from(state.borrow().preferred_height()));
+            .constraintEqualToConstant(f64::from(state.preferred_height()));
         height.setActive(true);
-        root.addArrangedSubview(&view);
+        column_append(&root, &view);
 
         let sync = {
             let state = state.clone();
@@ -142,7 +125,7 @@ impl FrameGraph {
             let next = next.clone();
             let handlers = status_handlers.clone();
             Rc::new(move || {
-                let status = state.borrow().status();
+                let status = state.status();
                 previous.setEnabled(status.can_previous);
                 next.setEnabled(status.can_next);
                 toggle.setImage(Some(&symbol(
@@ -167,6 +150,7 @@ impl FrameGraph {
                 }
             }) as Rc<dyn Fn()>
         };
+        sync_slot.replace(Some(sync.clone()));
 
         attach_graph_button(
             &previous,
@@ -174,7 +158,7 @@ impl FrameGraph {
             &state,
             &on_action,
             &sync,
-            |state| state.previous_key(),
+            FrameGraphCommand::PreviousKey,
             mtm,
         );
         attach_graph_button(
@@ -183,7 +167,7 @@ impl FrameGraph {
             &state,
             &on_action,
             &sync,
-            |state| state.toggle_key(),
+            FrameGraphCommand::ToggleKey,
             mtm,
         );
         attach_graph_button(
@@ -192,7 +176,7 @@ impl FrameGraph {
             &state,
             &on_action,
             &sync,
-            |state| state.next_key(),
+            FrameGraphCommand::NextKey,
             mtm,
         );
         sync();
@@ -221,29 +205,27 @@ impl FrameGraph {
         self.state.clone()
     }
 
+    pub fn active_component(&self) -> usize {
+        self.state.active_component()
+    }
+
     pub fn edit_value(&self, value: f64) {
-        let actions = self
-            .state
-            .borrow_mut()
-            .active_actions(|state| state.set_value(value));
+        let actions = self.state.edit_value(value);
         self.dispatch(actions);
     }
 
     pub fn edit_component_values(&self, active_component: usize, values: &[(usize, f64)]) {
-        let actions = self
-            .state
-            .borrow_mut()
-            .set_component_values(active_component, values);
+        let actions = self.state.edit_component_values(active_component, values);
         self.dispatch(actions);
     }
 
     pub fn activate_component(&self, component: usize) {
-        self.state.borrow_mut().activate(component);
+        self.state.activate_component(component);
         self.refresh();
     }
 
     pub fn set_playhead(&self, playhead: Time) {
-        self.state.borrow_mut().set_playhead(playhead);
+        self.state.set_playhead(playhead);
         self.refresh();
     }
 
@@ -252,13 +234,13 @@ impl FrameGraph {
     }
 
     pub fn replace_components(&self, states: FrameGraphComponents) {
-        *self.state.borrow_mut() = states;
+        self.state.replace_components(states);
         self.refresh();
     }
 
     pub fn refresh(&self) {
         self.height
-            .setConstant(f64::from(self.state.borrow().preferred_height()));
+            .setConstant(f64::from(self.state.preferred_height()));
         (self.sync)();
         self.view.render();
     }
@@ -297,7 +279,7 @@ fn attach_graph_button(
     state: &SharedFrameGraphState,
     handler: &ActionHandler,
     sync: &Rc<dyn Fn()>,
-    action_fn: impl Fn(&mut FrameGraphState) -> Vec<FrameGraphAction> + 'static,
+    command: FrameGraphCommand,
     mtm: MainThreadMarker,
 ) {
     let view = Weak::new(view);
@@ -307,8 +289,8 @@ fn attach_graph_button(
     action::attach(
         button,
         move |_| {
-            let actions = state.borrow_mut().active_actions(|state| action_fn(state));
-            for action in actions {
+            let result = state.command(command);
+            for action in result.actions {
                 handler(action);
             }
             sync();
@@ -334,50 +316,40 @@ fn show_interpolation_menu(
     point: NSPoint,
     mtm: MainThreadMarker,
 ) {
-    let menu = NSMenu::initWithTitle(NSMenu::alloc(mtm), &NSString::from_str("Interpolation"));
-    for interpolation in Interpolation::KEYFRAME {
-        let item = unsafe {
-            NSMenuItem::initWithTitle_action_keyEquivalent(
-                NSMenuItem::alloc(mtm),
-                &NSString::from_str(interpolation.label()),
-                Some(sel!(invoke:)),
-                &NSString::new(),
-            )
-        };
-        item.setState(if interpolation == selected { 1 } else { 0 });
-        let state = state.clone();
-        let handler = handler.clone();
-        let view = Weak::new(view);
-        let target = MenuTarget::alloc(mtm).set_ivars(MenuTargetIvars {
-            callback: RefCell::new(Box::new(move || {
-                state
-                    .borrow_mut()
-                    .set_interpolation(owner_id, interpolation);
-                handler(FrameGraphComponentAction {
-                    component,
-                    action: FrameGraphAction::InterpolationRequested {
-                        owner_id,
-                        interpolation,
-                        x: point.x,
-                        y: point.y,
-                    },
-                });
-                if let Some(view) = view.load() {
-                    view.render();
-                }
-            })),
-        });
-        let target: Retained<MenuTarget> = unsafe { msg_send![super(target), init] };
-        unsafe {
-            item.setTarget(Some(&target));
-            objc_setAssociatedObject(
-                std::ptr::from_ref(&*item).cast_mut().cast(),
-                std::ptr::from_ref(&MENU_TARGET_KEY).cast::<c_void>(),
-                Retained::as_ptr(&target).cast_mut().cast(),
-                OBJC_ASSOCIATION_RETAIN_NONATOMIC,
-            );
-        }
-        menu.addItem(&item);
-    }
-    menu.popUpMenuPositioningItem_atLocation_inView(None, point, Some(view));
+    let choices = Interpolation::KEYFRAME
+        .into_iter()
+        .map(|interpolation| StringChoice {
+            value: interpolation.label().to_string(),
+            label: interpolation.label().to_string(),
+        })
+        .collect();
+    let view = Weak::new(view);
+    let host = view.load().expect("interpolation graph must be attached");
+    show_searchable_popover_at(
+        &host,
+        point,
+        "Search interpolations",
+        choices,
+        selected.label().to_string(),
+        move |value| {
+            let interpolation = Interpolation::KEYFRAME
+                .into_iter()
+                .find(|interpolation| interpolation.label() == value)
+                .expect("interpolation search returned a known choice");
+            state.set_interpolation(owner_id, interpolation);
+            handler(FrameGraphComponentAction {
+                component,
+                action: FrameGraphAction::InterpolationRequested {
+                    owner_id,
+                    interpolation,
+                    x: point.x,
+                    y: point.y,
+                },
+            });
+            if let Some(view) = view.load() {
+                view.render();
+            }
+        },
+        mtm,
+    );
 }

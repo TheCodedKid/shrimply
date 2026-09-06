@@ -1,19 +1,27 @@
-use crate::{FrameGraph, MultilineTextInput, action, control_row, stack};
+use crate::{
+    FrameGraph, MultilineTextInput, action, column_append, column_stack,
+    control_row_with_suffix, row_stack,
+};
+use block2::RcBlock;
 use objc2::MainThreadOnly;
 use objc2::rc::Retained;
 use objc2_app_kit::{
-    NSButton, NSControlStateValueOn, NSGlassEffectView, NSGlassEffectViewStyle, NSImage,
-    NSStackView, NSTextAlignment, NSTextField, NSView,
+    NSAnimationContext, NSButton, NSButtonType, NSControlStateValueOn, NSGlassEffectView,
+    NSGlassEffectViewStyle, NSImage, NSLayoutConstraint, NSStackView, NSTextAlignment, NSTextField,
+    NSView,
 };
-use objc2_foundation::{MainThreadMarker, NSEdgeInsets, NSRect, NSString};
+use objc2_foundation::{MainThreadMarker, NSRect, NSString};
 use shrimply_component_core::layered::LayeredPropertyController;
+use std::{cell::RefCell, rc::Rc};
 
 const CARD_GAP: f64 = 8.0;
-const CARD_INSET: f64 = 10.0;
+const CARD_ANIMATION_SECONDS: f64 = 0.18;
+type ExpansionHandlers = Rc<RefCell<Vec<Box<dyn Fn(bool, bool)>>>>;
 
 pub struct InspectorCard {
     root: Retained<NSGlassEffectView>,
     controls: Retained<NSStackView>,
+    expansion_handlers: ExpansionHandlers,
 }
 
 impl InspectorCard {
@@ -26,14 +34,8 @@ impl InspectorCard {
         let root = NSGlassEffectView::initWithFrame(NSGlassEffectView::alloc(mtm), NSRect::ZERO);
         root.setStyle(NSGlassEffectViewStyle::Regular);
         root.setCornerRadius(8.0);
-        let vertical = stack(true, CARD_GAP, mtm);
-        vertical.setEdgeInsets(NSEdgeInsets {
-            top: CARD_INSET,
-            left: CARD_INSET,
-            bottom: CARD_INSET,
-            right: CARD_INSET,
-        });
-        let header = stack(false, 4.0, mtm);
+        let vertical = column_stack(0.0, mtm);
+        let header = row_stack(4.0, mtm);
         let disclosure = unsafe {
             NSButton::buttonWithImage_target_action(
                 &symbol(
@@ -70,40 +72,142 @@ impl InspectorCard {
         header.addArrangedSubview(&label);
         header.addArrangedSubview(&spacer);
         header.addArrangedSubview(&reset);
-        let controls = stack(true, CARD_GAP, mtm);
-        controls.setHidden(!expanded);
-        let callback_controls = controls.clone();
+        let controls = column_stack(CARD_GAP, mtm);
+        let controls_container = inset_view(&controls, 12.0, 12.0, 4.0, 12.0, mtm);
+        controls_container.setHidden(!expanded);
+        let animation_height = controls_container
+            .heightAnchor()
+            .constraintEqualToConstant(0.0);
+        let callback_container = controls_container.clone();
+        let callback_root = root.clone();
+        let callback_height = animation_height.clone();
+        let expansion_handlers = Rc::new(RefCell::new(Vec::<Box<dyn Fn(bool, bool)>>::new()));
+        let callback_handlers = expansion_handlers.clone();
         action::attach(
             &disclosure,
             move |control| {
-                let hidden = !callback_controls.isHidden();
-                callback_controls.setHidden(hidden);
+                let expanding = callback_container.isHidden();
+                for handler in callback_handlers.borrow().iter() {
+                    handler(expanding, false);
+                }
+                animate_card_content(
+                    callback_root.clone(),
+                    callback_container.clone(),
+                    callback_height.clone(),
+                    expanding,
+                    callback_handlers.clone(),
+                );
                 control
                     .downcast_ref::<NSButton>()
                     .expect("disclosure sender")
                     .setImage(Some(&symbol(
-                        if hidden {
-                            "chevron.right"
-                        } else {
+                        if expanding {
                             "chevron.down"
+                        } else {
+                            "chevron.right"
                         },
                         "Expand",
                     )));
             },
             mtm,
         );
-        vertical.addArrangedSubview(&header);
-        vertical.addArrangedSubview(&controls);
+        column_append(&vertical, &inset_view(&header, 8.0, 8.0, 6.0, 6.0, mtm));
+        column_append(&vertical, &controls_container);
         root.setContentView(Some(&vertical));
-        Self { root, controls }
+        Self {
+            root,
+            controls,
+            expansion_handlers,
+        }
     }
 
     pub fn append(&self, child: &NSView) {
-        self.controls.addArrangedSubview(child);
+        column_append(&self.controls, child);
     }
     pub fn view(&self) -> &NSGlassEffectView {
         &self.root
     }
+
+    pub fn connect_expansion(&self, handler: impl Fn(bool, bool) + 'static) {
+        self.expansion_handlers.borrow_mut().push(Box::new(handler));
+    }
+}
+
+fn animate_card_content(
+    root: Retained<NSGlassEffectView>,
+    container: Retained<NSView>,
+    height: Retained<NSLayoutConstraint>,
+    expanding: bool,
+    handlers: ExpansionHandlers,
+) {
+    root.layoutSubtreeIfNeeded();
+    if expanding {
+        container.setHidden(false);
+        height.setActive(false);
+        root.layoutSubtreeIfNeeded();
+        let target = container.fittingSize().height;
+        height.setConstant(0.0);
+        height.setActive(true);
+        root.layoutSubtreeIfNeeded();
+        animate_height(root, container, height, target, true, handlers);
+    } else {
+        height.setConstant(container.frame().size.height);
+        height.setActive(true);
+        root.layoutSubtreeIfNeeded();
+        animate_height(root, container, height, 0.0, false, handlers);
+    }
+}
+
+fn animate_height(
+    root: Retained<NSGlassEffectView>,
+    container: Retained<NSView>,
+    height: Retained<NSLayoutConstraint>,
+    target: f64,
+    expanding: bool,
+    handlers: ExpansionHandlers,
+) {
+    let changes_root = root.clone();
+    let changes_height = height.clone();
+    let changes = RcBlock::new(move |context: std::ptr::NonNull<NSAnimationContext>| {
+        unsafe { context.as_ref() }.setDuration(CARD_ANIMATION_SECONDS);
+        unsafe { context.as_ref() }.setAllowsImplicitAnimation(true);
+        changes_height.setConstant(target);
+        changes_root.layoutSubtreeIfNeeded();
+    });
+    let completion_root = root;
+    let completion_container = container;
+    let completion_height = height;
+    let completion = RcBlock::new(move || {
+        completion_container.setHidden(!expanding);
+        completion_height.setActive(false);
+        completion_root.layoutSubtreeIfNeeded();
+        for handler in handlers.borrow().iter() {
+            handler(expanding, true);
+        }
+    });
+    NSAnimationContext::runAnimationGroup_completionHandler(&changes, Some(&completion));
+}
+
+fn inset_view(
+    child: &NSView,
+    left: f64,
+    right: f64,
+    top: f64,
+    bottom: f64,
+    mtm: MainThreadMarker,
+) -> Retained<NSView> {
+    let wrapper = NSView::new(mtm);
+    child.setTranslatesAutoresizingMaskIntoConstraints(false);
+    wrapper.addSubview(child);
+    for constraint in [
+        child.leadingAnchor().constraintEqualToAnchor_constant(&wrapper.leadingAnchor(), left),
+        child.trailingAnchor().constraintEqualToAnchor_constant(&wrapper.trailingAnchor(), -right),
+        child.topAnchor().constraintEqualToAnchor_constant(&wrapper.topAnchor(), top),
+        child.bottomAnchor().constraintEqualToAnchor_constant(&wrapper.bottomAnchor(), -bottom),
+    ] {
+        constraint.setActive(true);
+    }
+    wrapper
 }
 
 pub struct ExpressionEditor {
@@ -119,15 +223,14 @@ impl ExpressionEditor {
         on_edit: impl Fn(String) -> String + 'static,
         mtm: MainThreadMarker,
     ) -> Self {
-        let root = stack(true, 4.0, mtm);
+        let root = column_stack(4.0, mtm);
         let output_field = NSTextField::labelWithString(&NSString::from_str(output), mtm);
         output_field.setAlignment(NSTextAlignment::Right);
         output_field.setTextColor(Some(&objc2_app_kit::NSColor::secondaryLabelColor()));
         let callback_output = output_field.clone();
-        let editor = MultilineTextInput::new(
+        let editor = MultilineTextInput::code(
             source,
-            72.0,
-            None,
+            180.0,
             move |source| {
                 callback_output.setStringValue(&NSString::from_str(&on_edit(source)));
                 true
@@ -135,8 +238,8 @@ impl ExpressionEditor {
             || {},
             mtm,
         );
-        root.addArrangedSubview(editor.view());
-        root.addArrangedSubview(&output_field);
+        column_append(&root, editor.view());
+        column_append(&root, &output_field);
         Self {
             root,
             output: output_field,
@@ -157,6 +260,7 @@ pub struct InspectorGraphProperty {
     keyframes: Retained<NSButton>,
     expression: Retained<NSButton>,
     graph: FrameGraph,
+    controller: LayeredPropertyController,
     _expression_editor: ExpressionEditor,
 }
 
@@ -169,22 +273,50 @@ impl InspectorGraphProperty {
         controller: LayeredPropertyController,
         mtm: MainThreadMarker,
     ) -> Self {
-        let root = stack(true, 6.0, mtm);
-        let controls = stack(false, 4.0, mtm);
-        controls.addArrangedSubview(editor);
+        let root = column_stack(6.0, mtm);
         let keyframes = unsafe {
-            NSButton::checkboxWithTitle_target_action(&NSString::from_str("Keys"), None, None, mtm)
+            NSButton::buttonWithImage_target_action(
+                &symbol("stopwatch", "Toggle keyframes"),
+                None,
+                None,
+                mtm,
+            )
         };
+        keyframes.setButtonType(NSButtonType::PushOnPushOff);
+        keyframes.setBordered(false);
+        keyframes.setToolTip(Some(&NSString::from_str("Toggle keyframes")));
         let expression = unsafe {
-            NSButton::checkboxWithTitle_target_action(&NSString::from_str("Code"), None, None, mtm)
+            NSButton::buttonWithImage_target_action(
+                &symbol("chevron.left.forwardslash.chevron.right", "Toggle expression"),
+                None,
+                None,
+                mtm,
+            )
         };
-        controls.addArrangedSubview(&keyframes);
-        controls.addArrangedSubview(&expression);
-        root.addArrangedSubview(&control_row(label, &controls, mtm));
+        expression.setButtonType(NSButtonType::PushOnPushOff);
+        expression.setBordered(false);
+        expression.setToolTip(Some(&NSString::from_str("Toggle expression")));
+        let suffix = row_stack(4.0, mtm);
+        suffix.addArrangedSubview(&keyframes);
+        suffix.addArrangedSubview(&expression);
+        column_append(
+            &root,
+            &control_row_with_suffix(label, editor, Some(&suffix), mtm),
+        );
         graph.view().setHidden(true);
         expression_editor.view().setHidden(true);
-        root.addArrangedSubview(graph.view());
-        root.addArrangedSubview(expression_editor.view());
+        column_append(&root, graph.view());
+        column_append(&root, expression_editor.view());
+        graph
+            .view()
+            .widthAnchor()
+            .constraintEqualToAnchor(&root.widthAnchor())
+            .setActive(true);
+        expression_editor
+            .view()
+            .widthAnchor()
+            .constraintEqualToAnchor(&root.widthAnchor())
+            .setActive(true);
         let graph_view = graph.retained_view();
         let graph_controller = controller.clone();
         action::attach(
@@ -197,10 +329,12 @@ impl InspectorGraphProperty {
                     == NSControlStateValueOn;
                 graph_controller.set_keyframes(active);
                 graph_view.setHidden(!active);
+                invalidate_ancestor_layout(&graph_view);
             },
             mtm,
         );
         let expression_view = expression_editor.root.clone();
+        let expression_controller = controller.clone();
         action::attach(
             &expression,
             move |control| {
@@ -209,8 +343,9 @@ impl InspectorGraphProperty {
                     .expect("expression toggle sender")
                     .state()
                     == NSControlStateValueOn;
-                controller.set_expression(active);
+                expression_controller.set_expression(active);
                 expression_view.setHidden(!active);
+                invalidate_ancestor_layout(&expression_view);
             },
             mtm,
         );
@@ -219,6 +354,7 @@ impl InspectorGraphProperty {
             keyframes,
             expression,
             graph,
+            controller,
             _expression_editor: expression_editor,
         }
     }
@@ -235,14 +371,27 @@ impl InspectorGraphProperty {
         &self.graph
     }
     pub fn set_keyframes_active(&self, active: bool) {
+        self.controller.set_keyframes(active);
         self.keyframes
             .setState(if active { NSControlStateValueOn } else { 0 });
         self.graph.view().setHidden(!active);
+        invalidate_ancestor_layout(self.graph.view());
     }
     pub fn set_expression_active(&self, active: bool) {
+        self.controller.set_expression(active);
         self.expression
             .setState(if active { NSControlStateValueOn } else { 0 });
         self._expression_editor.view().setHidden(!active);
+        invalidate_ancestor_layout(self._expression_editor.view());
+    }
+}
+
+fn invalidate_ancestor_layout(view: &NSView) {
+    let mut ancestor = unsafe { view.superview() };
+    while let Some(view) = ancestor {
+        view.invalidateIntrinsicContentSize();
+        view.setNeedsLayout(true);
+        ancestor = unsafe { view.superview() };
     }
 }
 

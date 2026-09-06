@@ -1,13 +1,14 @@
 use objc2::ffi::{OBJC_ASSOCIATION_RETAIN_NONATOMIC, objc_setAssociatedObject};
 use objc2::rc::Retained;
 use objc2::runtime::ProtocolObject;
-use objc2::{DefinedClass, MainThreadOnly, define_class, msg_send, sel};
+use objc2::{ClassType, DefinedClass, MainThreadOnly, define_class, msg_send, sel};
 use objc2_app_kit::{
-    NSControlTextEditingDelegate, NSScrollView, NSTextDelegate, NSTextField, NSTextFieldDelegate,
-    NSTextView, NSTextViewDelegate,
+    NSBackgroundColorAttributeName, NSColor, NSControlTextEditingDelegate, NSFont,
+    NSForegroundColorAttributeName, NSScrollView, NSTextDelegate, NSTextField,
+    NSTextFieldDelegate, NSTextView, NSTextViewDelegate,
 };
 use objc2_foundation::{
-    MainThreadMarker, NSNotification, NSObject, NSObjectProtocol, NSRect, NSSize, NSString,
+    MainThreadMarker, NSNotification, NSObject, NSObjectProtocol, NSRange, NSRect, NSSize, NSString,
 };
 use std::cell::{Cell, RefCell};
 use std::ffi::c_void;
@@ -110,6 +111,7 @@ struct MultilineTargetIvars {
     max_length: Option<usize>,
     on_change: Rc<dyn Fn(String) -> bool>,
     on_commit: Rc<dyn Fn()>,
+    syntax_highlighting: bool,
 }
 
 define_class!(
@@ -155,6 +157,9 @@ define_class!(
             if (self.ivars().on_change)(text.clone()) {
                 self.ivars().commit.borrow_mut().changed(text);
             }
+            if self.ivars().syntax_highlighting {
+                highlight_expression(&view, &entered);
+            }
         }
 
         #[unsafe(method(textDidEndEditing:))]
@@ -162,7 +167,54 @@ define_class!(
             self.commit();
         }
     }
-    unsafe impl NSTextViewDelegate for MultilineTarget {}
+    unsafe impl NSTextViewDelegate for MultilineTarget {
+        #[unsafe(method(textView:doCommandBySelector:))]
+        unsafe fn do_command(
+            &self,
+            view: &NSTextView,
+            command: objc2::runtime::Sel,
+        ) -> objc2::runtime::Bool {
+            if !self.ivars().syntax_highlighting {
+                return false.into();
+            }
+            if command == sel!(insertTab:) {
+                replace_selection(view, "    ");
+                return true.into();
+            }
+            if command == sel!(insertNewline:) {
+                let source = view.string().to_string();
+                let indent = current_line_indent(&source, view.selectedRange().location);
+                replace_selection(view, &format!("\n{indent}"));
+                return true.into();
+            }
+            if command == sel!(deleteBackward:) && smart_backspace(view) {
+                return true.into();
+            }
+            if command == sel!(moveToBeginningOfLine:) {
+                move_to_smart_line_edge(view, false);
+                return true.into();
+            }
+            if command == sel!(moveToEndOfLine:) {
+                move_to_smart_line_edge(view, true);
+                return true.into();
+            }
+            false.into()
+        }
+
+        #[unsafe(method(textViewDidChangeSelection:))]
+        fn selection_changed(&self, notification: &NSNotification) {
+            if !self.ivars().syntax_highlighting {
+                return;
+            }
+            let view = notification
+                .object()
+                .expect("selection notification sender")
+                .downcast::<NSTextView>()
+                .expect("selection notification must contain a text view");
+            highlight_expression(&view, &view.string().to_string());
+            show_matching_bracket(&view);
+        }
+    }
 );
 
 impl MultilineTarget {
@@ -187,6 +239,44 @@ impl MultilineTextInput {
         on_commit: impl Fn() + 'static,
         mtm: MainThreadMarker,
     ) -> Self {
+        Self::build(
+            value,
+            min_content_height,
+            max_length,
+            false,
+            on_change,
+            on_commit,
+            mtm,
+        )
+    }
+
+    pub fn code(
+        value: &str,
+        min_content_height: f64,
+        on_change: impl Fn(String) -> bool + 'static,
+        on_commit: impl Fn() + 'static,
+        mtm: MainThreadMarker,
+    ) -> Self {
+        Self::build(
+            value,
+            min_content_height,
+            None,
+            true,
+            on_change,
+            on_commit,
+            mtm,
+        )
+    }
+
+    fn build(
+        value: &str,
+        min_content_height: f64,
+        max_length: Option<usize>,
+        syntax_highlighting: bool,
+        on_change: impl Fn(String) -> bool + 'static,
+        on_commit: impl Fn() + 'static,
+        mtm: MainThreadMarker,
+    ) -> Self {
         let view = NSTextView::initWithFrame(
             NSTextView::alloc(mtm),
             NSRect::new(
@@ -199,12 +289,31 @@ impl MultilineTextInput {
         ));
         view.setRichText(false);
         view.setContinuousSpellCheckingEnabled(true);
+        if syntax_highlighting {
+            view.setFont(Some(&NSFont::monospacedSystemFontOfSize_weight(
+                NSFont::systemFontSize(),
+                unsafe { objc2_app_kit::NSFontWeightRegular },
+            )));
+            view.setContinuousSpellCheckingEnabled(false);
+            view.setAutomaticQuoteSubstitutionEnabled(false);
+            view.setAutomaticDashSubstitutionEnabled(false);
+            view.setAutomaticTextReplacementEnabled(false);
+            view.setUsesFindPanel(true);
+            view.setHorizontallyResizable(true);
+            view.setVerticallyResizable(true);
+            view.setMaxSize(NSSize::new(f64::MAX, f64::MAX));
+            let container = unsafe { view.textContainer() }
+                .expect("code editor must have a text container");
+            container.setWidthTracksTextView(false);
+            container.setContainerSize(NSSize::new(f64::MAX, f64::MAX));
+        }
         let target = MultilineTarget::alloc(mtm).set_ivars(MultilineTargetIvars {
             commit: RefCell::new(shrimply_component_core::text::TextCommit::new(value)),
             syncing: Cell::new(false),
             max_length,
             on_change: Rc::new(on_change),
             on_commit: Rc::new(on_commit),
+            syntax_highlighting,
         });
         let target: Retained<MultilineTarget> = unsafe { msg_send![super(target), init] };
         unsafe {
@@ -219,12 +328,16 @@ impl MultilineTextInput {
             ),
         );
         scroll.setHasVerticalScroller(true);
+        scroll.setHasHorizontalScroller(syntax_highlighting);
         scroll.setBorderType(objc2_app_kit::NSBorderType::BezelBorder);
         scroll.setDocumentView(Some(&view));
         scroll
             .heightAnchor()
-            .constraintGreaterThanOrEqualToConstant(min_content_height)
+            .constraintEqualToConstant(min_content_height)
             .setActive(true);
+        if syntax_highlighting {
+            highlight_expression(&view, value);
+        }
         Self { scroll, view }
     }
 
@@ -235,6 +348,181 @@ impl MultilineTextInput {
     pub fn set_text(&self, text: &str) {
         self.view.setString(&NSString::from_str(text));
     }
+}
+
+fn highlight_expression(view: &NSTextView, source: &str) {
+    let storage = unsafe { view.textStorage() }.expect("text view must have text storage");
+    let full_range = NSRange::new(0, source.encode_utf16().count());
+    storage.beginEditing();
+    unsafe {
+        storage.removeAttribute_range(NSBackgroundColorAttributeName, full_range);
+        storage.addAttribute_value_range(
+            NSForegroundColorAttributeName,
+            &NSColor::textColor(),
+            full_range,
+        );
+        for span in shrimply_component_core::syntax::expression_spans(source) {
+            let color = match span.kind {
+                shrimply_component_core::syntax::SyntaxKind::Keyword => NSColor::systemBlueColor(),
+                shrimply_component_core::syntax::SyntaxKind::Boolean => NSColor::systemOrangeColor(),
+                shrimply_component_core::syntax::SyntaxKind::Function => NSColor::systemTealColor(),
+                shrimply_component_core::syntax::SyntaxKind::Variable => NSColor::systemIndigoColor(),
+                shrimply_component_core::syntax::SyntaxKind::Number => NSColor::systemPurpleColor(),
+                shrimply_component_core::syntax::SyntaxKind::String => NSColor::systemRedColor(),
+                shrimply_component_core::syntax::SyntaxKind::Comment => NSColor::secondaryLabelColor(),
+            };
+            storage.addAttribute_value_range(
+                NSForegroundColorAttributeName,
+                &color,
+                NSRange::new(span.start_utf16, span.length_utf16),
+            );
+        }
+    }
+    let line = current_line_range(source, view.selectedRange().location);
+    unsafe {
+        storage.addAttribute_value_range(
+            NSBackgroundColorAttributeName,
+            &NSColor::selectedContentBackgroundColor().colorWithAlphaComponent(0.08),
+            line,
+        );
+    }
+    storage.endEditing();
+}
+
+fn replace_selection(view: &NSTextView, replacement: &str) {
+    let selected = view.selectedRange();
+    view.replaceCharactersInRange_withString(selected, &NSString::from_str(replacement));
+    view.setSelectedRange(NSRange::new(
+        selected.location + replacement.encode_utf16().count(),
+        0,
+    ));
+}
+
+fn current_line_indent(source: &str, utf16_location: usize) -> String {
+    String::from_utf16_lossy(
+        &source
+            .encode_utf16()
+            .take(utf16_location)
+            .collect::<Vec<_>>(),
+    )
+    .rsplit_once('\n')
+    .map_or_else(
+        || source.chars().take_while(|character| character.is_whitespace()).collect(),
+        |(_, line)| line.chars().take_while(|character| matches!(character, ' ' | '\t')).collect(),
+    )
+}
+
+fn current_line_range(source: &str, utf16_location: usize) -> NSRange {
+    let utf16 = source.encode_utf16().collect::<Vec<_>>();
+    let caret = utf16_location.min(utf16.len());
+    let start = utf16[..caret]
+        .iter()
+        .rposition(|character| *character == b'\n' as u16)
+        .map_or(0, |index| index + 1);
+    let end = utf16[caret..]
+        .iter()
+        .position(|character| *character == b'\n' as u16)
+        .map_or(utf16.len(), |index| caret + index + 1);
+    NSRange::new(start, end.saturating_sub(start))
+}
+
+fn smart_backspace(view: &NSTextView) -> bool {
+    let selected = view.selectedRange();
+    if selected.length != 0 || selected.location == 0 {
+        return false;
+    }
+    let source = view.string().to_string().encode_utf16().collect::<Vec<_>>();
+    let caret = selected.location.min(source.len());
+    let start = source[..caret]
+        .iter()
+        .rposition(|character| *character == b'\n' as u16)
+        .map_or(0, |index| index + 1);
+    if source[start..caret]
+        .iter()
+        .any(|character| !matches!(*character as u8 as char, ' ' | '\t'))
+    {
+        return false;
+    }
+    let delete = if source[caret - 1] == b'\t' as u16 {
+        1
+    } else {
+        ((caret - start - 1) % 4) + 1
+    };
+    view.replaceCharactersInRange_withString(
+        NSRange::new(caret - delete, delete),
+        &NSString::new(),
+    );
+    view.setSelectedRange(NSRange::new(caret - delete, 0));
+    true
+}
+
+fn move_to_smart_line_edge(view: &NSTextView, end: bool) {
+    let selected = view.selectedRange();
+    let source = view.string().to_string().encode_utf16().collect::<Vec<_>>();
+    let caret = selected.location.min(source.len());
+    let start = source[..caret]
+        .iter()
+        .rposition(|character| *character == b'\n' as u16)
+        .map_or(0, |index| index + 1);
+    let line_end = source[caret..]
+        .iter()
+        .position(|character| *character == b'\n' as u16)
+        .map_or(source.len(), |index| caret + index);
+    let content_start = (start..line_end)
+        .find(|index| !matches!(source[*index] as u8 as char, ' ' | '\t'))
+        .unwrap_or(line_end);
+    let content_end = (start..line_end)
+        .rfind(|index| !matches!(source[*index] as u8 as char, ' ' | '\t'))
+        .map_or(start, |index| index + 1);
+    let target = if end {
+        if caret == content_end { line_end } else { content_end }
+    } else if caret == content_start {
+        start
+    } else {
+        content_start
+    };
+    view.setSelectedRange(NSRange::new(target, 0));
+}
+
+fn show_matching_bracket(view: &NSTextView) {
+    let source = view.string().to_string().encode_utf16().collect::<Vec<_>>();
+    let caret = view.selectedRange().location.min(source.len());
+    let Some(index) = caret
+        .checked_sub(1)
+        .filter(|index| is_bracket(source[*index]))
+        .or_else(|| (caret < source.len() && is_bracket(source[caret])).then_some(caret))
+    else {
+        return;
+    };
+    let (open, close, direction) = match source[index] as u8 as char {
+        '(' => (b'(' as u16, b')' as u16, 1isize),
+        '[' => (b'[' as u16, b']' as u16, 1),
+        '{' => (b'{' as u16, b'}' as u16, 1),
+        ')' => (b'(' as u16, b')' as u16, -1),
+        ']' => (b'[' as u16, b']' as u16, -1),
+        '}' => (b'{' as u16, b'}' as u16, -1),
+        _ => unreachable!(),
+    };
+    let mut depth = 0isize;
+    let mut cursor = index as isize;
+    loop {
+        cursor += direction;
+        let Ok(candidate) = usize::try_from(cursor) else { return };
+        let Some(character) = source.get(candidate).copied() else { return };
+        if character == if direction > 0 { open } else { close } {
+            depth += 1;
+        } else if character == if direction > 0 { close } else { open } {
+            if depth == 0 {
+                view.showFindIndicatorForRange(NSRange::new(candidate, 1));
+                return;
+            }
+            depth -= 1;
+        }
+    }
+}
+
+fn is_bracket(character: u16) -> bool {
+    matches!(character as u8 as char, '(' | ')' | '[' | ']' | '{' | '}')
 }
 
 unsafe fn retain_target<T: objc2::Message, U: objc2::Message>(

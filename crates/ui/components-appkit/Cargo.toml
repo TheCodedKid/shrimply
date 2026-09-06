@@ -12,6 +12,7 @@ objc2-foundation.workspace = true
 shrimply-component-core = { path = "../component-core" }
 shrimply-component-metal = { path = "../component-metal" }
 shrimply-cross-ui-theme = { path = "../cross-ui-theme" }
+shrimply-framegraph-core = { path = "../framegraph-core" }
 shrimply-interpolation = { path = "../../interpolation" }
 shrimply-keyframe-graph-core = { path = "../../timeline/keyframe-graph-core" }
 shrimply-math-color = { path = "../../math/color" }

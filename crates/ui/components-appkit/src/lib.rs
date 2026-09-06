@@ -9,8 +9,8 @@ mod text_input;
 
 pub use controls::{
     ColorPicker, ProgressButton, ProgressButtonState, ReadOnlyField, StringChoice, StringSelector,
-    Tabs, control_row, live_performance, modifier_menu, playback_shortcuts, split_button, stack,
-    switch_row,
+    Tabs, column_append, column_stack, control_row, control_row_with_suffix, live_performance,
+    modifier_menu, playback_shortcuts, row_stack, split_button, switch_row,
 };
 pub use frame_graph::{FrameGraph, SharedFrameGraphState};
 pub use inspector::{ExpressionEditor, InspectorCard, InspectorGraphProperty};
