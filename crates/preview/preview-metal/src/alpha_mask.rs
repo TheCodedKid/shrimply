@@ -60,7 +60,7 @@ pub(super) fn apply(
 
 pub(super) struct Branch {
     pub buffer: Buffer,
-    pub state: super::effects::State,
+    pub state: shrimply_render_core::effects::SpatialState,
 }
 
 pub(super) fn combine(
@@ -70,7 +70,7 @@ pub(super) fn combine(
     mask: &ResolvedShapeAlphaMask,
     size: (u32, u32),
     submissions: &mut Vec<Submission>,
-) -> Result<(super::effects::State, Buffer), String> {
+) -> Result<(shrimply_render_core::effects::SpatialState, Buffer), String> {
     let local_size = Vec2::new(
         original.state.parameters.source_width as f32,
         original.state.parameters.source_height as f32,
@@ -109,9 +109,12 @@ pub(super) fn combine(
         submissions,
     )?;
     Ok((
-        super::effects::State {
+        shrimply_render_core::effects::SpatialState {
             parameters,
             transform: Mat3::IDENTITY,
+            texture_edges: [0.0; 4],
+            modifier_crop: [0.0; 4],
+            modifier_crop_pixels: [0.0; 4],
         },
         output,
     ))

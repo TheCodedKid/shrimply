@@ -16,13 +16,7 @@ use rayon::prelude::*;
 use shrimply_asset::{Asset, AssetSnapshot};
 use shrimply_gpu_memory::{ResourceKey, global as gpu_memory};
 use shrimply_project::project::{Time, VideoItem, VideoItemContent};
-use shrimply_video_modifiers::ModifierEffect;
-use shrimply_video_modifiers::vectorize::{
-    MAX_ANGLE_DEGREES, MAX_BINARY_THRESHOLD, MAX_COLOR_PRECISION, MAX_GRADIENT_STEP,
-    MAX_ITERATIONS, MAX_PATH_PRECISION, MAX_SEGMENT_LENGTH, MAX_SPECKLE_SIZE, MIN_COLOR_PRECISION,
-    MIN_SEGMENT_LENGTH, VectorizeColorMode, VectorizeHierarchy, VectorizeModifier,
-    VectorizePathMode,
-};
+use shrimply_video_core::vectorize::{Output as VectorizedOutput, Plan as VectorizePlan};
 use uuid::Uuid;
 
 const PARALLEL_RGBA_COPY_MIN_BYTES: usize = 1024 * 1024;
@@ -52,7 +46,7 @@ enum ImageDecodeKind {
 
 struct VectorizeRequest {
     key: Vec<u8>,
-    modifier: VectorizeModifier,
+    plan: VectorizePlan,
     changed_at: Instant,
 }
 
@@ -64,13 +58,6 @@ struct VectorizePending {
 struct VectorizedImage {
     key: Vec<u8>,
     source_key: ResourceKey,
-    width: u32,
-    height: u32,
-}
-
-struct VectorizedOutput {
-    key: Vec<u8>,
-    svg: String,
     width: u32,
     height: u32,
 }
@@ -163,21 +150,11 @@ impl ImageDecodeSession {
     }
 
     fn request_vectorization(&mut self, item: &VideoItem) -> Result<Option<Vec<u8>>, String> {
-        let Some(modifier) = item
-            .modifiers
-            .iter()
-            .find(|modifier| modifier.enabled)
-            .and_then(|modifier| match &modifier.effect {
-                ModifierEffect::Vectorize(modifier) => Some(modifier),
-                _ => None,
-            })
-        else {
+        let Some(plan) = VectorizePlan::for_item(item, &self.snapshot.cache_key())? else {
             self.vectorize_request = None;
             return Ok(None);
         };
-        let mut key = serde_json::to_vec(modifier)
-            .map_err(|error| format!("serialize Vectorize request: {error}"))?;
-        key.extend_from_slice(self.snapshot.cache_key().as_bytes());
+        let key = plan.key().to_vec();
 
         if self
             .vectorize_request
@@ -186,7 +163,7 @@ impl ImageDecodeSession {
         {
             self.vectorize_request = Some(VectorizeRequest {
                 key: key.clone(),
-                modifier: modifier.clone(),
+                plan,
                 changed_at: Instant::now(),
             });
         }
@@ -217,14 +194,17 @@ impl ImageDecodeSession {
                 .expect("vectorization request disappeared");
             let file = self.file.clone();
             let trace_key = request.key.clone();
-            let modifier = request.modifier.clone();
+            let plan = request.plan.clone();
             let (sender, result) = sync_channel(1);
             self.vectorize_pending = Some(VectorizePending {
                 key: trace_key.clone(),
                 result,
             });
             rayon::spawn(move || {
-                let traced = vectorize_image(&file, &modifier, trace_key);
+                let traced = decode_still_rgba(&file).and_then(|decoded| {
+                    plan.vectorize_rgba(decoded.pixels, decoded.width, decoded.height)
+                        .map_err(|error| format!("could not vectorize {}: {error}", file.display()))
+                });
                 let _ = sender.send(traced);
             });
             shrimply_benchmarking::increment("Image vectorization / Prepared requests submitted");
@@ -782,71 +762,6 @@ fn decode_still_rgba(file: &Path) -> Result<DecodedRgba, String> {
         width,
         height,
         pixels: tight_rgba_from_rows(rgba.data(0), rgba.stride(0), width, height)?,
-    })
-}
-
-fn vectorize_image(
-    file: &Path,
-    modifier: &VectorizeModifier,
-    key: Vec<u8>,
-) -> Result<VectorizedOutput, String> {
-    let mut decoded = decode_still_rgba(file)?;
-    if modifier.color_mode == VectorizeColorMode::BlackAndWhite {
-        for pixel in decoded.pixels.chunks_exact_mut(4) {
-            let value = if pixel[3] == 0
-                || shrimply_math_color::Color::<u8>::from([pixel[0], pixel[1], pixel[2]])
-                    .rec709_luma()
-                    >= modifier.binary_threshold.min(MAX_BINARY_THRESHOLD) as u8
-            {
-                255
-            } else {
-                0
-            };
-            pixel[..3].fill(value);
-        }
-    }
-    let config = vtracer::Config {
-        clustering: match modifier.color_mode {
-            VectorizeColorMode::Color => vtracer::Clustering::ColorCluster,
-            VectorizeColorMode::BlackAndWhite => vtracer::Clustering::Binary,
-        },
-        hierarchical: match modifier.hierarchy {
-            VectorizeHierarchy::Stacked => vtracer::Hierarchical::Stacked,
-            VectorizeHierarchy::Cutout => vtracer::Hierarchical::Cutout,
-        },
-        filter_speckle: modifier.speckle_size.min(MAX_SPECKLE_SIZE) as usize,
-        color_precision: modifier
-            .color_precision
-            .clamp(MIN_COLOR_PRECISION, MAX_COLOR_PRECISION) as i32,
-        layer_difference: modifier.gradient_step.min(MAX_GRADIENT_STEP) as i32,
-        mode: match modifier.path_mode {
-            VectorizePathMode::Pixel => vtracer::FitMode::Pixel,
-            VectorizePathMode::Polygon => vtracer::FitMode::Polygon,
-            VectorizePathMode::Spline => vtracer::FitMode::Spline,
-        },
-        corner_threshold: modifier.corner_threshold_degrees.min(MAX_ANGLE_DEGREES) as i32,
-        length_threshold: modifier
-            .segment_length
-            .clamp(MIN_SEGMENT_LENGTH, MAX_SEGMENT_LENGTH) as f64,
-        max_iterations: modifier.max_iterations.min(MAX_ITERATIONS) as usize,
-        splice_threshold: modifier.splice_threshold_degrees.min(MAX_ANGLE_DEGREES) as i32,
-        path_precision: Some(modifier.path_precision.min(MAX_PATH_PRECISION)),
-        ..vtracer::Config::default()
-    };
-    let image = vtracer::ColorImage {
-        pixels: decoded.pixels,
-        width: decoded.width as usize,
-        height: decoded.height as usize,
-    };
-    let svg = config
-        .build()
-        .and_then(|pipeline| pipeline.to_svg(&image))
-        .map_err(|error| format!("could not vectorize {}: {error}", file.display()))?;
-    Ok(VectorizedOutput {
-        key,
-        svg,
-        width: decoded.width,
-        height: decoded.height,
     })
 }
 

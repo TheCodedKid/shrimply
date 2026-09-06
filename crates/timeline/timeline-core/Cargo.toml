@@ -10,6 +10,7 @@ shrimply-support = { path = "../../support" }
 ffmpeg-next.workspace = true
 glam.workspace = true
 hashbrown.workspace = true
+imagesize.workspace = true
 shrimply-3dgs = { path = "../../3d/3dgs" }
 shrimply-blender = { path = "../../blender/blender-bridge" }
 shrimply-core = { path = "../../core" }

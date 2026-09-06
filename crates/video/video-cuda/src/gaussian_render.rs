@@ -48,14 +48,13 @@ impl VisualElement for GaussianElement {
         let VideoItemContent::Gaussian(scene) = &request.item.content else {
             return Err("3DGS renderer received a non-3DGS visual".to_string());
         };
-        let evaluation = shrimply_evaluation::VisualEvaluation::for_item_with_audio(
+        let mut params = shrimply_video_core::gaussian::evaluate(
             request.project,
             request.item,
             request.position,
             request.audio_analysis,
-        );
-        let mut params =
-            shrimply_evaluation::resolve_gaussian_scene(scene, &evaluation, &mut self.expressions);
+            &mut self.expressions,
+        )?;
         if let shrimply_3dgs::CameraSource::Tracking(source) = &scene.camera.source
             && source.track_id != track_id
             && request
@@ -72,18 +71,15 @@ impl VisualElement for GaussianElement {
                     .saturating_add(request.item.animation_time_offset),
             )
         {
-            let camera = crate::camera_reconstruction::apply_custom_camera_offset(
-                camera,
-                params.camera.position,
-                params.camera.rotation_degrees,
+            shrimply_video_core::gaussian::apply_tracking(
+                &mut params,
+                shrimply_video_core::gaussian::TrackingSample {
+                    position: camera.position,
+                    rotation: camera.rotation,
+                    projection: camera.projection,
+                    vertical_fov_degrees: camera.vertical_fov_degrees,
+                },
             );
-            params.camera.position = camera.position;
-            params.camera.rotation_degrees = shrimply_transform_3d::rotation_degrees(
-                camera.rotation,
-                shrimply_transform_3d::RotationOrder::Xyz,
-            );
-            params.camera.projection = camera.projection;
-            params.camera.vertical_fov_degrees = camera.vertical_fov_degrees;
         }
         let canvas_size = request.render_canvas;
         let width = canvas_size.width.max(1);

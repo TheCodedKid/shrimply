@@ -46,7 +46,11 @@ impl CanvasView {
         match action {
             TrackLabelAction::Add => self.show_track_add_menu(key, point),
             TrackLabelAction::AudioRecord => {
-                Err("Microphone recording is not yet connected to the AppKit editor.".into())
+                let mut content = self.ivars().content.borrow_mut();
+                let Content::Timeline(scene) = &mut *content else {
+                    return Err("Microphone recording requires the timeline".into());
+                };
+                scene.toggle_audio_recording(key)
             }
             TrackLabelAction::VideoRecord => Err(
                 "Screen recording requires a macOS capture backend, which is not yet available."

@@ -201,6 +201,11 @@ impl PreparedProvider {
             response.edit.refresh |= self.deferred_refresh;
             self.deferred_refresh = PreviewRefresh::NONE;
         }
+        if response.edit.changed()
+            && let Some(item) = project.video_item(&self.item)
+        {
+            shrimply_video_core::sam2::invalidate_item_analysis(item, self.target.owner_id());
+        }
         response
     }
 
@@ -212,7 +217,7 @@ impl PreparedProvider {
         event: KeyboardEvent,
     ) -> PreviewResponse {
         let context = self.context.context(expression_cache, None);
-        self.provider.on_keyboard(
+        let response = self.provider.on_keyboard(
             event,
             &context,
             &mut Edits {
@@ -222,7 +227,13 @@ impl PreparedProvider {
                 keyframe_time: self.context.keyframe_time,
                 context,
             },
-        )
+        );
+        if response.edit.changed()
+            && let Some(item) = project.video_item(&self.item)
+        {
+            shrimply_video_core::sam2::invalidate_item_analysis(item, self.target.owner_id());
+        }
+        response
     }
 
     pub fn cancel(
@@ -301,6 +312,28 @@ impl SnapConfiguration {
 }
 
 impl Controller {
+    pub fn extension<T: 'static>(&self, key: PreviewExtensionKey) -> Option<&T> {
+        self.extensions.get(&key)?.downcast_ref()
+    }
+
+    pub fn update_extension<T: 'static>(
+        &mut self,
+        key: PreviewExtensionKey,
+        update: impl FnOnce(&mut T),
+    ) -> bool {
+        let Some(state) = self
+            .extensions
+            .get_mut(&key)
+            .and_then(|state| state.downcast_mut())
+        else {
+            return false;
+        };
+        update(state);
+        self.frame_pending = true;
+        self.context_invalidated = true;
+        true
+    }
+
     pub fn ensure(
         &mut self,
         project: &Project,

@@ -5,6 +5,7 @@ mod fullscreen;
 mod layout;
 mod media;
 mod menus;
+mod settings;
 mod timeline;
 
 use objc2::rc::Retained;
@@ -12,9 +13,9 @@ use objc2::runtime::ProtocolObject;
 use objc2::{AnyThread, DefinedClass, MainThreadOnly, define_class, msg_send, sel};
 use objc2_app_kit::{
     NSAlert, NSApplication, NSApplicationActivationPolicy, NSApplicationDelegate,
-    NSBackingStoreType, NSControlStateValueOff, NSControlStateValueOn, NSMenuItem, NSToolbar,
-    NSToolbarDelegate, NSToolbarDisplayMode, NSToolbarItem, NSWindow, NSWindowDelegate,
-    NSWindowStyleMask, NSWindowToolbarStyle,
+    NSBackingStoreType, NSColorWell, NSControl, NSControlStateValueOff, NSControlStateValueOn,
+    NSMenuItem, NSPopUpButton, NSTextField, NSToolbar, NSToolbarDelegate, NSToolbarDisplayMode,
+    NSToolbarItem, NSWindow, NSWindowDelegate, NSWindowStyleMask, NSWindowToolbarStyle,
 };
 use objc2_foundation::{
     MainThreadMarker, NSArray, NSNotification, NSObject, NSObjectProtocol, NSPoint, NSRect,
@@ -40,6 +41,7 @@ struct EditorIvars {
     timeline_visible: Cell<bool>,
     fullscreen_preview: Cell<bool>,
     fullscreen: RefCell<fullscreen::State>,
+    settings_window: RefCell<Option<Retained<NSWindow>>>,
     event_monitor: OnceCell<Retained<objc2::runtime::AnyObject>>,
     title: String,
 }
@@ -217,6 +219,86 @@ define_class!(
             about::show(self.mtm());
         }
 
+        #[unsafe(method(showSettings:))]
+        fn show_settings(&self, _sender: &NSObject) {
+            self.ivars().settings_window.replace(Some(settings::show(self)));
+        }
+
+        #[unsafe(method(changeNumericPreference:))]
+        fn change_numeric_preference(&self, sender: &NSControl) {
+            let Some((id, scale)) = settings::numeric_preference(sender.tag()) else { return };
+            let value = (sender.doubleValue() * scale as f64).round() as i64;
+            if let Err(error) = shrimply_state::preferences::set_value(
+                &self.ivars().session.get().expect("project loaded").preferences,
+                id,
+                shrimply_state::preferences::PreferenceValue::Integer(value),
+            ) {
+                self.show_error(error);
+            }
+        }
+
+        #[unsafe(method(changeChoicePreference:))]
+        fn change_choice_preference(&self, sender: &NSPopUpButton) {
+            let Some(id) = settings::choice_preference(sender.tag()) else { return };
+            if let Err(error) = shrimply_state::preferences::set_value(
+                &self.ivars().session.get().expect("project loaded").preferences,
+                id,
+                shrimply_state::preferences::PreferenceValue::Integer(sender.indexOfSelectedItem() as i64),
+            ) {
+                self.show_error(error);
+            }
+        }
+
+        #[unsafe(method(changeDefaultFont:))]
+        fn change_default_font(&self, sender: &NSPopUpButton) {
+            let Some(name) = sender.titleOfSelectedItem() else { return };
+            if let Err(error) = shrimply_state::preferences::set_value(
+                &self.ivars().session.get().expect("project loaded").preferences,
+                shrimply_state::preferences::PreferenceId::DefaultTextFontFamily,
+                shrimply_state::preferences::PreferenceValue::FontFamily(
+                    shrimply_state::preferences::FontFamily::Local { name: name.to_string() },
+                ),
+            ) {
+                self.show_error(error);
+            }
+        }
+
+        #[unsafe(method(changeCaptionColor:))]
+        fn change_caption_color(&self, sender: &NSColorWell) {
+            settings::set_caption_color(
+                &self.ivars().session.get().expect("project loaded").preferences,
+                sender,
+            );
+        }
+
+        #[unsafe(method(changeComputeServer:))]
+        fn change_compute_server(&self, sender: &NSTextField) {
+            if let Err(error) = shrimply_state::preferences::add_compute_server(
+                &self.ivars().session.get().expect("project loaded").preferences,
+                &sender.stringValue().to_string(),
+            ) {
+                self.show_error(error);
+            }
+        }
+
+        #[unsafe(method(chooseBlender:))]
+        fn choose_blender(&self, _sender: &NSObject) {
+            if let Err(error) = settings::choose_blender(
+                &self.ivars().session.get().expect("project loaded").preferences,
+                self.mtm(),
+            ) {
+                self.show_error(&error);
+            }
+        }
+
+        #[unsafe(method(clearBlender:))]
+        fn clear_blender(&self, _sender: &NSObject) {
+            shrimply_state::preferences::apply_blender_binary(
+                &self.ivars().session.get().expect("project loaded").preferences,
+                None,
+            );
+        }
+
         #[unsafe(method(toggleInspector:))]
         fn toggle_inspector(&self, _sender: &NSObject) {
             self.ivars().inspector_visible.set(!self.ivars().inspector_visible.get());
@@ -349,6 +431,7 @@ pub fn run(project: Option<&Path>) {
         timeline_visible: Cell::new(true),
         fullscreen_preview: Cell::new(false),
         fullscreen: RefCell::new(fullscreen::State::default()),
+        settings_window: RefCell::new(None),
         event_monitor: OnceCell::new(),
         title,
     });

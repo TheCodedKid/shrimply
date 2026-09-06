@@ -11,7 +11,7 @@ pub mod sys;
 
 use sys::{CUcontext, CUdevice, CUdeviceptr, CUevent, CUfunction, CUmodule, CUresult, CUstream};
 
-const DEVICE_UUID_BYTES: usize = 16;
+pub const DEVICE_UUID_BYTES: usize = 16;
 
 unsafe extern "C" {
     fn shrimply_cuda_init(flags: u32) -> CUresult;

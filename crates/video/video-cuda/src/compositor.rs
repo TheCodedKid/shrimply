@@ -538,7 +538,6 @@ impl RenderSessions {
 struct RenderCache {
     expressions: TransformExpressionCache,
     morphs: HashMap<MorphCacheKey, Rc<CachedMorph>>,
-    transparent_fill_keys: HashMap<(ItemAddress, Uuid, u64), String>,
 }
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
@@ -561,7 +560,7 @@ enum CachedMorph {
     OpticalFlow {
         source: Rc<crate::gpu::VisualFrame>,
         target: Rc<crate::gpu::VisualFrame>,
-        flow: shrimply_nvidia_optical_flow::FlowField,
+        flow: shrimply_video_core::raster_morph::OpticalFlowField,
         source_compositing: ResolvedCompositing,
         target_compositing: ResolvedCompositing,
         source_strategy: shrimply_project::project::SkiaDrawingStrategy,
@@ -970,7 +969,6 @@ fn video_compositor_worker(
                     project_revision = next_revision;
                     project_generation = next_generation;
                     render_cache.morphs.clear();
-                    render_cache.transparent_fill_keys.clear();
                     let _measurement =
                         shrimply_benchmarking::measure("Video / Retain project sessions");
                     retain_project_sessions(&project, &mut sessions);
@@ -1273,7 +1271,6 @@ fn coalesce_pending_commands(
                     *project_revision = next_revision;
                     *project_generation = next_generation;
                     render_cache.morphs.clear();
-                    render_cache.transparent_fill_keys.clear();
                     retain_project_sessions(project, sessions);
                 }
             }

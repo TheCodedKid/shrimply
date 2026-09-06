@@ -3,9 +3,13 @@ name = "shrimply-video-core"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+cuda-stabilization = ["dep:shrimply-affine-l1-stabilization"]
+
 [dependencies]
 shrimply-paint-skia = { path = "../../paint/paint-skia" }
 shrimply-math-geometry = { path = "../../math/geometry" }
+shrimply-math-core = { path = "../../math/core" }
 shrimply-preview-skia = { path = "../../preview/preview-skia" }
 shrimply-core = { path = "../../core" }
 shrimply-background = { path = "../../background" }
@@ -14,6 +18,12 @@ shrimply-math-media = { path = "../../math/media" }
 shrimply-render-core = { path = "../../render-core" }
 shrimply-evaluation = { path = "../../evaluation" }
 shrimply-video-modifiers = { path = "../video-modifiers" }
+shrimply-math-color = { path = "../../math/color" }
+shrimply-asset = { path = "../../asset" }
+shrimply-blender = { path = "../../blender/blender-bridge" }
+shrimply-layered-image = { path = "../../layered-image/layered-image" }
+shrimply-affine-l1-stabilization = { path = "../../stabilization/affine-l1-stabilization", optional = true }
+shrimply-mesh-flow-stabilization = { path = "../../stabilization/mesh-flow-stabilization" }
 cached.workspace = true
 tracing.workspace = true
 cairo = { workspace = true, features = ["freetype"] }
@@ -22,5 +32,12 @@ glib.workspace = true
 pango = { workspace = true, features = ["v1_57"] }
 pangocairo.workspace = true
 shrimply-project = { path = "../../project/project" }
+shrimply-server-client = { path = "../../server-client" }
 shrimply-text-3d = { path = "../../3d/text-3d" }
+shrimply-3dgs = { path = "../../3d/3dgs" }
 skia-safe = { workspace = true, features = ["textlayout", "svg"] }
+serde_json.workspace = true
+vtracer.workspace = true
+hashbrown.workspace = true
+rusqlite = { workspace = true, features = ["bundled"] }
+png.workspace = true

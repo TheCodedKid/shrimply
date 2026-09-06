@@ -159,6 +159,7 @@ pub fn create_renderer(
 /// Read-only frame evaluation services available while a modifier appends its lazy operation.
 pub struct VisualModifierContext<'a> {
     pub project: &'a Project,
+    pub address: &'a shrimply_project::project::ItemAddress,
     pub item: &'a VideoItem,
     pub position: Time,
     pub accuracy: CompositeAccuracy,
@@ -168,12 +169,12 @@ pub struct VisualModifierContext<'a> {
     pub evaluation: &'a VisualEvaluation,
     pub expressions: &'a mut TransformExpressionCache,
     pub mask_source: Option<Rc<VisualFrame>>,
-    pub analysis_cache_key: Option<String>,
 }
 
 impl<'a> VisualModifierContext<'a> {
     pub fn new(
         project: &'a Project,
+        address: &'a shrimply_project::project::ItemAddress,
         item: &'a VideoItem,
         position: Time,
         modifier_id: Uuid,
@@ -183,6 +184,7 @@ impl<'a> VisualModifierContext<'a> {
     ) -> Self {
         Self {
             project,
+            address,
             item,
             position,
             accuracy: CompositeAccuracy::default(),
@@ -192,7 +194,6 @@ impl<'a> VisualModifierContext<'a> {
             evaluation,
             expressions,
             mask_source: None,
-            analysis_cache_key: None,
         }
     }
 }

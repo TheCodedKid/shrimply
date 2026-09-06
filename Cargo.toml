@@ -118,6 +118,7 @@ members = [
     "vendor/rhubarb-lip-sync",
     "crates/3d/3d-control",
     "crates/3d/3dgs",
+    "crates/3d/3dgs-metal",
     "crates/3d/optix-denoiser",
     "crates/3d/render-3d",
     "crates/3d/scene-3d",
@@ -183,6 +184,9 @@ objc2-app-kit = "0.3.2"
 objc2-foundation = "0.3.2"
 objc2-metal = "0.3.2"
 objc2-quartz-core = "0.3.2"
+objc2-core-video = "0.3.2"
+objc2-core-ml = "0.3.2"
+objc2-vision = "0.3.2"
 oklab = "1"
 opencv = { version = "0.100", default-features = false, features = ["calib3d", "clang-runtime", "imgproc", "video", "videoio"] }
 pango = "0.22"

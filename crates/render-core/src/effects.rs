@@ -291,6 +291,107 @@ pub fn needs_canvas_materialization(
     !spatial_identity || source_size != canvas_size
 }
 
+/// Forward raster state shared by GPU backends until a pixel pass requires a
+/// concrete canvas-sized image.
+#[derive(Clone, Copy)]
+pub struct SpatialState {
+    pub parameters: crate::Nv12LayerParams,
+    pub transform: crate::math::Mat3,
+    pub texture_edges: [f32; 4],
+    pub modifier_crop: [f32; 4],
+    pub modifier_crop_pixels: [f32; 4],
+}
+
+impl SpatialState {
+    pub fn sampled(self) -> crate::Nv12LayerParams {
+        let mut parameters = self.parameters;
+        (parameters.crop, parameters.padding) = crate::math::signed_edges_bounds(
+            self.texture_edges,
+            self.modifier_crop,
+            self.modifier_crop_pixels,
+            glam::Vec2::new(
+                parameters.source_width as f32,
+                parameters.source_height as f32,
+            ),
+        );
+        if let Some(inverse) = crate::math::inverse_affine(self.transform) {
+            parameters.inverse = inverse;
+        } else {
+            parameters.opacity = 0.0;
+        }
+        parameters
+    }
+
+    pub fn needs_materialization(self, size: (u32, u32)) -> bool {
+        let parameters = self.parameters;
+        let spatial_identity = parameters.kind == crate::LayerKind::Rgba
+            && self.transform == crate::math::Mat3::IDENTITY
+            && parameters.crop == [0.0; 4]
+            && parameters.padding == [0.0; 4]
+            && self.texture_edges == [0.0; 4]
+            && self.modifier_crop == [0.0; 4]
+            && self.modifier_crop_pixels == [0.0; 4]
+            && parameters.address_mode == crate::TextureAddressMode::Transparent
+            && parameters.motion_transform_count == 0;
+        needs_canvas_materialization(
+            (parameters.source_width, parameters.source_height),
+            size,
+            spatial_identity,
+        )
+    }
+
+    pub fn materialization(self, size: (u32, u32)) -> (crate::Nv12LayerParams, Self) {
+        let (parameters, baked) = materialization(self.parameters, size.0, size.1);
+        (
+            Self {
+                parameters,
+                transform: self.transform,
+                ..self
+            }
+            .sampled(),
+            Self {
+                parameters: baked,
+                transform: crate::math::Mat3::IDENTITY,
+                texture_edges: [0.0; 4],
+                modifier_crop: [0.0; 4],
+                modifier_crop_pixels: [0.0; 4],
+            },
+        )
+    }
+}
+
+pub struct MotionMaterialization {
+    pub source: crate::Nv12LayerParams,
+    pub baked: SpatialState,
+    pub inverses: Vec<crate::math::Mat3>,
+}
+
+pub fn motion_materialization(
+    state: SpatialState,
+    samples: &[shrimply_math_geometry::ComposedTransform2D],
+    size: (u32, u32),
+) -> Result<MotionMaterialization, String> {
+    let inverses = shrimply_math_geometry::motion_sample_inverses(state.transform, samples);
+    let (mut source, baked) = state.materialization(size);
+    source.inverse = crate::math::inverse_affine(state.transform)
+        .or_else(|| inverses.first().copied())
+        .unwrap_or(crate::math::Mat3::IDENTITY);
+    source.motion_transform_offset = 0;
+    source.motion_transform_count = inverses
+        .len()
+        .try_into()
+        .map_err(|_| "Motion transform count overflow")?;
+    source.motion_sample_count = samples
+        .len()
+        .try_into()
+        .map_err(|_| "Motion sample count overflow")?;
+    Ok(MotionMaterialization {
+        source,
+        baked,
+        inverses,
+    })
+}
+
 impl PixelEffect {
     pub fn name(&self) -> &'static str {
         match self {

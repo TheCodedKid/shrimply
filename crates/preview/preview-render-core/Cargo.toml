@@ -22,5 +22,9 @@ shrimply-preview-core = { path = "../preview-core" }
 shrimply-video-core = { path = "../../video/video-core" }
 shrimply-video-modifiers = { path = "../../video/video-modifiers" }
 shrimply-math-geometry = { path = "../../math/geometry" }
+shrimply-math-color = { path = "../../math/color" }
+shrimply-loading-screen = { path = "../loading-screen" }
+shrimply-i18n-core = { path = "../../ui/i18n-core" }
+shrimply-layered-image = { path = "../../layered-image/layered-image" }
 shrimply-manim-wgpu = { path = "../../manim/manim-wgpu" }
 glam.workspace = true

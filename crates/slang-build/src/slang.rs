@@ -54,18 +54,39 @@ impl Compiler {
             .file_stem()
             .and_then(|name| name.to_str())
             .expect("Slang module filename must be UTF-8");
+        self.compile_as(source, module, target, entries)
+    }
+
+    pub fn compile_as(
+        &self,
+        source: &Path,
+        artifact_name: &str,
+        target: Target,
+        entries: &[&str],
+    ) -> Artifacts {
+        let module = source
+            .file_stem()
+            .and_then(|name| name.to_str())
+            .expect("Slang module filename must be UTF-8");
+        assert!(
+            !artifact_name.is_empty()
+                && artifact_name
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_' || byte == b'-'),
+            "Slang artifact name must contain only ASCII letters, digits, '_' or '-'"
+        );
         let extension = match target {
             Target::Spirv => "spv",
             Target::Cuda => "cu",
             Target::Metal => "metal",
             Target::Host => "cpp",
         };
-        let filename = format!("{module}.{extension}");
+        let filename = format!("{artifact_name}.{extension}");
         let code = self.output.join(&filename);
         let reflection = self
             .output
-            .join(format!("{module}.{extension}.reflection.json"));
-        let abi = self.output.join(format!("{module}.{extension}.abi"));
+            .join(format!("{artifact_name}.{extension}.reflection.json"));
+        let abi = self.output.join(format!("{artifact_name}.{extension}.abi"));
         let strings = [
             self.directory.as_path(),
             Path::new(module),

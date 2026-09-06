@@ -1,7 +1,7 @@
 use crate::gpu::modifiers::{CanvasRgbaFrame, GpuModifier, ModifierContext};
 use crate::layer::Visual;
 use shrimply_cuda::LaunchConfig;
-use shrimply_project::project::{VisualClipTransition, VisualTransition, VisualTransitionKind};
+use shrimply_project::project::{VisualClipTransition, VisualTransition};
 
 struct Origami {
     visibility: f32,
@@ -62,18 +62,19 @@ pub(crate) fn apply(
     visibility: f32,
     center: glam::Vec2,
 ) {
-    let visibility = visibility.clamp(0.0, 1.0);
-    if transition.kind == VisualTransitionKind::Origami && visibility < 0.98 {
-        visual.push_pixel(Box::new(Origami {
-            visibility,
-            depth: transition.effect_amount,
-            direction_degrees: transition.effect_angle_degrees,
-            grid: transition.effect_detail.round().clamp(2.0, 6.0) as u32,
-        }));
-    } else if let Some(effect) =
-        shrimply_video_core::transition::raster(transition, visibility, center)
-    {
-        visual.push_pixel(Box::new(effect));
+    match shrimply_video_core::transition::raster_plan(transition, visibility, center) {
+        Some(shrimply_video_core::transition::RasterTransition::Origami(effect)) => {
+            visual.push_pixel(Box::new(Origami {
+                visibility: effect.visibility,
+                depth: effect.depth,
+                direction_degrees: effect.direction_degrees,
+                grid: effect.grid,
+            }));
+        }
+        Some(shrimply_video_core::transition::RasterTransition::Pixel(effect)) => {
+            visual.push_pixel(Box::new(effect));
+        }
+        None => {}
     }
 }
 

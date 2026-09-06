@@ -3,6 +3,7 @@
 mod alpha_mask;
 mod compositor;
 mod effects;
+mod optical_flow;
 pub use compositor::render_png;
 
 use shrimply_math_core::Time;

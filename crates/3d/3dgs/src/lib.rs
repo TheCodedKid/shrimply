@@ -13,7 +13,7 @@ pub use shrimply_transform_3d::{
     COLMAP_TRACKING_MODEL, Camera3D, CameraSource, ColmapCameraModel, ColmapQuality,
     MAX_EXPOSURE_EV, MAX_F_STOP, MIN_EXPOSURE_EV, MIN_F_STOP, Projection,
     ResolvedTransform3D as Transform, RotationOrder, TrackingCameraSource, TrackingSettings,
-    Transform3D, VGGT_SLAM_TRACKING_MODEL, focal_length_mm, vertical_fov_degrees,
+    Transform3D, VGGT_SLAM_TRACKING_MODEL, focal_length_mm, rotation_degrees, vertical_fov_degrees,
 };
 
 pub type AnimatedVec3 = TimelineValue<Vec3>;
@@ -21,7 +21,7 @@ pub type AnimatedTransform3d = Transform3D<AnimatedVec3, TimelineValue<RotationO
 pub type Camera3d = Camera3D<AnimatedVec3, TimelineValue<f32>>;
 pub type CameraProjection = Projection;
 
-pub(crate) const DEPTH_OF_FIELD_SAMPLES: u32 = 8;
+pub const DEPTH_OF_FIELD_SAMPLES: u32 = 8;
 
 pub use ply::{Gaussian, GaussianCloud, PlyError, load_gaussian_ply};
 pub use renderer::{RenderContext, Renderer};
@@ -52,6 +52,7 @@ impl fmt::Display for Error {
 
 impl std::error::Error for Error {}
 
+#[derive(Clone)]
 pub struct RenderSession {
     identity: AssetSnapshot,
     cloud: Arc<GaussianCloud>,
@@ -133,7 +134,7 @@ impl RenderParams {
 }
 
 impl shader::GaussianSource {
-    pub(crate) fn from_gaussian(gaussian: &Gaussian) -> Self {
+    pub fn from_gaussian(gaussian: &Gaussian) -> Self {
         Self {
             position_opacity: gaussian.position.extend(gaussian.opacity).to_array(),
             scale: gaussian.scale.extend(0.0).to_array(),

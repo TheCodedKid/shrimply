@@ -60,7 +60,10 @@ impl Scene {
             }
             let source_time = match item.content {
                 VideoItemContent::Media | VideoItemContent::Gif => {
-                    let Some(time) = video_source_time_at(&item, item_time) else {
+                    let content_position = shrimply_video_core::transparent_fill::render_position(
+                        project, &item, item_time,
+                    );
+                    let Some(time) = video_source_time_at(&item, content_position) else {
                         continue;
                     };
                     time

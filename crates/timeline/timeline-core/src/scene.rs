@@ -55,6 +55,7 @@ pub struct Scene {
     pending_track_add_menu: Option<TrackAddMenuRequest>,
     pending_audio_record: Option<TrackKey>,
     pending_video_record: Option<TrackKey>,
+    active_audio_recording: Option<crate::recording::AudioRecording>,
     pending_pause_playback: bool,
     playhead_visibility_requested: Rc<Cell<bool>>,
     last_playhead_position: Option<Time>,
@@ -218,6 +219,7 @@ impl Scene {
             pending_track_add_menu: None,
             pending_audio_record: None,
             pending_video_record: None,
+            active_audio_recording: None,
             pending_pause_playback: false,
             playhead_visibility_requested: playhead_visibility_requested.clone(),
             last_playhead_position: None,
@@ -326,5 +328,10 @@ impl Drop for Scene {
         }
         self.waveform_cancel.store(true, Ordering::Relaxed);
         self.beat_cancel.store(true, Ordering::Relaxed);
+        if let Some(recording) = self.active_audio_recording.take()
+            && let Err(error) = recording.finish(&mut self.project.borrow_mut(), &self.player)
+        {
+            tracing::error!(%error, "Could not finish active timeline audio recording");
+        }
     }
 }

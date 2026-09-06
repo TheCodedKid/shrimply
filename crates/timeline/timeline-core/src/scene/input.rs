@@ -152,19 +152,47 @@ impl Scene {
     }
 
     pub fn draw(&mut self, canvas: &skia_safe::Canvas, size: Vec2) {
+        let chunks =
+            waveform_chunks_per_second_from_frame_step(frame_step_seconds(&self.project.borrow()));
+        let live_recording = self
+            .active_audio_recording
+            .as_ref()
+            .and_then(|recording| recording.draw(chunks));
         self.draw_frame(
             canvas,
             size,
             Frame {
                 before_seek: None,
                 accent_color: Color::BLUE3,
-                active_audio_recording_key: None,
+                active_audio_recording_key: self
+                    .active_audio_recording
+                    .as_ref()
+                    .map(|recording| recording.key),
                 active_video_recording_key: None,
-                live_recording: None,
+                live_recording: live_recording.as_ref(),
                 live_video_recording: None,
             },
         );
         self.apply_internal_actions();
+    }
+
+    pub fn toggle_audio_recording(&mut self, key: TrackKey) -> Result<(), String> {
+        if key.kind != TrackKind::Audio {
+            return Err("Microphone recording requires an audio track".into());
+        }
+        if let Some(recording) = self.active_audio_recording.take() {
+            let same_track = recording.key == key;
+            recording.finish(&mut self.project.borrow_mut(), &self.player)?;
+            if same_track {
+                return Ok(());
+            }
+        }
+        self.active_audio_recording = Some(crate::recording::AudioRecording::start(
+            key,
+            &self.project.borrow(),
+            &self.player,
+        )?);
+        Ok(())
     }
 
     pub fn draw_frame(&mut self, canvas: &skia_safe::Canvas, size: Vec2, mut frame: Frame<'_>) {

@@ -5,7 +5,7 @@ edition = "2024"
 build = "build.rs"
 
 [dependencies]
-shrimply-video-core = { path = "../video-core" }
+shrimply-video-core = { path = "../video-core", features = ["cuda-stabilization"] }
 hashbrown.workspace = true
 ash.workspace = true
 cached.workspace = true
@@ -28,7 +28,6 @@ shrimply-asset = { path = "../../asset" }
 shrimply-3dgs = { path = "../../3d/3dgs" }
 shrimply-audio = { path = "../../audio/audio" }
 shrimply-anime4k = { path = "../anime4k" }
-shrimply-affine-l1-stabilization = { path = "../../stabilization/affine-l1-stabilization" }
 shrimply-benchmarking = { path = "../../benchmarking" }
 shrimply-blender = { path = "../../blender/blender-bridge" }
 shrimply-background = { path = "../../background" }
@@ -45,7 +44,6 @@ shrimply-math-geometry = { path = "../../math/geometry", features = ["skia"] }
 shrimply-manim-parser = { path = "../../manim/manim-parser" }
 shrimply-manim-wgpu = { path = "../../manim/manim-wgpu" }
 shrimply-manim-cuda = { path = "../../manim/manim-cuda" }
-shrimply-mesh-flow-stabilization = { path = "../../stabilization/mesh-flow-stabilization" }
 shrimply-nvidia-optical-flow = { path = "../../stabilization/nvidia-optical-flow" }
 shrimply-optix-denoiser = { path = "../../3d/optix-denoiser" }
 shrimply-paint-skia = { path = "../../paint/paint-skia" }
@@ -67,7 +65,6 @@ skia-safe = { workspace = true, features = ["gl", "vulkan", "textlayout", "svg"]
 tempfile.workspace = true
 tracing.workspace = true
 uuid = { workspace = true, features = ["v4", "serde"] }
-vtracer.workspace = true
 shrimply-transform-3d = { path = "../../3d/transform-3d" }
 
 [build-dependencies]

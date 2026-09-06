@@ -211,17 +211,28 @@ impl CanvasView {
             }
             ContextMenuRequest::PasteFromClipboard => {
                 let clipboard = NSPasteboard::generalPasteboard();
-                let urls = super::super::media::file_urls(&clipboard);
+                let placement = shrimply_timeline_core::import_queue::Placement {
+                    start: shrimply_state::player_state::current_time(
+                        &self.ivars().session.player_state,
+                    ),
+                    target: shrimply_timeline_core::items::NewItemTarget::Automatic,
+                    collision: shrimply_timeline_core::DragCollisionMode::NewTrack,
+                };
+                let urls = super::super::media::stage_clipboard_file_urls(
+                    super::super::media::file_urls(&clipboard),
+                )?;
                 if !urls.is_empty() {
-                    let placement = shrimply_timeline_core::import_queue::Placement {
-                        start: shrimply_state::player_state::current_time(
-                            &self.ivars().session.player_state,
-                        ),
-                        target: shrimply_timeline_core::items::NewItemTarget::Automatic,
-                        collision: shrimply_timeline_core::DragCollisionMode::NewTrack,
-                    };
                     return self.ivars().imports.borrow_mut().enqueue(
                         urls,
+                        &self.ivars().session,
+                        super::super::media::Destination::Timeline(placement),
+                    );
+                }
+                if let Some(path) = super::super::media::clipboard_image_path(&clipboard)? {
+                    let url = NSURL::from_file_path(&path)
+                        .ok_or("Could not resolve the stored clipboard image")?;
+                    return self.ivars().imports.borrow_mut().enqueue(
+                        [url],
                         &self.ivars().session,
                         super::super::media::Destination::Timeline(placement),
                     );

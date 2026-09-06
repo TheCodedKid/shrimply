@@ -218,6 +218,9 @@ impl Source {
         canvas_size: CanvasSize,
         fps: Fraction,
     ) -> Result<(), String> {
+        if item.id != self.item_id {
+            return Err("Manim source cannot be reused for a different timeline item".into());
+        }
         let VideoItemContent::Manim(manim) = &item.content else {
             return Err("Manim source received a non-Manim visual".into());
         };

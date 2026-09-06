@@ -1012,6 +1012,11 @@ impl FrameItemRenderer<'_> {
         let modifier_measurement =
             shrimply_benchmarking::measure("Video item / Apply modifiers and masks");
         if !cache_host {
+            let address = ItemAddress::Video {
+                sequence_path: self.sequence_path.clone(),
+                track_id,
+                item_id: item.id,
+            };
             if let Some(alpha_mask_video) = item.alpha_mask_video {
                 let mask =
                     self.alpha_mask_source(track_index, track_id, item, alpha_mask_video, routes)?;
@@ -1045,59 +1050,9 @@ impl FrameItemRenderer<'_> {
                     .map(|mask| {
                         resolve_shape_alpha_mask(mask, &evaluation, &mut self.cache.expressions)
                     });
-                let analysis_cache_key = if matches!(
-                    &modifier.effect,
-                    ModifierEffect::Raster(effect)
-                        if matches!(&**effect, RasterModifierEffect::TransparentFill(_))
-                ) {
-                    let address = ItemAddress::Video {
-                        sequence_path: self.sequence_path.clone(),
-                        track_id,
-                        item_id: item.id,
-                    };
-                    let prompt_signature = match &modifier.effect {
-                        ModifierEffect::Raster(effect) => match &**effect {
-                            RasterModifierEffect::TransparentFill(fill) => fill.prompt_signature(),
-                            _ => unreachable!("checked transparent fill modifier"),
-                        },
-                        _ => unreachable!("checked raster modifier"),
-                    };
-                    let key = (address.clone(), modifier.id, prompt_signature);
-                    if let Some(cache_key) = self.cache.transparent_fill_keys.get(&key) {
-                        Some(cache_key.clone())
-                    } else {
-                        let source_index = self
-                            .project
-                            .video_item(&address)
-                            .and_then(|source| {
-                                source
-                                    .modifiers
-                                    .iter()
-                                    .position(|source| source.id == modifier.id)
-                            })
-                            .ok_or("transparent fill modifier source no longer exists")?;
-                        let render_project =
-                            crate::modifiers::transparent_fill::render_input_project(
-                                self.project,
-                                &address,
-                                source_index,
-                            )?;
-                        let cache_key = crate::modifiers::transparent_fill::analysis_cache_key(
-                            &render_project,
-                            &address,
-                            modifier.id,
-                            prompt_signature,
-                        );
-                        self.cache
-                            .transparent_fill_keys
-                            .insert(key, cache_key.clone());
-                        Some(cache_key)
-                    }
-                } else {
-                    None
-                };
                 let mut context = VisualModifierContext::new(
                     self.project,
+                    &address,
                     item,
                     content_position,
                     modifier.id,
@@ -1109,7 +1064,6 @@ impl FrameItemRenderer<'_> {
                 context.require_complete_assets =
                     matches!(self.mode, RenderMode::ExportContentAccurate { .. });
                 context.mask_source = mask_source;
-                context.analysis_cache_key = analysis_cache_key;
                 let masked = alpha_mask.is_some();
                 if let Some(mask) = alpha_mask {
                     visual.begin_alpha_mask(mask);
@@ -1358,35 +1312,18 @@ impl FrameItemRenderer<'_> {
                 source_strategy,
                 target_strategy,
             } => {
-                let forward = flow
-                    .forward
-                    .iter()
-                    .map(|flow| [flow.x, flow.y])
-                    .collect::<Vec<_>>();
-                let backward = flow
-                    .backward
-                    .iter()
-                    .map(|flow| [flow.x, flow.y])
-                    .collect::<Vec<_>>();
-                let source_offsets =
-                    shrimply_math_geometry::optical_flow_source_offsets(&forward, progress);
-                let target_offsets =
-                    shrimply_math_geometry::optical_flow_source_offsets(&backward, 1.0 - progress);
-                let grid_width = u32::try_from(flow.width)
-                    .map_err(|_| "Morph optical-flow grid width is too large")?;
-                let grid_height = u32::try_from(flow.height)
-                    .map_err(|_| "Morph optical-flow grid height is too large")?;
+                let presentation = flow.presentation(progress);
                 let source = Rc::new(self.compositor.render_mesh_flow(
                     source,
-                    grid_width,
-                    grid_height,
-                    &source_offsets,
+                    presentation.grid_size.x,
+                    presentation.grid_size.y,
+                    &presentation.source_offsets,
                 )?);
                 let target = Rc::new(self.compositor.render_mesh_flow(
                     target,
-                    grid_width,
-                    grid_height,
-                    &target_offsets,
+                    presentation.grid_size.x,
+                    presentation.grid_size.y,
+                    &presentation.target_offsets,
                 )?);
                 let state = |compositing, drawing_strategy| VisualState {
                     transform: shrimply_math_geometry::ComposedTransform2D::IDENTITY,
@@ -1397,7 +1334,7 @@ impl FrameItemRenderer<'_> {
                 };
                 let source_compositing = *source_compositing;
                 let mut target_compositing = *target_compositing;
-                target_compositing.opacity *= progress;
+                target_compositing.opacity *= presentation.target_opacity;
                 Ok(vec![
                     crate::layer::frame_layer(
                         GpuFrame::Rgba(source),

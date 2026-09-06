@@ -3,10 +3,10 @@ use std::sync::Arc;
 use std::sync::mpsc::{self, Receiver, TryRecvError};
 
 use shrimply_asset::{Asset, AssetSnapshot};
-use shrimply_evaluation::{TransformExpressionCache, VisualEvaluation, resolve_bool};
+use shrimply_evaluation::{TransformExpressionCache, VisualEvaluation};
 use shrimply_gpu_memory::{ResourceKey, global as gpu_memory};
 use shrimply_layered_image::LayeredImage;
-use shrimply_project::project::{CanvasSize, LayeredImageItem, VideoItem, VideoItemContent};
+use shrimply_project::project::{CanvasSize, VideoItem, VideoItemContent};
 use uuid::Uuid;
 
 use crate::gpu::layered_image::LayeredImageGpuLayer;
@@ -186,7 +186,7 @@ impl LayeredImageAsset {
             self.preload()?;
             return Ok((None, true));
         };
-        let document: &LayeredImage = document.as_ref();
+        let document = Arc::clone(&document);
         let VideoItemContent::LayeredImage(item) = &request.item.content else {
             unreachable!();
         };
@@ -196,22 +196,25 @@ impl LayeredImageAsset {
             request.position,
             request.audio_analysis,
         );
-        let visible = {
+        let prepared = {
             let _measurement = shrimply_benchmarking::measure("Layered image / Resolve visibility");
-            document
-                .layers
-                .iter()
-                .map(|layer| {
-                    resolved_visibility(&layer.path, layer.visible, item, &evaluation, expressions)
-                        && parents_visible(document, layer.parent, item, &evaluation, expressions)
-                })
-                .collect::<Vec<_>>()
+            shrimply_video_core::layered_image::prepare(
+                Arc::clone(&document),
+                self.snapshot
+                    .as_ref()
+                    .expect("layered image snapshot was loaded")
+                    .cache_key()
+                    .to_owned(),
+                item,
+                &evaluation,
+                expressions,
+            )
         };
         let snapshot = self
             .snapshot
             .as_ref()
             .expect("layered image snapshot was loaded");
-        let composite_key = layered_frame_key(snapshot, LayeredFrame::Composite(&visible));
+        let composite_key = layered_frame_key(snapshot, LayeredFrame::Composite(&prepared));
         if let Some(layer) = gpu_memory().get_resource::<VisualFrame>(&composite_key)? {
             shrimply_benchmarking::increment("Layered image GPU cache / Composite hit");
             compositor.prepare_host_backed_frame(&layer, "cached layered image composite")?;
@@ -219,8 +222,8 @@ impl LayeredImageAsset {
         }
         shrimply_benchmarking::increment("Layered image GPU cache / Composite miss");
 
-        let mut source_layers = Vec::with_capacity(document.layers.len());
-        for (index, source) in document.layers.iter().enumerate() {
+        let mut source_layers = Vec::with_capacity(prepared.document.layers.len());
+        for (index, source) in prepared.document.layers.iter().enumerate() {
             let key = layered_frame_key(snapshot, LayeredFrame::Source(index));
             if let Some(layer) = gpu_memory().get_resource::<VisualFrame>(&key)? {
                 shrimply_benchmarking::increment("Layered image GPU cache / Source hit");
@@ -230,8 +233,8 @@ impl LayeredImageAsset {
             }
             shrimply_benchmarking::increment("Layered image GPU cache / Source miss");
             let mut layer = compositor.upload_rgba_layer(
-                document.width.max(1),
-                document.height.max(1),
+                prepared.document.width.max(1),
+                prepared.document.height.max(1),
                 &source.rgba,
             )?;
             if let Some(retained) =
@@ -243,42 +246,24 @@ impl LayeredImageAsset {
             compositor.prepare_host_backed_frame(&layer, "layered image source")?;
             source_layers.push(Rc::new(layer));
         }
-        let mut gpu_layers = Vec::new();
-        let mut clipping_base = None::<(Option<u32>, usize, f32)>;
-        for (layer_index, layer) in document.layers.iter().enumerate().rev() {
-            if !visible[layer_index] {
-                if !layer.clipped {
-                    clipping_base = None;
-                }
-                continue;
-            }
-            let opacity = f32::from(layer.opacity) / 255.0 * parent_opacity(document, layer.parent);
-            if !layer.clipped {
-                clipping_base = Some((layer.parent, layer_index, opacity));
-            }
-            let clipping_base = layer
-                .clipped
-                .then_some(clipping_base)
-                .flatten()
-                .filter(|(parent, _, _)| *parent == layer.parent)
-                .map(|(_, index, opacity)| (&*source_layers[index], opacity));
-            if layer.clipped && clipping_base.is_none() {
-                continue;
-            }
+        let mut gpu_layers = Vec::with_capacity(prepared.layers.len());
+        for layer in &prepared.layers {
             gpu_layers.push(LayeredImageGpuLayer {
-                source: &source_layers[layer_index],
-                clipping_base,
-                mode: layer.blend_mode,
-                opacity,
-                noise_seed: (layer_index as u32).wrapping_mul(0x85eb_ca6b),
+                source: &source_layers[layer.source],
+                clipping_base: layer
+                    .clipping_base
+                    .map(|(source, opacity)| (&*source_layers[source], opacity)),
+                mode: layer.mode,
+                opacity: layer.opacity,
+                noise_seed: layer.noise_seed,
             });
         }
         let mut layer = {
             let _measurement =
                 shrimply_benchmarking::measure("Layered image / Composite submission");
             Rc::new(compositor.composite_layered_image_layers(
-                document.width.max(1),
-                document.height.max(1),
+                prepared.document.width.max(1),
+                prepared.document.height.max(1),
                 &gpu_layers,
             )?)
         };
@@ -355,7 +340,7 @@ fn layered_document_key(snapshot: &AssetSnapshot) -> ResourceKey {
 
 enum LayeredFrame<'a> {
     Source(usize),
-    Composite(&'a [bool]),
+    Composite(&'a shrimply_video_core::layered_image::Prepared),
 }
 
 fn layered_frame_key(snapshot: &AssetSnapshot, frame: LayeredFrame<'_>) -> ResourceKey {
@@ -367,9 +352,9 @@ fn layered_frame_key(snapshot: &AssetSnapshot, frame: LayeredFrame<'_>) -> Resou
             discriminator.push(0);
             discriminator.extend_from_slice(&index.to_le_bytes());
         }
-        LayeredFrame::Composite(visible) => {
+        LayeredFrame::Composite(prepared) => {
             discriminator.push(1);
-            discriminator.extend(visible.iter().map(|visible| u8::from(*visible)));
+            prepared.append_cache_discriminator(&mut discriminator);
         }
     }
     ResourceKey::new(snapshot.path().to_path_buf(), discriminator)
@@ -417,51 +402,4 @@ impl VisualElement for LayeredImageRenderSession {
             VisualRender::Ready(visual)
         })
     }
-}
-
-fn resolved_visibility(
-    path: &str,
-    source_visible: bool,
-    item: &LayeredImageItem,
-    evaluation: &VisualEvaluation,
-    expressions: &mut TransformExpressionCache,
-) -> bool {
-    item.layers
-        .iter()
-        .find(|entry| entry.path == path)
-        .and_then(|entry| entry.visibility.as_ref())
-        .map_or(source_visible, |value| {
-            resolve_bool(value, evaluation, expressions)
-        })
-}
-
-fn parents_visible(
-    document: &LayeredImage,
-    mut parent: Option<u32>,
-    item: &LayeredImageItem,
-    evaluation: &VisualEvaluation,
-    expressions: &mut TransformExpressionCache,
-) -> bool {
-    while let Some(id) = parent {
-        let Some(group) = document.groups.iter().find(|group| group.id == id) else {
-            break;
-        };
-        if !resolved_visibility(&group.path, group.visible, item, evaluation, expressions) {
-            return false;
-        }
-        parent = group.parent;
-    }
-    true
-}
-
-fn parent_opacity(document: &LayeredImage, mut parent: Option<u32>) -> f32 {
-    let mut opacity = 1.0;
-    while let Some(id) = parent {
-        let Some(group) = document.groups.iter().find(|group| group.id == id) else {
-            break;
-        };
-        opacity *= f32::from(group.opacity) / 255.0;
-        parent = group.parent;
-    }
-    opacity
 }

@@ -236,15 +236,31 @@ impl CanvasView {
     }
 
     pub(in crate::macos::canvas) fn preview_input(&self, event: &NSEvent) -> PointerInput {
+        use objc2_app_kit::{NSEventSubtype, NSEventType, NSPointingDeviceType};
+        let tablet = event.r#type() == NSEventType::TabletPoint
+            || event.subtype() == NSEventSubtype::TabletPoint;
+        let tool = if tablet {
+            match event.pointingDeviceType() {
+                NSPointingDeviceType::Pen => PointerTool::Pen,
+                NSPointingDeviceType::Eraser => PointerTool::Eraser,
+                _ => PointerTool::Mouse,
+            }
+        } else {
+            PointerTool::Mouse
+        };
+        let tilt = tablet.then(|| {
+            let tilt = event.tilt();
+            glam::Vec2::new(tilt.x as f32, tilt.y as f32)
+        });
         PointerInput {
             sample: PointerSample {
                 position: self.point(event),
-                pressure: (event.pressure() > 0.0).then_some(event.pressure()),
-                tilt: None,
+                pressure: tablet.then(|| event.pressure()),
+                tilt,
                 time_millis: std::time::Duration::from_secs_f64(event.timestamp().max(0.0))
                     .as_millis() as u32,
             },
-            tool: PointerTool::Mouse,
+            tool,
             button: match event.buttonNumber() {
                 0 => PointerButton::Primary,
                 1 => PointerButton::Secondary,
@@ -332,7 +348,8 @@ impl CanvasView {
         match cursor {
             Cursor::Default => NSCursor::arrowCursor().set(),
             Cursor::Pointer => NSCursor::pointingHandCursor().set(),
-            Cursor::Crosshair | Cursor::Move => NSCursor::crosshairCursor().set(),
+            Cursor::Crosshair => NSCursor::crosshairCursor().set(),
+            Cursor::Move => NSCursor::openHandCursor().set(),
             Cursor::Grab => NSCursor::openHandCursor().set(),
             Cursor::Grabbing => NSCursor::closedHandCursor().set(),
             Cursor::Text => NSCursor::IBeamCursor().set(),
@@ -366,10 +383,7 @@ fn modifiers(flags: NSEventModifierFlags) -> Modifiers {
     for (native, shared) in [
         (NSEventModifierFlags::Shift, Modifiers::SHIFT),
         (NSEventModifierFlags::Control, Modifiers::CONTROL),
-        (
-            NSEventModifierFlags::Command,
-            Modifiers::CONTROL | Modifiers::META,
-        ),
+        (NSEventModifierFlags::Command, Modifiers::META),
         (NSEventModifierFlags::Option, Modifiers::ALT),
     ] {
         if flags.contains(native) {

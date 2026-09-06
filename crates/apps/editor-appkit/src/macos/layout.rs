@@ -317,6 +317,49 @@ pub fn build(editor: &Editor) -> Layout {
         guides.setTarget(Some(&*preview_canvas));
         guides.setAction(Some(sel!(togglePreviewGuides:)));
     }
+    for (tool, icon, label) in [
+        (canvas::PaintTool::Pen, "pencil.tip", "Pen (B)"),
+        (canvas::PaintTool::Fill, "paintbrush", "Fill (F)"),
+        (canvas::PaintTool::Eraser, "eraser", "Eraser (E)"),
+        (
+            canvas::PaintTool::Adjust,
+            "slider.horizontal.3",
+            "Adjust points",
+        ),
+        (
+            canvas::PaintTool::Transform,
+            "arrow.up.left.and.arrow.down.right",
+            "Stroke Transform (T)",
+        ),
+        (canvas::PaintTool::Smaller, "minus", "Smaller paint tool"),
+        (canvas::PaintTool::Larger, "plus", "Larger paint tool"),
+        (
+            canvas::PaintTool::Palette,
+            "paintpalette",
+            "Next paint color",
+        ),
+        (
+            canvas::PaintTool::OnionPrevious,
+            "chevron.left",
+            "Previous drawing onion skin",
+        ),
+        (
+            canvas::PaintTool::OnionNext,
+            "chevron.right",
+            "Next drawing onion skin",
+        ),
+    ] {
+        let button = button(icon, label, mtm);
+        button.setEnabled(true);
+        button.setButtonType(objc2_app_kit::NSButtonType::PushOnPushOff);
+        button.setTag(tool as isize);
+        unsafe {
+            button.setTarget(Some(&*preview_canvas));
+            button.setAction(Some(sel!(changePaintTool:)));
+        }
+        preview_tools.addArrangedSubview(&button);
+        preview_canvas.register_paint_tool(tool, button);
+    }
 
     let playbar = stack(false, mtm);
     playbar.setAlignment(NSLayoutAttribute::CenterY);

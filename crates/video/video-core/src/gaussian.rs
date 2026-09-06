@@ -1,0 +1,100 @@
+use shrimply_evaluation::{FrameAudioAnalysis, TransformExpressionCache, VisualEvaluation};
+use shrimply_project::project::{CanvasSize, Project, VideoItem, VideoItemContent};
+
+#[derive(Clone, Copy)]
+pub struct TrackingSample {
+    pub position: glam::Vec3,
+    pub rotation: glam::Quat,
+    pub projection: shrimply_3dgs::Projection,
+    pub vertical_fov_degrees: f32,
+}
+
+pub struct Source {
+    session: shrimply_3dgs::RenderSession,
+}
+
+#[derive(Clone)]
+pub struct Prepared {
+    pub session: shrimply_3dgs::RenderSession,
+    pub params: shrimply_3dgs::RenderParams,
+    pub width: u32,
+    pub height: u32,
+}
+
+impl Source {
+    pub fn new(item: &VideoItem) -> Result<Self, String> {
+        if !matches!(item.content, VideoItemContent::Gaussian(_)) {
+            return Err("Gaussian source received a different visual type".into());
+        }
+        Ok(Self {
+            session: shrimply_3dgs::RenderSession::load(&item.file)
+                .map_err(|error| error.to_string())?,
+        })
+    }
+
+    pub fn matches(&self, item: &VideoItem) -> bool {
+        matches!(item.content, VideoItemContent::Gaussian(_))
+            && self.session.matches_asset(&item.file).unwrap_or(false)
+    }
+
+    pub fn prepare(
+        &self,
+        project: &Project,
+        item: &VideoItem,
+        position: shrimply_math_core::Time,
+        audio: &FrameAudioAnalysis,
+        canvas: CanvasSize,
+        expressions: &mut TransformExpressionCache,
+    ) -> Result<Prepared, String> {
+        let VideoItemContent::Gaussian(scene) = &item.content else {
+            return Err("Gaussian source received a different visual type".into());
+        };
+        if matches!(
+            scene.camera.source,
+            shrimply_3dgs::CameraSource::Tracking(_)
+        ) {
+            return Err(
+                "Tracked Gaussian cameras are not connected to this native renderer".into(),
+            );
+        }
+        let params = evaluate(project, item, position, audio, expressions)?;
+        Ok(Prepared {
+            session: self.session.clone(),
+            params,
+            width: canvas.width.max(1),
+            height: canvas.height.max(1),
+        })
+    }
+}
+
+pub fn evaluate(
+    project: &Project,
+    item: &VideoItem,
+    position: shrimply_math_core::Time,
+    audio: &FrameAudioAnalysis,
+    expressions: &mut TransformExpressionCache,
+) -> Result<shrimply_3dgs::RenderParams, String> {
+    let VideoItemContent::Gaussian(scene) = &item.content else {
+        return Err("Gaussian source received a different visual type".into());
+    };
+    let evaluation = VisualEvaluation::for_item_with_audio(project, item, position, audio);
+    Ok(shrimply_evaluation::resolve_gaussian_scene(
+        scene,
+        &evaluation,
+        expressions,
+    ))
+}
+
+pub fn apply_tracking(params: &mut shrimply_3dgs::RenderParams, mut sample: TrackingSample) {
+    (sample.position, sample.rotation) = shrimply_math_geometry::apply_reconstructed_camera_motion(
+        sample.position,
+        sample.rotation,
+        params.camera.position,
+        params.camera.rotation_degrees,
+    );
+    params.camera.position = sample.position;
+    params.camera.rotation_degrees =
+        shrimply_3dgs::rotation_degrees(sample.rotation, shrimply_3dgs::RotationOrder::Xyz);
+    params.camera.projection = sample.projection;
+    params.camera.vertical_fov_degrees = sample.vertical_fov_degrees;
+}

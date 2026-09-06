@@ -92,7 +92,6 @@ pub fn prepare_project_with_frame_grid_repair(
 }
 
 pub fn activate_project(prepared: PreparedProject) -> Project {
-    shrimply_video_modifiers::sam2_analysis::clear();
     set_active_project_path(&prepared.path);
     memory::seed(&prepared.project, 0);
     start_history_worker(prepared.project.clone(), prepared.path.clone());
@@ -226,7 +225,6 @@ fn commit(project: &Project, message: &str, coalesce_group: Option<&str>) -> boo
 }
 
 fn queue_project(project: &Project, action: &str) -> bool {
-    shrimply_video_modifiers::sam2_analysis::clear();
     let sender = history_worker(project);
     let step = NEXT_HISTORY_STEP
         .fetch_add(1, Ordering::AcqRel)
