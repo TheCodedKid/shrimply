@@ -1,3 +1,13 @@
+COMPONENT: Shrimply application icon
+AUTHOR: sadgabi20
+
+---
+
+COMPONENT: Shrimply loading screen
+AUTHOR: ishto
+
+---
+
 COLLECTION: Fluent UI Icons Filled
 LICENSE: MIT License
 AUTHOR: Microsoft
