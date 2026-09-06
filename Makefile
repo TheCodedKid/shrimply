@@ -34,6 +34,9 @@ LAUNCHER_PACKAGE := shrimply-launcher-gtk
 QT_LAUNCHER_PACKAGE := shrimply-launcher-qt
 APPKIT_LAUNCHER_PACKAGE := shrimply-launcher-appkit
 APPKIT_EDITOR_PACKAGE := shrimply-editor-appkit
+APPKIT_COMPONENT_METAL_PACKAGE := shrimply-component-metal
+APPKIT_COMPONENTS_PACKAGE := shrimply-components-appkit
+APPKIT_COMPONENTS_DEMO_PACKAGE := shrimply-components-demo-appkit
 GTK_COMPONENTS_PACKAGE := shrimply-gtk-components
 QT_COMPONENTS_PACKAGE := shrimply-qt-components
 GTK_COMPONENTS_DEMO_PACKAGE := shrimply-gtk-components-demo
@@ -141,7 +144,7 @@ dev: native-deps cuda-artifacts
 
 APPKIT_BUILD_ENV = $(SLANG_LIBRARY_ENV) RUSTFLAGS="-C prefer-dynamic -C link-arg=-Wl,-rpath,$(RUST_LIBDIR)" LIBRARY_PATH="$$(brew --prefix)/lib" PKG_CONFIG="$$(brew --prefix pkgconf)/bin/pkg-config" CLANG_PATH="$$(brew --prefix llvm@18)/bin/clang" LIBCLANG_PATH="$$(brew --prefix llvm@18)/lib" SLANG_SOURCE_DIR=$(SLANG_SOURCE_DIR) SLANG_BUILD_DIR=$(SLANG_BUILD_DIR)
 
-.PHONY: appkit-build appkit-check
+.PHONY: appkit-build appkit-check appkit-components-check appkit-components-showcase
 $(APPKIT_ICON): $(APP_ICON)
 	$(RSVG_CONVERT) --width $(APPKIT_ICON_SIZE) --height $(APPKIT_ICON_SIZE) $< --output $@
 
@@ -150,8 +153,17 @@ appkit-build: $(APPKIT_ICON)
 	$(APPKIT_BUILD_ENV) $(CARGO) build -p $(APPKIT_LAUNCHER_PACKAGE) -p $(APPKIT_EDITOR_PACKAGE) --bins
 
 appkit-check: appkit-build
-	$(APPKIT_BUILD_ENV) $(CARGO) check -p $(APPKIT_EDITOR_PACKAGE) -p $(APPKIT_LAUNCHER_PACKAGE) --all-targets
-	$(APPKIT_BUILD_ENV) $(CARGO) clippy -p $(APPKIT_EDITOR_PACKAGE) -p $(APPKIT_LAUNCHER_PACKAGE) --all-targets -- -D warnings
+	$(APPKIT_BUILD_ENV) $(CARGO) check -p $(APPKIT_EDITOR_PACKAGE) -p $(APPKIT_LAUNCHER_PACKAGE) -p $(APPKIT_COMPONENT_METAL_PACKAGE) -p $(APPKIT_COMPONENTS_PACKAGE) -p $(APPKIT_COMPONENTS_DEMO_PACKAGE) --all-targets
+	$(APPKIT_BUILD_ENV) $(CARGO) clippy -p $(APPKIT_EDITOR_PACKAGE) -p $(APPKIT_LAUNCHER_PACKAGE) -p $(APPKIT_COMPONENT_METAL_PACKAGE) -p $(APPKIT_COMPONENTS_PACKAGE) -p $(APPKIT_COMPONENTS_DEMO_PACKAGE) --all-targets -- -D warnings
+
+appkit-components-check:
+	@test "$$(uname -s)" = Darwin || { echo "AppKit components require macOS" >&2; exit 1; }
+	$(APPKIT_BUILD_ENV) $(CARGO) check -p $(APPKIT_COMPONENT_METAL_PACKAGE) -p $(APPKIT_COMPONENTS_PACKAGE) -p $(APPKIT_COMPONENTS_DEMO_PACKAGE) --all-targets
+	$(APPKIT_BUILD_ENV) $(CARGO) clippy -p $(APPKIT_COMPONENT_METAL_PACKAGE) -p $(APPKIT_COMPONENTS_PACKAGE) -p $(APPKIT_COMPONENTS_DEMO_PACKAGE) --all-targets -- -D warnings
+
+appkit-components-showcase:
+	@test "$$(uname -s)" = Darwin || { echo "AppKit components require macOS" >&2; exit 1; }
+	$(APPKIT_BUILD_ENV) $(CARGO) run -p $(APPKIT_COMPONENTS_DEMO_PACKAGE)
 
 dev-mac: appkit-build
 	RUST_LOG=$(RUST_LOG) target/debug/$(APPKIT_BIN_NAME)

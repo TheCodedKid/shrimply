@@ -5509,6 +5509,55 @@ dependencies = [
 ]
 
 [[package]]
+name = "shrimply-component-metal"
+version = "0.1.0"
+dependencies = [
+ "objc2",
+ "objc2-app-kit",
+ "objc2-foundation",
+ "shrimply-cross-ui-theme",
+ "shrimply-keyframe-graph-core",
+ "shrimply-math-core",
+ "shrimply-skia-adw-core",
+ "shrimply-skia-metal",
+]
+
+[[package]]
+name = "shrimply-components-appkit"
+version = "0.1.0"
+dependencies = [
+ "block2",
+ "objc2",
+ "objc2-app-kit",
+ "objc2-core-graphics",
+ "objc2-foundation",
+ "shrimply-component-core",
+ "shrimply-component-metal",
+ "shrimply-cross-ui-theme",
+ "shrimply-interpolation",
+ "shrimply-keyframe-graph-core",
+ "shrimply-math-color",
+ "shrimply-math-core",
+]
+
+[[package]]
+name = "shrimply-components-demo-appkit"
+version = "0.1.0"
+dependencies = [
+ "objc2",
+ "objc2-app-kit",
+ "objc2-foundation",
+ "shrimply-benchmarking",
+ "shrimply-component-core",
+ "shrimply-components-appkit",
+ "shrimply-components-demo-core",
+ "shrimply-cross-ui-theme",
+ "shrimply-keyframe-graph-core",
+ "shrimply-math-color",
+ "shrimply-support",
+]
+
+[[package]]
 name = "shrimply-components-demo-core"
 version = "0.1.0"
 dependencies = [
