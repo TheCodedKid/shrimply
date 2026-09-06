@@ -935,7 +935,9 @@ pub(crate) fn graph_value_at(graph: &KeyframeGraph, playhead: Time) -> f64 {
             if playhead <= first.time {
                 return first.value;
             }
-            let last = points.last().expect("non-empty raw graph must have a last point");
+            let last = points
+                .last()
+                .expect("non-empty raw graph must have a last point");
             if playhead >= last.time {
                 return last.value;
             }
@@ -949,8 +951,7 @@ pub(crate) fn graph_value_at(graph: &KeyframeGraph, playhead: Time) -> f64 {
             )
             .clamp(0.0, 1.0);
             segment.start_value
-                + (segment.end_value - segment.start_value)
-                    * segment.interpolation.value(progress)
+                + (segment.end_value - segment.start_value) * segment.interpolation.value(progress)
         }
         KeyframeGraph::Speed {
             segments,
@@ -967,7 +968,11 @@ pub(crate) fn graph_value_at(graph: &KeyframeGraph, playhead: Time) -> f64 {
                 .clamp(0.0, 1.0);
                 segment_speed_at(segment, progress)
             })
-            .unwrap_or(if segments.is_empty() { *static_value } else { 0.0 }),
+            .unwrap_or(if segments.is_empty() {
+                *static_value
+            } else {
+                0.0
+            }),
     }
 }
 

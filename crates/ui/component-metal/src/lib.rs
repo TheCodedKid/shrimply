@@ -248,14 +248,16 @@ impl FrameGraphView {
     fn update_pointer(&self, event: &NSEvent) {
         let (x, y) = self.point(event);
         let size = self.bounds().size;
-        self.finish(self.ivars().state.update_pointer(
-            FrameGraphPointerPosition {
-                x,
-                y,
-                width: size.width.max(1.0),
-                height: size.height.max(1.0),
-            },
-        ));
+        self.finish(
+            self.ivars()
+                .state
+                .update_pointer(FrameGraphPointerPosition {
+                    x,
+                    y,
+                    width: size.width.max(1.0),
+                    height: size.height.max(1.0),
+                }),
+        );
     }
 
     fn end_pointer(&self) {
@@ -278,9 +280,7 @@ impl FrameGraphView {
     }
 
     fn start_animation_if_needed(&self) {
-        if !self.ivars().state.is_animating()
-            || self.ivars().animation_timer.borrow().is_some()
-        {
+        if !self.ivars().state.is_animating() || self.ivars().animation_timer.borrow().is_some() {
             return;
         }
         let timer = unsafe {

@@ -1,6 +1,6 @@
 use crate::{
-    FrameGraph, MultilineTextInput, action, column_append, column_stack,
-    control_row_with_suffix, row_stack,
+    FrameGraph, MultilineTextInput, action, column_append, column_stack, control_row_with_suffix,
+    row_stack,
 };
 use block2::RcBlock;
 use objc2::MainThreadOnly;
@@ -200,10 +200,18 @@ fn inset_view(
     child.setTranslatesAutoresizingMaskIntoConstraints(false);
     wrapper.addSubview(child);
     for constraint in [
-        child.leadingAnchor().constraintEqualToAnchor_constant(&wrapper.leadingAnchor(), left),
-        child.trailingAnchor().constraintEqualToAnchor_constant(&wrapper.trailingAnchor(), -right),
-        child.topAnchor().constraintEqualToAnchor_constant(&wrapper.topAnchor(), top),
-        child.bottomAnchor().constraintEqualToAnchor_constant(&wrapper.bottomAnchor(), -bottom),
+        child
+            .leadingAnchor()
+            .constraintEqualToAnchor_constant(&wrapper.leadingAnchor(), left),
+        child
+            .trailingAnchor()
+            .constraintEqualToAnchor_constant(&wrapper.trailingAnchor(), -right),
+        child
+            .topAnchor()
+            .constraintEqualToAnchor_constant(&wrapper.topAnchor(), top),
+        child
+            .bottomAnchor()
+            .constraintEqualToAnchor_constant(&wrapper.bottomAnchor(), -bottom),
     ] {
         constraint.setActive(true);
     }
@@ -288,7 +296,10 @@ impl InspectorGraphProperty {
         set_toggle_tint(&keyframes, false);
         let expression = unsafe {
             NSButton::buttonWithImage_target_action(
-                &symbol("chevron.left.forwardslash.chevron.right", "Toggle expression"),
+                &symbol(
+                    "chevron.left.forwardslash.chevron.right",
+                    "Toggle expression",
+                ),
                 None,
                 None,
                 mtm,
@@ -330,7 +341,12 @@ impl InspectorGraphProperty {
                     .state()
                     == NSControlStateValueOn;
                 graph_controller.set_keyframes(active);
-                set_toggle_tint(control.downcast_ref::<NSButton>().expect("keyframe toggle sender"), active);
+                set_toggle_tint(
+                    control
+                        .downcast_ref::<NSButton>()
+                        .expect("keyframe toggle sender"),
+                    active,
+                );
                 graph_view.setHidden(!active);
                 invalidate_ancestor_layout(&graph_view);
             },
@@ -347,7 +363,12 @@ impl InspectorGraphProperty {
                     .state()
                     == NSControlStateValueOn;
                 expression_controller.set_expression(active);
-                set_toggle_tint(control.downcast_ref::<NSButton>().expect("expression toggle sender"), active);
+                set_toggle_tint(
+                    control
+                        .downcast_ref::<NSButton>()
+                        .expect("expression toggle sender"),
+                    active,
+                );
                 expression_view.setHidden(!active);
                 invalidate_ancestor_layout(&expression_view);
             },
