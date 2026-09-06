@@ -79,7 +79,7 @@ pub use kuwahara::{
 };
 pub use mask::{
     MODE_COMMIT as MASK_MODE_COMMIT, mode_value as mask_mode_value,
-    mode_value_mut as mask_mode_value_mut, set_mask_source, source_label as mask_source_label,
+    mode_value_mut as mask_mode_value_mut, source_label as mask_source_label,
 };
 pub use opacity::OpacityModifierPresentation;
 pub use rasterize::{

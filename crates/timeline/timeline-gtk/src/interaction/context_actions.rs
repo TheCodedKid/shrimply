@@ -995,17 +995,9 @@ fn show_track_context_menu(
             x,
             y,
         ),
-        TrackKind::Caption => show_caption_track_context_menu(
-            area,
-            project,
-            player_state,
-            selection_state,
-            runtime,
-            preferences,
-            key,
-            x,
-            y,
-        ),
+        TrackKind::Caption => {
+            show_caption_track_context_menu(area, selection_state, runtime, preferences, key, x, y)
+        }
         TrackKind::Video => show_video_track_context_menu(
             area,
             project,
@@ -1183,11 +1175,8 @@ fn show_audio_track_context_menu(
     area.queue_render();
 }
 
-#[allow(clippy::too_many_arguments)]
 fn show_caption_track_context_menu(
     area: &gtk::GLArea,
-    project: &Rc<RefCell<Project>>,
-    player_state: &SharedPlayerState,
     selection_state: &SharedSelectionState,
     runtime: &Rc<RefCell<TimelineRuntime>>,
     preferences: &preferences_store::SharedPreferences,
@@ -1203,9 +1192,7 @@ fn show_caption_track_context_menu(
     let actions = gio::SimpleActionGroup::new();
     add_menu_action(&actions, "generate-speech", {
         let area = area.clone();
-        let project = project.clone();
-        let player_state = player_state.clone();
-        let selection_state = selection_state.clone();
+        let runtime = runtime.clone();
         let preferences = preferences.clone();
         move || {
             let url = preferences_store::snapshot(&preferences).compute_server_url;

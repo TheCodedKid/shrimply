@@ -190,9 +190,6 @@ impl ToolkitTimeline {
             theme::current().view_bg,
         )?;
         timeline_gtk(
-            &self.project,
-            &self.player_state,
-            &self.selection_state,
             &mut runtime,
             &painter,
             logical_width,
