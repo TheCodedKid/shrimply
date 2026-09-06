@@ -1,6 +1,9 @@
 use objc2::{ClassType, rc::Retained};
-use objc2_app_kit::{NSModalResponseOK, NSOpenPanel, NSPasteboard};
-use objc2_foundation::{MainThreadMarker, NSArray, NSURL};
+use objc2_app_kit::{
+    NSBitmapImageFileType, NSBitmapImageRep, NSModalResponseOK, NSOpenPanel, NSPasteboard,
+    NSPasteboardTypePNG, NSPasteboardTypeTIFF,
+};
+use objc2_foundation::{MainThreadMarker, NSArray, NSDictionary, NSURL};
 use shrimply_cross_ui_core::editor::EditorSession;
 use shrimply_state::{player_state, preferences};
 use shrimply_timeline_core::{
@@ -110,6 +113,48 @@ pub fn file_urls(pasteboard: &NSPasteboard) -> Vec<Retained<NSURL>> {
             .collect()
     })
     .unwrap_or_default()
+}
+
+pub fn stage_clipboard_file_urls(
+    urls: Vec<Retained<NSURL>>,
+) -> Result<Vec<Retained<NSURL>>, String> {
+    urls.into_iter()
+        .map(|url| {
+            let scope = ScopedUrl::new(url.clone());
+            let path = url
+                .to_file_path()
+                .ok_or_else(|| "only local clipboard files can be imported".to_string())?;
+            let stored =
+                shrimply_timeline_core::external_content::store_clipboard_visual_file(&path)?;
+            drop(scope);
+            stored.map_or(Ok(url), |path| {
+                NSURL::from_file_path(path)
+                    .ok_or_else(|| "Could not resolve the stored clipboard visual".to_string())
+            })
+        })
+        .collect()
+}
+
+pub fn clipboard_image_path(pasteboard: &NSPasteboard) -> Result<Option<PathBuf>, String> {
+    let data = if let Some(data) = pasteboard.dataForType(unsafe { NSPasteboardTypePNG }) {
+        data
+    } else {
+        let Some(tiff) = pasteboard.dataForType(unsafe { NSPasteboardTypeTIFF }) else {
+            return Ok(None);
+        };
+        shrimply_timeline_core::external_content::validate_clipboard_image_length(tiff.length())?;
+        let image = NSBitmapImageRep::imageRepWithData(&tiff)
+            .ok_or("clipboard TIFF image cannot be decoded")?;
+        unsafe {
+            image.representationUsingType_properties(
+                NSBitmapImageFileType::PNG,
+                &NSDictionary::new(),
+            )
+        }
+        .ok_or("clipboard image cannot be encoded as PNG")?
+    };
+    let bytes = unsafe { data.as_bytes_unchecked() };
+    shrimply_timeline_core::external_content::store_clipboard_image(bytes).map(Some)
 }
 
 pub fn choose_files(

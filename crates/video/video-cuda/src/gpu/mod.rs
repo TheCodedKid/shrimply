@@ -129,7 +129,7 @@ impl CudaVideoCompositor {
         &mut self,
         input: &VisualFrame,
         reference: &VisualFrame,
-    ) -> Result<shrimply_nvidia_optical_flow::FlowField, String> {
+    ) -> Result<shrimply_video_core::raster_morph::OpticalFlowField, String> {
         self.release_after_reported_gpu_oom()?;
         if input.format() != shrimply_visual_frame::VisualFormat::Rgba8
             || reference.format() != shrimply_visual_frame::VisualFormat::Rgba8
@@ -166,10 +166,31 @@ impl CudaVideoCompositor {
                 settings,
             )?);
         }
-        self.optical_flow
+        let field = self
+            .optical_flow
             .as_mut()
             .expect("Morph optical-flow session was initialized")
-            .estimate(input_plane.device_ptr, reference_plane.device_ptr, true)
+            .estimate(input_plane.device_ptr, reference_plane.device_ptr, true)?;
+        const NVIDIA_FLOW_FIXED_POINT_SCALE: f32 = 32.0;
+        let grid_size = glam::UVec2::new(
+            u32::try_from(field.width).map_err(|_| "Morph optical-flow grid width is too large")?,
+            u32::try_from(field.height)
+                .map_err(|_| "Morph optical-flow grid height is too large")?,
+        );
+        let vectors = |values: Vec<shrimply_nvidia_optical_flow::FlowVector>| {
+            values
+                .into_iter()
+                .map(|value| {
+                    glam::Vec2::new(f32::from(value.x), f32::from(value.y))
+                        / NVIDIA_FLOW_FIXED_POINT_SCALE
+                })
+                .collect()
+        };
+        shrimply_video_core::raster_morph::OpticalFlowField::new(
+            grid_size,
+            vectors(field.forward),
+            vectors(field.backward),
+        )
     }
 
     pub(crate) fn render_vector_morph(

@@ -1,75 +1,172 @@
-use shrimply_render_core::{
-    Nv12LayerParams,
-    effects::{BufferSlot, PixelEffect},
-};
+use shrimply_render_core::effects::{BufferSlot, PixelEffect, SpatialState};
 use shrimply_render_metal::{Buffer, Renderer, Submission};
 
-// Keep forward spatial state until sampling, matching CUDA. A near-singular
-// transform can become renderable after another transform or a shutter sample.
-#[derive(Clone, Copy)]
-pub(super) struct State {
-    pub parameters: Nv12LayerParams,
-    pub transform: shrimply_render_core::math::Mat3,
+pub(super) fn apply_stabilization(
+    renderer: &mut Renderer,
+    input: Buffer,
+    state: SpatialState,
+    warp: &shrimply_video_core::stabilization::StabilizationWarp,
+    size: (u32, u32),
+    submissions: &mut Vec<Submission>,
+) -> Result<(SpatialState, Buffer), String> {
+    let (width, height) = size;
+    let (source, baked) = state.materialization(size);
+    let (input, submission) = renderer
+        .composite_buffers(&[(source, input)], width, height, 0)?
+        .into_parts();
+    submissions.push(submission);
+    match warp {
+        shrimply_video_core::stabilization::StabilizationWarp::Affine(source_transform) => {
+            let count = usize::try_from(u64::from(width) * u64::from(height))
+                .map_err(|_| "Stabilization canvas is too large")?;
+            let output = renderer.allocate(
+                count
+                    .checked_mul(size_of::<u32>())
+                    .ok_or("Stabilization output size overflow")?,
+            )?;
+            let mut arguments = renderer.arguments("affine_stabilization")?;
+            arguments
+                .set("params.input", &input.address().to_ne_bytes())?
+                .set("params.width", &width.to_ne_bytes())?
+                .set("params.height", &height.to_ne_bytes())?
+                .set_matrix3("params.source_transform", *source_transform)?
+                .set("out", &output.address().to_ne_bytes())?
+                .set("out_len", &(count as u64).to_ne_bytes())?;
+            submissions.push(unsafe {
+                renderer.dispatch(arguments, vec![input, output.clone()], [count, 1, 1])
+            }?);
+            Ok((baked, output))
+        }
+        shrimply_video_core::stabilization::StabilizationWarp::Mesh {
+            grid_width,
+            grid_height,
+            source_offsets,
+        } => {
+            let offsets = source_offsets
+                .iter()
+                .map(|offset| offset.to_array())
+                .collect::<Vec<_>>();
+            let (output, submission) =
+                renderer.mesh_flow(input, width, height, *grid_width, *grid_height, &offsets)?;
+            submissions.push(submission);
+            Ok((baked, output))
+        }
+    }
 }
 
-impl State {
-    pub fn sampled(&self) -> Nv12LayerParams {
-        let mut parameters = self.parameters;
-        if let Some(inverse) = shrimply_render_core::math::inverse_affine(self.transform) {
-            parameters.inverse = inverse;
-        } else {
-            parameters.opacity = 0.0;
+pub(super) fn apply_transition(
+    renderer: &mut Renderer,
+    input: Buffer,
+    state: SpatialState,
+    effect: shrimply_video_core::transition::RasterTransition,
+    size: (u32, u32),
+    submissions: &mut Vec<Submission>,
+) -> Result<(SpatialState, Buffer), String> {
+    match effect {
+        shrimply_video_core::transition::RasterTransition::Pixel(effect) => apply(
+            renderer,
+            input,
+            state,
+            std::slice::from_ref(&effect),
+            size,
+            submissions,
+        ),
+        shrimply_video_core::transition::RasterTransition::Origami(effect) => {
+            apply_origami(renderer, input, state, effect, size, submissions)
         }
-        parameters
     }
+}
+
+fn apply_origami(
+    renderer: &mut Renderer,
+    mut input: Buffer,
+    state: SpatialState,
+    effect: shrimply_video_core::transition::Origami,
+    size: (u32, u32),
+    submissions: &mut Vec<Submission>,
+) -> Result<(SpatialState, Buffer), String> {
+    let (width, height) = size;
+    let state = if state.needs_materialization(size) {
+        let (source, baked) = state.materialization(size);
+        let (buffer, submission) = renderer
+            .composite_buffers(&[(source, input)], width, height, 0)?
+            .into_parts();
+        submissions.push(submission);
+        input = buffer;
+        baked
+    } else {
+        state
+    };
+    let vertices = shrimply_math_media::origami_mesh_vertices(
+        width,
+        height,
+        effect.grid,
+        effect.visibility,
+        effect.depth,
+        effect.direction_degrees,
+    );
+    let vertex_bytes: Vec<_> = vertices
+        .iter()
+        .flat_map(|value| value.to_ne_bytes())
+        .collect();
+    let vertices = renderer.upload(&vertex_bytes)?;
+    let count = usize::try_from(u64::from(width) * u64::from(height))
+        .map_err(|_| "Origami canvas is too large")?;
+    let output = renderer.allocate(
+        count
+            .checked_mul(size_of::<u32>())
+            .ok_or("Origami buffer size overflow")?,
+    )?;
+    let mut arguments = renderer.arguments("origami_transition")?;
+    arguments
+        .set("input", &input.address().to_ne_bytes())?
+        .set("width", &width.to_ne_bytes())?
+        .set("height", &height.to_ne_bytes())?
+        .set("output", &output.address().to_ne_bytes())?
+        .set("output_count", &(count as u64).to_ne_bytes())?
+        .set("vertices", &vertices.address().to_ne_bytes())?
+        .set("grid", &effect.grid.to_ne_bytes())?
+        .set("visibility", &effect.visibility.to_ne_bytes())?;
+    submissions.push(unsafe {
+        renderer.dispatch(
+            arguments,
+            vec![input, output.clone(), vertices],
+            [count, 1, 1],
+        )
+    }?);
+    Ok((state, output))
 }
 
 pub(super) fn apply_motion_blur(
     renderer: &mut Renderer,
     input: Buffer,
-    state: State,
+    state: SpatialState,
     samples: &[shrimply_math_geometry::ComposedTransform2D],
     size: (u32, u32),
     submissions: &mut Vec<Submission>,
-) -> Result<(State, Buffer), String> {
-    let inverses = shrimply_math_geometry::motion_sample_inverses(state.transform, samples);
-    let (mut source, baked) =
-        shrimply_render_core::effects::materialization(state.parameters, size.0, size.1);
-    // CUDA falls back to a valid sample inverse when the current state is singular.
-    source.inverse = shrimply_render_core::math::inverse_affine(state.transform)
-        .or_else(|| inverses.first().copied())
-        .unwrap_or(shrimply_render_core::math::Mat3::IDENTITY);
-    source.motion_transform_offset = 0;
-    source.motion_transform_count = inverses
-        .len()
-        .try_into()
-        .map_err(|_| "Motion transform count overflow")?;
-    // Singular samples contribute transparency rather than increasing the weight of valid samples.
-    source.motion_sample_count = samples
-        .len()
-        .try_into()
-        .map_err(|_| "Motion sample count overflow")?;
+) -> Result<(SpatialState, Buffer), String> {
+    let motion = shrimply_render_core::effects::motion_materialization(state, samples, size)?;
     let (buffer, submission) = renderer
-        .composite_buffers_with_transforms(&[(source, input)], size.0, size.1, 0, &inverses)?
+        .composite_buffers_with_transforms(
+            &[(motion.source, input)],
+            size.0,
+            size.1,
+            0,
+            &motion.inverses,
+        )?
         .into_parts();
     submissions.push(submission);
-    Ok((
-        State {
-            parameters: baked,
-            transform: shrimply_render_core::math::Mat3::IDENTITY,
-        },
-        buffer,
-    ))
+    Ok((motion.baked, buffer))
 }
 
 pub(super) fn apply_modifiers(
     renderer: &mut Renderer,
     mut input: Buffer,
-    mut state: State,
+    mut state: SpatialState,
     operations: &[shrimply_video_core::raster_modifiers::Modifier],
     size: (u32, u32),
     submissions: &mut Vec<Submission>,
-) -> Result<(State, Buffer), String> {
+) -> Result<(SpatialState, Buffer), String> {
     use shrimply_video_core::raster_modifiers::Operation;
     for modifier in operations {
         let original = modifier
@@ -79,22 +176,44 @@ pub(super) fn apply_modifiers(
                 buffer: input.clone(),
                 state,
             });
-        match &modifier.operation {
-            Operation::Pixel(effect) => {
-                (state, input) = apply(
-                    renderer,
-                    input,
-                    state,
-                    std::slice::from_ref(effect),
-                    size,
-                    submissions,
-                )?;
+        if !modifier.operation.apply_spatial(&mut state) {
+            match &modifier.operation {
+                Operation::Pixel(effect) => {
+                    (state, input) = apply(
+                        renderer,
+                        input,
+                        state,
+                        std::slice::from_ref(effect),
+                        size,
+                        submissions,
+                    )?;
+                }
+                Operation::Dithering(effect) => {
+                    (state, input) =
+                        apply_dithering(renderer, input, state, effect, size, submissions)?;
+                }
+                Operation::Sam2Mask(effect) => {
+                    (state, input) =
+                        apply_sam2_mask(renderer, input, state, effect, size, submissions)?;
+                }
+                Operation::TransparentFillMask(effect) => {
+                    (state, input) = apply_transparent_fill_mask(
+                        renderer,
+                        input,
+                        state,
+                        effect,
+                        size,
+                        submissions,
+                    )?;
+                }
+                Operation::Transform(_)
+                | Operation::Opacity(_)
+                | Operation::Sampling(_)
+                | Operation::TextureBounds { .. }
+                | Operation::CropPercentage(_)
+                | Operation::CropPixels(_)
+                | Operation::RasterBoundary => unreachable!("spatial operation was applied"),
             }
-            Operation::Transform(transform) => {
-                state.transform = transform.matrix * state.transform;
-            }
-            Operation::Opacity(opacity) => state.parameters.opacity *= opacity,
-            Operation::Sampling(method) => state.parameters.sample_method = *method,
         }
         if let Some(original) = original {
             (state, input) = super::alpha_mask::combine(
@@ -113,14 +232,209 @@ pub(super) fn apply_modifiers(
     Ok((state, input))
 }
 
+fn materialize_mask_input(
+    renderer: &mut Renderer,
+    input: Buffer,
+    state: SpatialState,
+    size: (u32, u32),
+    submissions: &mut Vec<Submission>,
+) -> Result<(SpatialState, Buffer), String> {
+    if !state.needs_materialization(size) {
+        return Ok((state, input));
+    }
+    let (source, baked) = state.materialization(size);
+    let (input, submission) = renderer
+        .composite_buffers(&[(source, input)], size.0, size.1, 0)?
+        .into_parts();
+    submissions.push(submission);
+    Ok((baked, input))
+}
+
+fn mask_output(
+    renderer: &Renderer,
+    size: (u32, u32),
+    effect_name: &str,
+) -> Result<(usize, u64, Buffer), String> {
+    let count = usize::try_from(u64::from(size.0) * u64::from(size.1))
+        .map_err(|_| format!("{effect_name} canvas is too large"))?;
+    let output_count =
+        u64::try_from(count).map_err(|_| format!("{effect_name} canvas is too large"))?;
+    let output = renderer.allocate(
+        count
+            .checked_mul(size_of::<u32>())
+            .ok_or_else(|| format!("{effect_name} output size overflow"))?,
+    )?;
+    Ok((count, output_count, output))
+}
+
+fn apply_sam2_mask(
+    renderer: &mut Renderer,
+    input: Buffer,
+    state: SpatialState,
+    effect: &shrimply_video_core::sam2::ResolvedMask,
+    size: (u32, u32),
+    submissions: &mut Vec<Submission>,
+) -> Result<(SpatialState, Buffer), String> {
+    let Some(mask) = &effect.mask else {
+        return Ok((state, input));
+    };
+    let expected = usize::try_from(shrimply_video_core::sam2::MASK_SIZE)
+        .ok()
+        .and_then(|side| side.checked_mul(side))
+        .ok_or("SAM2 mask dimensions overflow")?;
+    if mask.len() != expected {
+        return Err(format!(
+            "SAM2 mask has {} samples; expected {expected}",
+            mask.len()
+        ));
+    }
+    let (state, input) = materialize_mask_input(renderer, input, state, size, submissions)?;
+    let bytes = mask.iter().map(|value| *value as u8).collect::<Vec<_>>();
+    let mask = renderer.upload(&bytes)?;
+    let (count, output_count, output) = mask_output(renderer, size, "SAM2")?;
+    let mut arguments = renderer.arguments("sam2_apply_mask")?;
+    arguments
+        .set("input", &input.address().to_ne_bytes())?
+        .set("masks", &mask.address().to_ne_bytes())?
+        .set("output", &output.address().to_ne_bytes())?
+        .set("output_count", &output_count.to_ne_bytes())?
+        .set("params.output_width", &size.0.to_ne_bytes())?
+        .set("params.output_height", &size.1.to_ne_bytes())?
+        .set(
+            "params.mask_size",
+            &shrimply_video_core::sam2::MASK_SIZE.to_ne_bytes(),
+        )?
+        .set("params.threshold", &effect.threshold.to_ne_bytes())?
+        .set("params.softness", &effect.softness.to_ne_bytes())?
+        .set(
+            "params.quantization_scale",
+            &shrimply_video_core::sam2::MASK_LOGIT_QUANTIZATION_SCALE.to_ne_bytes(),
+        )?
+        .set("params.invert", &[u8::from(effect.invert)])?;
+    submissions.push(unsafe {
+        renderer.dispatch(arguments, vec![input, mask, output.clone()], [count, 1, 1])
+    }?);
+    Ok((state, output))
+}
+
+fn apply_transparent_fill_mask(
+    renderer: &mut Renderer,
+    input: Buffer,
+    state: SpatialState,
+    effect: &shrimply_video_core::transparent_fill::ResolvedMask,
+    size: (u32, u32),
+    submissions: &mut Vec<Submission>,
+) -> Result<(SpatialState, Buffer), String> {
+    let Some(mask) = &effect.mask else {
+        return Ok((state, input));
+    };
+    let stride = size.0.div_ceil(u8::BITS);
+    let expected = usize::try_from(stride)
+        .ok()
+        .and_then(|stride| {
+            usize::try_from(size.1)
+                .ok()
+                .and_then(|height| stride.checked_mul(height))
+        })
+        .ok_or("Transparent Fill mask dimensions overflow")?;
+    if mask.len() != expected {
+        return Err(format!(
+            "Transparent Fill mask has {} bytes; expected {expected}",
+            mask.len()
+        ));
+    }
+    let (state, input) = materialize_mask_input(renderer, input, state, size, submissions)?;
+    let mask = renderer.upload(mask)?;
+    let (count, output_count, output) = mask_output(renderer, size, "Transparent Fill")?;
+    let mut arguments = renderer.arguments("transparent_fill_apply_mask")?;
+    arguments
+        .set("input", &input.address().to_ne_bytes())?
+        .set("mask_bits", &mask.address().to_ne_bytes())?
+        .set("output", &output.address().to_ne_bytes())?
+        .set("output_count", &output_count.to_ne_bytes())?
+        .set("params.width", &size.0.to_ne_bytes())?
+        .set("params.height", &size.1.to_ne_bytes())?
+        .set("params.stride", &stride.to_ne_bytes())?;
+    submissions.push(unsafe {
+        renderer.dispatch(arguments, vec![input, mask, output.clone()], [count, 1, 1])
+    }?);
+    Ok((state, output))
+}
+
+fn apply_dithering(
+    renderer: &mut Renderer,
+    mut input: Buffer,
+    state: SpatialState,
+    effect: &shrimply_video_core::raster_modifiers::Dithering,
+    size: (u32, u32),
+    submissions: &mut Vec<Submission>,
+) -> Result<(SpatialState, Buffer), String> {
+    let (width, height) = size;
+    let state = if state.needs_materialization(size) {
+        let (source, baked) = state.materialization(size);
+        let (buffer, submission) = renderer
+            .composite_buffers(&[(source, input)], width, height, 0)?
+            .into_parts();
+        submissions.push(submission);
+        input = buffer;
+        baked
+    } else {
+        state
+    };
+    let count = usize::try_from(u64::from(width) * u64::from(height))
+        .map_err(|_| "Dithering canvas is too large")?;
+    let output = renderer.allocate(
+        count
+            .checked_mul(size_of::<u32>())
+            .ok_or("Dithering buffer size overflow")?,
+    )?;
+    let palette = (!effect.palette.is_empty())
+        .then(|| {
+            let bytes: Vec<_> = effect
+                .palette
+                .iter()
+                .flat_map(|color| color.to_ne_bytes())
+                .collect();
+            renderer.upload(&bytes)
+        })
+        .transpose()?;
+    let mut arguments = renderer.arguments("dithering")?;
+    arguments
+        .set("input", &input.address().to_ne_bytes())?
+        .set("width", &width.to_ne_bytes())?
+        .set("out", &output.address().to_ne_bytes())?
+        .set("out_len", &(count as u64).to_ne_bytes())?
+        .set(
+            "params.palette",
+            &palette.as_ref().map_or(0, Buffer::address).to_ne_bytes(),
+        )?
+        .set("params.levels", &effect.levels.to_ne_bytes())?
+        .set("params.amount", &effect.amount.to_ne_bytes())?
+        .set(
+            "params.palette_len",
+            &u32::try_from(effect.palette.len())
+                .map_err(|_| "Dithering palette is too large")?
+                .to_ne_bytes(),
+        )?
+        .set("params.pattern", &(effect.pattern as u32).to_ne_bytes())?
+        .set(
+            "params.color_mode",
+            &(effect.color_mode as u32).to_ne_bytes(),
+        )?;
+    let mut resources = vec![input, output.clone()];
+    resources.extend(palette);
+    submissions.push(unsafe { renderer.dispatch(arguments, resources, [count, 1, 1]) }?);
+    Ok((state, output))
+}
+
 pub(super) fn apply(
     renderer: &mut Renderer,
     mut input: Buffer,
-    state: State,
+    state: SpatialState,
     effects: &[PixelEffect],
     size: (u32, u32),
     submissions: &mut Vec<Submission>,
-) -> Result<(State, Buffer), String> {
+) -> Result<(SpatialState, Buffer), String> {
     let mut effects = effects
         .iter()
         .filter(|effect| !effect.is_identity())
@@ -129,34 +443,14 @@ pub(super) fn apply(
         return Ok((state, input));
     }
     let (width, height) = size;
-    let parameters = state.parameters;
-    let spatial_identity = parameters.kind == shrimply_render_core::LayerKind::Rgba
-        && state.transform == shrimply_render_core::math::Mat3::IDENTITY
-        && parameters.crop == [0.0; 4]
-        && parameters.padding == [0.0; 4]
-        && parameters.address_mode == shrimply_render_core::TextureAddressMode::Transparent
-        && parameters.motion_transform_count == 0;
-    let baked = if shrimply_render_core::effects::needs_canvas_materialization(
-        (parameters.source_width, parameters.source_height),
-        size,
-        spatial_identity,
-    ) {
-        let (source, baked) =
-            shrimply_render_core::effects::materialization(parameters, width, height);
-        let source = State {
-            parameters: source,
-            transform: state.transform,
-        }
-        .sampled();
+    let baked = if state.needs_materialization(size) {
+        let (source, baked) = state.materialization(size);
         let (buffer, submission) = renderer
             .composite_buffers(&[(source, input)], width, height, 0)?
             .into_parts();
         submissions.push(submission);
         input = buffer;
-        State {
-            parameters: baked,
-            transform: shrimply_render_core::math::Mat3::IDENTITY,
-        }
+        baked
     } else {
         state
     };

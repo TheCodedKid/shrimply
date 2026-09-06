@@ -92,13 +92,13 @@ impl Decoder {
         accuracy: CompositeAccuracy,
         latest: &AtomicU64,
         generation: u64,
-    ) -> Result<Image, String> {
+    ) -> Result<Option<(Time, Image)>, String> {
         if let Some(cached) = self
             .history
             .iter()
             .find(|frame| frame.start <= time && time < frame.end)
         {
-            return Ok(cached.image.clone());
+            return Ok(Some((cached.start, cached.image.clone())));
         }
         let distant = self.current.as_ref().is_some_and(|(current, _)| {
             time < *current
@@ -132,8 +132,9 @@ impl Decoder {
                 .read_frame(latest, generation)?
                 .ok_or("video contains no decodable frame")?;
             let image = frame.1.clone();
+            let presentation_time = frame.0;
             self.current = Some(frame);
-            return Ok(image);
+            return Ok(Some((presentation_time, image)));
         }
         loop {
             if self.cancellation.load(Ordering::Relaxed) != self.epoch
@@ -155,10 +156,7 @@ impl Decoder {
                 None => break,
             }
         }
-        self.current
-            .as_ref()
-            .map(|(_, image)| image.clone())
-            .ok_or_else(|| "video contains no decodable frame".into())
+        Ok(self.current.clone())
     }
 
     fn remember_current(&mut self, end: Time) {

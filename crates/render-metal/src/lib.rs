@@ -13,6 +13,9 @@ use objc2_metal::{
 use shrimply_render_core::Nv12LayerParams;
 use std::{collections::HashMap, ptr::NonNull};
 
+const MESH_FLOW_THREAD_WIDTH: usize = 16;
+const MESH_FLOW_THREAD_HEIGHT: usize = 16;
+
 struct Field {
     name: &'static str,
     offset: usize,
@@ -97,6 +100,28 @@ impl Buffer {
     pub fn address(&self) -> u64 {
         self.0.gpuAddress()
     }
+
+    /// Copy shared-storage contents after every submission writing this buffer
+    /// has reported completion.
+    pub fn copy_bytes(&self) -> Vec<u8> {
+        unsafe {
+            std::slice::from_raw_parts(self.0.contents().as_ptr().cast(), self.0.length()).to_vec()
+        }
+    }
+
+    pub fn write_bytes(&self, bytes: &[u8]) -> Result<(), String> {
+        if bytes.len() > self.0.length() {
+            return Err("Metal buffer write exceeds its allocation".into());
+        }
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                bytes.as_ptr(),
+                self.0.contents().as_ptr().cast::<u8>(),
+                bytes.len(),
+            );
+        }
+        Ok(())
+    }
 }
 
 pub struct Submission {
@@ -147,9 +172,116 @@ pub struct Renderer {
     queue: Retained<ProtocolObject<dyn MTLCommandQueue>>,
     libraries: HashMap<&'static str, Retained<ProtocolObject<dyn MTLLibrary>>>,
     kernels: HashMap<&'static str, Kernel>,
+    direct_kernels: HashMap<&'static str, Retained<ProtocolObject<dyn MTLComputePipelineState>>>,
 }
 
 impl Renderer {
+    pub fn supports_ray_tracing(&self) -> bool {
+        self.device.supportsRaytracing()
+    }
+
+    pub fn mesh_flow(
+        &mut self,
+        input: Buffer,
+        width: u32,
+        height: u32,
+        grid_width: u32,
+        grid_height: u32,
+        offsets: &[[f32; 2]],
+    ) -> Result<(Buffer, Submission), String> {
+        let pixel_count = width
+            .checked_mul(height)
+            .and_then(|count| usize::try_from(count).ok())
+            .ok_or("MeshFlow image size overflow")?;
+        let grid_count = grid_width
+            .checked_mul(grid_height)
+            .and_then(|count| usize::try_from(count).ok())
+            .ok_or("MeshFlow grid size overflow")?;
+        if width < 2
+            || height < 2
+            || grid_width < 2
+            || grid_height < 2
+            || offsets.len() != grid_count
+            || offsets.iter().flatten().any(|value| !value.is_finite())
+        {
+            return Err("Invalid Metal MeshFlow field".into());
+        }
+        let offset_bytes = offsets
+            .iter()
+            .flat_map(|offset| offset.iter().flat_map(|value| value.to_ne_bytes()))
+            .collect::<Vec<_>>();
+        let offsets = self.upload(&offset_bytes)?;
+        let output = self.allocate(
+            pixel_count
+                .checked_mul(size_of::<u32>())
+                .ok_or("MeshFlow output size overflow")?,
+        )?;
+        let mut uniform_bytes = Vec::with_capacity(4 * size_of::<u32>());
+        for value in [width, height, grid_width, grid_height] {
+            uniform_bytes.extend(value.to_ne_bytes());
+        }
+        let uniforms = self.upload(&uniform_bytes)?;
+        let module = MODULES
+            .iter()
+            .find(|module| module.name == "mesh_flow")
+            .ok_or("Shared MeshFlow Metal module is missing")?;
+        if !self.libraries.contains_key(module.name) {
+            let library = self
+                .device
+                .newLibraryWithSource_options_error(&NSString::from_str(module.source), None)
+                .map_err(|error| format!("Compile Metal module mesh_flow: {error}"))?;
+            self.libraries.insert(module.name, library);
+        }
+        if !self.direct_kernels.contains_key("mesh_flow") {
+            let function = self.libraries[module.name]
+                .newFunctionWithName(&NSString::from_str("main_0"))
+                .ok_or("Shared MeshFlow Metal module has no compute entry")?;
+            let pipeline = self
+                .device
+                .newComputePipelineStateWithFunction_error(&function)
+                .map_err(|error| format!("Create Metal MeshFlow kernel: {error}"))?;
+            self.direct_kernels.insert("mesh_flow", pipeline);
+        }
+        let command = self
+            .queue
+            .commandBuffer()
+            .ok_or("Could not create Metal MeshFlow command")?;
+        let encoder = command
+            .computeCommandEncoder()
+            .ok_or("Could not create Metal MeshFlow encoder")?;
+        encoder.setComputePipelineState(&self.direct_kernels["mesh_flow"]);
+        unsafe {
+            encoder.setBuffer_offset_atIndex(Some(&input.0), 0, 0);
+            encoder.setBuffer_offset_atIndex(Some(&offsets.0), 0, 1);
+            encoder.setBuffer_offset_atIndex(Some(&output.0), 0, 2);
+            encoder.setBuffer_offset_atIndex(Some(&uniforms.0), 0, 3);
+        }
+        let resources = vec![input, offsets, output.clone(), uniforms];
+        for buffer in &resources {
+            let resource: &ProtocolObject<dyn MTLResource> = ProtocolObject::from_ref(&*buffer.0);
+            encoder.useResource_usage(resource, MTLResourceUsage::Read | MTLResourceUsage::Write);
+        }
+        encoder.dispatchThreads_threadsPerThreadgroup(
+            MTLSize {
+                width: width as usize,
+                height: height as usize,
+                depth: 1,
+            },
+            MTLSize {
+                width: MESH_FLOW_THREAD_WIDTH,
+                height: MESH_FLOW_THREAD_HEIGHT,
+                depth: 1,
+            },
+        );
+        encoder.endEncoding();
+        command.commit();
+        let submission = Submission {
+            command,
+            _resources: resources,
+        };
+        Ok((output, submission))
+    }
+
     pub fn background(
         &mut self,
         uniforms: &shrimply_render_core::background_spirv::BackgroundUniforms,
@@ -183,11 +315,16 @@ impl Renderer {
             queue,
             libraries: HashMap::new(),
             kernels: HashMap::new(),
+            direct_kernels: HashMap::new(),
         })
     }
 
     pub fn device(&self) -> &Retained<ProtocolObject<dyn MTLDevice>> {
         &self.device
+    }
+
+    pub fn queue(&self) -> &Retained<ProtocolObject<dyn MTLCommandQueue>> {
+        &self.queue
     }
 
     fn kernel(&mut self, name: &str) -> Result<&Kernel, String> {

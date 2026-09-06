@@ -1,6 +1,6 @@
 use super::*;
 use shrimply_math_geometry::ComposedTransform2D;
-use shrimply_project::project::{CanvasSize, VideoItem};
+use shrimply_project::project::{CanvasSize, ItemAddress, Project, Time, VideoItem};
 use shrimply_video_core::generated::{
     GeneratedFrame, GeneratedVisual, TextMaskOperation, VectorOperation,
 };
@@ -70,12 +70,15 @@ impl GeneratedVisual for TextSource {
 impl Scene {
     pub(super) fn vector(
         &mut self,
+        project: &Project,
+        address: &ItemAddress,
         item: &VideoItem,
+        position: Time,
         evaluation: VisualEvaluation,
         native: CanvasSize,
         transform: ComposedTransform2D,
         transition: Option<shrimply_video_core::generated::GeneratedTransition>,
-        svg: Option<std::sync::Arc<shrimply_video_core::svg::PreparedSvg>>,
+        svg: Option<media::SvgFrame>,
     ) -> Result<PreparedVector, String> {
         let render_size = shrimply_video_core::generated::render_canvas(
             item,
@@ -87,7 +90,12 @@ impl Scene {
         let mut effects = Vec::new();
         let mut is_vector = true;
         let mut sample_method = item.sample_method.value_at(evaluation.local_time());
-        for modifier in item.modifiers.iter().filter(|modifier| modifier.enabled) {
+        for (modifier_index, modifier) in item
+            .modifiers
+            .iter()
+            .enumerate()
+            .filter(|(_, modifier)| modifier.enabled)
+        {
             if is_vector
                 && modifier
                     .alpha_mask
@@ -97,6 +105,8 @@ impl Scene {
                 return Err("Vector modifier masks are not yet connected to Metal".into());
             }
             match &modifier.effect {
+                ModifierEffect::Vectorize(_) if matches!(item.content, VideoItemContent::Image) => {
+                }
                 ModifierEffect::Vector(effect) if is_vector => {
                     operations.extend(shrimply_video_core::vector_modifiers::operation(
                         effect,
@@ -111,7 +121,14 @@ impl Scene {
                 ModifierEffect::Raster(_) if !is_vector => {
                     effects.push(
                         shrimply_video_core::raster_modifiers::modifier(
-                            modifier,
+                            shrimply_video_core::raster_modifiers::ModifierRequest {
+                                project,
+                                address,
+                                item,
+                                position,
+                                modifier_index,
+                                require_complete_assets: false,
+                            },
                             &evaluation,
                             &mut self.expressions,
                             self.requested_accuracy.content_accurate(),
@@ -183,23 +200,17 @@ impl Scene {
                         morph_scene,
                     )
                 }
-                VideoItemContent::Svg => {
+                VideoItemContent::Svg | VideoItemContent::Image => {
                     if !masks.is_empty() {
                         return Err("TextMask requires a text source".into());
                     }
-                    let svg = svg.ok_or("SVG source was not prepared")?;
-                    let root_size = CanvasSize {
-                        width: item.source_width.max(1),
-                        height: item.source_height.max(1),
-                    };
-                    let morph_scene = svg.morph_scene(root_size, native, &evaluation);
+                    let svg = svg.ok_or("Vector source was not prepared")?;
+                    let root_size = svg.size;
+                    let morph_scene = svg.prepared.morph_scene(root_size, native, &evaluation);
                     (
                         Box::new(SvgSource {
-                            svg,
-                            root_size: CanvasSize {
-                                width: item.source_width.max(1),
-                                height: item.source_height.max(1),
-                            },
+                            svg: svg.prepared,
+                            root_size,
                             transition,
                         }),
                         ComposedTransform2D {

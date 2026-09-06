@@ -20,7 +20,7 @@ pub(crate) fn point_cloud_sh_dc(color: [f32; 3]) -> [f32; 3] {
 }
 
 impl RenderParams {
-    pub(crate) fn uniforms(
+    pub fn uniforms(
         &self,
         cloud: &GaussianCloud,
         width: u32,

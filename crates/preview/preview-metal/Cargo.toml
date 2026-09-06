@@ -5,6 +5,7 @@ edition = "2024"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 shrimply-manim-metal = { path = "../../manim/manim-metal" }
+shrimply-3dgs-metal = { path = "../../3d/3dgs-metal" }
 shrimply-preview-render-core = { path = "../preview-render-core" }
 shrimply-preview-core = { path = "../preview-core" }
 shrimply-render-metal = { path = "../../render-metal" }
@@ -14,7 +15,12 @@ shrimply-project = { path = "../../project/project" }
 shrimply-state = { path = "../../state" }
 shrimply-math-core = { path = "../../math/core" }
 shrimply-math-geometry = { path = "../../math/geometry" }
+shrimply-math-media = { path = "../../math/media" }
 skia-safe.workspace = true
 objc2.workspace = true
+objc2-core-video.workspace = true
+objc2-core-ml.workspace = true
+objc2-vision.workspace = true
+objc2-foundation.workspace = true
 uuid.workspace = true
 tracing.workspace = true

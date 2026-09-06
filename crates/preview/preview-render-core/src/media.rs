@@ -2,7 +2,7 @@ use crate::decode;
 use shrimply_math_core::Time;
 use shrimply_preview_core::accuracy::CompositeAccuracy;
 use shrimply_project::project::{Asset, AssetSnapshot, ItemAddress, VideoItem, VideoItemContent};
-use skia_safe::{Data, Image};
+use skia_safe::{AlphaType, ColorType, Data, Image, ImageInfo, image::CachingHint};
 use std::{
     collections::HashMap,
     sync::{
@@ -12,7 +12,7 @@ use std::{
     thread::{self, JoinHandle},
 };
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq)]
 struct Source {
     file: Asset,
     track: u32,
@@ -20,6 +20,7 @@ struct Source {
     width: u32,
     height: u32,
     svg_color_overrides: Vec<shrimply_project::project::SvgColorOverride>,
+    vectorize: Option<shrimply_video_modifiers::vectorize::VectorizeModifier>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -28,9 +29,10 @@ enum Kind {
     Image,
     Svg,
     Pdf(u32),
+    LayeredImage,
 }
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq)]
 pub struct Request {
     id: Key,
     source: Source,
@@ -63,6 +65,7 @@ impl Request {
             VideoItemContent::Image => Kind::Image,
             VideoItemContent::Svg => Kind::Svg,
             VideoItemContent::Pdf(ref pdf) => Kind::Pdf(pdf.page),
+            VideoItemContent::LayeredImage(_) => Kind::LayeredImage,
             _ => return None,
         };
         Some(Self {
@@ -74,6 +77,9 @@ impl Request {
                 width: item.source_width,
                 height: item.source_height,
                 svg_color_overrides: item.svg_color_overrides.clone(),
+                vectorize: (plane == Plane::Content)
+                    .then(|| shrimply_video_core::vectorize::Plan::modifier_for_item(item).cloned())
+                    .flatten(),
             },
             time,
             accuracy,
@@ -83,8 +89,27 @@ impl Request {
 
 #[derive(Clone)]
 pub enum Frame {
-    Image(Image),
-    Svg(Arc<shrimply_video_core::svg::PreparedSvg>),
+    Image(ImageFrame),
+    Svg(SvgFrame),
+    LayeredImage(LayeredImageFrame),
+}
+
+#[derive(Clone)]
+pub struct LayeredImageFrame {
+    pub document: Arc<shrimply_layered_image::LayeredImage>,
+    pub source_key: String,
+}
+
+#[derive(Clone)]
+pub struct ImageFrame {
+    pub image: Image,
+    pub presentation_time: Option<Time>,
+}
+
+#[derive(Clone)]
+pub struct SvgFrame {
+    pub prepared: Arc<shrimply_video_core::svg::PreparedSvg>,
+    pub size: shrimply_project::project::CanvasSize,
 }
 
 struct Batch {
@@ -360,29 +385,58 @@ fn load(
                         batch.epoch,
                     )?);
                 }
-                Frame::Image(
-                    entry
-                        .decoder
-                        .as_mut()
-                        .expect("preview decoder inserted")
-                        .image(
-                            request.time,
-                            request.accuracy,
-                            &shared.generation,
-                            batch.generation,
-                        )?,
-                )
+                let image = entry
+                    .decoder
+                    .as_mut()
+                    .expect("preview decoder inserted")
+                    .image(
+                        request.time,
+                        request.accuracy,
+                        &shared.generation,
+                        batch.generation,
+                    )?;
+                let (presentation_time, image) = match image {
+                    Some((presentation_time, image)) => (Some(presentation_time), image),
+                    None if request.id.plane == Plane::Alpha => (None, transparent_mask_image()?),
+                    None => return Err("video contains no decodable frame".into()),
+                };
+                Frame::Image(ImageFrame {
+                    image,
+                    presentation_time,
+                })
             }
             Kind::Image => {
                 let bytes = entry.snapshot.read()?;
                 let image =
                     Image::from_encoded(Data::new_copy(&bytes)).ok_or("image cannot be decoded")?;
                 // Force codec work off the UI thread rather than deferring lazy image decoding to draw_image.
-                Frame::Image(
-                    image
-                        .make_raster_image(None, skia_safe::image::CachingHint::Allow)
-                        .ok_or("image cannot be rasterized")?,
-                )
+                let image = image
+                    .make_raster_image(None, CachingHint::Allow)
+                    .ok_or("image cannot be rasterized")?;
+                if let Some(modifier) = &source.vectorize {
+                    let width = u32::try_from(image.width())
+                        .map_err(|_| "Vectorize image width is negative")?;
+                    let height = u32::try_from(image.height())
+                        .map_err(|_| "Vectorize image height is negative")?;
+                    let pixels = rgba_pixels(&image)?;
+                    let plan = shrimply_video_core::vectorize::Plan::new(
+                        modifier.clone(),
+                        &entry.snapshot.cache_key(),
+                    )?;
+                    let output = plan.vectorize_rgba(pixels, width, height)?;
+                    Frame::Svg(SvgFrame {
+                        prepared: Arc::new(shrimply_video_core::svg::PreparedSvg::new(output.svg)?),
+                        size: shrimply_project::project::CanvasSize {
+                            width: output.width,
+                            height: output.height,
+                        },
+                    })
+                } else {
+                    Frame::Image(ImageFrame {
+                        image,
+                        presentation_time: None,
+                    })
+                }
             }
             Kind::Pdf(page) => {
                 // Use the same document renderer as CUDA. Parsing and Poppler's
@@ -399,14 +453,15 @@ fn load(
                     skia_safe::AlphaType::Unpremul,
                     None,
                 );
-                Frame::Image(
-                    skia_safe::images::raster_from_data(
+                Frame::Image(ImageFrame {
+                    image: skia_safe::images::raster_from_data(
                         &info,
                         Data::new_copy(&rendered.rgba),
                         rendered.size.width as usize * size_of::<u32>(),
                     )
                     .ok_or("Could not create PDF page image")?,
-                )
+                    presentation_time: None,
+                })
             }
             Kind::Svg => {
                 let source_text = entry.snapshot.read_to_string()?;
@@ -414,8 +469,18 @@ fn load(
                     &source_text,
                     &source.svg_color_overrides,
                 );
-                Frame::Svg(Arc::new(shrimply_video_core::svg::PreparedSvg::new(svg)?))
+                Frame::Svg(SvgFrame {
+                    prepared: Arc::new(shrimply_video_core::svg::PreparedSvg::new(svg)?),
+                    size: shrimply_project::project::CanvasSize {
+                        width: source.width.max(1),
+                        height: source.height.max(1),
+                    },
+                })
             }
+            Kind::LayeredImage => Frame::LayeredImage(LayeredImageFrame {
+                document: shrimply_layered_image::load(source.file.clone())?,
+                source_key: entry.snapshot.cache_key(),
+            }),
         };
         entry.snapshot.ensure_current()?;
         Ok(frame)
@@ -428,4 +493,38 @@ fn load(
         entry.frame = Some((request.time, request.accuracy, result.clone()));
     }
     result
+}
+
+fn rgba_pixels(image: &Image) -> Result<Vec<u8>, String> {
+    let width = usize::try_from(image.width()).map_err(|_| "Image width is negative")?;
+    let height = usize::try_from(image.height()).map_err(|_| "Image height is negative")?;
+    let row_bytes = width
+        .checked_mul(size_of::<u32>())
+        .ok_or("Image row size overflow")?;
+    let mut pixels = vec![0; row_bytes.checked_mul(height).ok_or("Image size overflow")?];
+    let info = ImageInfo::new(
+        image.dimensions(),
+        ColorType::RGBA8888,
+        AlphaType::Unpremul,
+        None,
+    );
+    if !image.read_pixels(&info, &mut pixels, row_bytes, (0, 0), CachingHint::Allow) {
+        return Err("Could not read image pixels for Vectorize".into());
+    }
+    Ok(pixels)
+}
+
+fn transparent_mask_image() -> Result<Image, String> {
+    let info = skia_safe::ImageInfo::new(
+        (1, 1),
+        skia_safe::ColorType::RGBA8888,
+        skia_safe::AlphaType::Unpremul,
+        None,
+    );
+    skia_safe::images::raster_from_data(
+        &info,
+        Data::new_copy(&[0; size_of::<u32>()]),
+        size_of::<u32>(),
+    )
+    .ok_or_else(|| "Could not create the empty alpha video frame".into())
 }

@@ -49,7 +49,6 @@ static const float PI = 3.14159265358979323846;
 static const uint SORT_THREADS = 256;
 static const uint RADIX_BITS = 4;
 static const uint RADIX_SIZE = 1 << RADIX_BITS;
-static const uint MAXIMUM_WAVES = SORT_THREADS / 8;
 static const float SH_C0 = 0.2820948;
 static const float SH_C1 = 0.48860252;
 static const float SH_C2[5] = {
@@ -252,7 +251,8 @@ void radix_prefix_pass(uint group_thread_id : SV_GroupIndex)
         sort_group_offsets[group * RADIX_SIZE + digit] += base;
 }
 
-groupshared uint wave_histograms[MAXIMUM_WAVES * RADIX_SIZE];
+groupshared uint group_digits[SORT_THREADS];
+groupshared uint group_ranks[SORT_THREADS];
 
 [shader("compute")]
 [numthreads(SORT_THREADS, 1, 1)]
@@ -265,27 +265,23 @@ void radix_scatter_pass(
     bool active = index < sort_constants.count;
     uint key = active ? read_sort_key(index) : 0;
     uint digit = (key >> sort_constants.shift) & (RADIX_SIZE - 1);
-    uint lane = WaveGetLaneIndex();
-    uint wave = group_thread_id / WaveGetLaneCount();
-    uint wave_rank = 0;
-    for (uint candidate = 0; candidate < RADIX_SIZE; ++candidate)
+    group_digits[group_thread_id] = active ? digit : RADIX_SIZE;
+    GroupMemoryBarrierWithGroupSync();
+    if (group_thread_id < RADIX_SIZE)
     {
-        bool selected = active && digit == candidate;
-        uint rank = WavePrefixCountBits(selected);
-        uint count = WaveActiveCountBits(selected);
-        if (selected)
-            wave_rank = rank;
-        if (lane == 0)
-            wave_histograms[wave * RADIX_SIZE + candidate] = count;
+        uint rank = 0;
+        for (uint candidate = 0; candidate < SORT_THREADS; ++candidate)
+        {
+            if (group_digits[candidate] == group_thread_id)
+                group_ranks[candidate] = rank++;
+        }
     }
     GroupMemoryBarrierWithGroupSync();
     if (!active)
         return;
-    uint local_offset = wave_rank;
-    for (uint preceding_wave = 0; preceding_wave < wave; ++preceding_wave)
-        local_offset += wave_histograms[preceding_wave * RADIX_SIZE + digit];
     uint output_offset =
-        sort_group_offsets[group_id.x * RADIX_SIZE + digit] + local_offset;
+        sort_group_offsets[group_id.x * RADIX_SIZE + digit]
+        + group_ranks[group_thread_id];
     write_sort_value(output_offset, key, read_sort_index(index));
 }
 
@@ -377,8 +373,7 @@ float3 evaluate_sh(uint gaussian_index, GaussianSource gaussian, float3 directio
     return max(color * uniforms.orthographic_source.w, float3(0.0));
 }
 
-[shader("vertex")]
-GaussianVertexOutput gaussian_vertex(uint vertex_id : SV_VertexID, uint instance_id : SV_InstanceID)
+GaussianVertexOutput gaussian_vertex_output(uint vertex_id, uint instance_id)
 {
     static const float2 corners[4] = {
         float2(-1.0, -1.0), float2(-1.0, 1.0),
@@ -555,6 +550,22 @@ GaussianVertexOutput gaussian_vertex(uint vertex_id : SV_VertexID, uint instance
     output.color_depth = float4(
         visible ? evaluate_sh(gaussian_index, gaussian, direction) : float3(0.0),
         depth);
+    return output;
+}
+
+[shader("vertex")]
+GaussianVertexOutput gaussian_vertex(uint vertex_id : SV_VertexID, uint instance_id : SV_InstanceID)
+{
+    return gaussian_vertex_output(vertex_id, instance_id);
+}
+
+[shader("vertex")]
+GaussianVertexOutput gaussian_vertex_metal(
+    uint vertex_id : SV_VertexID,
+    uint instance_id : SV_InstanceID)
+{
+    GaussianVertexOutput output = gaussian_vertex_output(vertex_id, instance_id);
+    output.position.y = -output.position.y;
     return output;
 }
 

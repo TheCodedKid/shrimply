@@ -53,7 +53,7 @@ pub enum VectorizePathMode {
     Spline,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct VectorizeModifier {
     pub preset: VectorizePreset,
     pub color_mode: VectorizeColorMode,

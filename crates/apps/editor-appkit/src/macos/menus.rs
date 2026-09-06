@@ -64,7 +64,14 @@ pub fn install(editor: &Editor) {
     );
     unsafe { about.setTarget(Some(editor)) };
     application.addItem(&NSMenuItem::separatorItem(mtm));
-    item(&application, "Preferences…", ",", None, mtm);
+    let settings = item(
+        &application,
+        "Settings…",
+        ",",
+        Some(sel!(showSettings:)),
+        mtm,
+    );
+    unsafe { settings.setTarget(Some(editor)) };
     application.addItem(&NSMenuItem::separatorItem(mtm));
     item(
         &application,

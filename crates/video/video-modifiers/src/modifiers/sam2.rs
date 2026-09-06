@@ -184,14 +184,6 @@ impl Sam2Modifier {
         .hash(&mut hasher);
         hasher.finish()
     }
-
-    pub fn invalidate_stale_analysis(&self, modifier_id: Uuid) -> bool {
-        crate::sam2_analysis::invalidate_if_stale(
-            modifier_id,
-            self.analysis_generation,
-            self.prompt_signature(),
-        )
-    }
 }
 
 impl ModifierModel for Sam2Modifier {
@@ -516,7 +508,6 @@ impl PreviewProvider for Sam2Preview {
                     modifier
                         .seed_position
                         .get_or_insert(context.timeline_position());
-                    modifier.invalidate_stale_analysis(self.target.owner_id());
                     self.box_prompt = Some(box_prompt);
                     self.active = Some(Sam2Drag::BoxCorner {
                         map: self.prompt_map,
@@ -539,7 +530,6 @@ impl PreviewProvider for Sam2Preview {
                     .expect("SAM2 preview target has wrong type");
                 let changed = update_sam2(modifier, &drag, input.sample.position, time);
                 if changed {
-                    modifier.invalidate_stale_analysis(self.target.owner_id());
                     match drag {
                         Sam2Drag::Point { id, .. } => {
                             let position = modifier
@@ -578,7 +568,6 @@ impl PreviewProvider for Sam2Preview {
                     modifier
                         .seed_position
                         .get_or_insert(context.timeline_position());
-                    modifier.invalidate_stale_analysis(self.target.owner_id());
                     self.box_prompt = Some(box_prompt);
                 } else {
                     let point = Sam2Point::new(pending.position, pending.label);
@@ -591,7 +580,6 @@ impl PreviewProvider for Sam2Preview {
                     modifier
                         .seed_position
                         .get_or_insert(context.timeline_position());
-                    modifier.invalidate_stale_analysis(self.target.owner_id());
                     self.points
                         .push((id, pending.position, pending.label, true));
                 }
@@ -608,7 +596,6 @@ impl PreviewProvider for Sam2Preview {
                         .downcast_mut::<Sam2Modifier>()
                         .expect("SAM2 preview target has wrong type");
                     *modifier = self.snapshot.clone();
-                    modifier.invalidate_stale_analysis(self.target.owner_id());
                     self.points.retain(|(id, ..)| {
                         self.snapshot.points.iter().any(|point| point.id == *id)
                     });

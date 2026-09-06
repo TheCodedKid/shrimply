@@ -10,12 +10,13 @@ fn main() {
     println!("cargo:rerun-if-env-changed=SLANG_BUILD_DIR");
 
     let manifest = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR"));
-    let shader_directory = manifest.join("shaders");
+    let shared_shader_directory = manifest.join("../../render-core/shaders");
     let output = PathBuf::from(env::var_os("OUT_DIR").expect("OUT_DIR"));
-    let compiler = shrimply_slang_build::Compiler::new(&shader_directory, &output);
+    let compiler = shrimply_slang_build::Compiler::new(&shared_shader_directory, &output);
+    let source = shared_shader_directory.join("mesh_flow.slang");
+    println!("cargo:rerun-if-changed={}", source.display());
     let mut bindings = String::from("// @generated from video Slang reflection.\n");
-    for source in shrimply_slang_build::shader_sources(&shader_directory) {
-        println!("cargo:rerun-if-changed={}", source.display());
+    for source in [source] {
         let module = source
             .file_stem()
             .and_then(|name| name.to_str())

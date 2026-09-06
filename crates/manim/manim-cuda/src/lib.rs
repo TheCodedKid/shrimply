@@ -28,6 +28,7 @@ fn cuda_check(result: sys::CUresult, operation: &str) -> Result<(), String> {
 pub struct Renderer {
     sources: HashMap<usize, CachedManimSource>,
     renderer: vulkan::Renderer,
+    device_uuid: [u8; shrimply_cuda::DEVICE_UUID_BYTES],
 }
 
 struct CachedManimSource {
@@ -54,11 +55,10 @@ struct ImportedManimImage {
 impl Renderer {
     pub fn new(context: &CudaContext) -> Result<Self, String> {
         let started = std::time::Instant::now();
-        let renderer = vulkan::Renderer::new(
-            context
-                .device_uuid()
-                .map_err(|error| format!("read CUDA device identity: {error}"))?,
-        )?;
+        let device_uuid = context
+            .device_uuid()
+            .map_err(|error| format!("read CUDA device identity: {error}"))?;
+        let renderer = vulkan::Renderer::new(device_uuid)?;
         tracing::info!(
             elapsed_ms = started.elapsed().as_millis(),
             "Manim WGPU renderer initialized",
@@ -66,6 +66,7 @@ impl Renderer {
         Ok(Self {
             sources: HashMap::new(),
             renderer,
+            device_uuid,
         })
     }
 
@@ -89,6 +90,13 @@ impl Renderer {
         frame_index: usize,
         destination: &VisualFrame,
     ) -> Result<(), String> {
+        if context
+            .device_uuid()
+            .map_err(|error| format!("read CUDA device identity: {error}"))?
+            != self.device_uuid
+        {
+            return Err("Manim renderer cannot be used with a different CUDA device".into());
+        }
         self.remove_expired();
         let slot_id = Arc::as_ptr(slot) as usize;
         if let Some(cached) = self.sources.get(&slot_id) {

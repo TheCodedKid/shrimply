@@ -41,6 +41,21 @@ pub struct CanvasState {
     frame_capture: RefCell<Option<context_frame::FrameCapture>>,
     drop_source: RefCell<Option<(std::path::PathBuf, super::media::ScopedUrl)>>,
     tools: RefCell<Vec<(super::timeline::Tool, Retained<objc2_app_kit::NSButton>)>>,
+    paint_tools: RefCell<Vec<(PaintTool, Retained<objc2_app_kit::NSButton>)>>,
+}
+
+#[derive(Clone, Copy)]
+pub(super) enum PaintTool {
+    Pen,
+    Fill,
+    Eraser,
+    Adjust,
+    Transform,
+    Smaller,
+    Larger,
+    Palette,
+    OnionPrevious,
+    OnionNext,
 }
 
 const MIDDLE_MOUSE_BUTTON: isize = 2;
@@ -155,6 +170,57 @@ define_class!(
                 sender.setState(if state.guides_visible { objc2_app_kit::NSControlStateValueOn } else { objc2_app_kit::NSControlStateValueOff });
             }
             shrimply_state::preferences::set_preview_guides_visible(&self.ivars().session.preferences, sender.state() == objc2_app_kit::NSControlStateValueOn);
+        }
+
+        #[unsafe(method(changePaintTool:))]
+        fn change_paint_tool(&self, sender: &objc2_app_kit::NSButton) {
+            let tool = self.ivars().paint_tools.borrow().iter()
+                .find(|(tool, _)| *tool as isize == sender.tag())
+                .map(|(tool, _)| *tool)
+                .expect("registered paint tool");
+            let palette_len = {
+                let project = self.ivars().session.project.borrow();
+                shrimply_timeline_core::selection_state::focused_video_address(
+                    &self.ivars().session.selection_state,
+                    &project,
+                )
+                .and_then(|address| project.video_item(&address))
+                .and_then(|item| match &item.content {
+                    shrimply_project::project::VideoItemContent::Paint(paint) => Some(paint.palette.len()),
+                    _ => None,
+                })
+            };
+            if let Content::Preview(state) = &mut *self.ivars().content.borrow_mut() {
+                use shrimply_paint_edit::{PAINT_PREVIEW_STATE, PaintPreviewMode, PaintPreviewState};
+                state.controller.update_extension(PAINT_PREVIEW_STATE, |paint: &mut PaintPreviewState| match tool {
+                    PaintTool::Pen => { paint.set_mode(PaintPreviewMode::Pen); paint.set_eraser(false); paint.adjusting = false; }
+                    PaintTool::Fill => { paint.set_mode(PaintPreviewMode::Fill); paint.set_eraser(false); paint.adjusting = false; }
+                    PaintTool::Eraser => { paint.set_eraser(!paint.eraser); if paint.eraser { paint.adjusting = false; } }
+                    PaintTool::Adjust => { paint.adjusting = !paint.adjusting; if paint.adjusting { paint.set_eraser(false); } }
+                    PaintTool::Transform => {
+                        paint.set_mode(if paint.mode == PaintPreviewMode::StrokeTransform { PaintPreviewMode::Pen } else { PaintPreviewMode::StrokeTransform });
+                        paint.adjusting = false;
+                    }
+                    PaintTool::Smaller | PaintTool::Larger => {
+                        let larger = matches!(tool, PaintTool::Larger);
+                        if paint.mode == PaintPreviewMode::Fill {
+                            paint.set_fill_tolerance(shrimply_paint_edit::step_fill_tolerance(paint.fill_tolerance, larger));
+                        } else {
+                            let eraser = paint.eraser;
+                            paint.set_brush_scale(eraser, shrimply_paint_edit::step_tool_size(paint.brush_scale(eraser), larger));
+                        }
+                    }
+                    PaintTool::Palette => {
+                        if let Some(len) = palette_len.filter(|len| *len > 0) {
+                            paint.select_palette((paint.palette_index + 1) % len, len);
+                        }
+                    }
+                    PaintTool::OnionPrevious => paint.set_onion_skin(true, !paint.onion_previous),
+                    PaintTool::OnionNext => paint.set_onion_skin(false, !paint.onion_next),
+                });
+            }
+            self.sync_paint_tools();
+            self.window().expect("canvas attached").makeFirstResponder(Some(self));
         }
 
         #[unsafe(method(rightMouseDown:))]
@@ -320,6 +386,56 @@ define_class!(
 );
 
 impl CanvasView {
+    pub(super) fn register_paint_tool(
+        &self,
+        tool: PaintTool,
+        button: Retained<objc2_app_kit::NSButton>,
+    ) {
+        self.ivars().paint_tools.borrow_mut().push((tool, button));
+        self.sync_paint_tools();
+    }
+
+    fn sync_paint_tools(&self) {
+        use shrimply_paint_edit::{PAINT_PREVIEW_STATE, PaintPreviewMode, PaintPreviewState};
+        let visible = {
+            let project = self.ivars().session.project.borrow();
+            shrimply_timeline_core::selection_state::focused_video_address(
+                &self.ivars().session.selection_state,
+                &project,
+            )
+            .and_then(|address| project.video_item(&address))
+            .is_some_and(|item| {
+                matches!(
+                    item.content,
+                    shrimply_project::project::VideoItemContent::Paint(_)
+                )
+            })
+        };
+        let content = self.ivars().content.borrow();
+        let state = match &*content {
+            Content::Preview(preview) => preview
+                .controller
+                .extension::<PaintPreviewState>(PAINT_PREVIEW_STATE),
+            _ => None,
+        };
+        for (tool, button) in self.ivars().paint_tools.borrow().iter() {
+            button.setHidden(!visible);
+            let selected = state.is_some_and(|state| match tool {
+                PaintTool::Pen => {
+                    state.mode == PaintPreviewMode::Pen && !state.eraser && !state.adjusting
+                }
+                PaintTool::Fill => state.mode == PaintPreviewMode::Fill,
+                PaintTool::Eraser => state.eraser,
+                PaintTool::Adjust => state.adjusting,
+                PaintTool::Transform => state.mode == PaintPreviewMode::StrokeTransform,
+                PaintTool::OnionPrevious => state.onion_previous,
+                PaintTool::OnionNext => state.onion_next,
+                PaintTool::Smaller | PaintTool::Larger | PaintTool::Palette => false,
+            });
+            super::layout::set_toggle_selected(button, selected, super::layout::ToggleStyle::Solid);
+        }
+    }
+
     pub(super) fn register_tool(
         &self,
         tool: super::timeline::Tool,
@@ -515,6 +631,7 @@ impl CanvasView {
 
     pub fn render(&self) -> Result<(), String> {
         self.sync_tools();
+        self.sync_paint_tools();
         self.poll_audio_export()?;
         self.poll_frame_capture()?;
         let size = self.bounds().size;
@@ -667,6 +784,7 @@ pub fn new(
 ) -> Retained<CanvasView> {
     let view = CanvasView::alloc(mtm).set_ivars(CanvasState {
         tools: RefCell::new(Vec::new()),
+        paint_tools: RefCell::new(Vec::new()),
         tracking_area: RefCell::new(None),
         menu_choice: Cell::new(None),
         context_controls: RefCell::new(Vec::new()),

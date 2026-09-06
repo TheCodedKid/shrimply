@@ -1,13 +1,72 @@
 //! Ordered raster state changes surrounding the shared pixel kernels.
-use shrimply_evaluation::{TransformExpressionCache, VisualEvaluation};
+use shrimply_evaluation::{
+    TransformExpressionCache, VisualEvaluation, resolve_color, resolve_scalar,
+};
+use shrimply_project::project::{ItemAddress, Project, Time, VideoItem};
 use shrimply_render_core::{VideoSampleMethod, effects::PixelEffect};
-use shrimply_video_modifiers::RasterModifierEffect;
+use shrimply_video_modifiers::{ModifierEffect, RasterModifierEffect};
 
 pub enum Operation {
     Pixel(PixelEffect),
+    Dithering(Dithering),
+    Sam2Mask(crate::sam2::ResolvedMask),
+    TransparentFillMask(crate::transparent_fill::ResolvedMask),
     Transform(shrimply_math_geometry::ComposedTransform2D),
     Opacity(f32),
     Sampling(VideoSampleMethod),
+    TextureBounds {
+        edges: [f32; 4],
+        address_mode: shrimply_render_core::TextureAddressMode,
+    },
+    CropPercentage([f32; 4]),
+    CropPixels([f32; 4]),
+    RasterBoundary,
+}
+
+pub struct Dithering {
+    pub pattern: shrimply_render_core::DitheringPattern,
+    pub color_mode: shrimply_render_core::DitheringColorMode,
+    pub levels: f32,
+    pub amount: f32,
+    pub palette: Vec<u32>,
+}
+
+impl Operation {
+    pub fn apply_spatial(&self, state: &mut shrimply_render_core::effects::SpatialState) -> bool {
+        match self {
+            Self::Transform(transform) => state.transform = transform.matrix * state.transform,
+            Self::Opacity(opacity) => state.parameters.opacity *= opacity,
+            Self::Sampling(method) => state.parameters.sample_method = *method,
+            Self::TextureBounds {
+                edges,
+                address_mode,
+            } => {
+                for (current, added) in state.texture_edges.iter_mut().zip(edges) {
+                    *current += added;
+                }
+                state.parameters.address_mode = *address_mode;
+            }
+            Self::CropPercentage(crop) => {
+                (state.modifier_crop, state.modifier_crop_pixels) =
+                    shrimply_render_core::math::compose_fractional_crop(
+                        state.modifier_crop,
+                        state.modifier_crop_pixels,
+                        *crop,
+                    );
+            }
+            Self::CropPixels(crop) => {
+                for (current, added) in state.modifier_crop_pixels.iter_mut().zip(crop) {
+                    *current += added.max(0.0);
+                }
+            }
+            Self::RasterBoundary => {}
+            Self::Pixel(_)
+            | Self::Dithering(_)
+            | Self::Sam2Mask(_)
+            | Self::TransparentFillMask(_) => return false,
+        }
+        true
+    }
 }
 
 pub struct Modifier {
@@ -15,26 +74,67 @@ pub struct Modifier {
     pub alpha_mask: Option<crate::alpha_mask::ResolvedShapeAlphaMask>,
 }
 
+pub struct ModifierRequest<'a> {
+    pub project: &'a Project,
+    pub address: &'a ItemAddress,
+    pub item: &'a VideoItem,
+    pub position: Time,
+    pub modifier_index: usize,
+    pub require_complete_assets: bool,
+}
+
 pub fn modifier(
-    modifier: &shrimply_project::project::VisualModifier,
+    request: ModifierRequest<'_>,
     evaluation: &VisualEvaluation,
     expressions: &mut TransformExpressionCache,
     content_accurate: bool,
 ) -> Result<Option<Modifier>, String> {
-    let shrimply_video_modifiers::ModifierEffect::Raster(effect) = &modifier.effect else {
-        return Ok(None);
+    let modifier = request
+        .item
+        .modifiers
+        .get(request.modifier_index)
+        .ok_or("visual modifier no longer exists")?;
+    let effect = match &modifier.effect {
+        ModifierEffect::Raster(effect) => effect,
+        ModifierEffect::Rasterize(_) => {
+            return Ok(Some(Modifier {
+                operation: Operation::RasterBoundary,
+                alpha_mask: None,
+            }));
+        }
+        _ => return Ok(None),
     };
     let alpha_mask = modifier
         .alpha_mask
         .as_ref()
         .filter(|mask| mask.enabled)
         .map(|mask| crate::alpha_mask::resolve(mask, evaluation, expressions));
-    Ok(
-        operation(effect, evaluation, expressions, content_accurate)?.map(|operation| Modifier {
-            operation,
-            alpha_mask,
-        }),
-    )
+    let operation = match &**effect {
+        RasterModifierEffect::Sam2(_) => crate::sam2::resolve(
+            request.project,
+            request.item,
+            request.position,
+            modifier.id,
+            request.modifier_index,
+            request.require_complete_assets,
+        )?
+        .map(Operation::Sam2Mask),
+        RasterModifierEffect::TransparentFill(_) => crate::transparent_fill::resolve(
+            request.project,
+            request.address,
+            request.item,
+            modifier.id,
+            request.modifier_index,
+            request.position,
+            request.require_complete_assets,
+        )?
+        .map(Operation::TransparentFillMask),
+        _ => operation(effect, evaluation, expressions, content_accurate)?,
+    };
+    Ok(operation.map(|operation| Modifier {
+        operation,
+        alpha_mask,
+    }))
 }
 
 pub fn sampling(
@@ -56,6 +156,7 @@ pub fn operation(
     content_accurate: bool,
 ) -> Result<Option<Operation>, String> {
     Ok(Some(match effect {
+        RasterModifierEffect::Cache(_) => Operation::RasterBoundary,
         RasterModifierEffect::CornerPin(effect) => Operation::Pixel(crate::modifiers::corner_pin(
             effect,
             evaluation,
@@ -69,6 +170,78 @@ pub fn operation(
         ),
         RasterModifierEffect::Sampling(effect) => {
             Operation::Sampling(sampling(effect, evaluation, expressions, content_accurate))
+        }
+        RasterModifierEffect::TextureBounds(effect) => {
+            let edges = [
+                &effect.edges.top,
+                &effect.edges.right,
+                &effect.edges.bottom,
+                &effect.edges.left,
+            ]
+            .map(|value| resolve_scalar(value, evaluation, expressions));
+            let address_mode = match effect.address_mode.value_at(evaluation.local_time()) {
+                shrimply_core::TextureAddressMode::Transparent => {
+                    shrimply_render_core::TextureAddressMode::Transparent
+                }
+                shrimply_core::TextureAddressMode::ClampToEdge => {
+                    shrimply_render_core::TextureAddressMode::ClampToEdge
+                }
+                shrimply_core::TextureAddressMode::Repeat => {
+                    shrimply_render_core::TextureAddressMode::Repeat
+                }
+                shrimply_core::TextureAddressMode::MirrorRepeat => {
+                    shrimply_render_core::TextureAddressMode::MirrorRepeat
+                }
+                shrimply_core::TextureAddressMode::BlurredMirror => {
+                    shrimply_render_core::TextureAddressMode::BlurredMirror
+                }
+                shrimply_core::TextureAddressMode::Stochastic => {
+                    shrimply_render_core::TextureAddressMode::Stochastic
+                }
+            };
+            Operation::TextureBounds {
+                edges,
+                address_mode,
+            }
+        }
+        RasterModifierEffect::Crop(effect) => {
+            let (pixels, edges) = match effect {
+                shrimply_video_modifiers::crop::CropModifier::Percentage(edges) => (false, edges),
+                shrimply_video_modifiers::crop::CropModifier::Pixels(edges) => (true, edges),
+            };
+            let edges = [&edges.top, &edges.right, &edges.bottom, &edges.left]
+                .map(|value| resolve_scalar(value, evaluation, expressions));
+            if pixels {
+                Operation::CropPixels(edges)
+            } else {
+                Operation::CropPercentage(edges.map(|value| (value / 100.0).clamp(0.0, 0.999_99)))
+            }
+        }
+        RasterModifierEffect::Dithering(effect) => {
+            use shrimply_video_modifiers::dithering::{DitheringColorMode, DitheringPattern};
+            Operation::Dithering(Dithering {
+                pattern: match effect.pattern.value_at(evaluation.local_time()) {
+                    DitheringPattern::Bayer2x2 => shrimply_render_core::DitheringPattern::Bayer2x2,
+                    DitheringPattern::Bayer4x4 => shrimply_render_core::DitheringPattern::Bayer4x4,
+                    DitheringPattern::Bayer8x8 => shrimply_render_core::DitheringPattern::Bayer8x8,
+                },
+                color_mode: match effect.color_mode.value_at(evaluation.local_time()) {
+                    DitheringColorMode::Color => shrimply_render_core::DitheringColorMode::Color,
+                    DitheringColorMode::Grayscale => {
+                        shrimply_render_core::DitheringColorMode::Grayscale
+                    }
+                    DitheringColorMode::Palette => {
+                        shrimply_render_core::DitheringColorMode::Palette
+                    }
+                },
+                levels: resolve_scalar(&effect.levels, evaluation, expressions).clamp(2.0, 256.0),
+                amount: resolve_scalar(&effect.amount, evaluation, expressions).clamp(0.0, 1.0),
+                palette: effect
+                    .palette
+                    .iter()
+                    .map(|color| resolve_color(color, evaluation, expressions).to_rgba_u32())
+                    .collect(),
+            })
         }
         _ => {
             return Ok(

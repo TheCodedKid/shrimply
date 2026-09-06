@@ -35,12 +35,6 @@ impl Scene {
             item.modifier_output_state()?;
             shrimply_project::project::validate_visual_transitions(item)?;
             let evaluation = VisualEvaluation::for_item_with_audio(project, item, time, audio);
-            if item.stabilize_video {
-                return Err(format!(
-                    "Clip {} requires an effect pipeline that is not yet connected to Metal",
-                    item.id
-                ));
-            }
             let transform = shrimply_evaluation::resolve_item_transform_with_audio(
                 project,
                 item,
@@ -70,27 +64,32 @@ impl Scene {
             .and_then(|samples| {
                 shrimply_math_geometry::relative_motion_transforms(transform.composed(), samples)
             });
-            let mut vector = matches!(
+            let vector_source = matches!(
                 item.content,
                 VideoItemContent::Shape(_)
                     | VideoItemContent::Text(_)
                     | VideoItemContent::Paint(_)
                     | VideoItemContent::Svg
-            )
-            .then(|| {
-                self.vector(
-                    item,
-                    evaluation.clone(),
-                    project.canvas_size,
-                    transform.composed(),
-                    generated_transition,
-                    match self.media.frame(&prepared.address, media::Plane::Content) {
-                        Some(media::Frame::Svg(svg)) => Some(svg.clone()),
-                        _ => None,
-                    },
-                )
-            })
-            .transpose()?;
+            ) || shrimply_video_core::vectorize::Plan::modifier_for_item(item)
+                .is_some();
+            let mut vector = vector_source
+                .then(|| {
+                    self.vector(
+                        project,
+                        &address,
+                        item,
+                        time,
+                        evaluation.clone(),
+                        project.canvas_size,
+                        transform.composed(),
+                        generated_transition,
+                        match self.media.frame(&prepared.address, media::Plane::Content) {
+                            Some(media::Frame::Svg(svg)) => Some(svg.clone()),
+                            _ => None,
+                        },
+                    )
+                })
+                .transpose()?;
             let render_canvas = vector
                 .as_ref()
                 .map_or(project.canvas_size, |vector| vector.frame.render_size);
@@ -104,20 +103,21 @@ impl Scene {
             );
             // The existing background renderer generates a canvas-sized texture
             // and bakes the source transform before item effects and transitions.
-            let raster_transform =
-                if vector.is_some() || matches!(item.content, VideoItemContent::Background(_)) {
-                    shrimply_render_core::math::Mat3::IDENTITY
-                } else {
-                    transform.matrix()
-                };
+            let mut raster_transform = if vector.is_some()
+                || matches!(
+                    item.content,
+                    VideoItemContent::Background(_) | VideoItemContent::Gaussian(_)
+                ) {
+                shrimply_render_core::math::Mat3::IDENTITY
+            } else {
+                transform.matrix()
+            };
             let mut opacity = resolve_scalar(
                 &item.compositing.opacity,
                 &evaluation,
                 &mut self.expressions,
             )
             .clamp(0.0, 1.0);
-            let inverse = shrimply_render_core::math::inverse_affine(raster_transform)
-                .unwrap_or(shrimply_render_core::math::Mat3::IDENTITY);
             let mut transitions = Vec::new();
             if let Some(vector) = vector.as_mut().filter(|vector| vector.is_vector)
                 && let Some(samples) = motion_blur.take()
@@ -145,6 +145,7 @@ impl Scene {
                         | VisualTransitionKind::StreakWipe
                         | VisualTransitionKind::Blur
                         | VisualTransitionKind::Pixelate
+                        | VisualTransitionKind::Origami
                 ) || vector.is_some() && generated_transition.is_some();
                 if !supported {
                     return Err(format!(
@@ -157,7 +158,7 @@ impl Scene {
                     visible,
                     transform.position,
                 );
-                let effect = shrimply_video_core::transition::raster(
+                let effect = shrimply_video_core::transition::raster_plan(
                     transition,
                     visible,
                     transform.position,
@@ -208,7 +209,8 @@ impl Scene {
                                 transition.progress,
                             )
                         })
-                        .flatten();
+                        .flatten()
+                        .map(shrimply_video_core::transition::RasterTransition::Pixel);
                     transitions.push(TransitionStage {
                         transform: stage_transform,
                         effect,
@@ -221,6 +223,8 @@ impl Scene {
             let vector_effects = vector
                 .as_mut()
                 .map(|vector| std::mem::take(&mut vector.effects));
+            let mut decoded_presentation_time = None;
+            let mut source_scale = glam::Vec2::ONE;
             let (source, source_width, source_height) = match &item.content {
                 VideoItemContent::Shape(_)
                 | VideoItemContent::Text(_)
@@ -338,26 +342,192 @@ impl Scene {
                         }
                     }
                 }
+                VideoItemContent::Blender(_) => {
+                    if let std::collections::hash_map::Entry::Vacant(entry) =
+                        self.blender.entry(item.id)
+                    {
+                        entry.insert(shrimply_video_core::blender::Source::new(
+                            item,
+                            project.canvas_size,
+                        )?);
+                    }
+                    let status = self
+                        .blender
+                        .get_mut(&item.id)
+                        .expect("Blender source was initialized")
+                        .poll(
+                            item,
+                            project.canvas_size,
+                            time,
+                            self.requested_accuracy.content_accurate(),
+                        )?;
+                    let image = match status {
+                        shrimply_video_core::blender::Status::Empty => continue,
+                        shrimply_video_core::blender::Status::Loading => {
+                            self.blender_loading = true;
+                            if self
+                                .blender_loading_image
+                                .as_ref()
+                                .is_none_or(|(size, _)| *size != project.canvas_size)
+                            {
+                                let pixels = shrimply_loading_screen::render(
+                                    project.canvas_size.width,
+                                    project.canvas_size.height,
+                                    shrimply_i18n_core::text("Starting Blender…").as_ref(),
+                                    shrimply_math_color::Color::new(104, 51, 12, 255),
+                                    shrimply_math_color::Color::new(255, 174, 85, 255),
+                                )?;
+                                let info = skia_safe::ImageInfo::new(
+                                    (
+                                        project.canvas_size.width as i32,
+                                        project.canvas_size.height as i32,
+                                    ),
+                                    skia_safe::ColorType::RGBA8888,
+                                    skia_safe::AlphaType::Unpremul,
+                                    None,
+                                );
+                                let image = skia_safe::images::raster_from_data(
+                                    &info,
+                                    skia_safe::Data::new_copy(&pixels),
+                                    project.canvas_size.width as usize * size_of::<u32>(),
+                                )
+                                .ok_or("Could not create Blender loading frame")?;
+                                self.blender_loading_image = Some((project.canvas_size, image));
+                            }
+                            self.blender_loading_image
+                                .as_ref()
+                                .expect("Blender loading frame was prepared")
+                                .1
+                                .clone()
+                        }
+                        shrimply_video_core::blender::Status::Ready(frame) => {
+                            source_scale = frame.display_scale;
+                            let replace = self
+                                .blender_images
+                                .get(&item.id)
+                                .is_none_or(|(cached, _)| !std::sync::Arc::ptr_eq(cached, &frame));
+                            if replace {
+                                let info = skia_safe::ImageInfo::new(
+                                    (frame.width as i32, frame.height as i32),
+                                    skia_safe::ColorType::RGBA8888,
+                                    skia_safe::AlphaType::Unpremul,
+                                    None,
+                                );
+                                let image = skia_safe::images::raster_from_data(
+                                    &info,
+                                    skia_safe::Data::new_copy(&frame.pixels),
+                                    frame.width as usize * size_of::<u32>(),
+                                )
+                                .ok_or("Could not create Blender preview frame")?;
+                                self.blender_images.insert(item.id, (frame.clone(), image));
+                            }
+                            self.blender_images
+                                .get(&item.id)
+                                .expect("Blender preview frame was prepared")
+                                .1
+                                .clone()
+                        }
+                    };
+                    let width = image.width() as u32;
+                    let height = image.height() as u32;
+                    (Source::Image(image), width, height)
+                }
+                VideoItemContent::LayeredImage(layered) => {
+                    let Some(media::Frame::LayeredImage(frame)) =
+                        self.media.frame(&prepared.address, media::Plane::Content)
+                    else {
+                        return Err("Layered image document was not prepared".into());
+                    };
+                    let width = frame.document.width.max(1);
+                    let height = frame.document.height.max(1);
+                    let plan = shrimply_video_core::layered_image::prepare(
+                        frame.document.clone(),
+                        frame.source_key.clone(),
+                        layered,
+                        &evaluation,
+                        &mut self.expressions,
+                    );
+                    (Source::LayeredImage(Box::new(plan)), width, height)
+                }
+                VideoItemContent::Gaussian(_) => {
+                    if self
+                        .gaussians
+                        .get(&item.id)
+                        .is_none_or(|source| !source.matches(item))
+                    {
+                        self.gaussians
+                            .insert(item.id, shrimply_video_core::gaussian::Source::new(item)?);
+                    }
+                    let plan = self
+                        .gaussians
+                        .get(&item.id)
+                        .expect("Gaussian source was initialized")
+                        .prepare(
+                            project,
+                            item,
+                            time,
+                            audio,
+                            render_canvas,
+                            &mut self.expressions,
+                        )?;
+                    let width = plan.width;
+                    let height = plan.height;
+                    (Source::Gaussian(Box::new(plan)), width, height)
+                }
+                VideoItemContent::Obj(_) => (
+                    Source::Obj,
+                    project.canvas_size.width.max(1),
+                    project.canvas_size.height.max(1),
+                ),
                 _ => {
                     let Some(media::Frame::Image(image)) =
                         self.media.frame(&prepared.address, media::Plane::Content)
                     else {
                         return Err("This visual source is not yet connected to Metal".into());
                     };
-                    let width = image.width() as u32;
-                    let height = image.height() as u32;
-                    (Source::Image(image.clone()), width, height)
+                    let width = image.image.width() as u32;
+                    let height = image.image.height() as u32;
+                    decoded_presentation_time = image.presentation_time;
+                    (Source::Image(image.image.clone()), width, height)
                 }
+            };
+            raster_transform *= glam::Mat3::from_scale(source_scale);
+            let inverse = shrimply_render_core::math::inverse_affine(raster_transform)
+                .unwrap_or(shrimply_render_core::math::Mat3::IDENTITY);
+            let stabilization = if item.stabilize_video {
+                let source_position = decoded_presentation_time
+                    .ok_or("Stabilized video frame has no presentation timestamp")?;
+                match shrimply_video_core::stabilization::frame_state(item, source_position) {
+                    shrimply_video_core::stabilization::FrameState::Disabled => None,
+                    shrimply_video_core::stabilization::FrameState::Pending => {
+                        self.stabilization_pending = true;
+                        return Ok(Vec::new());
+                    }
+                    shrimply_video_core::stabilization::FrameState::Ready(warp) => Some(warp),
+                    shrimply_video_core::stabilization::FrameState::Failed(error) => {
+                        return Err(error);
+                    }
+                }
+            } else {
+                None
             };
             let effects = if let Some(effects) = vector_effects {
                 effects
             } else {
                 item.modifiers
                     .iter()
-                    .filter(|modifier| modifier.enabled)
-                    .map(|modifier| {
+                    .enumerate()
+                    .filter(|(_, modifier)| modifier.enabled)
+                    .map(|(modifier_index, _)| {
                         let effect = shrimply_video_core::raster_modifiers::modifier(
-                            modifier,
+                            shrimply_video_core::raster_modifiers::ModifierRequest {
+                                project,
+                                address: &address,
+                                item,
+                                position: time,
+                                modifier_index,
+                                require_complete_assets: false,
+                            },
                             &evaluation,
                             &mut self.expressions,
                             self.requested_accuracy.content_accurate(),
@@ -398,6 +568,7 @@ impl Scene {
                 _padding_0: [0; 4],
             };
             let layer = Layer {
+                stabilization,
                 video_mask: prepared
                     .video_mask
                     .map(|size| {
@@ -407,7 +578,7 @@ impl Scene {
                             return Err("Alpha video stream did not produce a raster image".into());
                         };
                         Ok::<_, String>(VideoMask {
-                            image: image.clone(),
+                            image: image.image.clone(),
                             size: (size.width, size.height),
                             sampling: shrimply_video_core::generated::sampling(
                                 item.sample_method.value_at(evaluation.local_time()),
@@ -471,7 +642,7 @@ impl Scene {
                         {
                             return Err("Morph transition endpoints do not match".into());
                         }
-                        layers.push(self.vector_morph_layer(
+                        layers.push(self.morph_layer(
                             project,
                             outgoing,
                             MorphEndpoint {
@@ -498,6 +669,7 @@ impl Scene {
                     color,
                 );
                 layers.push(Layer {
+                    stabilization: None,
                     video_mask: None,
                     alpha_mask: None,
                     transform: shrimply_render_core::math::Mat3::IDENTITY,
@@ -527,18 +699,89 @@ impl Scene {
         Ok(layers)
     }
 
-    fn vector_morph_layer(
+    fn morph_layer(
         &mut self,
         project: &Project,
         outgoing: MorphEndpoint,
         incoming: MorphEndpoint,
         progress: f32,
     ) -> Result<Layer, String> {
-        let cacheable = !outgoing.audio_pending && !incoming.audio_pending;
+        let cacheable = !outgoing.audio_pending && !incoming.audio_pending && !self.manim_loading;
         let outgoing_address = outgoing.address;
         let incoming_address = incoming.address;
         let outgoing = outgoing.layer;
         let incoming = incoming.layer;
+        let vector_eligible = outgoing.effects.is_empty()
+            && incoming.effects.is_empty()
+            && outgoing.alpha_mask.is_none()
+            && incoming.alpha_mask.is_none()
+            && outgoing.video_mask.is_none()
+            && incoming.video_mask.is_none()
+            && outgoing
+                .transitions
+                .iter()
+                .all(|stage| stage.effect.is_none())
+            && incoming
+                .transitions
+                .iter()
+                .all(|stage| stage.effect.is_none())
+            && outgoing.morph_scene.is_some()
+            && incoming.morph_scene.is_some()
+            && matches!(outgoing.source, Source::Generated(_))
+            && matches!(incoming.source, Source::Generated(_));
+        let key = MorphCacheKey {
+            sequence_path: outgoing_address.sequence_path().to_vec(),
+            track_id: outgoing_address.track_id(),
+            outgoing_id: outgoing_address.item_id(),
+            incoming_id: incoming_address.item_id(),
+            width: project.canvas_size.width,
+            height: project.canvas_size.height,
+            content_revision: self.media.revision(),
+            cacheable,
+        };
+        if vector_eligible {
+            return self.vector_morph_layer(project, key, outgoing, incoming, progress, cacheable);
+        }
+        Ok(Layer {
+            stabilization: None,
+            video_mask: None,
+            alpha_mask: None,
+            parameters: Nv12LayerParams {
+                source_width: project.canvas_size.width,
+                source_height: project.canvas_size.height,
+                rgba_pitch: project.canvas_size.width as usize * size_of::<u32>(),
+                inverse: shrimply_render_core::math::Mat3::IDENTITY,
+                opacity: 1.0,
+                blend_mode: shrimply_render_core::LayerBlendMode::Normal,
+                sample_method: shrimply_render_core::VideoSampleMethod::Bilinear,
+                ..outgoing.parameters
+            },
+            transform: shrimply_render_core::math::Mat3::IDENTITY,
+            source: Source::RasterMorph(Box::new(RasterMorph {
+                key,
+                outgoing: Box::new(outgoing),
+                incoming: Box::new(incoming),
+                progress,
+                cacheable,
+            })),
+            transitions: Vec::new(),
+            effects: Vec::new(),
+            render_size: (project.canvas_size.width, project.canvas_size.height),
+            output_transform: shrimply_render_core::math::Mat3::IDENTITY,
+            motion_blur: None,
+            morph_scene: None,
+        })
+    }
+
+    fn vector_morph_layer(
+        &mut self,
+        project: &Project,
+        key: MorphCacheKey,
+        outgoing: Layer,
+        incoming: Layer,
+        progress: f32,
+        cacheable: bool,
+    ) -> Result<Layer, String> {
         if !outgoing.effects.is_empty()
             || !incoming.effects.is_empty()
             || outgoing.alpha_mask.is_some()
@@ -564,14 +807,6 @@ impl Scene {
             .morph_scene
             .clone()
             .ok_or("Morph target requires a vector-only generated clip")?;
-        let key = MorphCacheKey {
-            sequence_path: outgoing_address.sequence_path().to_vec(),
-            track_id: outgoing_address.track_id(),
-            outgoing_id: outgoing_address.item_id(),
-            incoming_id: incoming_address.item_id(),
-            width: project.canvas_size.width,
-            height: project.canvas_size.height,
-        };
         let morph = if let Some(morph) = self.morphs.get(&key) {
             morph.clone()
         } else {
@@ -604,6 +839,7 @@ impl Scene {
             _ => return Err("Morph endpoints must remain generated vectors".into()),
         };
         Ok(Layer {
+            stabilization: None,
             video_mask: None,
             alpha_mask: None,
             parameters,

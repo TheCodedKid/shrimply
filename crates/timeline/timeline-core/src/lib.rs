@@ -4,6 +4,7 @@ mod menu;
 pub use menu::*;
 pub mod audio_selection;
 pub mod import;
+pub mod recording;
 mod track_add;
 pub mod video_selection;
 pub use track_add::*;

@@ -1,5 +1,4 @@
 use std::cell::RefCell;
-use std::fs;
 use std::io::Read;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -19,8 +18,6 @@ use super::interaction::{
 };
 use super::items::{self, ItemKey, TrackKind};
 use super::{TimelineRuntime, import, x_to_time};
-
-const CLIPBOARD_MEDIA_DIR: &str = "media/clipboard";
 
 pub(super) enum Content {
     Text(String),
@@ -74,19 +71,16 @@ pub(super) fn insert(
             placement,
         ),
         Content::Texture(texture) => {
-            let directory = crate::project::project_directory().join(CLIPBOARD_MEDIA_DIR);
-            let path = directory.join(format!("{}.png", uuid::Uuid::new_v4()));
-            if let Err(error) = fs::create_dir_all(&directory)
-                .map_err(|error| error.to_string())
-                .and_then(|()| {
-                    texture
-                        .save_to_png(&path)
-                        .map_err(|error| error.to_string())
-                })
-            {
-                show_error_dialog(area, "Could not store image", &error);
-                return false;
-            }
+            let bytes = texture.save_to_png_bytes();
+            let path = match shrimply_timeline_core::external_content::store_clipboard_image(
+                bytes.as_ref(),
+            ) {
+                Ok(path) => path,
+                Err(error) => {
+                    show_error_dialog(area, "Could not store image", &error);
+                    return false;
+                }
+            };
             insert_file(
                 area,
                 project,
@@ -132,7 +126,6 @@ fn download_image(
     origin: Origin,
     placement: Placement,
 ) -> bool {
-    let directory = crate::project::project_directory().join(CLIPBOARD_MEDIA_DIR);
     let (sender, receiver) = mpsc::channel();
     let logged_url = url.clone();
     thread::spawn(move || {
@@ -155,13 +148,18 @@ fn download_image(
                 .and_then(|value| value.to_str().ok());
             let extension = match response_content_type {
                 Some(content_type) => {
-                    image_extension_for_content_type(content_type).ok_or_else(|| {
+                    shrimply_timeline_core::external_content::image_extension_for_content_type(
+                        content_type,
+                    )
+                    .ok_or_else(|| {
                         format!("the dropped URL returned unsupported content type {content_type}")
                     })?
                 }
-                None => image_extension_for_url(&url).ok_or_else(|| {
-                    "the dropped URL had no image content type or supported extension".to_string()
-                })?,
+                None => shrimply_timeline_core::external_content::image_extension_for_url(&url)
+                    .ok_or_else(|| {
+                        "the dropped URL had no image content type or supported extension"
+                            .to_string()
+                    })?,
             };
             let mut bytes = Vec::new();
             response
@@ -171,10 +169,9 @@ fn download_image(
             if bytes.len() > 100 * 1024 * 1024 {
                 return Err("the dropped image is larger than 100 MiB".to_string());
             }
-            fs::create_dir_all(&directory).map_err(|error| error.to_string())?;
-            let path = directory.join(format!("{}.{}", uuid::Uuid::new_v4(), extension));
-            fs::write(&path, bytes).map_err(|error| error.to_string())?;
-            Ok(path)
+            shrimply_timeline_core::external_content::store_clipboard_image_with_extension(
+                &bytes, extension,
+            )
         })();
         let _ = sender.send(result);
     });
@@ -216,38 +213,6 @@ fn download_image(
     true
 }
 
-fn image_extension_for_content_type(content_type: &str) -> Option<&'static str> {
-    match content_type.split(';').next()?.trim() {
-        "image/png" => Some("png"),
-        "image/jpeg" => Some("jpg"),
-        "image/gif" => Some("gif"),
-        "image/webp" => Some("webp"),
-        "image/bmp" => Some("bmp"),
-        "image/tiff" => Some("tiff"),
-        "image/svg+xml" => Some("svg"),
-        _ => None,
-    }
-}
-
-fn image_extension_for_url(url: &str) -> Option<&'static str> {
-    let extension = url
-        .split(['?', '#'])
-        .next()?
-        .rsplit_once('.')?
-        .1
-        .to_ascii_lowercase();
-    match extension.as_str() {
-        "png" => Some("png"),
-        "jpg" | "jpeg" => Some("jpg"),
-        "gif" => Some("gif"),
-        "webp" => Some("webp"),
-        "bmp" => Some("bmp"),
-        "tif" | "tiff" => Some("tiff"),
-        "svg" => Some("svg"),
-        _ => None,
-    }
-}
-
 #[allow(clippy::too_many_arguments)]
 fn insert_file(
     area: &gtk::GLArea,
@@ -271,18 +236,14 @@ fn insert_file(
                 | import::FileKind::Pdf
         )
     {
-        let directory = crate::project::project_directory().join(CLIPBOARD_MEDIA_DIR);
-        if !path.starts_with(&directory) {
-            let mut stored_path = directory.join(uuid::Uuid::new_v4().to_string());
-            stored_path.set_extension(path.extension().expect("visual file has an extension"));
-            if let Err(error) = fs::create_dir_all(&directory)
-                .and_then(|()| fs::copy(&path, &stored_path).map(|_| ()))
-            {
-                show_error_dialog(area, "Could not store image", &error.to_string());
+        path = match shrimply_timeline_core::external_content::store_clipboard_visual_file(&path) {
+            Ok(Some(path)) => path,
+            Ok(None) => return false,
+            Err(error) => {
+                show_error_dialog(area, "Could not store image", &error);
                 return false;
             }
-            path = stored_path;
-        }
+        };
     }
 
     let (start, target) = match placement {

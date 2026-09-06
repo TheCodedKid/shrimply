@@ -11,16 +11,23 @@ fn main() {
     let mut generated = String::from("static MODULES: &[Module] = &[\n");
     // Keep the same module set as render-cuda. Only target compilation differs.
     for module in include_str!("../render-core/shaders/kernels.txt").lines() {
-        let artifacts = compiler.compile(
-            &directory.join(format!("{module}.slang")),
-            shrimply_slang_build::Target::Metal,
-            &[],
+        let source_path = directory.join(format!("{module}.slang"));
+        let (artifacts, changed) = cached_artifacts(&directory, &output, module).map_or_else(
+            || {
+                (
+                    compiler.compile(&source_path, shrimply_slang_build::Target::Metal, &[]),
+                    true,
+                )
+            },
+            |artifacts| (artifacts, false),
         );
         let source =
             std::fs::read_to_string(output.join(&artifacts.filename)).expect("read Metal source");
-        let library = device
-            .newLibraryWithSource_options_error(&NSString::from_str(&source), None)
-            .unwrap_or_else(|error| panic!("compile Metal module {module}: {error}"));
+        let library = changed.then(|| {
+            device
+                .newLibraryWithSource_options_error(&NSString::from_str(&source), None)
+                .unwrap_or_else(|error| panic!("compile Metal module {module}: {error}"))
+        });
         let reflection: serde_json::Value =
             serde_json::from_slice(&artifacts.reflection).expect("Slang Metal reflection");
         writeln!(generated, "Module {{ name: {module:?}, source: include_str!(concat!(env!(\"OUT_DIR\"), \"/{}\")), kernels: &[", artifacts.filename).unwrap();
@@ -30,12 +37,15 @@ fn main() {
         {
             assert_eq!(entry["stage"], "compute", "Metal entry must be compute");
             let name = entry["name"].as_str().expect("kernel name");
-            let function = library
-                .newFunctionWithName(&NSString::from_str(name))
-                .unwrap_or_else(|| panic!("Metal module {module} omitted kernel {name}"));
-            device
-                .newComputePipelineStateWithFunction_error(&function)
-                .unwrap_or_else(|error| panic!("compile Metal compute kernel {name}: {error}"));
+            if let Some(library) = &library {
+                let metal_name = if name == "main" { "main_0" } else { name };
+                let function = library
+                    .newFunctionWithName(&NSString::from_str(metal_name))
+                    .unwrap_or_else(|| panic!("Metal module {module} omitted kernel {name}"));
+                device
+                    .newComputePipelineStateWithFunction_error(&function)
+                    .unwrap_or_else(|error| panic!("compile Metal compute kernel {name}: {error}"));
+            }
             let group = entry["threadGroupSize"]
                 .as_array()
                 .expect("compute group size");
@@ -59,6 +69,65 @@ fn main() {
     generated.push_str("];\n");
     std::fs::write(output.join("kernels.rs"), generated)
         .expect("write reflected Metal kernel layouts");
+}
+
+#[cfg(target_os = "macos")]
+fn cached_artifacts(
+    directory: &std::path::Path,
+    output: &std::path::Path,
+    module: &str,
+) -> Option<shrimply_slang_build::Artifacts> {
+    use std::time::SystemTime;
+
+    let filename = format!("{module}.metal");
+    let code = output.join(&filename);
+    let reflection = output.join(format!("{module}.metal.reflection.json"));
+    let abi = output.join(format!("{module}.metal.abi"));
+    let generated = [&code, &reflection, &abi]
+        .into_iter()
+        .map(|path| path.metadata().ok()?.modified().ok())
+        .collect::<Option<Vec<_>>>()?
+        .into_iter()
+        .min()?;
+    let mut inputs = vec![directory.join(format!("{module}.slang"))];
+    inputs.extend(
+        directory
+            .join("modules")
+            .read_dir()
+            .ok()?
+            .filter_map(|entry| entry.ok().map(|entry| entry.path()))
+            .filter(|path| {
+                path.extension()
+                    .is_some_and(|extension| extension == "slang")
+            }),
+    );
+    let slang_build = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../slang-build");
+    inputs.push(slang_build.join("compiler.cpp"));
+    if let Some(build) = std::env::var_os("SLANG_BUILD_DIR") {
+        inputs.extend(
+            std::path::PathBuf::from(build)
+                .join("Release/lib")
+                .read_dir()
+                .ok()?
+                .filter_map(|entry| entry.ok().map(|entry| entry.path()))
+                .filter(|path| {
+                    path.file_name()
+                        .and_then(|name| name.to_str())
+                        .is_some_and(|name| name.starts_with("libslang"))
+                }),
+        );
+    }
+    let newest_input = inputs
+        .into_iter()
+        .map(|path| path.metadata().ok()?.modified().ok())
+        .collect::<Option<Vec<SystemTime>>>()?
+        .into_iter()
+        .max()?;
+    (generated >= newest_input).then(|| shrimply_slang_build::Artifacts {
+        filename,
+        reflection: std::fs::read(reflection).expect("read cached Metal reflection"),
+        abi: std::fs::read(abi).expect("read cached Metal ABI"),
+    })
 }
 
 #[cfg(target_os = "macos")]

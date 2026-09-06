@@ -30,6 +30,7 @@ pub struct Layer {
     pub morph_scene: Option<shrimply_video_core::vector_morph::MorphScene>,
     pub alpha_mask: Option<shrimply_video_core::alpha_mask::ResolvedShapeAlphaMask>,
     pub video_mask: Option<VideoMask>,
+    pub stabilization: Option<shrimply_video_core::stabilization::StabilizationWarp>,
 }
 
 pub struct VideoMask {
@@ -44,6 +45,18 @@ pub enum Source {
     Image(Image),
     Background(Box<shrimply_render_core::background_spirv::BackgroundUniforms>),
     Manim(ManimFrame),
+    RasterMorph(Box<RasterMorph>),
+    LayeredImage(Box<shrimply_video_core::layered_image::Prepared>),
+    Gaussian(Box<shrimply_video_core::gaussian::Prepared>),
+    Obj,
+}
+
+pub struct RasterMorph {
+    pub key: MorphCacheKey,
+    pub outgoing: Box<Layer>,
+    pub incoming: Box<Layer>,
+    pub progress: f32,
+    pub cacheable: bool,
 }
 
 pub struct ManimFrame {
@@ -55,7 +68,7 @@ pub struct ManimFrame {
 
 pub struct TransitionStage {
     pub transform: shrimply_render_core::math::Mat3,
-    pub effect: Option<shrimply_render_core::effects::PixelEffect>,
+    pub effect: Option<shrimply_video_core::transition::RasterTransition>,
 }
 
 pub struct FramePlan {
@@ -69,13 +82,15 @@ pub struct FramePlan {
 }
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-struct MorphCacheKey {
+pub struct MorphCacheKey {
     sequence_path: Vec<uuid::Uuid>,
     track_id: uuid::Uuid,
     outgoing_id: uuid::Uuid,
     incoming_id: uuid::Uuid,
     width: u32,
     height: u32,
+    content_revision: u64,
+    cacheable: bool,
 }
 
 /// Shared media scheduling and evaluated layer inputs. Pixel rendering belongs to
@@ -108,6 +123,15 @@ pub struct Scene {
     manim_updates: Vec<shrimply_state::manim_status::Update>,
     manim_loading: bool,
     manim_pending: bool,
+    blender: std::collections::HashMap<uuid::Uuid, shrimply_video_core::blender::Source>,
+    blender_images: std::collections::HashMap<
+        uuid::Uuid,
+        (std::sync::Arc<shrimply_video_core::blender::Frame>, Image),
+    >,
+    blender_loading_image: Option<(shrimply_project::project::CanvasSize, Image)>,
+    blender_loading: bool,
+    gaussians: std::collections::HashMap<uuid::Uuid, shrimply_video_core::gaussian::Source>,
+    stabilization_pending: bool,
 }
 
 impl Scene {
@@ -127,6 +151,8 @@ impl Scene {
             || self.audio_pending
             || self.manim_loading
             || self.manim_pending
+            || self.blender_loading
+            || self.stabilization_pending
             || self.scrubbing && self.requested_accuracy != CompositeAccuracy::FULLY_ACCURATE
     }
 
@@ -148,6 +174,12 @@ impl Scene {
         self.morphs.clear();
         self.manim_loading = false;
         self.manim_pending = false;
+        self.blender.clear();
+        self.blender_images.clear();
+        self.blender_loading_image = None;
+        self.blender_loading = false;
+        self.gaussians.clear();
+        self.stabilization_pending = false;
     }
 
     pub fn prepare(&mut self, project: &Project, time: Time) -> Result<Option<FramePlan>, String> {
@@ -155,6 +187,18 @@ impl Scene {
             project
                 .video_item_by_id(*item_id)
                 .is_some_and(|item| matches!(item.content, VideoItemContent::Manim(_)))
+        });
+        self.blender.retain(|item_id, _| {
+            project
+                .video_item_by_id(*item_id)
+                .is_some_and(|item| matches!(item.content, VideoItemContent::Blender(_)))
+        });
+        self.blender_images
+            .retain(|item_id, _| self.blender.contains_key(item_id));
+        self.gaussians.retain(|item_id, source| {
+            project
+                .video_item_by_id(*item_id)
+                .is_some_and(|item| source.matches(item))
         });
         let now = Instant::now();
         if self.previous_time != Some(time) {
@@ -199,13 +243,19 @@ impl Scene {
             return Ok(None);
         }
         let key = (time, self.media.revision(), accuracy);
-        if self.prepared == Some(key) && !self.audio_pending && !self.manim_loading {
+        if self.prepared == Some(key)
+            && !self.audio_pending
+            && !self.manim_loading
+            && !self.blender_loading
+        {
             return Ok(None);
         }
         self.manim_loading = false;
         self.manim_pending = false;
+        self.blender_loading = false;
+        self.stabilization_pending = false;
         let layers = self.layers(project, &audio, items)?;
-        if self.manim_pending {
+        if self.manim_pending || self.stabilization_pending {
             return Ok(None);
         }
         let failures = std::iter::once(&audio)
@@ -225,7 +275,7 @@ impl Scene {
         Ok(Some(FramePlan {
             time,
             accuracy,
-            loading: self.manim_loading,
+            loading: self.manim_loading || self.blender_loading,
             audio_analysis: audio,
             layers,
             width: project.canvas_size.width,

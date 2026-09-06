@@ -1,7 +1,7 @@
+use shrimply_video_core::sam2::analysis as sam2_analysis;
 use shrimply_video_modifiers::{
     ModifierEffect, RasterModifierEffect,
     sam2::{Sam2Model, Sam2Modifier, Sam2PointLabel},
-    sam2_analysis,
 };
 
 use crate::{
@@ -470,6 +470,11 @@ impl InspectorController {
         if !edit(sam2) {
             return Ok(());
         }
+        sam2_analysis::invalidate_if_stale(
+            modifier_id,
+            sam2.analysis_generation,
+            sam2.prompt_signature(),
+        );
         shrimply_project::project::commit_edit(&project, EDIT_COMMIT);
         drop(project);
         super::refresh(&self.player_state);

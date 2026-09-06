@@ -1,7 +1,6 @@
 use glam::Vec2;
 
 const MANIM_SHAPE_TOLERANCE: f32 = 0.01;
-const NVIDIA_FLOW_FIXED_POINT_SCALE: f32 = 32.0;
 
 #[derive(Clone, Debug)]
 pub struct MorphContour {
@@ -44,13 +43,6 @@ pub fn manim_smooth(progress: f32) -> f32 {
     let remaining = 1.0 - progress;
     progress.powi(3)
         * (10.0 * remaining * remaining + 5.0 * remaining * progress + progress * progress)
-}
-
-pub fn optical_flow_source_offsets(flow: &[[i16; 2]], amount: f32) -> Vec<Vec2> {
-    let scale = -amount.clamp(0.0, 1.0) / NVIDIA_FLOW_FIXED_POINT_SCALE;
-    flow.iter()
-        .map(|flow| Vec2::new(f32::from(flow[0]) * scale, f32::from(flow[1]) * scale))
-        .collect()
 }
 
 pub fn match_morph_paths(source: &[MorphPath], target: &[MorphPath]) -> MorphMatching {

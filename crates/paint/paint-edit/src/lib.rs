@@ -8,7 +8,7 @@ use uuid::Uuid;
 pub use preview::{
     DEFAULT_PAINT_ERASER_SCALE, PAINT_PREVIEW_FACET, PAINT_PREVIEW_STATE, PaintOnionFrame,
     PaintPointSelection, PaintPreviewMode, PaintPreviewRender, PaintPreviewState,
-    ResolvedShakyPath, preview_provider, resolve_onion_frame,
+    ResolvedShakyPath, preview_provider, resolve_onion_frame, step_fill_tolerance, step_tool_size,
 };
 pub use shrimply_paint_geometry::ResolvedPathOffset;
 

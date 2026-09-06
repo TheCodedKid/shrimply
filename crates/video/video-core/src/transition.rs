@@ -184,6 +184,37 @@ pub fn raster(
     }
 }
 
+#[derive(Clone, Copy)]
+pub struct Origami {
+    pub visibility: f32,
+    pub depth: f32,
+    pub direction_degrees: f32,
+    pub grid: u32,
+}
+
+#[derive(Clone, Copy)]
+pub enum RasterTransition {
+    Pixel(PixelEffect),
+    Origami(Origami),
+}
+
+pub fn raster_plan(
+    transition: &VisualTransition,
+    visibility: f32,
+    center: glam::Vec2,
+) -> Option<RasterTransition> {
+    let visibility = visibility.clamp(0.0, 1.0);
+    if transition.kind == VisualTransitionKind::Origami && visibility < 0.98 {
+        return Some(RasterTransition::Origami(Origami {
+            visibility,
+            depth: transition.effect_amount,
+            direction_degrees: transition.effect_angle_degrees,
+            grid: transition.effect_detail.round().clamp(2.0, 6.0) as u32,
+        }));
+    }
+    raster(transition, visibility, center).map(RasterTransition::Pixel)
+}
+
 pub fn clip_mask(transition: &VisualClipTransition, progress: f32) -> Option<PixelEffect> {
     let (kind, center, normalized_center, grain_size) = match transition.kind {
         VisualClipTransitionKind::Wipe => {

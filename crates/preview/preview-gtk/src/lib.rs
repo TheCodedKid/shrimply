@@ -72,33 +72,19 @@ trait PaintSurfaceState {
 impl PaintSurfaceState for PreviewController {
     fn set_paint_mode(&self, mode: PaintMode) {
         self.update_preview_state(PAINT_PREVIEW_STATE, |state: &mut PaintPreviewState| {
-            state.mode = mode;
-            if mode == PaintMode::StrokeTransform {
-                state.eraser = false;
-            }
-            if mode != PaintMode::Pen {
-                state.focused = None;
-            }
+            state.set_mode(mode);
         });
     }
 
     fn set_paint_eraser(&self, enabled: bool) {
         self.update_preview_state(PAINT_PREVIEW_STATE, |state: &mut PaintPreviewState| {
-            state.eraser = enabled;
-            if enabled {
-                state.mode = PaintMode::Pen;
-                state.focused = None;
-            }
+            state.set_eraser(enabled);
         });
     }
 
     fn paint_brush_scale(&self, eraser: bool) -> f32 {
         self.preview_state(PAINT_PREVIEW_STATE, |state: &PaintPreviewState| {
-            if eraser {
-                state.eraser_scale
-            } else {
-                state.pen_scale
-            }
+            state.brush_scale(eraser)
         })
     }
 
@@ -107,12 +93,7 @@ impl PaintSurfaceState for PreviewController {
             return;
         }
         self.update_preview_state(PAINT_PREVIEW_STATE, |state: &mut PaintPreviewState| {
-            let value = scale.clamp(0.1, 99.0);
-            if eraser {
-                state.eraser_scale = value;
-            } else {
-                state.pen_scale = value;
-            }
+            state.set_brush_scale(eraser, scale);
         });
     }
 
@@ -125,7 +106,7 @@ impl PaintSurfaceState for PreviewController {
     fn set_paint_fill_tolerance(&self, tolerance: f32) {
         if tolerance.is_finite() {
             self.update_preview_state(PAINT_PREVIEW_STATE, |state: &mut PaintPreviewState| {
-                state.fill_tolerance = tolerance.clamp(1.0, 99.0);
+                state.set_fill_tolerance(tolerance);
             });
         }
     }
@@ -133,17 +114,13 @@ impl PaintSurfaceState for PreviewController {
     fn select_paint_color(&self, index: usize, palette_len: usize) {
         assert!(palette_len > 0, "paint palette is empty");
         self.update_preview_state(PAINT_PREVIEW_STATE, |state: &mut PaintPreviewState| {
-            state.palette_index = index.min(palette_len - 1);
+            state.select_palette(index, palette_len);
         });
     }
 
     fn set_paint_onion_skin(&self, previous: bool, enabled: bool) {
         self.update_preview_state(PAINT_PREVIEW_STATE, |state: &mut PaintPreviewState| {
-            if previous {
-                state.onion_previous = enabled;
-            } else {
-                state.onion_next = enabled;
-            }
+            state.set_onion_skin(previous, enabled);
         });
     }
 
@@ -879,25 +856,11 @@ fn paint_scale_label(scale: f32) -> String {
 }
 
 fn stepped_paint_scale(scale: f32, larger: bool) -> f32 {
-    if larger {
-        if scale < 1.0 {
-            (scale * 10.0 + 1.0).round().min(10.0) / 10.0
-        } else {
-            (scale.round() + 1.0).min(99.0)
-        }
-    } else if scale > 1.0 {
-        (scale.round() - 1.0).max(1.0)
-    } else {
-        (scale * 10.0 - 1.0).round().max(1.0) / 10.0
-    }
+    shrimply_paint_edit::step_tool_size(scale, larger)
 }
 
 fn stepped_fill_tolerance(tolerance: f32, larger: bool) -> f32 {
-    if larger {
-        (tolerance.round() + 1.0).min(99.0)
-    } else {
-        (tolerance.round() - 1.0).max(1.0)
-    }
+    shrimply_paint_edit::step_fill_tolerance(tolerance, larger)
 }
 
 fn paint_fill_tolerance_label(tolerance: f32) -> String {

@@ -119,9 +119,7 @@ pub(crate) struct ModifierContext<'a> {
     scratch: &'a mut Option<DeviceBuffer<u32>>,
     typed_scratch: &'a mut UnboundCache<TypeId, Box<dyn Any>>,
     modules: &'a mut ModifierModules,
-    sam2_masks: &'a mut crate::modifiers::sam2::Sam2MaskCache,
     sam2_mask_upload: &'a mut Option<DeviceBuffer<i8>>,
-    transparent_fill_masks: &'a mut crate::modifiers::transparent_fill::TransparentFillMaskCache,
     transparent_fill_mask_upload: &'a mut Option<DeviceBuffer<u8>>,
     sam2_analysis_target: Option<uuid::Uuid>,
     sam2_proxy: &'a mut Option<Vec<u8>>,
@@ -246,34 +244,21 @@ impl ModifierContext<'_> {
         Ok(buffer)
     }
 
-    pub(crate) fn sam2_mask(&mut self, key: &str, frame: i64) -> Result<Option<*const i8>, String> {
-        let Some(mask) = self.sam2_masks.get(key, frame) else {
-            shrimply_benchmarking::increment("SAM2 / mask cache misses");
-            return Ok(None);
-        };
-        let upload = self.upload(mask.as_ref())?;
+    pub(crate) fn upload_sam2_mask(&mut self, mask: &[i8]) -> Result<*const i8, String> {
+        let upload = self.upload(mask)?;
         let pointer = upload.cu_deviceptr() as usize as *const i8;
         *self.sam2_mask_upload = Some(upload);
-        shrimply_benchmarking::increment("SAM2 / mask cache hits");
-        Ok(Some(pointer))
+        Ok(pointer)
     }
 
-    pub(crate) fn transparent_fill_mask(
+    pub(crate) fn upload_transparent_fill_mask(
         &mut self,
-        key: &str,
-        frame: i64,
-        width: u32,
-        height: u32,
-    ) -> Result<Option<*const u8>, String> {
-        let Some(mask) = self.transparent_fill_masks.get(key, frame, width, height)? else {
-            shrimply_benchmarking::increment("Transparent Fill / mask cache misses");
-            return Ok(None);
-        };
-        let upload = self.upload(mask.as_ref())?;
+        mask: &[u8],
+    ) -> Result<*const u8, String> {
+        let upload = self.upload(mask)?;
         let pointer = upload.cu_deviceptr() as usize as *const u8;
         *self.transparent_fill_mask_upload = Some(upload);
-        shrimply_benchmarking::increment("Transparent Fill / mask cache hits");
-        Ok(Some(pointer))
+        Ok(pointer)
     }
 
     pub(crate) fn capture_sam2(
@@ -361,9 +346,7 @@ pub(crate) struct ModifierWorkspace {
     scratch: Option<DeviceBuffer<u32>>,
     typed_scratch: UnboundCache<TypeId, Box<dyn Any>>,
     modules: ModifierModules,
-    sam2_masks: crate::modifiers::sam2::Sam2MaskCache,
     sam2_mask_upload: Option<DeviceBuffer<i8>>,
-    transparent_fill_masks: crate::modifiers::transparent_fill::TransparentFillMaskCache,
     transparent_fill_mask_upload: Option<DeviceBuffer<u8>>,
     sam2_analysis_target: Option<uuid::Uuid>,
     sam2_proxy: Option<Vec<u8>>,
@@ -436,10 +419,7 @@ impl ModifierWorkspace {
                 .build()
                 .expect("valid CUDA typed scratch cache"),
             modules: ModifierModules::default(),
-            sam2_masks: crate::modifiers::sam2::Sam2MaskCache::shared(),
             sam2_mask_upload: None,
-            transparent_fill_masks:
-                crate::modifiers::transparent_fill::TransparentFillMaskCache::shared(),
             transparent_fill_mask_upload: None,
             sam2_analysis_target: None,
             sam2_proxy: None,
@@ -534,9 +514,7 @@ impl ModifierWorkspace {
             scratch: &mut self.scratch,
             typed_scratch: &mut self.typed_scratch,
             modules: &mut self.modules,
-            sam2_masks: &mut self.sam2_masks,
             sam2_mask_upload: &mut self.sam2_mask_upload,
-            transparent_fill_masks: &mut self.transparent_fill_masks,
             transparent_fill_mask_upload: &mut self.transparent_fill_mask_upload,
             sam2_analysis_target: self.sam2_analysis_target,
             sam2_proxy: &mut self.sam2_proxy,

@@ -155,6 +155,65 @@ impl Default for PaintPreviewState {
     }
 }
 
+impl PaintPreviewState {
+    pub fn set_mode(&mut self, mode: PaintPreviewMode) {
+        self.mode = mode;
+        if mode == PaintPreviewMode::StrokeTransform {
+            self.eraser = false;
+        }
+        if mode != PaintPreviewMode::Pen {
+            self.focused = None;
+        }
+    }
+
+    pub fn set_eraser(&mut self, enabled: bool) {
+        self.eraser = enabled;
+        if enabled {
+            self.mode = PaintPreviewMode::Pen;
+            self.focused = None;
+        }
+    }
+
+    pub fn brush_scale(&self, eraser: bool) -> f32 {
+        if eraser {
+            self.eraser_scale
+        } else {
+            self.pen_scale
+        }
+    }
+
+    pub fn set_brush_scale(&mut self, eraser: bool, scale: f32) {
+        if !scale.is_finite() {
+            return;
+        }
+        let scale = scale.clamp(0.1, 99.0);
+        if eraser {
+            self.eraser_scale = scale;
+        } else {
+            self.pen_scale = scale;
+        }
+    }
+
+    pub fn set_fill_tolerance(&mut self, tolerance: f32) {
+        if tolerance.is_finite() {
+            self.fill_tolerance = tolerance.clamp(1.0, 99.0);
+        }
+    }
+
+    pub fn select_palette(&mut self, index: usize, palette_len: usize) {
+        assert!(palette_len > 0, "paint palette is empty");
+        self.palette_index = index.min(palette_len - 1);
+    }
+
+    pub fn set_onion_skin(&mut self, previous: bool, enabled: bool) {
+        if previous {
+            self.onion_previous = enabled;
+        } else {
+            self.onion_next = enabled;
+        }
+    }
+}
+
 pub fn preview_provider(
     paint: &PaintItem,
     render: PaintPreviewRender,
@@ -347,10 +406,7 @@ impl PaintHandler {
             self.previous_mode = self.state.mode;
             self.state.eraser = false;
         }
-        self.state.mode = mode;
-        if mode != PaintPreviewMode::Pen {
-            self.state.focused = None;
-        }
+        self.state.set_mode(mode);
     }
 
     fn delete(
@@ -404,11 +460,14 @@ impl PaintHandler {
         let smaller = matches!(character, '-' | '[');
         if larger || smaller {
             if self.state.mode == PaintPreviewMode::Fill {
-                self.state.fill_tolerance = step_fill_tolerance(self.state.fill_tolerance, larger);
+                self.state
+                    .set_fill_tolerance(step_fill_tolerance(self.state.fill_tolerance, larger));
             } else if self.state.eraser {
-                self.state.eraser_scale = step_tool_size(self.state.eraser_scale, larger);
+                self.state
+                    .set_brush_scale(true, step_tool_size(self.state.eraser_scale, larger));
             } else {
-                self.state.pen_scale = step_tool_size(self.state.pen_scale, larger);
+                self.state
+                    .set_brush_scale(false, step_tool_size(self.state.pen_scale, larger));
             }
             self.persist_state(edits);
             return PreviewResponse::handled().redraw();
@@ -423,10 +482,7 @@ impl PaintHandler {
                 if self.state.mode == PaintPreviewMode::StrokeTransform {
                     self.set_mode(PaintPreviewMode::Pen);
                 }
-                self.state.eraser = !self.state.eraser;
-                if self.state.eraser {
-                    self.state.focused = None;
-                }
+                self.state.set_eraser(!self.state.eraser);
             }
             'f' if !input.modifiers.contains(Modifiers::CONTROL) => {
                 self.state.eraser = false;
@@ -1939,7 +1995,7 @@ fn scale_component(pointer: f32, start_pointer: f32, start_scale: f32) -> f32 {
     }
 }
 
-fn step_tool_size(size: f32, larger: bool) -> f32 {
+pub fn step_tool_size(size: f32, larger: bool) -> f32 {
     if larger {
         if size < 1.0 {
             (size * 10.0 + 1.0).round().min(10.0) / 10.0
@@ -1954,7 +2010,7 @@ fn step_tool_size(size: f32, larger: bool) -> f32 {
     .clamp(MIN_TOOL_SIZE, MAX_TOOL_SIZE)
 }
 
-fn step_fill_tolerance(tolerance: f32, larger: bool) -> f32 {
+pub fn step_fill_tolerance(tolerance: f32, larger: bool) -> f32 {
     let direction = if larger { 1.0 } else { -1.0 };
     (tolerance.round() + direction).clamp(1.0, MAX_TOOL_SIZE)
 }
