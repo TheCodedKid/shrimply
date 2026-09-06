@@ -21,7 +21,12 @@ skia-safe.workspace = true
 objc2.workspace = true
 objc2-app-kit = { workspace = true, features = ["objc2-uniform-type-identifiers"] }
 objc2-foundation.workspace = true
+objc2-core-graphics.workspace = true
+objc2-core-media.workspace = true
+objc2-screen-capture-kit = { workspace = true, features = ["std", "SCContentSharingPicker", "SCRecordingOutput", "SCShareableContent", "SCStream", "block2", "objc2-core-foundation", "objc2-core-media"] }
 shrimply-timeline-core = { path = "../../timeline/timeline-core" }
+shrimply-tts = { path = "../../audio/tts" }
+shrimply-asset = { path = "../../asset" }
 shrimply-cross-ui-core = { path = "../../ui/cross-ui-core" }
 shrimply-preview-metal = { path = "../../preview/preview-metal" }
 shrimply-preview-interaction-core = { path = "../../preview/preview-interaction-core" }
@@ -33,3 +38,5 @@ shrimply-preview-core = { path = "../../preview/preview-core" }
 shrimply-playback-performance = { path = "../../preview/playback-performance" }
 shrimply-evaluation = { path = "../../evaluation" }
 shrimply-paint-edit = { path = "../../paint/paint-edit" }
+shrimply-video-core = { path = "../../video/video-core" }
+uuid = { workspace = true, features = ["v4"] }

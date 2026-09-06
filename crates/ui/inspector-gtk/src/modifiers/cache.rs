@@ -15,10 +15,13 @@ use crate::{
 };
 
 pub fn add_rows(value: &CacheModifier, out: &gtk::Box, id: Uuid, context: &InspectorContext) {
-    let current = modifier_cache::status(id);
+    let Some(address) = context.selected_item.clone() else {
+        return;
+    };
+    let current = modifier_cache::status(&address, id);
     let project = context.project.clone();
     let player = context.player_state.clone();
-    let key = context.selected_item.clone();
+    let key = address.clone();
     let format = dropdown(
         value.quality,
         [
@@ -28,12 +31,9 @@ pub fn add_rows(value: &CacheModifier, out: &gtk::Box, id: Uuid, context: &Inspe
             (CacheQuality::Lossless, "H.265 · Lossless"),
         ],
         move |quality| {
-            let Some(key) = &key else {
-                return;
-            };
             let mut project = project.borrow_mut();
             let Some(cache) = project
-                .video_item_mut(key)
+                .video_item_mut(&key)
                 .and_then(|item| item.modifiers.iter_mut().find(|modifier| modifier.id == id))
                 .and_then(|modifier| match &mut modifier.effect {
                     ModifierEffect::Raster(effect) => match &mut **effect {
@@ -70,18 +70,20 @@ pub fn add_rows(value: &CacheModifier, out: &gtk::Box, id: Uuid, context: &Inspe
         let bake = bake.clone();
         let format = format.clone();
         let hovered = hovered.clone();
+        let address = address.clone();
         move |_, _, _| {
             hovered.set(true);
-            update_controls(&bake, &format, &modifier_cache::status(id), true);
+            update_controls(&bake, &format, &modifier_cache::status(&address, id), true);
         }
     });
     motion.connect_leave({
         let bake = bake.clone();
         let format = format.clone();
         let hovered = hovered.clone();
+        let address = address.clone();
         move |_| {
             hovered.set(false);
-            update_controls(&bake, &format, &modifier_cache::status(id), false);
+            update_controls(&bake, &format, &modifier_cache::status(&address, id), false);
         }
     });
     bake.widget().add_controller(motion);
@@ -90,17 +92,15 @@ pub fn add_rows(value: &CacheModifier, out: &gtk::Box, id: Uuid, context: &Inspe
 
     bake.widget().connect_clicked({
         let project = context.project.clone();
-        let key = context.selected_item.clone();
+        let key = address.clone();
         let player = context.player_state.clone();
         let bake = bake.clone();
         let format = format.clone();
         move |_| {
-            let result = if matches!(modifier_cache::status(id), Status::Baking { .. }) {
-                modifier_cache::invalidate(id)
-            } else if let Some(key) = key.clone() {
-                modifier_cache::bake(project.borrow().clone(), key, id)
+            let result = if matches!(modifier_cache::status(&key, id), Status::Baking { .. }) {
+                modifier_cache::invalidate(&key, id)
             } else {
-                return;
+                modifier_cache::bake(project.borrow().clone(), key.clone(), id)
             };
             match result {
                 Ok(()) => refresh(&player),
@@ -112,11 +112,12 @@ pub fn add_rows(value: &CacheModifier, out: &gtk::Box, id: Uuid, context: &Inspe
     let scope = Rc::downgrade(&context.listener_scope);
     let player = context.player_state.clone();
     let was_baking = Rc::new(Cell::new(matches!(current, Status::Baking { .. })));
+    let address = address.clone();
     glib::timeout_add_local(Duration::from_millis(50), move || {
         if scope.upgrade().is_none() {
             return glib::ControlFlow::Break;
         }
-        let current = modifier_cache::status(id);
+        let current = modifier_cache::status(&address, id);
         update_controls(&bake, &format, &current, hovered.get());
         if matches!(current, Status::Baking { .. }) {
             was_baking.set(true);

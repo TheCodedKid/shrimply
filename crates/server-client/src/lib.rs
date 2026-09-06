@@ -21,7 +21,7 @@ const PROTOCOL_MAJOR: u32 = 4;
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
 const COMPUTE_STREAM_KEEPALIVE_INTERVAL: Duration = Duration::from_secs(5);
 const COMPUTE_STREAM_ALLOWED_MISSED_KEEPALIVES: u32 = 2;
-const COMPUTE_STREAM_READ_TIMEOUT: Duration =
+pub const COMPUTE_STREAM_READ_TIMEOUT: Duration =
     COMPUTE_STREAM_KEEPALIVE_INTERVAL.saturating_mul(COMPUTE_STREAM_ALLOWED_MISSED_KEEPALIVES + 1);
 const STREAM_HEADER_BYTES: usize = 8;
 const SAM2_CONTENT: &str = "application/x-shrimply-sam2-analysis";
@@ -535,6 +535,7 @@ pub fn set_compute_device(server_url: &str, device: &str) -> Result<ServerStatus
     let endpoint = format!("{}/compute/device", server_url.trim_end_matches('/'));
     tracing::info!(%endpoint, %device, "Selecting compute device");
     let response = reqwest::blocking::Client::builder()
+        .timeout(REQUEST_TIMEOUT)
         .build()
         .map_err(|error| error.to_string())?
         .put(&endpoint)
@@ -582,6 +583,26 @@ pub fn transcribe(
     cancellation: &CancellationToken,
     model: &str,
     samples: &[f32],
+    on_progress: impl FnMut(&str),
+) -> Result<Transcription, String> {
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .map_err(|error| format!("Could not start transcription network runtime: {error}"))?
+        .block_on(transcribe_async(
+            server_url,
+            cancellation,
+            model,
+            samples,
+            on_progress,
+        ))
+}
+
+async fn transcribe_async(
+    server_url: &str,
+    cancellation: &CancellationToken,
+    model: &str,
+    samples: &[f32],
     mut on_progress: impl FnMut(&str),
 ) -> Result<Transcription, String> {
     let server_url = server_url.trim();
@@ -597,8 +618,9 @@ pub fn transcribe(
         .flat_map(|sample| sample.to_le_bytes())
         .collect::<Vec<_>>();
     tracing::info!(%endpoint, %model, body_bytes = audio.len(), "Sending transcription request");
-    let request = reqwest::blocking::Client::builder()
+    let request = reqwest::Client::builder()
         .connect_timeout(REQUEST_TIMEOUT)
+        .read_timeout(COMPUTE_STREAM_READ_TIMEOUT)
         .build()
         .map_err(|error| error.to_string())?
         .post(&endpoint)
@@ -606,9 +628,10 @@ pub fn transcribe(
         .header(ACCEPT, MESSAGE_PACK_STREAM)
         .header(CONTENT_TYPE, FLOAT_AUDIO)
         .body(audio);
-    let (request, _job) = cancellation.manage(request)?;
+    let (request, _job) = cancellation.manage_async(request)?;
     let mut response = request
         .send()
+        .await
         .map_err(|error| format!("Compute server connection failed: {error}"))?;
     let status = response.status();
     let content_type = response
@@ -619,7 +642,7 @@ pub fn transcribe(
         .to_string();
     tracing::info!(%endpoint, %model, %status, %content_type, "Received transcription response headers");
     if !status.is_success() {
-        let body = response.bytes().map_err(|error| error.to_string())?;
+        let body = response.bytes().await.map_err(|error| error.to_string())?;
         let message = rmp_serde::from_slice::<ErrorEnvelope>(&body)
             .map(|error| error.error.message)
             .unwrap_or_else(|_| status.to_string());
@@ -630,22 +653,45 @@ pub fn transcribe(
             "Server returned {content_type:?}, expected {MESSAGE_PACK_STREAM}"
         ));
     }
+    let mut buffered = Vec::new();
     loop {
-        tracing::debug!(%endpoint, %model, "Waiting for transcription event header");
-        let mut header = [0; STREAM_HEADER_BYTES];
-        response
-            .read_exact(&mut header)
-            .map_err(|error| format!("Compute server connection failed: {error}"))?;
-        let length = usize::try_from(u64::from_le_bytes(header))
-            .map_err(|_| "Transcription server event is too large".to_string())?;
+        while buffered.len() < STREAM_HEADER_BYTES {
+            if cancellation.is_cancelled() {
+                return Err("Transcription cancelled".to_string());
+            }
+            let chunk = response
+                .chunk()
+                .await
+                .map_err(|error| format!("Compute server connection failed: {error}"))?
+                .ok_or("Compute server connection failed: response ended early")?;
+            buffered.extend_from_slice(&chunk);
+        }
+        let length = usize::try_from(u64::from_le_bytes(
+            buffered[..STREAM_HEADER_BYTES]
+                .try_into()
+                .expect("transcription event header is complete"),
+        ))
+        .map_err(|_| "Transcription server event is too large".to_string())?;
         if length > MAXIMUM_COMPUTE_EVENT_BYTES {
             return Err("Transcription server event is too large".to_string());
         }
-        let mut payload = vec![0; length];
+        let event_bytes = STREAM_HEADER_BYTES
+            .checked_add(length)
+            .ok_or("Transcription server event is too large")?;
+        while buffered.len() < event_bytes {
+            if cancellation.is_cancelled() {
+                return Err("Transcription cancelled".to_string());
+            }
+            let chunk = response
+                .chunk()
+                .await
+                .map_err(|error| format!("Compute server connection failed: {error}"))?
+                .ok_or("Compute server connection failed: response ended early")?;
+            buffered.extend_from_slice(&chunk);
+        }
+        let payload = buffered[STREAM_HEADER_BYTES..event_bytes].to_vec();
+        buffered.drain(..event_bytes);
         tracing::debug!(%endpoint, %model, event_bytes = payload.len(), "Reading transcription event payload");
-        response
-            .read_exact(&mut payload)
-            .map_err(|error| format!("Compute server connection failed: {error}"))?;
         match rmp_serde::from_slice::<TranscriptionEvent>(&payload)
             .map_err(|error| format!("Invalid server event: {error}"))?
         {

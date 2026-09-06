@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Mutex, mpsc, mpsc::TryRecvError};
+use std::sync::{mpsc, mpsc::TryRecvError};
 use std::thread;
 use std::time::Duration;
 
@@ -21,7 +21,6 @@ use crate::project::{
     Project, Time, TransitionSide, fraction_as_f64, playback_speed_or_default,
 };
 use crate::selection_state::{self, SharedSelectionState};
-use crate::transcription::{SAMPLE_RATE, TranscribedSegment, prepare_transcription_chunks};
 
 mod context_actions;
 mod controllers;

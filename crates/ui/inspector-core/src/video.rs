@@ -466,7 +466,7 @@ impl InspectorController {
                         | crate::scene_3d::SHADOW_KIND_PATH
                         | crate::scene_3d::PATH_TRACING_PATH
                         | crate::scene_3d::LIGHT_SAMPLING_PATH
-                        | crate::scene_3d::OPTIX_DENOISING_PATH
+                        | crate::scene_3d::DENOISING_PATH
                         | crate::scene_3d::ENVIRONMENT_SOURCE_PATH
                 ),
                 ..player_state::ProjectChange::default()

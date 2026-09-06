@@ -1,54 +1,13 @@
-mod alpha_outline;
-mod bulge_pinch;
-mod channel_mixer;
-mod chroma_key;
-mod chromatic_aberration;
-mod color_correction;
-mod colorize_duotone;
-mod corner_pin;
-mod crop;
-mod directional_blur;
-mod displacement_map;
 mod dithering;
-mod drop_shadow;
-mod edge_detection;
-mod emboss;
-mod erode_dilate;
-mod film_grain;
-mod fisheye;
-mod gaussian_blur;
-mod glow_bloom;
-mod halftone;
-mod invert;
-mod kaleidoscope;
-mod kuwahara;
-mod lens_distortion;
-mod luma_key;
 mod mask;
-mod mirror;
-mod opacity;
-mod pixelate_mosaic;
-mod posterize;
-mod radial_blur;
 pub(crate) mod sam2;
-mod sampling;
-mod scanlines_crt;
 mod shared;
-mod sharpen;
 mod stabilization_warp;
-mod texture_bounds;
-mod threshold;
-mod transform;
 pub(crate) mod transparent_fill;
-mod twirl;
-mod vignette;
-mod wave_ripple;
-mod zoom_blur;
 
-use crate::layer::{RasterVisual, Visual};
+use crate::layer::Visual;
 use crate::visual_source::VisualModifierContext;
-use shrimply_project::project::VideoSampleMethod;
-use shrimply_video_modifiers::{ModifierEffect, RasterModifierEffect};
+use shrimply_video_modifiers::ModifierEffect;
 
 pub(crate) fn stabilization_warp(
     source_transform: glam::Mat3,
@@ -56,15 +15,7 @@ pub(crate) fn stabilization_warp(
     Box::new(stabilization_warp::Source { source_transform })
 }
 
-pub(crate) trait RasterModifierRuntime {
-    fn apply_raster(
-        &self,
-        input: RasterVisual,
-        context: &mut VisualModifierContext<'_>,
-    ) -> Result<RasterVisual, String>;
-}
-
-pub(crate) fn apply(
+pub(crate) fn apply_source(
     effect: &ModifierEffect,
     input: Visual,
     context: &mut VisualModifierContext<'_>,
@@ -109,79 +60,76 @@ pub(crate) fn apply(
                 Visual::Raster(input) => input,
             }))
         }
-        ModifierEffect::Raster(effect) => {
-            let Visual::Raster(input) = input else {
-                unreachable!("validated raster modifier chain received vector input")
+        ModifierEffect::Raster(_) => Err("raster modifier bypassed shared planning".to_string()),
+    }
+}
+
+pub(crate) fn apply_resolved(
+    operation: shrimply_video_core::raster_modifiers::Operation,
+    input: Visual,
+    mask_source: Option<std::rc::Rc<crate::gpu::VisualFrame>>,
+) -> Result<Visual, String> {
+    use shrimply_video_core::raster_modifiers::Operation;
+    let Visual::Raster(mut input) = input else {
+        return Err("shared raster operation received vector input".to_string());
+    };
+    match operation {
+        Operation::Pixel(effect) => input.push_pixel(Box::new(effect)),
+        Operation::Dithering(effect) => input.push_pixel(Box::new(effect)),
+        Operation::Sam2Mask(effect) => input.push_pixel(Box::new(effect)),
+        Operation::TransparentFillMask(effect) => input.push_pixel(Box::new(effect)),
+        Operation::Mask(effect) => input = mask::apply(input, &effect, mask_source),
+        Operation::Transform(transform) => input.push_spatial(move |state| {
+            state.transform = transform.compose(state.transform);
+        }),
+        Operation::Opacity(opacity) => input.push_spatial(move |state| {
+            state.compositing.opacity *= opacity;
+        }),
+        Operation::Sampling(method) => input.push_spatial(move |state| state.sampling = method),
+        Operation::TextureBounds {
+            edges,
+            address_mode,
+        } => input.push_spatial(move |state| {
+            for (current, added) in state.bounds.edges.iter_mut().zip(edges) {
+                *current += added;
+            }
+            state.bounds.address_mode = match address_mode {
+                shrimply_render_core::TextureAddressMode::Transparent => {
+                    shrimply_core::TextureAddressMode::Transparent
+                }
+                shrimply_render_core::TextureAddressMode::ClampToEdge => {
+                    shrimply_core::TextureAddressMode::ClampToEdge
+                }
+                shrimply_render_core::TextureAddressMode::Repeat => {
+                    shrimply_core::TextureAddressMode::Repeat
+                }
+                shrimply_render_core::TextureAddressMode::MirrorRepeat => {
+                    shrimply_core::TextureAddressMode::MirrorRepeat
+                }
+                shrimply_render_core::TextureAddressMode::BlurredMirror => {
+                    shrimply_core::TextureAddressMode::BlurredMirror
+                }
+                shrimply_render_core::TextureAddressMode::Stochastic => {
+                    shrimply_core::TextureAddressMode::Stochastic
+                }
             };
-            apply_raster(effect, input, context).map(Visual::Raster)
-        }
+        }),
+        Operation::CropPercentage(crop) => input.push_spatial(move |state| {
+            (
+                state.bounds.modifier_crop,
+                state.bounds.modifier_crop_pixels,
+            ) = crate::math::compose_fractional_crop(
+                state.bounds.modifier_crop,
+                state.bounds.modifier_crop_pixels,
+                crate::math::normalized_crop(crop),
+            );
+        }),
+        Operation::CropPixels(crop) => input.push_spatial(move |state| {
+            for (current, added) in state.bounds.modifier_crop_pixels.iter_mut().zip(crop) {
+                *current += added.max(0.0);
+            }
+        }),
+        Operation::RasterBoundary => {}
     }
-}
-
-fn apply_raster(
-    effect: &RasterModifierEffect,
-    input: RasterVisual,
-    context: &mut VisualModifierContext<'_>,
-) -> Result<RasterVisual, String> {
-    raster_runtime(effect).apply_raster(input, context)
-}
-
-fn raster_runtime(effect: &RasterModifierEffect) -> &dyn RasterModifierRuntime {
-    match effect {
-        RasterModifierEffect::Cache(effect) => effect,
-        RasterModifierEffect::Transform(effect) => &**effect,
-        RasterModifierEffect::TextureBounds(effect) => effect,
-        RasterModifierEffect::Sampling(effect) => effect,
-        RasterModifierEffect::Crop(effect) => effect,
-        RasterModifierEffect::CornerPin(effect) => effect,
-        RasterModifierEffect::Opacity(effect) => effect,
-        RasterModifierEffect::ChromaKey(effect) => effect,
-        RasterModifierEffect::Kuwahara(effect) => effect,
-        RasterModifierEffect::GaussianBlur(effect) => effect,
-        RasterModifierEffect::Fisheye(effect) => effect,
-        RasterModifierEffect::Sharpen(effect) => effect,
-        RasterModifierEffect::Vignette(effect) => effect,
-        RasterModifierEffect::PixelateMosaic(effect) => effect,
-        RasterModifierEffect::Posterize(effect) => effect,
-        RasterModifierEffect::Threshold(effect) => effect,
-        RasterModifierEffect::FilmGrain(effect) => effect,
-        RasterModifierEffect::ChromaticAberration(effect) => effect,
-        RasterModifierEffect::EdgeDetection(effect) => effect,
-        RasterModifierEffect::Emboss(effect) => effect,
-        RasterModifierEffect::DirectionalBlur(effect) => effect,
-        RasterModifierEffect::Dithering(effect) => effect,
-        RasterModifierEffect::GlowBloom(effect) => effect,
-        RasterModifierEffect::Twirl(effect) => effect,
-        RasterModifierEffect::BulgePinch(effect) => effect,
-        RasterModifierEffect::WaveRipple(effect) => effect,
-        RasterModifierEffect::Mirror(effect) => effect,
-        RasterModifierEffect::Kaleidoscope(effect) => effect,
-        RasterModifierEffect::ColorizeDuotone(effect) => effect,
-        RasterModifierEffect::Invert(effect) => effect,
-        RasterModifierEffect::ChannelMixer(effect) => &**effect,
-        RasterModifierEffect::AlphaOutline(effect) => effect,
-        RasterModifierEffect::DropShadow(effect) => effect,
-        RasterModifierEffect::Halftone(effect) => effect,
-        RasterModifierEffect::ScanlinesCrt(effect) => effect,
-        RasterModifierEffect::LensDistortion(effect) => effect,
-        RasterModifierEffect::DisplacementMap(effect) => effect,
-        RasterModifierEffect::LumaKey(effect) => effect,
-        RasterModifierEffect::Mask(effect) => effect,
-        RasterModifierEffect::Sam2(effect) => effect,
-        RasterModifierEffect::TransparentFill(effect) => effect,
-        RasterModifierEffect::RadialBlur(effect) => effect,
-        RasterModifierEffect::ZoomBlur(effect) => effect,
-        RasterModifierEffect::ErodeDilate(effect) => effect,
-        RasterModifierEffect::ColorCorrection(effect) => &**effect,
-    }
-}
-
-impl RasterModifierRuntime for shrimply_video_modifiers::cache::CacheModifier {
-    fn apply_raster(
-        &self,
-        input: RasterVisual,
-        _context: &mut VisualModifierContext<'_>,
-    ) -> Result<RasterVisual, String> {
-        Ok(input)
-    }
+    Ok(Visual::Raster(input))
 }

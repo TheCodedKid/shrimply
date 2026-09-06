@@ -165,6 +165,12 @@ pub(super) fn apply_modifiers(
     mut state: SpatialState,
     operations: &[shrimply_video_core::raster_modifiers::Modifier],
     size: (u32, u32),
+    external_masks: &[(
+        shrimply_video_core::raster_modifiers::ExternalDependency,
+        Buffer,
+    )],
+    external_mask_size: (u32, u32),
+    external_mask_transform: shrimply_render_core::math::Mat3,
     submissions: &mut Vec<Submission>,
     sam2_target: Option<&shrimply_video_core::sam2::analysis::AnalysisTarget>,
     sam2_proxy: &mut Option<Buffer>,
@@ -222,6 +228,18 @@ pub(super) fn apply_modifiers(
                         submissions,
                     )?;
                 }
+                Operation::Mask(effect) => {
+                    (state, input) = apply_external_mask(
+                        renderer,
+                        input,
+                        state,
+                        effect,
+                        external_masks,
+                        external_mask_size,
+                        external_mask_transform,
+                        submissions,
+                    )?;
+                }
                 Operation::Transform(_)
                 | Operation::Opacity(_)
                 | Operation::Sampling(_)
@@ -246,6 +264,56 @@ pub(super) fn apply_modifiers(
         }
     }
     Ok((state, input))
+}
+
+fn apply_external_mask(
+    renderer: &mut Renderer,
+    input: Buffer,
+    state: SpatialState,
+    effect: &shrimply_video_core::raster_modifiers::ExternalMask,
+    external_masks: &[(
+        shrimply_video_core::raster_modifiers::ExternalDependency,
+        Buffer,
+    )],
+    mask_size: (u32, u32),
+    output_transform: shrimply_render_core::math::Mat3,
+    submissions: &mut Vec<Submission>,
+) -> Result<(SpatialState, Buffer), String> {
+    let width = state.parameters.source_width;
+    let height = state.parameters.source_height;
+    let count = usize::try_from(u64::from(width) * u64::from(height))
+        .map_err(|_| "Mask input is too large")?;
+    let output_count = u64::try_from(count).map_err(|_| "Mask input is too large")?;
+    let output = renderer.allocate(
+        count
+            .checked_mul(size_of::<u32>())
+            .ok_or("Mask output size overflow")?,
+    )?;
+    let mask = effect.source.as_ref().and_then(|source| {
+        external_masks
+            .iter()
+            .find(|(dependency, _)| dependency == source)
+            .map(|(_, buffer)| buffer)
+    });
+    let mut arguments = renderer.arguments("mask")?;
+    arguments
+        .set("input", &input.address().to_ne_bytes())?
+        .set(
+            "params.mask",
+            &mask.map_or(0, Buffer::address).to_ne_bytes(),
+        )?
+        .set("params.input_width", &width.to_ne_bytes())?
+        .set("params.mask_width", &mask_size.0.to_ne_bytes())?
+        .set("params.mask_height", &mask_size.1.to_ne_bytes())?
+        .set_matrix3("params.transform", output_transform * state.transform)?
+        .set("params.luminance", &[u8::from(effect.luminance)])?
+        .set("params.invert", &[u8::from(effect.invert)])?
+        .set("output", &output.address().to_ne_bytes())?
+        .set("output_count", &output_count.to_ne_bytes())?;
+    let mut resources = vec![input, output.clone()];
+    resources.extend(mask.cloned());
+    submissions.push(unsafe { renderer.dispatch(arguments, resources, [count, 1, 1]) }?);
+    Ok((state, output))
 }
 
 fn capture_sam2_proxy(

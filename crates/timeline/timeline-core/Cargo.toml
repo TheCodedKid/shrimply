@@ -11,6 +11,7 @@ ffmpeg-next.workspace = true
 glam.workspace = true
 hashbrown.workspace = true
 imagesize.workspace = true
+reqwest = { workspace = true, features = ["blocking"] }
 shrimply-3dgs = { path = "../../3d/3dgs" }
 shrimply-blender = { path = "../../blender/blender-bridge" }
 shrimply-core = { path = "../../core" }
@@ -19,9 +20,12 @@ shrimply-pdf = { path = "../../pdf" }
 shrimply-project = { path = "../../project/project" }
 shrimply-property-transfer = { path = "../../property-transfer" }
 shrimply-resource-pipeline = { path = "../../resource-pipeline" }
+shrimply-server-client = { path = "../../server-client" }
 shrimply-scene-3d = { path = "../../3d/scene-3d" }
 shrimply-state = { path = "../../state" }
 shrimply-timeline = { path = "../timeline" }
+shrimply-transcription = { path = "../../audio/transcription" }
+shrimply-tts = { path = "../../audio/tts" }
 shrimply-layered-image = { path = "../../layered-image/layered-image" }
 shrimply-video-modifiers = { path = "../../video/video-modifiers" }
 uuid = { workspace = true, features = ["v4"] }

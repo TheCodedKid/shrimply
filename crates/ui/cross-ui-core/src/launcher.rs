@@ -4,6 +4,8 @@ use shrimply_project_core::CanvasSize;
 use shrimply_support::recent_projects::{self, RecentProject};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command};
+
+pub const EDITOR_OPEN_CANCELED_EXIT_CODE: u8 = 2;
 use std::time::UNIX_EPOCH;
 
 pub const PROJECT_FILE_PATTERNS: [&str; 4] = ["*.shrimp", "*.json", "*.otio", "*.kdenlive"];

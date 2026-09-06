@@ -1,17 +1,19 @@
 use super::Editor;
+use objc2::rc::Retained;
 use objc2::{DefinedClass, MainThreadOnly, sel};
 use objc2_app_kit::{
-    NSAutoresizingMaskOptions, NSBackingStoreType, NSButton, NSColor, NSColorWell, NSFont,
-    NSFontManager, NSImage, NSModalResponseOK, NSOpenPanel, NSPopUpButton, NSTabViewController,
-    NSTabViewControllerTabStyle, NSTabViewItem, NSTextAlignment, NSTextField, NSView,
-    NSViewController, NSWindow, NSWindowButton, NSWindowStyleMask, NSWindowTabbingMode,
-    NSWindowToolbarStyle,
+    NSAlert, NSAlertFirstButtonReturn, NSAutoresizingMaskOptions, NSBackingStoreType, NSButton,
+    NSColor, NSColorWell, NSFont, NSFontManager, NSImage, NSModalResponseOK, NSOpenPanel,
+    NSPopUpButton, NSScrollView, NSTabViewController, NSTabViewControllerTabStyle, NSTabViewItem,
+    NSTextAlignment, NSTextField, NSView, NSViewController, NSWindow, NSWindowButton,
+    NSWindowStyleMask, NSWindowTabbingMode, NSWindowToolbarStyle,
 };
 use objc2_foundation::{MainThreadMarker, NSPoint, NSRect, NSSize, NSString, ns_string};
 use shrimply_state::preferences::{self, PreferenceId, PreferenceValue, SharedPreferences};
+use std::collections::BTreeMap;
 
-const PANE_WIDTH: f64 = 560.0;
-const PANE_HEIGHT: f64 = 320.0;
+const PANE_WIDTH: f64 = 660.0;
+const PANE_HEIGHT: f64 = 500.0;
 const CONTENT_MARGIN: f64 = 24.0;
 const CONTROL_X: f64 = 285.0;
 const CONTROL_WIDTH: f64 = PANE_WIDTH - CONTROL_X - CONTENT_MARGIN;
@@ -22,6 +24,10 @@ const CONTROL_HEIGHT: f64 = 26.0;
 const CONTROL_Y_OFFSET: f64 = 2.0;
 const BLENDER_CLEAR_WIDTH: f64 = 64.0;
 const BLENDER_BUTTON_GAP: f64 = 8.0;
+const SERVER_BUTTON_WIDTH: f64 = 90.0;
+const SERVER_BUTTON_GAP: f64 = 8.0;
+const FEATURES_HEIGHT: f64 = 44.0;
+const INTEGRATIONS_HEIGHT: f64 = 720.0;
 
 const TAG_CAPTION_FONT_SIZE: isize = 1;
 const TAG_DEFAULT_VISUAL_DURATION: isize = 2;
@@ -30,6 +36,24 @@ const TAG_PREVIEW_PADDING: isize = 4;
 const TAG_PREVIEW_SHADOW: isize = 5;
 const TAG_BLENDER_CHOOSE: isize = 201;
 const TAG_BLENDER_CLEAR: isize = 202;
+const TAG_SERVER_SELECTOR: isize = 210;
+const TAG_SERVER_URL: isize = 211;
+const TAG_SERVER_REMOVE: isize = 212;
+const TAG_SERVER_COMPATIBILITY: isize = 213;
+const TAG_SERVER_VERSION: isize = 214;
+const TAG_SERVER_PROTOCOL: isize = 215;
+const TAG_SERVER_FEATURES: isize = 216;
+const TAG_SERVER_DEVICE: isize = 217;
+const TAG_SERVER_TORCH: isize = 218;
+const TAG_SERVER_CUDA: isize = 219;
+const TAG_SERVER_JOBS: isize = 220;
+const TAG_SERVER_RESERVATIONS: isize = 221;
+const TAG_SERVER_WORKERS: isize = 222;
+
+pub(super) type ServerProbe = (
+    String,
+    Result<preferences::ComputeServerPresentation, String>,
+);
 
 pub(super) fn numeric_preference(tag: isize) -> Option<(PreferenceId, i64)> {
     Some(match tag {
@@ -152,18 +176,11 @@ pub(super) fn show(editor: &Editor) -> objc2::rc::Retained<NSWindow> {
         &mut y,
         mtm,
     );
-    let integrations = pane(mtm);
-    let mut y = initial_y();
+    let (integrations_root, integrations) = scrolling_pane(mtm);
+    let mut y = INTEGRATIONS_HEIGHT - CONTENT_MARGIN - LABEL_HEIGHT;
     section(&integrations, "Integrations", &mut y, mtm);
-    text_row(
-        &integrations,
-        editor,
-        "Compute server",
-        &snapshot.compute_server_url,
-        sel!(changeComputeServer:),
-        &mut y,
-        mtm,
-    );
+    compute_server_rows(&integrations, editor, store, &mut y, mtm);
+    section(&integrations, "Local Tools", &mut y, mtm);
     blender_row(
         &integrations,
         editor,
@@ -178,7 +195,12 @@ pub(super) fn show(editor: &Editor) -> objc2::rc::Retained<NSWindow> {
     for item in [
         tab("General", "gearshape", general, mtm),
         tab("Preview", "play.rectangle", preview, mtm),
-        tab("Integrations", "puzzlepiece.extension", integrations, mtm),
+        tab(
+            "Integrations",
+            "puzzlepiece.extension",
+            integrations_root,
+            mtm,
+        ),
     ] {
         tabs.addTabViewItem(&item);
     }
@@ -187,6 +209,151 @@ pub(super) fn show(editor: &Editor) -> objc2::rc::Retained<NSWindow> {
     window.center();
     window.makeKeyAndOrderFront(None);
     window
+}
+
+fn compute_server_rows(
+    content: &NSView,
+    editor: &Editor,
+    store: &SharedPreferences,
+    y: &mut f64,
+    mtm: MainThreadMarker,
+) {
+    let (urls, selected) = preferences::compute_servers(store);
+    label(content, "Server", *y, mtm);
+    let selector = NSPopUpButton::initWithFrame_pullsDown(
+        NSPopUpButton::alloc(mtm),
+        NSRect::new(
+            NSPoint::new(CONTROL_X, *y - CONTROL_Y_OFFSET),
+            NSSize::new(CONTROL_WIDTH, CONTROL_HEIGHT),
+        ),
+        false,
+    );
+    selector.setTag(TAG_SERVER_SELECTOR);
+    for url in &urls {
+        selector.addItemWithTitle(&NSString::from_str(&format!("{url} — Checking…")));
+    }
+    selector.selectItemAtIndex(selected as isize);
+    unsafe {
+        selector.setTarget(Some(editor));
+        selector.setAction(Some(sel!(selectComputeServer:)));
+    }
+    content.addSubview(&selector);
+    *y -= ROW_HEIGHT;
+
+    text_row(
+        content,
+        editor,
+        "Server URL",
+        &urls[selected],
+        TAG_SERVER_URL,
+        sel!(changeComputeServer:),
+        y,
+        mtm,
+    );
+
+    label(content, "Manage", *y, mtm);
+    let add = unsafe {
+        NSButton::buttonWithTitle_target_action(
+            ns_string!("Add…"),
+            Some(editor),
+            Some(sel!(addComputeServer:)),
+            mtm,
+        )
+    };
+    add.setFrame(NSRect::new(
+        NSPoint::new(CONTROL_X, *y - CONTROL_Y_OFFSET),
+        NSSize::new(SERVER_BUTTON_WIDTH, CONTROL_HEIGHT),
+    ));
+    content.addSubview(&add);
+    let remove = unsafe {
+        NSButton::buttonWithTitle_target_action(
+            ns_string!("Remove"),
+            Some(editor),
+            Some(sel!(removeComputeServer:)),
+            mtm,
+        )
+    };
+    remove.setFrame(NSRect::new(
+        NSPoint::new(
+            CONTROL_X + SERVER_BUTTON_WIDTH + SERVER_BUTTON_GAP,
+            *y - CONTROL_Y_OFFSET,
+        ),
+        NSSize::new(SERVER_BUTTON_WIDTH, CONTROL_HEIGHT),
+    ));
+    remove.setTag(TAG_SERVER_REMOVE);
+    remove.setEnabled(urls.len() > 1);
+    content.addSubview(&remove);
+    *y -= ROW_HEIGHT;
+
+    detail_row(
+        content,
+        "Compatibility",
+        TAG_SERVER_COMPATIBILITY,
+        "Checking…",
+        y,
+        mtm,
+    );
+    detail_row(content, "Version", TAG_SERVER_VERSION, "—", y, mtm);
+    detail_row(content, "Protocol", TAG_SERVER_PROTOCOL, "—", y, mtm);
+    detail_row(content, "Features", TAG_SERVER_FEATURES, "—", y, mtm);
+
+    section(content, "Compute", y, mtm);
+    label(content, "Device", *y, mtm);
+    let device = NSPopUpButton::initWithFrame_pullsDown(
+        NSPopUpButton::alloc(mtm),
+        NSRect::new(
+            NSPoint::new(CONTROL_X, *y - CONTROL_Y_OFFSET),
+            NSSize::new(CONTROL_WIDTH, CONTROL_HEIGHT),
+        ),
+        false,
+    );
+    device.setTag(TAG_SERVER_DEVICE);
+    device.addItemWithTitle(ns_string!("—"));
+    device.setEnabled(false);
+    unsafe {
+        device.setTarget(Some(editor));
+        device.setAction(Some(sel!(selectComputeDevice:)));
+    }
+    content.addSubview(&device);
+    *y -= ROW_HEIGHT;
+    detail_row(content, "Torch", TAG_SERVER_TORCH, "—", y, mtm);
+    detail_row(content, "CUDA", TAG_SERVER_CUDA, "—", y, mtm);
+    detail_row(content, "Jobs", TAG_SERVER_JOBS, "—", y, mtm);
+    detail_row(
+        content,
+        "Reserved memory",
+        TAG_SERVER_RESERVATIONS,
+        "—",
+        y,
+        mtm,
+    );
+    detail_row(content, "Workers", TAG_SERVER_WORKERS, "—", y, mtm);
+}
+
+fn detail_row(
+    content: &NSView,
+    title: &str,
+    tag: isize,
+    value: &str,
+    y: &mut f64,
+    mtm: MainThreadMarker,
+) {
+    label(content, title, *y, mtm);
+    let tall = matches!(tag, TAG_SERVER_FEATURES | TAG_SERVER_WORKERS);
+    let height = if tall { FEATURES_HEIGHT } else { LABEL_HEIGHT };
+    let value_label = NSTextField::labelWithString(&NSString::from_str(value), mtm);
+    value_label.setFrame(NSRect::new(
+        NSPoint::new(CONTROL_X, *y - (height - LABEL_HEIGHT)),
+        NSSize::new(CONTROL_WIDTH, height),
+    ));
+    value_label.setTag(tag);
+    value_label.setSelectable(true);
+    content.addSubview(&value_label);
+    *y -= if tall {
+        ROW_HEIGHT + FEATURES_HEIGHT - LABEL_HEIGHT
+    } else {
+        ROW_HEIGHT
+    };
 }
 
 fn pane(mtm: MainThreadMarker) -> objc2::rc::Retained<NSView> {
@@ -198,6 +365,28 @@ fn pane(mtm: MainThreadMarker) -> objc2::rc::Retained<NSView> {
         NSAutoresizingMaskOptions::ViewWidthSizable | NSAutoresizingMaskOptions::ViewHeightSizable,
     );
     view
+}
+
+fn scrolling_pane(mtm: MainThreadMarker) -> (Retained<NSView>, Retained<NSView>) {
+    let scroll = NSScrollView::initWithFrame(
+        NSScrollView::alloc(mtm),
+        NSRect::new(NSPoint::ZERO, NSSize::new(PANE_WIDTH, PANE_HEIGHT)),
+    );
+    scroll.setAutoresizingMask(
+        NSAutoresizingMaskOptions::ViewWidthSizable | NSAutoresizingMaskOptions::ViewHeightSizable,
+    );
+    scroll.setDrawsBackground(false);
+    scroll.setHasVerticalScroller(true);
+    scroll.setAutohidesScrollers(true);
+    let content = NSView::initWithFrame(
+        NSView::alloc(mtm),
+        NSRect::new(NSPoint::ZERO, NSSize::new(PANE_WIDTH, INTEGRATIONS_HEIGHT)),
+    );
+    scroll.setDocumentView(Some(&content));
+    let clip = scroll.contentView();
+    clip.scrollToPoint(NSPoint::new(0.0, INTEGRATIONS_HEIGHT - PANE_HEIGHT));
+    scroll.reflectScrolledClipView(&clip);
+    (scroll.into_super(), content)
 }
 
 fn tab(
@@ -334,6 +523,7 @@ fn text_row(
     editor: &Editor,
     title: &str,
     value: &str,
+    tag: isize,
     action: objc2::runtime::Sel,
     y: &mut f64,
     mtm: MainThreadMarker,
@@ -347,6 +537,7 @@ fn text_row(
         ),
     );
     field.setStringValue(&NSString::from_str(value));
+    field.setTag(tag);
     unsafe {
         field.setTarget(Some(editor));
         field.setAction(Some(action));
@@ -431,17 +622,172 @@ pub(super) fn sync_blender_window(
     checking: bool,
     mtm: MainThreadMarker,
 ) {
+    let content = integrations_content(window, mtm);
+    sync_blender_row(&content, path, checking);
+}
+
+pub(super) fn sync_compute_servers_window(
+    window: &NSWindow,
+    store: &SharedPreferences,
+    statuses: &BTreeMap<String, Result<preferences::ComputeServerPresentation, String>>,
+    device_error: Option<&str>,
+    device_pending: bool,
+    mtm: MainThreadMarker,
+) {
+    let content = integrations_content(window, mtm);
+    let (urls, selected) = preferences::compute_servers(store);
+    let selected_url = &urls[selected];
+    let selector = tagged::<NSPopUpButton>(&content, TAG_SERVER_SELECTOR, "server selector");
+    selector.removeAllItems();
+    for url in &urls {
+        let summary = match statuses.get(url) {
+            Some(Ok(status)) => status.summary.as_str(),
+            Some(Err(_)) => "Unavailable",
+            None => "Checking…",
+        };
+        selector.addItemWithTitle(&NSString::from_str(&format!("{url} — {summary}")));
+    }
+    selector.selectItemAtIndex(selected as isize);
+
+    tagged::<NSTextField>(&content, TAG_SERVER_URL, "server URL")
+        .setStringValue(&NSString::from_str(selected_url));
+    tagged::<NSButton>(&content, TAG_SERVER_REMOVE, "server remove button")
+        .setEnabled(urls.len() > 1);
+
+    let compatibility =
+        tagged::<NSTextField>(&content, TAG_SERVER_COMPATIBILITY, "server compatibility");
+    let version = tagged::<NSTextField>(&content, TAG_SERVER_VERSION, "server version");
+    let protocol = tagged::<NSTextField>(&content, TAG_SERVER_PROTOCOL, "server protocol");
+    let features = tagged::<NSTextField>(&content, TAG_SERVER_FEATURES, "server features");
+    let device = tagged::<NSPopUpButton>(&content, TAG_SERVER_DEVICE, "server device");
+    let torch = tagged::<NSTextField>(&content, TAG_SERVER_TORCH, "server Torch");
+    let cuda = tagged::<NSTextField>(&content, TAG_SERVER_CUDA, "server CUDA");
+    let jobs = tagged::<NSTextField>(&content, TAG_SERVER_JOBS, "server jobs");
+    let reservations =
+        tagged::<NSTextField>(&content, TAG_SERVER_RESERVATIONS, "server reservations");
+    let workers = tagged::<NSTextField>(&content, TAG_SERVER_WORKERS, "server workers");
+    device.removeAllItems();
+    device.setToolTip(device_error.map(NSString::from_str).as_deref());
+    match statuses.get(selected_url) {
+        Some(Ok(status)) => {
+            compatibility.setStringValue(ns_string!("Compatible"));
+            compatibility.setToolTip(None);
+            version.setStringValue(&NSString::from_str(&status.version));
+            version.setToolTip(
+                status
+                    .version_detail
+                    .as_deref()
+                    .map(NSString::from_str)
+                    .as_deref(),
+            );
+            protocol.setStringValue(&NSString::from_str(&status.protocol));
+            features.setStringValue(&NSString::from_str(&status.features));
+            features.setToolTip(Some(&NSString::from_str(&status.features)));
+            torch.setStringValue(&NSString::from_str(&status.torch));
+            cuda.setStringValue(&NSString::from_str(&status.cuda));
+            jobs.setStringValue(&NSString::from_str(&status.jobs));
+            reservations.setStringValue(&NSString::from_str(&status.reservations));
+            workers.setStringValue(&NSString::from_str(&status.workers));
+            workers.setToolTip(Some(&NSString::from_str(&status.workers)));
+            for item in &status.devices {
+                device.addItemWithTitle(&NSString::from_str(&item.label));
+            }
+            if let Some(selected) = status.selected_device {
+                device.selectItemAtIndex(selected as isize);
+                device.setEnabled(!device_pending);
+            } else {
+                if status.devices.is_empty() {
+                    device.addItemWithTitle(ns_string!("—"));
+                }
+                device.selectItemAtIndex(0);
+                device.setEnabled(false);
+            }
+        }
+        Some(Err(error)) => {
+            compatibility.setStringValue(&NSString::from_str(&format!("Unavailable — {error}")));
+            compatibility.setToolTip(Some(&NSString::from_str(error)));
+            clear_server_details(
+                [
+                    &version,
+                    &protocol,
+                    &features,
+                    &torch,
+                    &cuda,
+                    &jobs,
+                    &reservations,
+                    &workers,
+                ],
+                &device,
+            );
+        }
+        None => {
+            compatibility.setStringValue(ns_string!("Checking…"));
+            compatibility.setToolTip(None);
+            clear_server_details(
+                [
+                    &version,
+                    &protocol,
+                    &features,
+                    &torch,
+                    &cuda,
+                    &jobs,
+                    &reservations,
+                    &workers,
+                ],
+                &device,
+            );
+        }
+    }
+}
+
+fn clear_server_details(fields: [&NSTextField; 8], device: &NSPopUpButton) {
+    for field in fields {
+        field.setStringValue(ns_string!("—"));
+        field.setToolTip(None);
+    }
+    device.removeAllItems();
+    device.addItemWithTitle(ns_string!("—"));
+    device.setEnabled(false);
+}
+
+fn tagged<T: objc2::DowncastTarget>(content: &NSView, tag: isize, name: &str) -> Retained<T> {
+    content
+        .viewWithTag(tag)
+        .and_then(|view| view.downcast::<T>().ok())
+        .unwrap_or_else(|| panic!("{name} installed"))
+}
+
+fn integrations_content(window: &NSWindow, mtm: MainThreadMarker) -> Retained<NSView> {
     let tabs = window
         .contentViewController()
         .and_then(|controller| controller.downcast::<NSTabViewController>().ok())
         .expect("Settings tab controller installed");
-    let content = tabs
+    let root = tabs
         .tabViewItems()
         .iter()
         .find(|item| item.label().to_string() == "Integrations")
         .and_then(|item| item.view(mtm))
         .expect("Integrations settings pane installed");
-    sync_blender_row(&content, path, checking);
+    root.clone()
+        .downcast::<NSScrollView>()
+        .ok()
+        .and_then(|scroll| scroll.documentView())
+        .unwrap_or(root)
+}
+
+pub(super) fn prompt_compute_server_url(mtm: MainThreadMarker) -> Option<String> {
+    let alert = NSAlert::new(mtm);
+    alert.setMessageText(ns_string!("Add Compute Server"));
+    alert.setInformativeText(ns_string!("Enter the URL of a Shrimply compute server."));
+    alert.addButtonWithTitle(ns_string!("Add"));
+    alert.addButtonWithTitle(ns_string!("Cancel"));
+    let field = NSTextField::initWithFrame(
+        NSTextField::alloc(mtm),
+        NSRect::new(NSPoint::ZERO, NSSize::new(CONTROL_WIDTH, CONTROL_HEIGHT)),
+    );
+    field.setPlaceholderString(Some(ns_string!("http://127.0.0.1:8787")));
+    alert.setAccessoryView(Some(&field));
+    (alert.runModal() == NSAlertFirstButtonReturn).then(|| field.stringValue().to_string())
 }
 
 pub(super) fn set_caption_color(store: &SharedPreferences, well: &NSColorWell) {

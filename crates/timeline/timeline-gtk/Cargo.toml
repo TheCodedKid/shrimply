@@ -11,7 +11,6 @@ adw.workspace = true
 ffmpeg-next.workspace = true
 glam.workspace = true
 gtk.workspace = true
-reqwest = { workspace = true, features = ["blocking"] }
 shrimply-audio = { path = "../../audio/audio" }
 shrimply-core = { path = "../../core" }
 shrimply-timeline-core = { path = "../timeline-core" }

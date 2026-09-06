@@ -152,24 +152,15 @@ impl Scene {
     }
 
     pub fn draw(&mut self, canvas: &skia_safe::Canvas, size: Vec2) {
-        let chunks =
-            waveform_chunks_per_second_from_frame_step(frame_step_seconds(&self.project.borrow()));
-        let live_recording = self
-            .active_audio_recording
-            .as_ref()
-            .and_then(|recording| recording.draw(chunks));
         self.draw_frame(
             canvas,
             size,
             Frame {
                 before_seek: None,
                 accent_color: Color::BLUE3,
-                active_audio_recording_key: self
-                    .active_audio_recording
-                    .as_ref()
-                    .map(|recording| recording.key),
+                active_audio_recording_key: None,
                 active_video_recording_key: None,
-                live_recording: live_recording.as_ref(),
+                live_recording: None,
                 live_video_recording: None,
             },
         );
@@ -180,7 +171,12 @@ impl Scene {
         if key.kind != TrackKind::Audio {
             return Err("Microphone recording requires an audio track".into());
         }
-        if let Some(recording) = self.active_audio_recording.take() {
+        if self.active_audio_recording.is_some() {
+            player_state::set_playing(&self.player, false);
+            let recording = self
+                .active_audio_recording
+                .take()
+                .expect("active audio recording exists");
             let same_track = recording.key == key;
             recording.finish(&mut self.project.borrow_mut(), &self.player)?;
             if same_track {
@@ -203,13 +199,42 @@ impl Scene {
         self.update_media();
         self.track_controls_animating = false;
         let before_seek = frame.before_seek.take();
-        frame::draw(self, &TimelinePainter::new(canvas), size, frame);
+        let chunks =
+            waveform_chunks_per_second_from_frame_step(frame_step_seconds(&self.project.borrow()));
+        let live_recording = self
+            .active_audio_recording
+            .as_ref()
+            .and_then(|recording| recording.draw(chunks));
+        let (active_video_recording_key, live_video_recording) = self.video_recording_draw();
+        frame::draw(
+            self,
+            &TimelinePainter::new(canvas),
+            size,
+            Frame {
+                before_seek: None,
+                accent_color: frame.accent_color,
+                active_audio_recording_key: self
+                    .active_audio_recording
+                    .as_ref()
+                    .map(|recording| recording.key),
+                active_video_recording_key,
+                live_recording: live_recording.as_ref(),
+                live_video_recording,
+            },
+        );
         self.flush_seek(before_seek);
         self.finish_pointer_frame();
     }
 
     fn flush_seek(&mut self, before_seek: Option<&mut dyn FnMut(Time)>) {
         if let Some(position) = self.pending_seek.take() {
+            if self.active_audio_recording.is_some()
+                && position < player_state::snapshot(&self.player).position
+            {
+                player_state::set_playing(&self.player, false);
+                self.finish_audio_recording();
+            }
+            self.stop_video_recording_before_backward_seek(position);
             if let Some(before_seek) = before_seek {
                 before_seek(position);
             }
@@ -222,7 +247,21 @@ impl Scene {
         if self.suspended {
             return false;
         }
-        let mut changed = self.poll_drop_preview();
+        let playing = player_state::snapshot(&self.player).playing;
+        let mut changed = false;
+        if let Some(recording) = self.active_audio_recording.as_ref() {
+            if playing {
+                recording.maintain_duration(&self.player);
+            } else {
+                self.finish_audio_recording();
+                changed = true;
+            }
+        }
+        changed |= self.maintain_video_recording();
+        changed |= self.poll_drop_preview();
+        changed |= self.poll_external_content();
+        changed |= self.poll_caption_speech();
+        changed |= self.poll_transcription();
         changed |= self.performance.updated();
         if self
             .media_refresh
@@ -252,6 +291,8 @@ impl Scene {
     /// Detach from a native surface while retaining view state for a later realization.
     pub fn suspend(&mut self) {
         self.pointer_cancelled();
+        self.finish_audio_recording();
+        self.stop_video_recording();
         self.suspended = true;
         self.clear_drop_preview();
         self.text_drop_preview = None;
@@ -263,6 +304,16 @@ impl Scene {
             .waveforms
             .set(Some(Instant::now() - WAVEFORM_RELOAD_DELAY));
         self.media_refresh.beats.set(true);
+    }
+
+    pub(super) fn finish_audio_recording(&mut self) {
+        let Some(recording) = self.active_audio_recording.take() else {
+            return;
+        };
+        player_state::set_playing(&self.player, false);
+        if let Err(error) = recording.finish(&mut self.project.borrow_mut(), &self.player) {
+            self.pending_errors.push_back(error);
+        }
     }
 
     fn sync_revision(&mut self) {
@@ -390,16 +441,30 @@ impl Scene {
         self.apply_internal_actions();
     }
 
-    pub fn pointer_dragged(&mut self, point: Vec2) {
-        self.pointer_pos = Some(point);
+    pub fn pointer_dragged(&mut self, point: Vec2, toggle: bool, extend: bool) {
+        self.event(Event::Motion {
+            point,
+            modifiers: TimelineModifiers {
+                ctrl: toggle,
+                shift: extend,
+            },
+        });
         self.update_input();
     }
 
-    pub fn pointer_up(&mut self, point: Vec2) -> Result<Option<TrackButtonId>, String> {
+    pub fn pointer_up(
+        &mut self,
+        point: Vec2,
+        toggle: bool,
+        extend: bool,
+    ) -> Result<Option<TrackButtonId>, String> {
         self.event(Event::Release {
             point,
             button: PointerButton::Primary,
-            modifiers: self.modifiers,
+            modifiers: TimelineModifiers {
+                ctrl: toggle,
+                shift: extend,
+            },
         });
         self.update_input();
         self.apply_internal_actions();

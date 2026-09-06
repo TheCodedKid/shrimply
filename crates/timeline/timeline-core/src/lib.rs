@@ -3,9 +3,12 @@ use shrimply_state::preferences::{self, PreferencesSnapshot, SharedPreferences};
 mod menu;
 pub use menu::*;
 pub mod audio_selection;
+pub mod caption_speech;
 pub mod import;
 pub mod recording;
+pub mod silence;
 mod track_add;
+pub mod transcription;
 pub mod video_selection;
 pub use track_add::*;
 

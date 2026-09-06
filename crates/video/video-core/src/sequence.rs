@@ -13,6 +13,13 @@ pub struct ActiveVideoItem<'a> {
     pub previous: Option<&'a VideoItem>,
 }
 
+#[derive(Clone, Copy)]
+pub struct MorphEndpoint {
+    pub peer_index: usize,
+    pub peer_id: Uuid,
+    pub sample_time: Time,
+}
+
 use crate::clip_transition::ActiveClipTransition;
 
 pub fn active_video_items<'a>(
@@ -47,6 +54,54 @@ pub fn active_tracks<'a>(
             active_video_items(index, track.id, &track.items, position, item_ids)
         })
         .collect()
+}
+
+pub fn morph_endpoint(items: &[ActiveVideoItem<'_>], index: usize) -> Option<MorphEndpoint> {
+    use crate::clip_transition::ClipTransitionRole;
+    use shrimply_project::project::VisualClipTransitionKind;
+
+    let active = &items[index];
+    let transition = active
+        .clip_transition
+        .filter(|transition| transition.definition.kind == VisualClipTransitionKind::Morph)?;
+    let (peer_index, sample_time) = match transition.role {
+        ClipTransitionRole::Outgoing => {
+            let peer_offset = items[index + 1..].iter().position(|candidate| {
+                candidate.track_id == active.track_id
+                    && candidate
+                        .clip_transition
+                        .is_some_and(|candidate_transition| {
+                            candidate_transition.definition.kind == VisualClipTransitionKind::Morph
+                                && candidate_transition.role == ClipTransitionRole::Incoming
+                                && candidate_transition.progress == transition.progress
+                        })
+            })?;
+            (index + 1 + peer_offset, active.item.end)
+        }
+        ClipTransitionRole::Incoming => {
+            let peer_index = items[..index].iter().rposition(|candidate| {
+                candidate.track_id == active.track_id
+                    && candidate
+                        .clip_transition
+                        .is_some_and(|candidate_transition| {
+                            candidate_transition.definition.kind == VisualClipTransitionKind::Morph
+                                && candidate_transition.role == ClipTransitionRole::Outgoing
+                                && candidate_transition.progress == transition.progress
+                        })
+            })?;
+            (peer_index, items[peer_index].item.end)
+        }
+    };
+    let (source, target) =
+        shrimply_math_media::clip_transition_bounds(sample_time, transition.definition.duration);
+    Some(MorphEndpoint {
+        peer_index,
+        peer_id: items[peer_index].item.id,
+        sample_time: match transition.role {
+            ClipTransitionRole::Outgoing => source,
+            ClipTransitionRole::Incoming => target,
+        },
+    })
 }
 
 pub fn resolve<'a>(

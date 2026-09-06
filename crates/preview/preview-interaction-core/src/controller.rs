@@ -496,6 +496,16 @@ impl Controller {
         response
     }
 
+    pub fn teardown(
+        &mut self,
+        project: &mut Project,
+        expression_cache: &RefCell<TransformExpressionCache>,
+    ) -> PreviewResponse {
+        let response = self.cancel(project, expression_cache);
+        self.sequence = PointerSequence::Idle;
+        response
+    }
+
     pub fn project_committed(&mut self, revision: u64) {
         if let Some(provider) = self.provider.as_mut() {
             self.context_invalidated = provider.project_committed(revision);

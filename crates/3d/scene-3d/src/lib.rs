@@ -457,8 +457,8 @@ pub struct PbrMaterial {
     pub path_tracing: PathTracingMode,
     #[serde(default)]
     pub light_sampling_quality: LightSamplingQuality,
-    #[serde(default)]
-    pub optix_denoising: bool,
+    #[serde(default = "default_denoising", alias = "optix_denoising")]
+    pub denoising: bool,
     pub normal_mode: NormalMode,
     #[serde(default)]
     pub shading_model: ShadingModel,
@@ -597,7 +597,7 @@ impl Default for PbrMaterial {
             ior: default_ior(),
             path_tracing: PathTracingMode::Off,
             light_sampling_quality: LightSamplingQuality::High,
-            optix_denoising: true,
+            denoising: true,
             normal_mode: NormalMode::Smooth,
             shading_model: ShadingModel::Pbr,
             toon: ToonMaterial::default(),
@@ -739,7 +739,7 @@ pub struct ResolvedPbrMaterial {
     pub ior: f32,
     pub path_tracing: PathTracingMode,
     pub light_sampling_quality: LightSamplingQuality,
-    pub optix_denoising: bool,
+    pub denoising: bool,
     pub normal_mode: NormalMode,
     pub shading_model: ShadingModel,
     pub toon: ResolvedToonMaterial,
@@ -747,6 +747,10 @@ pub struct ResolvedPbrMaterial {
 
 fn default_subsurface() -> TimelineValue<f32> {
     TimelineValue::<f32>::new_const(DEFAULT_SUBSURFACE)
+}
+
+const fn default_denoising() -> bool {
+    true
 }
 
 fn default_clearcoat() -> TimelineValue<f32> {

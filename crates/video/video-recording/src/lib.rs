@@ -1,14 +1,17 @@
 use hashbrown::HashMap;
 use std::cell::RefCell;
 use std::fs;
+use std::future::{Future, poll_fn};
 use std::os::fd::OwnedFd;
 use std::path::PathBuf;
+use std::pin::pin;
 use std::rc::Rc;
 use std::sync::{
     Arc, Mutex,
     atomic::{AtomicU32, Ordering},
     mpsc,
 };
+use std::task::Poll;
 use std::thread;
 use std::time::Instant;
 
@@ -48,6 +51,7 @@ static PORTAL_TOKEN: AtomicU32 = AtomicU32::new(1);
 
 pub struct ScreenRecording {
     portal: Rc<RefCell<PortalState>>,
+    cancel: async_channel::Sender<()>,
     commands: Arc<Mutex<Option<pw::channel::Sender<RecordingCommand>>>>,
     events: mpsc::Receiver<ScreenRecordingEvent>,
 }
@@ -59,10 +63,24 @@ pub enum ScreenRecordingEvent {
 }
 
 pub struct FinishedScreenRecording {
-    pub path: PathBuf,
+    path: Option<PathBuf>,
     pub duration: Time,
     pub width: u32,
     pub height: u32,
+}
+
+impl FinishedScreenRecording {
+    pub fn into_path(mut self) -> PathBuf {
+        self.path.take().expect("recording file is owned")
+    }
+}
+
+impl Drop for FinishedScreenRecording {
+    fn drop(&mut self) {
+        if let Some(path) = self.path.take() {
+            remove_incomplete_recording(&path);
+        }
+    }
 }
 
 #[derive(Default)]
@@ -137,11 +155,13 @@ impl ScreenRecording {
         let final_path = directory.join(format!("{name}.mp4"));
         let temporary_path = directory.join(format!("{name}.mp4.part"));
         let portal = Rc::new(RefCell::new(PortalState::default()));
+        let (cancel, cancelled) = async_channel::bounded(1);
         let commands = Arc::new(Mutex::new(None));
         let (event_tx, events) = mpsc::channel();
 
         glib::MainContext::default().spawn_local(run_portal(
             portal.clone(),
+            cancelled,
             commands.clone(),
             event_tx,
             final_path,
@@ -151,6 +171,7 @@ impl ScreenRecording {
 
         Ok(Self {
             portal,
+            cancel,
             commands,
             events,
         })
@@ -162,6 +183,7 @@ impl ScreenRecording {
             return;
         }
         portal.stopped = true;
+        let _ = self.cancel.try_send(());
         if let Some(path) = portal.request_path.take() {
             close_portal_object(portal.connection.as_ref(), &path, REQUEST_INTERFACE);
         }
@@ -187,13 +209,14 @@ impl Drop for ScreenRecording {
 
 async fn run_portal(
     state: Rc<RefCell<PortalState>>,
+    cancelled: async_channel::Receiver<()>,
     commands: Arc<Mutex<Option<pw::channel::Sender<RecordingCommand>>>>,
     events: mpsc::Sender<ScreenRecordingEvent>,
     final_path: PathBuf,
     temporary_path: PathBuf,
     fps: Fraction,
 ) {
-    let result = open_portal_stream(state.clone()).await;
+    let result = open_portal_stream(state.clone(), &cancelled).await;
     if state.borrow().stopped {
         let _ = events.send(ScreenRecordingEvent::Cancelled);
         return;
@@ -227,16 +250,21 @@ async fn run_portal(
 
 async fn open_portal_stream(
     state: Rc<RefCell<PortalState>>,
+    cancelled: &async_channel::Receiver<()>,
 ) -> Result<(OwnedFd, PipeWireTarget), PortalFailure> {
-    let proxy = gio::DBusProxy::for_bus_future(
-        gio::BusType::Session,
-        gio::DBusProxyFlags::NONE,
-        None,
-        PORTAL_DESTINATION,
-        PORTAL_PATH,
-        SCREENCAST_INTERFACE,
+    let proxy = until_cancelled(
+        gio::DBusProxy::for_bus_future(
+            gio::BusType::Session,
+            gio::DBusProxyFlags::NONE,
+            None,
+            PORTAL_DESTINATION,
+            PORTAL_PATH,
+            SCREENCAST_INTERFACE,
+        ),
+        cancelled,
     )
     .await
+    .ok_or_else(portal_cancelled)?
     .map_err(portal_error)?;
     let connection = proxy.connection();
     state.borrow_mut().connection = Some(connection);
@@ -261,6 +289,7 @@ async fn open_portal_stream(
     let create_response = portal_request(
         &proxy,
         &state,
+        cancelled,
         "CreateSession",
         &create_token,
         glib::Variant::tuple_from_iter([create_options.end()]),
@@ -298,6 +327,7 @@ async fn open_portal_stream(
     portal_request(
         &proxy,
         &state,
+        cancelled,
         "SelectSources",
         &select_token,
         glib::Variant::tuple_from_iter([session.clone().to_variant(), select_options.end()]),
@@ -310,6 +340,7 @@ async fn open_portal_stream(
     let start_response = portal_request(
         &proxy,
         &state,
+        cancelled,
         "Start",
         &start_token,
         glib::Variant::tuple_from_iter([
@@ -344,8 +375,8 @@ async fn open_portal_stream(
             .and_then(|value| value.get::<u64>()),
     };
 
-    let (result, fd_list) = proxy
-        .call_with_unix_fd_list_future(
+    let (result, fd_list) = until_cancelled(
+        proxy.call_with_unix_fd_list_future(
             "OpenPipeWireRemote",
             Some(&glib::Variant::tuple_from_iter([
                 session.to_variant(),
@@ -354,9 +385,12 @@ async fn open_portal_stream(
             gio::DBusCallFlags::NONE,
             -1,
             None::<&gio::UnixFDList>,
-        )
-        .await
-        .map_err(portal_error)?;
+        ),
+        cancelled,
+    )
+    .await
+    .ok_or_else(portal_cancelled)?
+    .map_err(portal_error)?;
     let (handle,) = result.get::<(Handle,)>().ok_or_else(|| PortalFailure {
         message: "The portal returned an invalid PipeWire file descriptor".to_string(),
         cancelled: false,
@@ -374,10 +408,14 @@ async fn open_portal_stream(
 async fn portal_request(
     proxy: &gio::DBusProxy,
     state: &Rc<RefCell<PortalState>>,
+    cancelled: &async_channel::Receiver<()>,
     method: &str,
     request_token: &str,
     parameters: glib::Variant,
 ) -> Result<glib::Variant, PortalFailure> {
+    if state.borrow().stopped {
+        return Err(portal_cancelled());
+    }
     let connection = proxy.connection();
     let sender = connection
         .unique_name()
@@ -401,16 +439,28 @@ async fn portal_request(
             let _ = tx.try_send(signal.parameters.clone());
         },
     );
-    proxy
-        .call_future(method, Some(&parameters), gio::DBusCallFlags::NONE, -1)
+    let response = async {
+        until_cancelled(
+            proxy.call_future(method, Some(&parameters), gio::DBusCallFlags::NONE, -1),
+            cancelled,
+        )
         .await
+        .ok_or_else(portal_cancelled)?
         .map_err(portal_error)?;
-    let response = rx.recv().await.map_err(|error| PortalFailure {
-        message: error.to_string(),
-        cancelled: false,
-    })?;
+        until_cancelled(rx.recv(), cancelled)
+            .await
+            .ok_or_else(portal_cancelled)?
+            .map_err(|error| PortalFailure {
+                message: error.to_string(),
+                cancelled: false,
+            })
+    }
+    .await;
     drop(subscription);
-    state.borrow_mut().request_path = None;
+    if state.borrow().request_path.as_deref() == Some(path.as_str()) {
+        state.borrow_mut().request_path = None;
+    }
+    let response = response?;
     let code = response
         .child_value(0)
         .get::<u32>()
@@ -428,6 +478,31 @@ async fn portal_request(
             message: format!("The screen-cast portal rejected {method}"),
             cancelled: false,
         }),
+    }
+}
+
+async fn until_cancelled<F: Future>(
+    future: F,
+    cancelled: &async_channel::Receiver<()>,
+) -> Option<F::Output> {
+    let mut future = pin!(future);
+    let mut cancellation = pin!(cancelled.recv());
+    poll_fn(|context| {
+        if let Poll::Ready(value) = future.as_mut().poll(context) {
+            return Poll::Ready(Some(value));
+        }
+        if cancellation.as_mut().poll(context).is_ready() {
+            return Poll::Ready(None);
+        }
+        Poll::Pending
+    })
+    .await
+}
+
+fn portal_cancelled() -> PortalFailure {
+    PortalFailure {
+        message: "Screen or application selection was cancelled".into(),
+        cancelled: true,
     }
 }
 
@@ -1002,7 +1077,7 @@ impl VideoWriter {
             numerator,
         );
         Ok(FinishedScreenRecording {
-            path: self.final_path.clone(),
+            path: Some(self.final_path.clone()),
             duration,
             width: self.width,
             height: self.height,

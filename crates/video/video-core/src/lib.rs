@@ -1,10 +1,12 @@
 pub mod alpha_mask;
 pub mod background;
 pub mod blender;
+pub mod camera_reconstruction;
 pub mod clip_transition;
 pub mod gaussian;
 pub mod generated;
 pub mod layered_image;
+pub mod modifier_cache;
 mod modifier_input;
 pub mod modifiers;
 pub mod motion_blur;

@@ -11,4 +11,5 @@ serde = { workspace = true, features = ["derive"] }
 serde_bytes.workspace = true
 shrimply-math-geometry = { path = "../math/geometry" }
 tracing.workspace = true
+tokio.workspace = true
 uuid = { workspace = true, features = ["v4"] }

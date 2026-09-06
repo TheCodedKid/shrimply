@@ -5,6 +5,15 @@ import render_3d_sampling;
 
 static const float PI = 3.14159265358979323846;
 static const float MINIMUM_PDF = 0.00001;
+public static const uint PREVIEW_TRANSPORT_BOUNCES = 2u;
+public static const uint FINAL_TRANSPORT_BOUNCES = 4u;
+
+public uint pbr_transport_bounce_limit(PbrSettings settings)
+{
+    return settings.path_tracing == PathTracingMode::Preview
+        ? PREVIEW_TRANSPORT_BOUNCES
+        : FINAL_TRANSPORT_BOUNCES;
+}
 
 public float aces_tone_map(float value)
 {

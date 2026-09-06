@@ -21,7 +21,7 @@ pub struct State {
     pub loading_done: Option<Retained<objc2_app_kit::NSButton>>,
     pub loading_spinner: Option<Retained<objc2_app_kit::NSProgressIndicator>>,
     pub frame_rate_label: Option<Retained<objc2_app_kit::NSTextField>>,
-    pub loading_since: Option<std::time::Instant>,
+    pub loading_indicator: shrimply_preview_core::playback::LoadingIndicator,
     pub controller: Controller,
     pub expressions: RefCell<shrimply_evaluation::TransformExpressionCache>,
     pub audio_analysis: Option<(
@@ -64,7 +64,7 @@ impl State {
             loading_done: Some(loading_done),
             loading_spinner: Some(loading_spinner),
             frame_rate_label: Some(frame_rate_label),
-            loading_since: None,
+            loading_indicator: Default::default(),
             controller: Controller::default(),
             expressions: RefCell::default(),
             audio_analysis: None,
@@ -95,16 +95,9 @@ impl State {
                 .expect("preview frame-rate label installed")
                 .setStringValue(&objc2_foundation::NSString::from_str(&label));
         }
-        let loading = self.renderer.loading(tolerance);
-        if loading {
-            self.loading_since
-                .get_or_insert_with(std::time::Instant::now);
-        } else {
-            self.loading_since = None;
-        }
-        let visible = self.loading_since.is_some_and(|started| {
-            started.elapsed() >= shrimply_preview_core::playback::LOADING_INDICATOR_DELAY
-        });
+        let visible = self
+            .loading_indicator
+            .update(self.renderer.loading(tolerance));
         let spinner = self
             .loading_spinner
             .as_ref()
@@ -255,6 +248,14 @@ impl CanvasView {
     }
 
     pub(super) fn cancel_preview_pointer(&self) {
+        self.finish_preview_pointer(false);
+    }
+
+    pub(super) fn teardown_preview_pointer(&self) {
+        self.finish_preview_pointer(true);
+    }
+
+    fn finish_preview_pointer(&self, teardown: bool) {
         let reset_cursor = matches!(&*self.ivars().content.borrow(), Content::Preview(state)
             if state.controller.provider.is_some() || state.guide_input.active() || state.cursor_hidden || state.caption_split_hover.is_some());
         let response = if let Content::Preview(state) = &mut *self.ivars().content.borrow_mut() {
@@ -262,19 +263,33 @@ impl CanvasView {
             state.last_sample = None;
             state.caption_split_hover = None;
             if state.controller.provider.is_some() {
-                let response = state.controller.cancel(
-                    &mut self.ivars().session.project.borrow_mut(),
-                    &state.expressions,
-                );
+                let response = if teardown {
+                    state.controller.teardown(
+                        &mut self.ivars().session.project.borrow_mut(),
+                        &state.expressions,
+                    )
+                } else {
+                    state.controller.cancel(
+                        &mut self.ivars().session.project.borrow_mut(),
+                        &state.expressions,
+                    )
+                };
                 state.controller.base_exclusion = None;
                 state.renderer.set_exclusion(None);
                 Some(response)
             } else {
+                if teardown {
+                    state.controller.sequence = PointerSequence::Idle;
+                }
                 None
             }
         } else {
             None
         };
+        if teardown {
+            self.ivars().secondary_preview_active.set(false);
+            self.ivars().suppress_primary.set(false);
+        }
         if let Some(response) = response
             && let Err(error) = self.apply_preview_response(response)
         {

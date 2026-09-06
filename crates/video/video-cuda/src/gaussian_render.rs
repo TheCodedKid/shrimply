@@ -45,7 +45,7 @@ impl VisualElement for GaussianElement {
         track_id: Uuid,
         _cache: &mut VisualSourceCache,
     ) -> Result<VisualRender, String> {
-        let VideoItemContent::Gaussian(scene) = &request.item.content else {
+        let VideoItemContent::Gaussian(_) = &request.item.content else {
             return Err("3DGS renderer received a non-3DGS visual".to_string());
         };
         let mut params = shrimply_video_core::gaussian::evaluate(
@@ -55,22 +55,13 @@ impl VisualElement for GaussianElement {
             request.audio_analysis,
             &mut self.expressions,
         )?;
-        if let shrimply_3dgs::CameraSource::Tracking(source) = &scene.camera.source
-            && source.track_id != track_id
-            && request
-                .project
-                .video_tracks
-                .iter()
-                .any(|track| track.id == source.track_id)
-            && let Some(camera) = crate::camera_reconstruction::sample(
-                request.item.id,
-                source,
-                request
-                    .position
-                    .signed_sub(request.item.start)
-                    .saturating_add(request.item.animation_time_offset),
-            )
-        {
+        if let Some(camera) = shrimply_video_core::camera_reconstruction::sample_for_visual(
+            request.project,
+            request.item,
+            request.sequence_path,
+            track_id,
+            request.position,
+        )? {
             shrimply_video_core::gaussian::apply_tracking(
                 &mut params,
                 shrimply_video_core::gaussian::TrackingSample {

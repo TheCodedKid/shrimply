@@ -232,7 +232,7 @@ pub(crate) fn add_input_controllers(
     });
     area.add_controller(scroll);
 
-    crate::drag_and_drop::setup(area, project, player_state, selection_state, runtime);
+    crate::drag_and_drop::setup(area, runtime);
 }
 
 fn finish_cursor_grab(

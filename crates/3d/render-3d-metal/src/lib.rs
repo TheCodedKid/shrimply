@@ -2,26 +2,34 @@
 
 use std::{ffi::c_void, mem::size_of, ptr::NonNull};
 
-use objc2::{rc::Retained, runtime::ProtocolObject};
+use objc2::{AnyThread, rc::Retained, runtime::ProtocolObject};
 use objc2_foundation::{NSArray, NSString};
 use objc2_metal::{
     MTLAccelerationStructure, MTLAccelerationStructureCommandEncoder,
     MTLAccelerationStructureInstanceDescriptor, MTLAccelerationStructureInstanceOptions,
-    MTLAccelerationStructureTriangleGeometryDescriptor, MTLAttributeFormat, MTLBlitCommandEncoder,
-    MTLCommandBuffer, MTLCommandBufferStatus, MTLCommandEncoder, MTLCommandQueue,
-    MTLComputeCommandEncoder, MTLComputePipelineState, MTLDevice,
+    MTLAccelerationStructureTriangleGeometryDescriptor, MTLAttributeFormat, MTLBarrierScope,
+    MTLBlitCommandEncoder, MTLBuffer, MTLCommandBuffer, MTLCommandBufferStatus, MTLCommandEncoder,
+    MTLCommandQueue, MTLComputeCommandEncoder, MTLComputePipelineState, MTLDevice,
     MTLInstanceAccelerationStructureDescriptor, MTLLibrary, MTLOrigin, MTLPackedFloat3,
     MTLPackedFloat4x3, MTLPixelFormat, MTLPrimitiveAccelerationStructureDescriptor, MTLRegion,
     MTLResource, MTLResourceOptions, MTLResourceUsage, MTLSamplerAddressMode, MTLSamplerDescriptor,
     MTLSamplerMinMagFilter, MTLSamplerMipFilter, MTLSamplerState, MTLSize, MTLStorageMode,
     MTLTexture, MTLTextureDescriptor, MTLTextureType, MTLTextureUsage,
 };
+use objc2_metal_performance_shaders::MPSSVGFDenoiser;
 
 include!(concat!(env!("OUT_DIR"), "/obj_metal.rs"));
 
 pub struct Rendered {
     pub buffer: shrimply_render_metal::Buffer,
     pub row_bytes: usize,
+}
+
+#[derive(Clone, Copy)]
+pub struct CompositeBackground<'a> {
+    pub buffer: &'a shrimply_render_metal::Buffer,
+    pub width: u32,
+    pub height: u32,
 }
 
 struct UploadedGeometry {
@@ -44,9 +52,16 @@ struct UploadedEnvironment {
 pub struct Renderer {
     _library: Retained<ProtocolObject<dyn MTLLibrary>>,
     pipeline: Retained<ProtocolObject<dyn MTLComputePipelineState>>,
+    composite_upload_pipeline: Retained<ProtocolObject<dyn MTLComputePipelineState>>,
+    denoise_composite_pipeline: Retained<ProtocolObject<dyn MTLComputePipelineState>>,
+    outline_distance_pipeline: Retained<ProtocolObject<dyn MTLComputePipelineState>>,
+    outline_pipeline: Retained<ProtocolObject<dyn MTLComputePipelineState>>,
     material_sampler: Retained<ProtocolObject<dyn MTLSamplerState>>,
     environment_sampler: Retained<ProtocolObject<dyn MTLSamplerState>>,
     fallback_environment: Retained<ProtocolObject<dyn MTLTexture>>,
+    denoiser: Retained<MPSSVGFDenoiser>,
+    background_denoiser: Retained<MPSSVGFDenoiser>,
+    alpha_denoiser: Retained<MPSSVGFDenoiser>,
     environment: Option<UploadedEnvironment>,
     uploaded: Option<UploadedGeometry>,
 }
@@ -55,6 +70,8 @@ pub struct Renderer {
 struct OutputSize {
     width: u32,
     height: u32,
+    denoising: u32,
+    padding: u32,
 }
 
 #[repr(C, align(16))]
@@ -77,8 +94,6 @@ struct ComputePbr {
     padding: [f32; 3],
 }
 
-const _: () = assert!(size_of::<ComputeMaterial>() == obj_metal::MATERIALS_ELEMENT_SIZE);
-
 impl Renderer {
     pub fn new(compute: &shrimply_render_metal::Renderer) -> Result<Self, String> {
         if !compute.supports_ray_tracing() {
@@ -88,12 +103,22 @@ impl Renderer {
         let library = device
             .newLibraryWithSource_options_error(&NSString::from_str(obj_metal::METAL_SOURCE), None)
             .map_err(|error| format!("Compile shared OBJ Metal shader: {error}"))?;
-        let function = library
-            .newFunctionWithName(&NSString::from_str(obj_metal::OBJ_COMPUTE_ENTRY_POINT))
-            .ok_or("Shared OBJ Metal shader omitted obj_compute")?;
-        let pipeline = device
-            .newComputePipelineStateWithFunction_error(&function)
-            .map_err(|error| format!("Create shared OBJ Metal pipeline: {error}"))?;
+        let pipeline = |entry: &str| {
+            let function = library
+                .newFunctionWithName(&NSString::from_str(entry))
+                .ok_or_else(|| format!("Shared OBJ Metal shader omitted {entry}"))?;
+            device
+                .newComputePipelineStateWithFunction_error(&function)
+                .map_err(|error| format!("Create shared OBJ Metal pipeline {entry}: {error}"))
+        };
+        let main_pipeline = pipeline(obj_metal::OBJ_COMPUTE_ENTRY_POINT)?;
+        let composite_upload_pipeline =
+            pipeline(obj_metal::OBJ_COMPOSITE_UPLOAD_COMPUTE_ENTRY_POINT)?;
+        let denoise_composite_pipeline =
+            pipeline(obj_metal::OBJ_DENOISE_COMPOSITE_COMPUTE_ENTRY_POINT)?;
+        let outline_distance_pipeline =
+            pipeline(obj_metal::OBJ_OUTLINE_DISTANCE_COMPUTE_ENTRY_POINT)?;
+        let outline_pipeline = pipeline(obj_metal::OBJ_OUTLINE_COMPUTE_ENTRY_POINT)?;
         let sampler_descriptor = MTLSamplerDescriptor::new();
         sampler_descriptor.setMinFilter(MTLSamplerMinMagFilter::Linear);
         sampler_descriptor.setMagFilter(MTLSamplerMinMagFilter::Linear);
@@ -111,12 +136,24 @@ impl Renderer {
             .ok_or("Could not create OBJ environment sampler")?;
         let fallback_environment =
             upload_float_texture(compute, 1, 1, &[[0.0_f32, 0.0_f32, 0.0_f32, 1.0_f32]])?;
+        let denoiser = unsafe { MPSSVGFDenoiser::initWithDevice(MPSSVGFDenoiser::alloc(), device) };
+        let background_denoiser =
+            unsafe { MPSSVGFDenoiser::initWithDevice(MPSSVGFDenoiser::alloc(), device) };
+        let alpha_denoiser =
+            unsafe { MPSSVGFDenoiser::initWithDevice(MPSSVGFDenoiser::alloc(), device) };
         Ok(Self {
             _library: library,
-            pipeline,
+            pipeline: main_pipeline,
+            composite_upload_pipeline,
+            denoise_composite_pipeline,
+            outline_distance_pipeline,
+            outline_pipeline,
             material_sampler,
             environment_sampler,
             fallback_environment,
+            denoiser,
+            background_denoiser,
+            alpha_denoiser,
             environment: None,
             uploaded: None,
         })
@@ -126,38 +163,20 @@ impl Renderer {
         &mut self,
         metal: &shrimply_render_metal::Renderer,
         plan: &shrimply_render_3d::PreparedFrame,
+        composite_background: Option<CompositeBackground<'_>>,
     ) -> Result<Rendered, String> {
-        if plan.params.path_tracing != shrimply_render_3d::obj::PathTracingMode::Off {
-            return Err("Path-traced OBJ rendering is not yet connected to Metal".into());
-        }
-        if plan.params.environment_source == shrimply_scene_3d::EnvironmentSource::Composite {
-            return Err("Composite OBJ environments are not yet connected to Metal".into());
-        }
-        if !plan.params.grounds.is_empty() {
-            return Err("OBJ grounds are not yet connected to Metal".into());
-        }
-        if plan.params.transmission > 0.0
-            || plan
-                .session
-                .materials()
-                .iter()
-                .any(|material| material.flags[3] != 0 && material.pbr.transmission > 0.0)
-        {
-            return Err("Transmissive OBJ materials are not yet connected to Metal".into());
-        }
-        if plan.params.toon_outline_mode != shrimply_render_3d::obj::OutlineMode::Off {
-            return Err("OBJ outlines are not yet connected to Metal".into());
-        }
-        if plan.params.shading_model == shrimply_render_3d::obj::ShadingModel::Toon {
-            return Err("Toon OBJ rendering is not yet connected to Metal".into());
-        }
-        if plan.params.toon_texture_filter != shrimply_render_3d::obj::ToonTextureFilter::Direct {
-            return Err("Kuwahara OBJ texture filtering is not yet connected to Metal".into());
+        let width = plan.width.max(1);
+        let height = plan.height.max(1);
+        let denoising = plan.params.denoising
+            && plan.params.shading_model == shrimply_render_3d::obj::ShadingModel::Pbr;
+        if denoising && plan.uniforms.camera_lens[1] > 0.0 {
+            return Err(
+                "Metal SVGF denoising does not support stochastic depth of field; disable denoising or set focus distance to 0"
+                    .to_string(),
+            );
         }
         self.ensure_geometry(metal, &plan.session)?;
         self.ensure_environment(metal, plan)?;
-        let width = plan.width.max(1);
-        let height = plan.height.max(1);
         let row_bytes = usize::try_from(width)
             .map_err(|_| "OBJ width exceeds Metal limits")?
             .checked_mul(size_of::<u32>())
@@ -165,8 +184,57 @@ impl Renderer {
         let output_bytes = row_bytes
             .checked_mul(usize::try_from(height).map_err(|_| "OBJ height exceeds Metal limits")?)
             .ok_or("OBJ output size overflow")?;
-        let scene = metal.upload(bytes_of(&plan.uniforms))?;
-        let output_size = metal.upload(bytes_of(&OutputSize { width, height }))?;
+        let pixel_count = usize::try_from(u64::from(width) * u64::from(height))
+            .map_err(|_| "OBJ output dimensions exceed Metal limits")?;
+        let region_boundary = plan.params.toon_outline_mode
+            != shrimply_render_3d::obj::OutlineMode::Off
+            && plan.params.toon_outline_method
+                == shrimply_render_3d::obj::OutlineMethod::RegionBoundary;
+        let outline_elements = if region_boundary { pixel_count } else { 1 };
+        let outline_guide = metal.allocate(
+            outline_elements
+                .checked_mul(size_of::<[f32; 4]>())
+                .ok_or("OBJ outline guide size overflow")?,
+        )?;
+        let outline_distance = metal.allocate(
+            outline_elements
+                .checked_mul(size_of::<[f32; 2]>())
+                .ok_or("OBJ outline distance size overflow")?,
+        )?;
+        let mut uniforms = plan.uniforms;
+        uniforms.transmission_background[1] = u32::from(composite_background.is_some()) as f32;
+        let scene = metal.upload(bytes_of(&uniforms))?;
+        let output_size = metal.upload(bytes_of(&OutputSize {
+            width,
+            height,
+            denoising: u32::from(denoising),
+            padding: 0,
+        }))?;
+        let (composite_width, composite_height) =
+            composite_background.map_or((1, 1), |background| (background.width, background.height));
+        let composite_texture =
+            allocate_composite_texture(metal.device(), composite_width, composite_height)?;
+        let composite_size = composite_background
+            .map(|background| {
+                let expected =
+                    usize::try_from(u64::from(background.width) * u64::from(background.height))
+                        .map_err(|_| "OBJ composite background dimensions exceed Metal limits")?
+                        .checked_mul(size_of::<u32>())
+                        .ok_or("OBJ composite background size overflow")?;
+                if background.width == 0
+                    || background.height == 0
+                    || background.buffer.metal().length() < expected
+                {
+                    return Err("OBJ composite background buffer is too small".to_string());
+                }
+                metal.upload(bytes_of(&OutputSize {
+                    width: background.width,
+                    height: background.height,
+                    denoising: 0,
+                    padding: 0,
+                }))
+            })
+            .transpose()?;
         let compute_materials = plan
             .session
             .materials()
@@ -184,7 +252,7 @@ impl Renderer {
                         material.pbr.path_tracing as u32,
                         material.pbr.light_sampling_quality as u32,
                         material.pbr.render_quality as u32,
-                        material.pbr.optix_denoising,
+                        material.pbr.denoising,
                     ],
                     surface: [
                         material.pbr.subsurface,
@@ -200,6 +268,16 @@ impl Renderer {
         let materials = metal.upload(bytes_slice(&compute_materials))?;
         let mesh_instances = metal.upload(bytes_slice(plan.session.mesh_instances()))?;
         let output = metal.allocate(output_bytes)?;
+        let denoiser_width = if denoising { width } else { 1 };
+        let denoiser_height = if denoising { height } else { 1 };
+        let denoiser_beauty =
+            allocate_denoiser_texture(metal.device(), denoiser_width, denoiser_height)?;
+        let denoiser_background =
+            allocate_denoiser_texture(metal.device(), denoiser_width, denoiser_height)?;
+        let denoiser_alpha =
+            allocate_denoiser_texture(metal.device(), denoiser_width, denoiser_height)?;
+        let denoiser_depth_normal =
+            allocate_denoiser_texture(metal.device(), denoiser_width, denoiser_height)?;
         let instance_descriptors = plan
             .session
             .acceleration_instances()
@@ -236,6 +314,58 @@ impl Renderer {
                 0,
             );
         acceleration_encoder.endEncoding();
+        if let Some(background) = composite_background {
+            let composite_size = composite_size
+                .as_ref()
+                .expect("composite background size was uploaded");
+            let composite_encoder = command
+                .computeCommandEncoder()
+                .ok_or("Could not create OBJ composite upload encoder")?;
+            composite_encoder.setComputePipelineState(&self.composite_upload_pipeline);
+            unsafe {
+                composite_encoder.setBuffer_offset_atIndex(
+                    Some(&composite_size.metal()),
+                    0,
+                    obj_metal::COMPOSITE_SIZE_BINDING,
+                );
+                composite_encoder.setBuffer_offset_atIndex(
+                    Some(&background.buffer.metal()),
+                    0,
+                    obj_metal::COMPOSITE_PIXELS_BINDING,
+                );
+                composite_encoder.setTexture_atIndex(
+                    Some(&composite_texture),
+                    obj_metal::COMPOSITE_TEXTURE_OUTPUT_BINDING,
+                );
+            }
+            let source_resource: &ProtocolObject<dyn MTLResource> =
+                ProtocolObject::from_ref(&**background.buffer.metal());
+            composite_encoder.useResource_usage(source_resource, MTLResourceUsage::Read);
+            let size_resource: &ProtocolObject<dyn MTLResource> =
+                ProtocolObject::from_ref(&**composite_size.metal());
+            composite_encoder.useResource_usage(size_resource, MTLResourceUsage::Read);
+            let texture_resource: &ProtocolObject<dyn MTLResource> =
+                ProtocolObject::from_ref(&*composite_texture);
+            composite_encoder.useResource_usage(texture_resource, MTLResourceUsage::Write);
+            composite_encoder.dispatchThreads_threadsPerThreadgroup(
+                MTLSize {
+                    width: background.width as usize,
+                    height: background.height as usize,
+                    depth: 1,
+                },
+                MTLSize {
+                    width: obj_metal::OBJ_COMPOSITE_UPLOAD_COMPUTE_THREAD_GROUP[0],
+                    height: obj_metal::OBJ_COMPOSITE_UPLOAD_COMPUTE_THREAD_GROUP[1],
+                    depth: obj_metal::OBJ_COMPOSITE_UPLOAD_COMPUTE_THREAD_GROUP[2],
+                },
+            );
+            composite_encoder.endEncoding();
+            let blit = command
+                .blitCommandEncoder()
+                .ok_or("Could not create OBJ composite mipmap encoder")?;
+            blit.generateMipmapsForTexture(&composite_texture);
+            blit.endEncoding();
+        }
         let encoder = command
             .computeCommandEncoder()
             .ok_or("Could not create OBJ Metal compute encoder")?;
@@ -308,6 +438,10 @@ impl Renderer {
                 Some(&self.environment_sampler),
                 obj_metal::ENVIRONMENT_SAMPLER_BINDING,
             );
+            encoder.setTexture_atIndex(
+                Some(&composite_texture),
+                obj_metal::COMPOSITE_TEXTURE_BINDING,
+            );
             encoder.setBuffer_offset_atIndex(
                 Some(&mesh_instances.metal()),
                 0,
@@ -317,6 +451,26 @@ impl Renderer {
                 Some(&output.metal()),
                 0,
                 obj_metal::OUTPUT_PIXELS_BINDING,
+            );
+            encoder.setBuffer_offset_atIndex(
+                Some(&outline_guide.metal()),
+                0,
+                obj_metal::OUTLINE_GUIDE_BINDING,
+            );
+            encoder.setBuffer_offset_atIndex(
+                Some(&outline_distance.metal()),
+                0,
+                obj_metal::OUTLINE_DISTANCE_BINDING,
+            );
+            encoder.setTexture_atIndex(Some(&denoiser_beauty), obj_metal::DENOISER_BEAUTY_BINDING);
+            encoder.setTexture_atIndex(
+                Some(&denoiser_background),
+                obj_metal::DENOISER_BACKGROUND_BINDING,
+            );
+            encoder.setTexture_atIndex(Some(&denoiser_alpha), obj_metal::DENOISER_ALPHA_BINDING);
+            encoder.setTexture_atIndex(
+                Some(&denoiser_depth_normal),
+                obj_metal::DENOISER_DEPTH_NORMAL_BINDING,
             );
         }
         for buffer in [
@@ -331,6 +485,8 @@ impl Renderer {
             &materials,
             &mesh_instances,
             &output,
+            &outline_guide,
+            &outline_distance,
         ] {
             let resource: &ProtocolObject<dyn MTLResource> =
                 ProtocolObject::from_ref(&**buffer.metal());
@@ -348,6 +504,33 @@ impl Renderer {
         let environment_texture_resource: &ProtocolObject<dyn MTLResource> =
             ProtocolObject::from_ref(environment_texture);
         encoder.useResource_usage(environment_texture_resource, MTLResourceUsage::Read);
+        let composite_texture_resource: &ProtocolObject<dyn MTLResource> =
+            ProtocolObject::from_ref(&*composite_texture);
+        encoder.useResource_usage(composite_texture_resource, MTLResourceUsage::Read);
+        let denoiser_beauty_resource: &ProtocolObject<dyn MTLResource> =
+            ProtocolObject::from_ref(&*denoiser_beauty);
+        encoder.useResource_usage(
+            denoiser_beauty_resource,
+            MTLResourceUsage::Read | MTLResourceUsage::Write,
+        );
+        let denoiser_background_resource: &ProtocolObject<dyn MTLResource> =
+            ProtocolObject::from_ref(&*denoiser_background);
+        encoder.useResource_usage(
+            denoiser_background_resource,
+            MTLResourceUsage::Read | MTLResourceUsage::Write,
+        );
+        let denoiser_alpha_resource: &ProtocolObject<dyn MTLResource> =
+            ProtocolObject::from_ref(&*denoiser_alpha);
+        encoder.useResource_usage(
+            denoiser_alpha_resource,
+            MTLResourceUsage::Read | MTLResourceUsage::Write,
+        );
+        let denoiser_depth_normal_resource: &ProtocolObject<dyn MTLResource> =
+            ProtocolObject::from_ref(&*denoiser_depth_normal);
+        encoder.useResource_usage(
+            denoiser_depth_normal_resource,
+            MTLResourceUsage::Read | MTLResourceUsage::Write,
+        );
         let tlas_resource: &ProtocolObject<dyn MTLResource> =
             ProtocolObject::from_ref(&*tlas.structure);
         encoder.useResource_usage(tlas_resource, MTLResourceUsage::Read);
@@ -367,7 +550,127 @@ impl Renderer {
                 depth: obj_metal::OBJ_COMPUTE_THREAD_GROUP[2],
             },
         );
+        if region_boundary {
+            encoder.memoryBarrierWithScope(MTLBarrierScope::Buffers | MTLBarrierScope::Textures);
+            encoder.setComputePipelineState(&self.outline_distance_pipeline);
+            encoder.dispatchThreads_threadsPerThreadgroup(
+                MTLSize {
+                    width: width as usize,
+                    height: height as usize,
+                    depth: 1,
+                },
+                MTLSize {
+                    width: obj_metal::OBJ_OUTLINE_DISTANCE_COMPUTE_THREAD_GROUP[0],
+                    height: obj_metal::OBJ_OUTLINE_DISTANCE_COMPUTE_THREAD_GROUP[1],
+                    depth: obj_metal::OBJ_OUTLINE_DISTANCE_COMPUTE_THREAD_GROUP[2],
+                },
+            );
+            encoder.memoryBarrierWithScope(MTLBarrierScope::Buffers | MTLBarrierScope::Textures);
+            encoder.setComputePipelineState(&self.outline_pipeline);
+            encoder.dispatchThreads_threadsPerThreadgroup(
+                MTLSize {
+                    width: width as usize,
+                    height: height as usize,
+                    depth: 1,
+                },
+                MTLSize {
+                    width: obj_metal::OBJ_OUTLINE_COMPUTE_THREAD_GROUP[0],
+                    height: obj_metal::OBJ_OUTLINE_COMPUTE_THREAD_GROUP[1],
+                    depth: obj_metal::OBJ_OUTLINE_COMPUTE_THREAD_GROUP[2],
+                },
+            );
+        }
         encoder.endEncoding();
+        if denoising {
+            unsafe { self.denoiser.releaseTemporaryTextures() };
+            let denoised = unsafe {
+                self.denoiser
+                    .encodeToCommandBuffer_sourceTexture_motionVectorTexture_depthNormalTexture_previousDepthNormalTexture(
+                        &command,
+                        &denoiser_beauty,
+                        None,
+                        &denoiser_depth_normal,
+                        None,
+                    )
+            };
+            unsafe { self.background_denoiser.releaseTemporaryTextures() };
+            let denoised_background = unsafe {
+                self.background_denoiser
+                    .encodeToCommandBuffer_sourceTexture_motionVectorTexture_depthNormalTexture_previousDepthNormalTexture(
+                        &command,
+                        &denoiser_background,
+                        None,
+                        &denoiser_depth_normal,
+                        None,
+                    )
+            };
+            unsafe { self.alpha_denoiser.releaseTemporaryTextures() };
+            let denoised_alpha = unsafe {
+                self.alpha_denoiser
+                    .encodeToCommandBuffer_sourceTexture_motionVectorTexture_depthNormalTexture_previousDepthNormalTexture(
+                        &command,
+                        &denoiser_alpha,
+                        None,
+                        &denoiser_depth_normal,
+                        None,
+                    )
+            };
+            let composite_encoder = command
+                .computeCommandEncoder()
+                .ok_or("Could not create OBJ MPS denoiser output encoder")?;
+            composite_encoder.setComputePipelineState(&self.denoise_composite_pipeline);
+            unsafe {
+                composite_encoder.setBuffer_offset_atIndex(
+                    Some(&output_size.metal()),
+                    0,
+                    obj_metal::OUTPUT_SIZE_BINDING,
+                );
+                composite_encoder.setBuffer_offset_atIndex(
+                    Some(&output.metal()),
+                    0,
+                    obj_metal::OUTPUT_PIXELS_BINDING,
+                );
+                composite_encoder
+                    .setTexture_atIndex(Some(&denoiser_beauty), obj_metal::DENOISER_BEAUTY_BINDING);
+                composite_encoder
+                    .setTexture_atIndex(Some(&denoised), obj_metal::DENOISED_TEXTURE_BINDING);
+                composite_encoder.setTexture_atIndex(
+                    Some(&denoised_background),
+                    obj_metal::DENOISED_BACKGROUND_TEXTURE_BINDING,
+                );
+                composite_encoder.setTexture_atIndex(
+                    Some(&denoised_alpha),
+                    obj_metal::DENOISED_ALPHA_TEXTURE_BINDING,
+                );
+            }
+            let output_resource: &ProtocolObject<dyn MTLResource> =
+                ProtocolObject::from_ref(&**output.metal());
+            composite_encoder.useResource_usage(output_resource, MTLResourceUsage::Write);
+            composite_encoder.useResource_usage(denoiser_beauty_resource, MTLResourceUsage::Read);
+            let denoised_resource: &ProtocolObject<dyn MTLResource> =
+                ProtocolObject::from_ref(&*denoised);
+            composite_encoder.useResource_usage(denoised_resource, MTLResourceUsage::Read);
+            let denoised_background_resource: &ProtocolObject<dyn MTLResource> =
+                ProtocolObject::from_ref(&*denoised_background);
+            composite_encoder
+                .useResource_usage(denoised_background_resource, MTLResourceUsage::Read);
+            let denoised_alpha_resource: &ProtocolObject<dyn MTLResource> =
+                ProtocolObject::from_ref(&*denoised_alpha);
+            composite_encoder.useResource_usage(denoised_alpha_resource, MTLResourceUsage::Read);
+            composite_encoder.dispatchThreads_threadsPerThreadgroup(
+                MTLSize {
+                    width: width as usize,
+                    height: height as usize,
+                    depth: 1,
+                },
+                MTLSize {
+                    width: obj_metal::OBJ_DENOISE_COMPOSITE_COMPUTE_THREAD_GROUP[0],
+                    height: obj_metal::OBJ_DENOISE_COMPOSITE_COMPUTE_THREAD_GROUP[1],
+                    depth: obj_metal::OBJ_DENOISE_COMPOSITE_COMPUTE_THREAD_GROUP[2],
+                },
+            );
+            composite_encoder.endEncoding();
+        }
         command.commit();
         command.waitUntilCompleted();
         if command.status() == MTLCommandBufferStatus::Error {
@@ -554,6 +857,51 @@ fn upload_material_texture(
         );
     }
     Ok(texture)
+}
+
+fn allocate_composite_texture(
+    device: &ProtocolObject<dyn MTLDevice>,
+    width: u32,
+    height: u32,
+) -> Result<Retained<ProtocolObject<dyn MTLTexture>>, String> {
+    if width == 0 || height == 0 {
+        return Err("OBJ composite texture dimensions must be nonzero".into());
+    }
+    let descriptor = MTLTextureDescriptor::new();
+    descriptor.setTextureType(MTLTextureType::Type2D);
+    descriptor.setPixelFormat(MTLPixelFormat::RGBA8Unorm);
+    unsafe {
+        descriptor.setWidth(width as usize);
+        descriptor.setHeight(height as usize);
+        descriptor.setMipmapLevelCount(
+            usize::try_from(u32::BITS - width.max(height).leading_zeros())
+                .map_err(|_| "OBJ composite mip count exceeds Metal limits")?,
+        );
+    }
+    descriptor.setStorageMode(MTLStorageMode::Private);
+    descriptor.setUsage(MTLTextureUsage::ShaderRead | MTLTextureUsage::ShaderWrite);
+    device
+        .newTextureWithDescriptor(&descriptor)
+        .ok_or_else(|| "Could not allocate OBJ composite texture".into())
+}
+
+fn allocate_denoiser_texture(
+    device: &ProtocolObject<dyn MTLDevice>,
+    width: u32,
+    height: u32,
+) -> Result<Retained<ProtocolObject<dyn MTLTexture>>, String> {
+    let descriptor = MTLTextureDescriptor::new();
+    descriptor.setTextureType(MTLTextureType::Type2D);
+    descriptor.setPixelFormat(MTLPixelFormat::RGBA32Float);
+    unsafe {
+        descriptor.setWidth(width as usize);
+        descriptor.setHeight(height as usize);
+    }
+    descriptor.setStorageMode(MTLStorageMode::Private);
+    descriptor.setUsage(MTLTextureUsage::ShaderRead | MTLTextureUsage::ShaderWrite);
+    device
+        .newTextureWithDescriptor(&descriptor)
+        .ok_or_else(|| "Could not allocate OBJ MPS denoiser texture".into())
 }
 
 fn upload_float_texture(

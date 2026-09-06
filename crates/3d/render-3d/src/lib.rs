@@ -116,7 +116,7 @@ pub struct SceneRenderParams {
     pub ior: f32,
     pub path_tracing: obj::PathTracingMode,
     pub light_sampling_quality: obj::LightSamplingQuality,
-    pub optix_denoising: bool,
+    pub denoising: bool,
     pub render_quality: obj::RenderQuality,
     pub normal_mode: obj::NormalMode,
     pub shading_model: obj::ShadingModel,
@@ -252,7 +252,7 @@ impl From<&shrimply_scene_3d::ResolvedObjScene> for SceneRenderParams {
                 LightSamplingQuality::Rays32 => obj::LightSamplingQuality::Rays32,
                 LightSamplingQuality::Rays64 => obj::LightSamplingQuality::Rays64,
             },
-            optix_denoising: scene.material.optix_denoising,
+            denoising: scene.material.denoising,
             render_quality: obj::RenderQuality::Final,
             normal_mode: match scene.material.normal_mode {
                 NormalMode::Smooth => obj::NormalMode::Smooth,
@@ -414,7 +414,7 @@ impl From<&SceneRenderParams> for SurfaceMaterialParams {
     fn from(params: &SceneRenderParams) -> Self {
         let mut pbr = math::pbr_settings(params);
         pbr.path_tracing = obj::PathTracingMode::Off;
-        pbr.optix_denoising = 0;
+        pbr.denoising = 0;
         pbr.transmission = params.transmission.clamp(0.0, 1.0);
         let mut identity = Vec::new();
         identity.extend(params.base_color_linear.to_array().map(f32::to_bits));

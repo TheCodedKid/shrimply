@@ -1,5 +1,4 @@
 use std::collections::BTreeMap;
-use std::io::Read;
 use std::path::Path;
 use std::time::Duration;
 
@@ -11,6 +10,7 @@ use shrimply_math_core::{deserialize_fraction, fraction_is_finite, serialize_fra
 
 const MESSAGE_PACK: &str = "application/msgpack";
 const MESSAGE_PACK_STREAM: &str = "application/x-msgpack-stream";
+const STREAM_HEADER_BYTES: usize = 8;
 const REFERENCE_AUDIO_KEY: &str = "reference_audio";
 const LEGACY_REFERENCE_AUDIO_KEY: &str = "voice";
 
@@ -550,6 +550,24 @@ pub fn synthesize(
     server_url: &str,
     cancellation: &shrimply_server_client::CancellationToken,
     request: &SpeechRequest,
+    on_progress: impl FnMut(&str) -> bool,
+) -> Result<Speech, String> {
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .map_err(|error| format!("Could not start speech network runtime: {error}"))?
+        .block_on(synthesize_async(
+            server_url,
+            cancellation,
+            request,
+            on_progress,
+        ))
+}
+
+async fn synthesize_async(
+    server_url: &str,
+    cancellation: &shrimply_server_client::CancellationToken,
+    request: &SpeechRequest,
     mut on_progress: impl FnMut(&str) -> bool,
 ) -> Result<Speech, String> {
     let server_url = server_url.trim();
@@ -561,16 +579,17 @@ pub fn synthesize(
         .map_err(|error| format!("Could not encode speech request: {error}"))?;
     let endpoint = format!("{}/speech", server_url.trim_end_matches('/'));
     tracing::info!(%endpoint, body_bytes = body.len(), "Sending text-to-speech request");
-    let request = reqwest::blocking::Client::builder()
+    let request = reqwest::Client::builder()
         .connect_timeout(Duration::from_secs(5))
+        .read_timeout(shrimply_server_client::COMPUTE_STREAM_READ_TIMEOUT)
         .build()
         .map_err(|error| error.to_string())?
         .post(&endpoint)
         .header(ACCEPT, MESSAGE_PACK_STREAM)
         .header(CONTENT_TYPE, MESSAGE_PACK)
         .body(body);
-    let (request, _job) = cancellation.manage(request)?;
-    let mut response = request.send().map_err(|error| {
+    let (request, _job) = cancellation.manage_async(request)?;
+    let mut response = request.send().await.map_err(|error| {
         tracing::error!(%endpoint, %error, "Text-to-speech request failed before response headers");
         format!("Compute server connection failed: {error}")
     })?;
@@ -583,7 +602,7 @@ pub fn synthesize(
         .to_string();
     tracing::info!(%endpoint, %status, %content_type, "Received text-to-speech response headers");
     if !status.is_success() {
-        let body = response.bytes().map_err(|error| error.to_string())?;
+        let body = response.bytes().await.map_err(|error| error.to_string())?;
         let message = rmp_serde::from_slice::<ErrorEnvelope>(&body)
             .map(|error| error.error.message)
             .unwrap_or_else(|_| status.to_string());
@@ -594,22 +613,45 @@ pub fn synthesize(
             "Server returned {content_type:?}, expected {MESSAGE_PACK_STREAM}"
         ));
     }
+    let mut buffered = Vec::new();
     loop {
-        tracing::debug!(%endpoint, "Waiting for text-to-speech event header");
-        let mut header = [0; 8];
-        response
-            .read_exact(&mut header)
-            .map_err(|error| format!("Compute server connection failed: {error}"))?;
-        let length = usize::try_from(u64::from_le_bytes(header))
-            .map_err(|_| "Server event is too large".to_string())?;
+        while buffered.len() < STREAM_HEADER_BYTES {
+            if cancellation.is_cancelled() {
+                return Err("Speech generation cancelled".into());
+            }
+            let chunk = response
+                .chunk()
+                .await
+                .map_err(|error| format!("Compute server connection failed: {error}"))?
+                .ok_or("Compute server connection failed: response ended early")?;
+            buffered.extend_from_slice(&chunk);
+        }
+        let length = usize::try_from(u64::from_le_bytes(
+            buffered[..STREAM_HEADER_BYTES]
+                .try_into()
+                .expect("speech event header is complete"),
+        ))
+        .map_err(|_| "Server event is too large".to_string())?;
         if length > shrimply_server_client::MAXIMUM_COMPUTE_EVENT_BYTES {
             return Err("Server event is too large".to_string());
         }
+        let event_bytes = STREAM_HEADER_BYTES
+            .checked_add(length)
+            .ok_or("Server event is too large")?;
+        while buffered.len() < event_bytes {
+            if cancellation.is_cancelled() {
+                return Err("Speech generation cancelled".into());
+            }
+            let chunk = response
+                .chunk()
+                .await
+                .map_err(|error| format!("Compute server connection failed: {error}"))?
+                .ok_or("Compute server connection failed: response ended early")?;
+            buffered.extend_from_slice(&chunk);
+        }
+        let payload = buffered[STREAM_HEADER_BYTES..event_bytes].to_vec();
+        buffered.drain(..event_bytes);
         tracing::debug!(%endpoint, event_bytes = length, "Reading text-to-speech event payload");
-        let mut payload = vec![0; length];
-        response
-            .read_exact(&mut payload)
-            .map_err(|error| format!("Compute server connection failed: {error}"))?;
         match rmp_serde::from_slice::<SpeechEvent>(&payload)
             .map_err(|error| format!("Invalid server event: {error}"))?
         {

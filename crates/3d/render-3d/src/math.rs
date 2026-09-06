@@ -283,7 +283,7 @@ pub(crate) fn pbr_settings(params: &SceneRenderParams) -> crate::obj::PbrSetting
     };
     settings.light_sampling_quality = params.light_sampling_quality;
     settings.render_quality = params.render_quality;
-    settings.optix_denoising = u32::from(params.optix_denoising && pbr);
+    settings.denoising = u32::from(params.denoising && pbr);
     settings.subsurface = params.subsurface.clamp(0.0, 1.0);
     settings.clearcoat = params.clearcoat.clamp(0.0, 1.0);
     settings.sheen = params.sheen.clamp(0.0, 1.0);

@@ -67,7 +67,7 @@ public struct PbrSettings
     public PathTracingMode path_tracing;
     public LightSamplingQuality light_sampling_quality;
     public RenderQuality render_quality;
-    public uint optix_denoising;
+    public uint denoising;
     public float subsurface;
     public float clearcoat;
     public float sheen;

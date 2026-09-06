@@ -7,8 +7,7 @@ pub(super) struct TimelineRuntime {
     pub(super) scene: shrimply_timeline_core::scene::Scene,
     pub(super) renderer: TimelineRenderer,
     pub(super) animation_tick_active: bool,
-    pub(super) active_audio_recording: Option<ActiveAudioRecording>,
-    pub(super) active_video_recording: Option<ActiveVideoRecording>,
+    pub(super) screen_recording: Option<video_recording::ScreenRecording>,
     pub(super) active_context_menu: Option<gtk::Popover>,
     pub(super) resource_jobs: Vec<shrimply_gtk_components::resource_pipeline::UiSubscription>,
 }
@@ -32,24 +31,9 @@ impl TimelineRuntime {
             ),
             renderer: TimelineRenderer::new(),
             animation_tick_active: false,
-            active_audio_recording: None,
-            active_video_recording: None,
+            screen_recording: None,
             active_context_menu: None,
             resource_jobs: Vec::new(),
         }
     }
-}
-pub(super) struct ActiveAudioRecording {
-    pub(super) key: TrackKey,
-    pub(super) start: Time,
-    pub(super) recording: crate::audio::recording::MicRecording,
-}
-
-pub(super) struct ActiveVideoRecording {
-    pub(super) key: TrackKey,
-    pub(super) start: Time,
-    pub(super) stop_at: Option<Time>,
-    pub(super) recording: video_recording::ScreenRecording,
-    pub(super) ready: bool,
-    pub(super) stopping: bool,
 }

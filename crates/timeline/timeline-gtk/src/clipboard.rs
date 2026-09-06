@@ -29,14 +29,7 @@ pub(super) fn paste(
             .iter()
             .any(|mime| formats.contain_mime_type(mime))
     {
-        paste_file(
-            clipboard,
-            area,
-            project,
-            player_state,
-            selection_state,
-            runtime,
-        );
+        paste_file(clipboard, area, runtime);
     } else if formats.contains_type(gdk::Texture::static_type())
         || formats
             .mime_types()
@@ -44,9 +37,6 @@ pub(super) fn paste(
             .any(|mime| mime.starts_with("image/"))
     {
         let area = area.clone();
-        let project = project.clone();
-        let player_state = player_state.clone();
-        let selection_state = selection_state.clone();
         let runtime = runtime.clone();
         clipboard.read_texture_async(None::<&gio::Cancellable>, move |result| {
             let Some(texture) = result.ok().flatten() else {
@@ -54,9 +44,6 @@ pub(super) fn paste(
             };
             external_content::insert(
                 &area,
-                &project,
-                &player_state,
-                &selection_state,
                 &runtime,
                 Content::Texture(texture),
                 Origin::Clipboard,
@@ -89,11 +76,8 @@ pub(super) fn paste(
             } else {
                 external_content::insert(
                     &area,
-                    &project,
-                    &player_state,
-                    &selection_state,
                     &runtime,
-                    Content::Text(text.into()),
+                    external_content::content_from_text(text.into()),
                     Origin::Clipboard,
                     Placement::Playhead,
                 );
@@ -105,15 +89,9 @@ pub(super) fn paste(
 fn paste_file(
     clipboard: gdk::Clipboard,
     area: &gtk::GLArea,
-    project: &Rc<RefCell<Project>>,
-    player_state: &SharedPlayerState,
-    selection_state: &SharedSelectionState,
     runtime: &Rc<RefCell<TimelineRuntime>>,
 ) {
     let area = area.clone();
-    let project = project.clone();
-    let player_state = player_state.clone();
-    let selection_state = selection_state.clone();
     let runtime = runtime.clone();
     if clipboard
         .formats()
@@ -132,9 +110,6 @@ fn paste_file(
                 };
                 external_content::insert(
                     &area,
-                    &project,
-                    &player_state,
-                    &selection_state,
                     &runtime,
                     content,
                     Origin::Clipboard,
@@ -159,22 +134,20 @@ fn paste_file(
                 glib::Priority::DEFAULT,
                 None::<&gio::Cancellable>,
                 move |result| {
-                    let Some(path) = result
+                    let paths = result
                         .ok()
                         .and_then(|bytes| {
                             std::str::from_utf8(bytes.as_ref()).ok().map(str::to_owned)
                         })
-                        .and_then(|text| external_content::supported_uri_path(&text))
-                    else {
+                        .map(|text| external_content::supported_uri_paths(&text))
+                        .unwrap_or_default();
+                    if paths.is_empty() {
                         return;
-                    };
+                    }
                     external_content::insert(
                         &area,
-                        &project,
-                        &player_state,
-                        &selection_state,
                         &runtime,
-                        Content::File(path),
+                        Content::Files(paths),
                         Origin::Clipboard,
                         Placement::Playhead,
                     );

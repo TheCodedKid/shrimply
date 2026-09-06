@@ -11,6 +11,7 @@ shrimply-slang-build = { path = "../../slang-build" }
 objc2.workspace = true
 objc2-foundation.workspace = true
 objc2-metal.workspace = true
+objc2-metal-performance-shaders.workspace = true
 shrimply-asset = { path = "../../asset" }
 shrimply-render-3d = { path = "../render-3d" }
 shrimply-render-metal = { path = "../../render-metal" }

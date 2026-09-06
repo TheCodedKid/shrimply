@@ -15,8 +15,8 @@ use objc2_metal::{
 
 include!(concat!(env!("OUT_DIR"), "/gaussian_metal.rs"));
 
-const SORT_THREADS: usize = PREPARE_SORT_THREADS[0];
-const RADIX_SIZE: usize = RADIX_PREFIX_THREADS[0];
+const SORT_THREADS: usize = gaussian_compute::PREPARE_DEPTH_SORT_THREAD_GROUP[0];
+const RADIX_SIZE: usize = gaussian_compute::RADIX_PREFIX_PASS_THREAD_GROUP[0];
 const RADIX_BITS: u32 = RADIX_SIZE.ilog2();
 const RADIX_PASSES: u32 = u32::BITS / RADIX_BITS;
 const OUTPUT_ROW_ALIGNMENT: usize = 256;
@@ -65,33 +65,49 @@ impl Renderer {
         let device = metal.device();
         let compute_library = device
             .newLibraryWithSource_options_error(
-                &NSString::from_str(GAUSSIAN_COMPUTE_METAL_SOURCE),
+                &NSString::from_str(gaussian_compute::METAL_SOURCE),
                 None,
             )
             .map_err(|error| format!("Compile shared Gaussian Metal compute module: {error}"))?;
         let raster_library = device
             .newLibraryWithSource_options_error(
-                &NSString::from_str(GAUSSIAN_RASTER_METAL_SOURCE),
+                &NSString::from_str(gaussian_raster::METAL_SOURCE),
                 None,
             )
             .map_err(|error| format!("Compile shared Gaussian Metal raster module: {error}"))?;
-        let prepare_depth_sort = compute_pipeline(device, &compute_library, "prepare_depth_sort")?;
-        let radix_histogram = compute_pipeline(device, &compute_library, "radix_histogram_pass")?;
-        let radix_prefix = compute_pipeline(device, &compute_library, "radix_prefix_pass")?;
-        let radix_scatter = compute_pipeline(device, &compute_library, "radix_scatter_pass")?;
+        let prepare_depth_sort = compute_pipeline(
+            device,
+            &compute_library,
+            gaussian_compute::PREPARE_DEPTH_SORT_ENTRY_POINT,
+        )?;
+        let radix_histogram = compute_pipeline(
+            device,
+            &compute_library,
+            gaussian_compute::RADIX_HISTOGRAM_PASS_ENTRY_POINT,
+        )?;
+        let radix_prefix = compute_pipeline(
+            device,
+            &compute_library,
+            gaussian_compute::RADIX_PREFIX_PASS_ENTRY_POINT,
+        )?;
+        let radix_scatter = compute_pipeline(
+            device,
+            &compute_library,
+            gaussian_compute::RADIX_SCATTER_PASS_ENTRY_POINT,
+        )?;
         let accumulate = render_pipeline(
             device,
             &raster_library,
-            "gaussian_vertex_metal",
-            "gaussian_fragment",
+            gaussian_raster::GAUSSIAN_VERTEX_METAL_ENTRY_POINT,
+            gaussian_raster::GAUSSIAN_FRAGMENT_ENTRY_POINT,
             MTLPixelFormat::RGBA16Float,
             true,
         )?;
         let resolve = render_pipeline(
             device,
             &raster_library,
-            "resolve_vertex",
-            "resolve_fragment",
+            gaussian_raster::RESOLVE_VERTEX_ENTRY_POINT,
+            gaussian_raster::RESOLVE_FRAGMENT_ENTRY_POINT,
             MTLPixelFormat::RGBA8Unorm,
             false,
         )?;
@@ -165,7 +181,7 @@ impl Renderer {
                 group_count: uploaded.group_count,
             },
             uploaded.group_count,
-            PREPARE_SORT_THREADS,
+            gaussian_compute::PREPARE_DEPTH_SORT_THREAD_GROUP,
             uploaded,
             &uniform_buffer,
         )?;
@@ -181,7 +197,7 @@ impl Renderer {
                 &self.radix_histogram,
                 constants,
                 uploaded.group_count,
-                RADIX_HISTOGRAM_THREADS,
+                gaussian_compute::RADIX_HISTOGRAM_PASS_THREAD_GROUP,
                 uploaded,
                 &uniform_buffer,
             )?;
@@ -190,7 +206,7 @@ impl Renderer {
                 &self.radix_prefix,
                 constants,
                 1,
-                RADIX_PREFIX_THREADS,
+                gaussian_compute::RADIX_PREFIX_PASS_THREAD_GROUP,
                 uploaded,
                 &uniform_buffer,
             )?;
@@ -199,7 +215,7 @@ impl Renderer {
                 &self.radix_scatter,
                 constants,
                 uploaded.group_count,
-                RADIX_SCATTER_THREADS,
+                gaussian_compute::RADIX_SCATTER_PASS_THREAD_GROUP,
                 uploaded,
                 &uniform_buffer,
             )?;
@@ -512,17 +528,29 @@ fn compute_buffers<'a>(
     uniforms: &'a shrimply_render_metal::Buffer,
 ) -> [(usize, &'a shrimply_render_metal::Buffer); 8] {
     [
-        (COMPUTE_GAUSSIANS_BUFFER, &uploaded.gaussians),
-        (COMPUTE_UNIFORMS_BUFFER, uniforms),
-        (COMPUTE_SORT_KEYS_BUFFER, &uploaded.sort_keys),
-        (COMPUTE_SORTED_INDICES_BUFFER, &uploaded.sorted_indices),
-        (COMPUTE_SCRATCH_KEYS_BUFFER, &uploaded.scratch_keys),
-        (COMPUTE_SCRATCH_INDICES_BUFFER, &uploaded.scratch_indices),
+        (gaussian_compute::GAUSSIANS_BINDING, &uploaded.gaussians),
+        (gaussian_compute::UNIFORMS_BINDING, uniforms),
+        (gaussian_compute::SORT_KEYS_BINDING, &uploaded.sort_keys),
         (
-            COMPUTE_SORT_GROUP_OFFSETS_BUFFER,
+            gaussian_compute::SORTED_INDICES_BINDING,
+            &uploaded.sorted_indices,
+        ),
+        (
+            gaussian_compute::SCRATCH_KEYS_BINDING,
+            &uploaded.scratch_keys,
+        ),
+        (
+            gaussian_compute::SCRATCH_INDICES_BINDING,
+            &uploaded.scratch_indices,
+        ),
+        (
+            gaussian_compute::SORT_GROUP_OFFSETS_BINDING,
             &uploaded.sort_group_offsets,
         ),
-        (COMPUTE_DRAW_INDIRECT_BUFFER, &uploaded.draw_indirect),
+        (
+            gaussian_compute::DRAW_INDIRECT_BINDING,
+            &uploaded.draw_indirect,
+        ),
     ]
 }
 
@@ -531,10 +559,16 @@ fn raster_buffers<'a>(
     uniforms: &'a shrimply_render_metal::Buffer,
 ) -> [(usize, &'a shrimply_render_metal::Buffer); 4] {
     [
-        (RASTER_GAUSSIANS_BUFFER, &uploaded.gaussians),
-        (RASTER_HIGHER_ORDER_BUFFER, &uploaded.higher_order),
-        (RASTER_UNIFORMS_BUFFER, uniforms),
-        (RASTER_SORTED_INDICES_BUFFER, &uploaded.sorted_indices),
+        (gaussian_raster::GAUSSIANS_BINDING, &uploaded.gaussians),
+        (
+            gaussian_raster::HIGHER_ORDER_SH_BINDING,
+            &uploaded.higher_order,
+        ),
+        (gaussian_raster::UNIFORMS_BINDING, uniforms),
+        (
+            gaussian_raster::SORTED_INDICES_BINDING,
+            &uploaded.sorted_indices,
+        ),
     ]
 }
 
@@ -551,7 +585,7 @@ fn bind_compute_resources(
         encoder.setBytes_length_atIndex(
             NonNull::from(constants).cast(),
             size_of::<shrimply_3dgs::shader::SortConstants>(),
-            COMPUTE_SORT_CONSTANTS_BUFFER,
+            gaussian_compute::SORT_CONSTANTS_BINDING,
         );
     }
 }
@@ -567,8 +601,14 @@ fn bind_render_resources(
             encoder.setVertexBuffer_offset_atIndex(Some(&buffer.metal()), 0, index);
             encoder.setFragmentBuffer_offset_atIndex(Some(&buffer.metal()), 0, index);
         }
-        encoder.setVertexTexture_atIndex(Some(accumulation), RASTER_ACCUMULATION_TEXTURE);
-        encoder.setFragmentTexture_atIndex(Some(accumulation), RASTER_ACCUMULATION_TEXTURE);
+        encoder.setVertexTexture_atIndex(
+            Some(accumulation),
+            gaussian_raster::ACCUMULATION_TEXTURE_BINDING,
+        );
+        encoder.setFragmentTexture_atIndex(
+            Some(accumulation),
+            gaussian_raster::ACCUMULATION_TEXTURE_BINDING,
+        );
     }
 }
 

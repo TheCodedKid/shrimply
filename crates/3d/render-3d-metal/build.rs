@@ -17,7 +17,13 @@ fn main() {
         &source,
         "obj_compute_metal",
         shrimply_slang_build::Target::Metal,
-        &["obj_compute"],
+        &[
+            "obj_compute",
+            "obj_composite_upload_compute",
+            "obj_denoise_composite_compute",
+            "obj_outline_distance_compute",
+            "obj_outline_compute",
+        ],
     );
     fs::write(
         output.join("obj_metal.rs"),
@@ -25,6 +31,23 @@ fn main() {
             "obj_metal",
             &artifact.filename,
             &artifact.reflection,
+            &[
+                ("SceneUniforms", "shrimply_render_3d::obj::SceneUniforms"),
+                ("PointLight", "shrimply_render_3d::obj::PointLight"),
+                ("SunLight", "shrimply_render_3d::obj::SunLight"),
+                ("Ground", "shrimply_render_3d::obj::Ground"),
+                (
+                    "EnvironmentSettings",
+                    "shrimply_render_3d::obj::EnvironmentSettings",
+                ),
+                ("PbrSettings", "shrimply_render_3d::obj::PbrSettings"),
+                ("ToonSettings", "shrimply_render_3d::obj::ToonSettings"),
+                ("OutputSize", "super::OutputSize"),
+                ("ComputeMaterial", "super::ComputeMaterial"),
+                ("ComputePbr", "super::ComputePbr"),
+                ("TextureMapping", "shrimply_render_3d::obj::TextureMapping"),
+                ("MeshInstance", "shrimply_render_3d::obj::MeshInstance"),
+            ],
         ),
     )
     .expect("write OBJ Metal source include");

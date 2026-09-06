@@ -15,13 +15,17 @@ use std::path::PathBuf;
 
 pub(super) struct ScopedUrl {
     url: Retained<NSURL>,
+    path: PathBuf,
     scoped: bool,
 }
 
 impl ScopedUrl {
     pub(super) fn new(url: Retained<NSURL>) -> Self {
+        let path = url
+            .to_file_path()
+            .expect("security-scoped URL must be a local file URL");
         let scoped = unsafe { url.startAccessingSecurityScopedResource() };
-        Self { url, scoped }
+        Self { url, path, scoped }
     }
 }
 
@@ -38,6 +42,10 @@ impl Drop for ScopedUrl {
 pub struct Imports {
     queue: ImportQueue,
     urls: Vec<ScopedUrl>,
+    pending_urls: Vec<(
+        shrimply_timeline_core::import_queue::BatchId,
+        Vec<ScopedUrl>,
+    )>,
 }
 
 pub enum Destination {
@@ -59,22 +67,10 @@ impl Imports {
         session: &EditorSession,
         destination: Destination,
     ) -> Result<(), String> {
-        let mut paths = Vec::<PathBuf>::new();
-        let mut scopes = Vec::new();
-        for url in urls {
-            paths.push(
-                url.to_file_path()
-                    .ok_or("only local files can be imported")?,
-            );
-            // Retain access for the editor lifetime, including background preview/audio reads.
-            scopes.push(ScopedUrl::new(url));
-        }
-        if paths.is_empty() {
-            return Err("drop contains no files".into());
-        }
+        let (paths, scopes) = scoped_file_urls(urls)?;
         let duration = preferences::snapshot(&session.preferences).default_visual_duration;
         let project = session.project.borrow();
-        match destination {
+        let batch = match destination {
             Destination::Timeline(placement) => {
                 self.queue.enqueue(paths, &project, placement, duration)?
             }
@@ -85,20 +81,89 @@ impl Imports {
                 player_state::current_time(&session.player_state),
                 duration,
             )?,
-        }
-        self.urls.extend(scopes);
+        };
+        self.pending_urls.push((batch, scopes));
         Ok(())
+    }
+
+    pub(super) fn retain_pending(
+        &mut self,
+        batch: shrimply_timeline_core::import_queue::BatchId,
+        scopes: Vec<ScopedUrl>,
+    ) {
+        self.pending_urls.push((batch, scopes));
+    }
+
+    pub(super) fn finish_external(
+        &mut self,
+        event: shrimply_timeline_core::external_content::ExternalImportEvent,
+    ) {
+        self.finish_scopes(event.batch, event.retained_paths.as_deref());
     }
 
     pub fn poll(&mut self, session: &EditorSession) -> Result<(), String> {
         loop {
-            let result = self.queue.poll(&mut session.project.borrow_mut());
-            let Some(result) = result else {
+            let completion = self.queue.poll(&mut session.project.borrow_mut());
+            let Some(completion) = completion else {
                 return Ok(());
             };
-            import::finish_track_import(&session.player_state, &session.selection_state, result)?;
+            let succeeded = completion.result.is_ok();
+            let paths = completion.paths.clone();
+            let batch = completion.batch;
+            let result = import::finish_track_import(
+                &session.player_state,
+                &session.selection_state,
+                completion.result,
+            );
+            self.finish_scopes(batch, succeeded.then_some(paths.as_slice()));
+            result?;
         }
     }
+
+    fn finish_scopes(
+        &mut self,
+        batch: shrimply_timeline_core::import_queue::BatchId,
+        retained_paths: Option<&[PathBuf]>,
+    ) {
+        let Some(index) = self
+            .pending_urls
+            .iter()
+            .position(|(pending, _)| *pending == batch)
+        else {
+            return;
+        };
+        let (_, scopes) = self.pending_urls.swap_remove(index);
+        if let Some(paths) = retained_paths {
+            self.urls.extend(
+                scopes
+                    .into_iter()
+                    .filter(|scope| paths.contains(&scope.path)),
+            );
+        }
+    }
+}
+
+pub(super) fn scoped_file_urls(
+    urls: impl IntoIterator<Item = Retained<NSURL>>,
+) -> Result<(Vec<PathBuf>, Vec<ScopedUrl>), String> {
+    let urls: Vec<_> = urls.into_iter().collect();
+    let paths = file_url_paths(&urls)?;
+    let scopes = urls.into_iter().map(ScopedUrl::new).collect();
+    Ok((paths, scopes))
+}
+
+pub fn file_url_paths(urls: &[Retained<NSURL>]) -> Result<Vec<PathBuf>, String> {
+    let paths = urls
+        .iter()
+        .map(|url| {
+            url.to_file_path()
+                .ok_or_else(|| "only local files can be imported".to_string())
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    if paths.is_empty() {
+        return Err("drop contains no files".into());
+    }
+    Ok(paths)
 }
 
 pub fn file_urls(pasteboard: &NSPasteboard) -> Vec<Retained<NSURL>> {
@@ -110,6 +175,7 @@ pub fn file_urls(pasteboard: &NSPasteboard) -> Vec<Retained<NSURL>> {
         objects
             .iter()
             .filter_map(|object| object.downcast::<NSURL>().ok())
+            .filter(|url| url.isFileURL())
             .collect()
     })
     .unwrap_or_default()
@@ -120,10 +186,10 @@ pub fn stage_clipboard_file_urls(
 ) -> Result<Vec<Retained<NSURL>>, String> {
     urls.into_iter()
         .map(|url| {
-            let scope = ScopedUrl::new(url.clone());
             let path = url
                 .to_file_path()
                 .ok_or_else(|| "only local clipboard files can be imported".to_string())?;
+            let scope = ScopedUrl::new(url.clone());
             let stored =
                 shrimply_timeline_core::external_content::store_clipboard_visual_file(&path)?;
             drop(scope);

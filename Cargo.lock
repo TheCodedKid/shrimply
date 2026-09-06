@@ -3668,10 +3668,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e022c9d066895efa1345f8e33e584b9f958da2fd4cd116792e15e07e4720a807"
 dependencies = [
  "bitflags 2.13.1",
+ "block2",
  "dispatch2",
+ "libc",
  "objc2",
  "objc2-core-foundation",
  "objc2-io-surface",
+ "objc2-metal",
 ]
 
 [[package]]
@@ -3691,6 +3694,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "05ec576860167a15dd9fce7fbee7512beb4e31f532159d3482d1f9c6caedf31d"
 dependencies = [
  "bitflags 2.13.1",
+ "block2",
  "dispatch2",
  "objc2",
  "objc2-core-audio",
@@ -3798,6 +3802,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "objc2-metal-performance-shaders"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "46a10f15ff4e2045f947ffca8a17fc351b155c321de16f04278a008a1f446784"
+dependencies = [
+ "bitflags 2.13.1",
+ "objc2",
+ "objc2-foundation",
+ "objc2-metal",
+]
+
+[[package]]
 name = "objc2-quartz-core"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3812,6 +3828,20 @@ dependencies = [
  "objc2-core-video",
  "objc2-foundation",
  "objc2-metal",
+]
+
+[[package]]
+name = "objc2-screen-capture-kit"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "74b7c5390f477482f001bc354d6571a70db7e4f8d5288e860c45521fbce11394"
+dependencies = [
+ "bitflags 2.13.1",
+ "block2",
+ "objc2",
+ "objc2-core-foundation",
+ "objc2-core-media",
+ "objc2-foundation",
 ]
 
 [[package]]
@@ -5344,7 +5374,6 @@ dependencies = [
  "objc2",
  "objc2-foundation",
  "objc2-metal",
- "serde_json",
  "shrimply-3dgs",
  "shrimply-asset",
  "shrimply-render-metal",
@@ -5570,8 +5599,12 @@ dependencies = [
  "glam 0.33.5",
  "objc2",
  "objc2-app-kit",
+ "objc2-core-graphics",
+ "objc2-core-media",
  "objc2-foundation",
+ "objc2-screen-capture-kit",
  "objc2-uniform-type-identifiers",
+ "shrimply-asset",
  "shrimply-component-core",
  "shrimply-cross-ui-core",
  "shrimply-cross-ui-theme",
@@ -5589,8 +5622,11 @@ dependencies = [
  "shrimply-state",
  "shrimply-support",
  "shrimply-timeline-core",
+ "shrimply-tts",
+ "shrimply-video-core",
  "skia-safe",
  "tempfile",
+ "uuid",
 ]
 
 [[package]]
@@ -6423,6 +6459,7 @@ dependencies = [
  "libc",
  "rusqlite",
  "shrimply-blender",
+ "shrimply-i18n-core",
  "shrimply-math-color",
  "shrimply-math-core",
  "shrimply-project",
@@ -6628,6 +6665,7 @@ dependencies = [
  "shrimply-skia-adw-core",
  "shrimply-skia-gl",
  "shrimply-state",
+ "shrimply-video-core",
  "shrimply-video-cuda",
  "skia-safe",
  "tracing",
@@ -6789,6 +6827,7 @@ dependencies = [
  "objc2",
  "objc2-foundation",
  "objc2-metal",
+ "objc2-metal-performance-shaders",
  "shrimply-asset",
  "shrimply-render-3d",
  "shrimply-render-metal",
@@ -6887,6 +6926,7 @@ dependencies = [
  "serde",
  "serde_bytes",
  "shrimply-math-geometry",
+ "tokio",
  "tracing",
  "uuid",
 ]
@@ -7014,6 +7054,7 @@ dependencies = [
  "glam 0.33.5",
  "hashbrown 0.17.1",
  "imagesize",
+ "reqwest",
  "serde_json",
  "shrimply-3dgs",
  "shrimply-audio",
@@ -7031,11 +7072,14 @@ dependencies = [
  "shrimply-property-transfer",
  "shrimply-resource-pipeline",
  "shrimply-scene-3d",
+ "shrimply-server-client",
  "shrimply-skia-adw-core",
  "shrimply-state",
  "shrimply-support",
  "shrimply-timeline",
  "shrimply-timeline-snap",
+ "shrimply-transcription",
+ "shrimply-tts",
  "shrimply-video-modifiers",
  "skia-safe",
  "tracing",
@@ -7052,7 +7096,6 @@ dependencies = [
  "gtk4",
  "hashbrown 0.17.1",
  "libadwaita",
- "reqwest",
  "shrimply-audio",
  "shrimply-core",
  "shrimply-cross-ui-theme",
@@ -7150,6 +7193,7 @@ dependencies = [
  "shrimply-asset",
  "shrimply-math-core",
  "shrimply-server-client",
+ "tokio",
  "tracing",
 ]
 
@@ -7180,10 +7224,12 @@ dependencies = [
  "glam 0.33.5",
  "glib",
  "hashbrown 0.17.1",
+ "num-traits",
  "pango",
  "pangocairo",
  "png",
  "rusqlite",
+ "serde",
  "serde_json",
  "shrimply-3dgs",
  "shrimply-affine-l1-stabilization",
@@ -7203,6 +7249,7 @@ dependencies = [
  "shrimply-project",
  "shrimply-render-3d",
  "shrimply-render-core",
+ "shrimply-resource-pipeline",
  "shrimply-scene-3d",
  "shrimply-server-client",
  "shrimply-shape-3d",

@@ -422,13 +422,7 @@ impl ToolkitTimeline {
                 );
             }
         } else {
-            crate::external_content::insert_text_at_playhead_core(
-                &self.project,
-                &self.player_state,
-                &self.selection_state,
-                &self.runtime,
-                text,
-            );
+            crate::external_content::insert_text_at_playhead_core(&self.runtime, text);
         }
     }
 

@@ -124,7 +124,7 @@ impl<K> Default for CacheStatusTracker<K> {
     }
 }
 
-impl<K: Copy + Eq> CacheStatusTracker<K> {
+impl<K: Clone + Eq> CacheStatusTracker<K> {
     pub fn observe(&mut self, kind: K, id: uuid::Uuid, status: CacheStatus) -> CacheStatus {
         if let Some((_, _, stored)) = self
             .statuses
@@ -155,10 +155,10 @@ impl<K: Copy + Eq> CacheStatusTracker<K> {
             if !matches!(stored, CacheStatus::Baking { .. }) {
                 continue;
             }
-            let current = status(*kind, *id);
+            let current = status(kind.clone(), *id);
             changed |= *stored != current;
             if !matches!(current, CacheStatus::Baking { .. }) && !finished.contains(kind) {
-                finished.push(*kind);
+                finished.push(kind.clone());
             }
             *stored = current;
         }
@@ -166,7 +166,8 @@ impl<K: Copy + Eq> CacheStatusTracker<K> {
     }
 
     pub fn retain(&mut self, mut keep: impl FnMut(K, uuid::Uuid) -> bool) {
-        self.statuses.retain(|(kind, id, _)| keep(*kind, *id));
+        self.statuses
+            .retain(|(kind, id, _)| keep(kind.clone(), *id));
     }
 }
 

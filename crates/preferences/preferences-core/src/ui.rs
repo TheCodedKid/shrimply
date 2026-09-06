@@ -2,6 +2,137 @@ use super::*;
 
 const VISUAL_DURATION_UNITS_PER_SECOND: i64 = 10;
 const GPU_MEMORY_UNITS_PER_GIB: i64 = 4;
+const BYTES_PER_GIB: f64 = 1024.0 * 1024.0 * 1024.0;
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ComputeDevicePresentation {
+    pub id: String,
+    pub label: String,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ComputeServerPresentation {
+    pub summary: String,
+    pub version: String,
+    pub version_detail: Option<String>,
+    pub protocol: String,
+    pub torch: String,
+    pub cuda: String,
+    pub devices: Vec<ComputeDevicePresentation>,
+    pub selected_device: Option<usize>,
+    pub jobs: String,
+    pub reservations: String,
+    pub workers: String,
+    pub features: String,
+}
+
+pub fn present_compute_server(status: &ServerStatus) -> ComputeServerPresentation {
+    let version = if status.server.git_short_hash.is_empty() {
+        status.server.version.clone()
+    } else {
+        format!(
+            "{} ({})",
+            status.server.version, status.server.git_short_hash
+        )
+    };
+    let localized_version =
+        shrimply_i18n_core::text_args("Version %{version}", &[("version", version.clone())]);
+    let summary = if status.status.eq_ignore_ascii_case("ok") {
+        localized_version
+    } else {
+        format!("{localized_version} · {}", status.status.to_uppercase())
+    };
+    let devices = status
+        .torch
+        .devices
+        .iter()
+        .map(|device| ComputeDevicePresentation {
+            id: device.id.clone(),
+            label: device.total_memory_bytes.map_or_else(
+                || device.name.clone(),
+                |bytes| {
+                    format!(
+                        "{} · {} ({:.1} GiB)",
+                        device.id.to_uppercase().replace(':', " "),
+                        device.name,
+                        bytes as f64 / BYTES_PER_GIB
+                    )
+                },
+            ),
+        })
+        .collect::<Vec<_>>();
+    let selected_device = status
+        .torch
+        .devices
+        .iter()
+        .position(|device| device.id == status.torch.selected_device);
+    let workers = status
+        .compute
+        .workers
+        .iter()
+        .map(|worker| {
+            let configuration = worker
+                .configuration
+                .iter()
+                .map(|(key, value)| format!("{key}={value}"))
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!(
+                "{} · {}{} · {} ×{}",
+                worker.service,
+                worker.model,
+                if configuration.is_empty() {
+                    String::new()
+                } else {
+                    format!(" ({configuration})")
+                },
+                worker.state,
+                worker.copies
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    ComputeServerPresentation {
+        summary,
+        version,
+        version_detail: (!status.server.git_hash.is_empty())
+            .then(|| status.server.git_hash.clone()),
+        protocol: format!("{}.{}", status.protocol.major, status.protocol.minor),
+        torch: status.torch.version.clone(),
+        cuda: match (&status.torch.cuda_runtime, status.torch.cuda_available) {
+            (Some(runtime), true) => shrimply_i18n_core::text_args(
+                "%{runtime} · Available",
+                &[("runtime", runtime.clone())],
+            ),
+            (None, true) => shrimply_i18n_core::text("Available").into_owned(),
+            (_, false) => shrimply_i18n_core::text("Unavailable").into_owned(),
+        },
+        devices,
+        selected_device,
+        jobs: shrimply_i18n_core::text_args(
+            "%{queued} queued · %{active} active",
+            &[
+                ("queued", status.compute.queued_jobs.to_string()),
+                ("active", status.compute.active_jobs.to_string()),
+            ],
+        ),
+        reservations: format!(
+            "RAM {:.1} GiB · VRAM {:.1} GiB",
+            status.compute.reserved_ram_bytes as f64 / BYTES_PER_GIB,
+            status.compute.reserved_vram_bytes as f64 / BYTES_PER_GIB
+        ),
+        workers: if workers.is_empty() {
+            shrimply_i18n_core::text("None").into_owned()
+        } else {
+            workers
+        },
+        features: if status.capabilities.is_empty() {
+            shrimply_i18n_core::text("None").into_owned()
+        } else {
+            status.capabilities.join(", ")
+        },
+    }
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum PreferenceId {

@@ -79,10 +79,7 @@ pub use shrimply_timeline_core::view;
 use drawing::row_screen_y;
 use frame::timeline_gtk;
 use geometry::*;
-use recording::{
-    ensure_recording_duration, finish_audio_recording, handle_audio_recording,
-    handle_video_recording, live_recording_draw,
-};
+use recording::handle_video_recording;
 use renderer::{TimelinePainter, TimelineRenderer};
 use runtime::*;
 use setup::*;
@@ -529,6 +526,9 @@ impl ToolkitTimeline {
     pub fn destroy(&self) {
         let mut runtime = self.runtime.borrow_mut();
         runtime.scene.suspend();
+        if let Err(error) = recording::apply_video_recording_commands(&mut runtime) {
+            tracing::error!(%error, "Could not stop screen recording while destroying timeline");
+        }
         runtime.renderer.destroy();
     }
 }
@@ -594,95 +594,6 @@ pub fn new(
             }
         },
     );
-    let recording_area = area.downgrade();
-    let recording_project = project.clone();
-    let recording_runtime = Rc::downgrade(&runtime);
-    let recording_player_state = player_state.clone();
-    let recording_player_state_for_snapshot = player_state.clone();
-    let recording_alive = recording_runtime.clone();
-    player_state::connect_while_alive_named(
-        &player_state,
-        "timeline recording refresh",
-        move || recording_alive.strong_count() > 0,
-        move |event| {
-            let (Some(recording_area), Some(recording_runtime)) =
-                (recording_area.upgrade(), recording_runtime.upgrade())
-            else {
-                return;
-            };
-            if !matches!(event, player_state::PlayerEvent::State(_)) {
-                return;
-            }
-            let recording_area = recording_area.clone();
-            let recording_project = recording_project.clone();
-            let recording_runtime = recording_runtime.clone();
-            let recording_player_state = recording_player_state.clone();
-            let recording_player_state_for_idle = recording_player_state_for_snapshot.clone();
-            glib::idle_add_local_once(move || {
-                let snapshot = player_state::snapshot(&recording_player_state_for_idle);
-                if snapshot.playing {
-                    let mut stop_at_boundary = false;
-                    let mut runtime = recording_runtime.borrow_mut();
-                    if runtime.active_audio_recording.is_some() {
-                        ensure_recording_duration(
-                            &recording_player_state_for_idle,
-                            snapshot.position,
-                        );
-                    }
-                    if let Some(active) = runtime.active_video_recording.as_mut()
-                        && active.ready
-                        && !active.stopping
-                    {
-                        ensure_recording_duration(
-                            &recording_player_state_for_idle,
-                            snapshot.position,
-                        );
-                        if active
-                            .stop_at
-                            .is_some_and(|stop_at| snapshot.position >= stop_at)
-                        {
-                            active.stopping = true;
-                            active.recording.stop();
-                            stop_at_boundary = true;
-                        }
-                    }
-                    drop(runtime);
-                    if stop_at_boundary {
-                        player_state::set_playing(&recording_player_state_for_idle, false);
-                    }
-                    return;
-                }
-                if let Some(active) = recording_runtime
-                    .borrow_mut()
-                    .active_video_recording
-                    .as_mut()
-                    && active.ready
-                    && !active.stopping
-                {
-                    active.stopping = true;
-                    active.recording.stop();
-                }
-                let active = recording_runtime.borrow_mut().active_audio_recording.take();
-                let Some(active) = active else {
-                    return;
-                };
-                if let Err(error) = finish_audio_recording(
-                    &recording_area,
-                    &recording_project,
-                    &recording_player_state,
-                    active,
-                ) {
-                    interaction::show_error_dialog(
-                        &recording_area,
-                        "Could not record audio",
-                        &error,
-                    );
-                }
-                recording_area.queue_render();
-            });
-        },
-    );
-
     let render_runtime = runtime.clone();
     let render_project = project.clone();
     let render_player_state = player_state.clone();
@@ -739,9 +650,6 @@ pub fn new(
             player_state::snapshot(&render_player_state).playing
         ));
         timeline_gtk(
-            &render_project,
-            &render_player_state,
-            &render_selection_state,
             &mut runtime,
             &painter,
             width as f64,
@@ -757,29 +665,19 @@ pub fn new(
             tracing::error!("Could not finalize skia timeline renderer: {error}");
             return glib::Propagation::Stop;
         }
+        if let Err(error) = recording::apply_video_recording_commands(&mut runtime) {
+            interaction::show_error_dialog(area, "Could not record screen or application", &error);
+        }
         let requests = runtime.scene.take_requests();
         let pending_audio_record = requests.audio_record;
-        let pause_after_audio_recording_stop = if let Some(key) = pending_audio_record {
-            handle_audio_recording(
-                area,
-                &render_project,
-                &render_player_state,
-                &mut runtime,
-                key,
-            )
-        } else {
-            false
-        };
+        if let Some(key) = pending_audio_record
+            && let Err(error) = runtime.scene.toggle_audio_recording(key)
+        {
+            interaction::show_error_dialog(area, "Could not record audio", &error);
+        }
         let pending_video_record = requests.video_record;
         let pause_for_video_recording = if let Some(key) = pending_video_record {
-            handle_video_recording(
-                area,
-                &render_project,
-                &render_player_state,
-                &render_runtime,
-                &mut runtime,
-                key,
-            )
+            handle_video_recording(area, &render_runtime, &mut runtime, key)
         } else {
             false
         };
@@ -788,10 +686,10 @@ pub fn new(
         let track_controls_animating = runtime.scene.animating();
         drop(runtime);
 
-        if pause_after_audio_recording_stop || pause_for_video_recording || pending_pause_playback {
+        if pause_for_video_recording || pending_pause_playback {
             shrimply_support::crash::set_context(format!(
-                "timeline post-render pause playback audio_recording_stop={} video_recording={} item_edit={}",
-                pause_after_audio_recording_stop, pause_for_video_recording, pending_pause_playback
+                "timeline post-render pause playback video_recording={} item_edit={}",
+                pause_for_video_recording, pending_pause_playback
             ));
             player_state::set_playing(&render_player_state, false);
         }
@@ -819,9 +717,13 @@ pub fn new(
 
     let destroy_runtime = runtime.clone();
     area.connect_unrealize(move |area| {
-        destroy_runtime.borrow_mut().scene.suspend();
+        let mut runtime = destroy_runtime.borrow_mut();
+        runtime.scene.suspend();
+        if let Err(error) = recording::apply_video_recording_commands(&mut runtime) {
+            tracing::error!(%error, "Could not stop screen recording while unrealizing timeline");
+        }
         area.make_current();
-        destroy_runtime.borrow_mut().renderer.destroy();
+        runtime.renderer.destroy();
     });
 
     let sidebar = timeline_sidebar(&area, &preferences);
