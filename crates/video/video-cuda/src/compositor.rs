@@ -26,8 +26,8 @@ use shrimply_evaluation::{
 use shrimply_math_core::Fraction;
 use shrimply_project::project::{
     Color, ItemAddress, LayerBlendMode, Project, SequenceReference, TextureAddressMode, Time,
-    TransitionSide, VideoItem, VideoSampleMethod, VisualClipTransitionKind, VisualTransitionKind,
-    video_source_time_at,
+    TransitionSide, VideoItem, VideoItemContent, VideoSampleMethod, VisualClipTransitionKind,
+    VisualTransitionKind, video_source_time_at,
 };
 use shrimply_video_core::alpha_mask::resolve as resolve_shape_alpha_mask;
 use shrimply_video_modifiers::{ModifierEffect, RasterModifierEffect};

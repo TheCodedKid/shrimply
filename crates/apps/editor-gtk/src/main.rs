@@ -120,7 +120,7 @@ fn build_ui(window: &adw::ApplicationWindow, project: project::Project) {
         selection_state.clone(),
         preferences.clone(),
         audio_levels,
-        property_clipboard,
+        property_clipboard.clone(),
     );
     let video_player = video_player::new(
         project.clone(),

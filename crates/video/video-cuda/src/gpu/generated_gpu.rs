@@ -594,7 +594,7 @@ impl GeneratedGpuRenderer {
         let released = self
             .manim
             .as_mut()
-            .is_some_and(ManimRenderer::release_gpu_animation_resources);
+            .is_some_and(shrimply_manim_cuda::Renderer::release_gpu_animation_resources);
         if released {
             shrimply_gpu_memory::global().note_manim_gpu_animation_release();
         }

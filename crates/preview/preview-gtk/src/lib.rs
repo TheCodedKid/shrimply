@@ -1068,11 +1068,9 @@ fn attach_frame_pump(
                     displayed_position.set(Some(position));
                     video_surface.clear_frame(audio_analysis, revision, excluded_item_id);
                 }
-                VideoEvent::Loading { .. }
-                | VideoEvent::ManimDuration { .. }
-                | VideoEvent::ManimParameters { .. }
-                | VideoEvent::ManimStatus { .. }
-                | VideoEvent::Error(_) => unreachable!(),
+                VideoEvent::Loading { .. } | VideoEvent::Manim(_) | VideoEvent::Error(_) => {
+                    unreachable!()
+                }
             }
         }
 
