@@ -1,16 +1,16 @@
 use crate::action;
 use block2::RcBlock;
 use objc2::ffi::{OBJC_ASSOCIATION_RETAIN_NONATOMIC, objc_setAssociatedObject};
-use objc2::{ClassType, DefinedClass, MainThreadOnly, define_class, msg_send};
 use objc2::rc::{Retained, Weak};
+use objc2::{ClassType, DefinedClass, MainThreadOnly, define_class, msg_send};
 use objc2_app_kit::{
-    NSBezelStyle, NSButton, NSCellImagePosition, NSColor, NSColorWell, NSControlStateValueOff,
-    NSControlStateValueOn, NSEvent, NSFont, NSGlassEffectView, NSGlassEffectViewStyle, NSImage,
-    NSLayoutAttribute, NSLayoutConstraintOrientation, NSLayoutPriorityDefaultLow,
-    NSLayoutPriorityRequired, NSPasteboard, NSPasteboardTypeString, NSPopover, NSPopoverBehavior,
-    NSImageView, NSProgressIndicator, NSProgressIndicatorStyle, NSScrollView, NSSearchField,
-    NSSegmentedControl, NSStackView, NSStackViewDistribution, NSSwitch, NSTextAlignment, NSTextField,
-    NSUserInterfaceLayoutOrientation, NSView, NSViewController, NSAutoresizingMaskOptions,
+    NSAutoresizingMaskOptions, NSBezelStyle, NSButton, NSCellImagePosition, NSColor, NSColorWell,
+    NSControlStateValueOff, NSControlStateValueOn, NSEvent, NSFont, NSGlassEffectView,
+    NSGlassEffectViewStyle, NSImage, NSImageView, NSLayoutAttribute, NSLayoutConstraintOrientation,
+    NSLayoutPriorityDefaultLow, NSLayoutPriorityRequired, NSPasteboard, NSPasteboardTypeString,
+    NSPopover, NSPopoverBehavior, NSProgressIndicator, NSProgressIndicatorStyle, NSScrollView,
+    NSSearchField, NSSegmentedControl, NSStackView, NSStackViewDistribution, NSSwitch,
+    NSTextAlignment, NSTextField, NSUserInterfaceLayoutOrientation, NSView, NSViewController,
 };
 use objc2_foundation::{
     MainThreadMarker, NSObjectProtocol, NSPoint, NSRect, NSRectEdge, NSSize, NSString, NSTimer,
@@ -89,16 +89,24 @@ pub fn control_row_with_suffix(
     row.addSubview(&label);
     row.addSubview(child);
     for constraint in [
-        label.leadingAnchor().constraintEqualToAnchor(&row.leadingAnchor()),
+        label
+            .leadingAnchor()
+            .constraintEqualToAnchor(&row.leadingAnchor()),
         label.widthAnchor().constraintEqualToConstant(label_width),
-        label.centerYAnchor().constraintEqualToAnchor(&row.centerYAnchor()),
+        label
+            .centerYAnchor()
+            .constraintEqualToAnchor(&row.centerYAnchor()),
         child.leadingAnchor().constraintEqualToAnchor_constant(
             &label.trailingAnchor(),
             f64::from(shrimply_component_core::layout::CONTROL_ROW_GAP),
         ),
         child.topAnchor().constraintEqualToAnchor(&row.topAnchor()),
-        child.bottomAnchor().constraintEqualToAnchor(&row.bottomAnchor()),
-        child.heightAnchor().constraintGreaterThanOrEqualToConstant(CONTROL_HEIGHT),
+        child
+            .bottomAnchor()
+            .constraintEqualToAnchor(&row.bottomAnchor()),
+        child
+            .heightAnchor()
+            .constraintGreaterThanOrEqualToConstant(CONTROL_HEIGHT),
     ] {
         constraint.setActive(true);
     }
@@ -119,8 +127,12 @@ pub fn control_row_with_suffix(
                 &child.trailingAnchor(),
                 f64::from(shrimply_component_core::layout::CONTROL_ROW_GAP),
             ),
-            suffix.trailingAnchor().constraintEqualToAnchor(&row.trailingAnchor()),
-            suffix.centerYAnchor().constraintEqualToAnchor(&row.centerYAnchor()),
+            suffix
+                .trailingAnchor()
+                .constraintEqualToAnchor(&row.trailingAnchor()),
+            suffix
+                .centerYAnchor()
+                .constraintEqualToAnchor(&row.centerYAnchor()),
             suffix.widthAnchor().constraintEqualToConstant(suffix_width),
         ] {
             constraint.setActive(true);
@@ -273,21 +285,22 @@ define_class!(
 
 impl SearchResult {
     fn focus_sibling(&self, offset: isize) {
-        let Some(list) = self.ivars().list.load() else { return };
+        let Some(list) = self.ivars().list.load() else {
+            return;
+        };
         let children = list.subviews();
         let Some(index) = children
             .iter()
-            .position(|view| {
-                std::ptr::eq(
-                    &*view,
-                    self.as_super().as_super().as_super(),
-                )
-            })
+            .position(|view| std::ptr::eq(&*view, self.as_super().as_super().as_super()))
         else {
             return;
         };
-        let Some(next) = index.checked_add_signed(offset) else { return };
-        let Some(view) = children.iter().nth(next) else { return };
+        let Some(next) = index.checked_add_signed(offset) else {
+            return;
+        };
+        let Some(view) = children.iter().nth(next) else {
+            return;
+        };
         let button = view
             .downcast::<NSButton>()
             .expect("search result list only contains buttons");
@@ -385,7 +398,9 @@ fn search_popover(
             let list = Weak::new(&*list);
             let popover = Weak::new(&*popover);
             Box::new(move |key_code| {
-                let Some(list) = list.load() else { return false };
+                let Some(list) = list.load() else {
+                    return false;
+                };
                 match key_code {
                     36 | 76 => first_result(&list).is_some_and(|button| {
                         unsafe { button.performClick(None) };
@@ -394,7 +409,9 @@ fn search_popover(
                     125 => focus_result(&list, false),
                     126 => focus_result(&list, true),
                     53 => {
-                        if let Some(popover) = popover.load() { popover.close(); }
+                        if let Some(popover) = popover.load() {
+                            popover.close();
+                        }
                         true
                     }
                     _ => false,
@@ -410,30 +427,22 @@ fn search_popover(
     let search_container = NSView::new(mtm);
     search_container.addSubview(&search);
     for constraint in [
-        search
-            .leadingAnchor()
-            .constraintEqualToAnchor_constant(
-                &search_container.leadingAnchor(),
-                SEARCH_FIELD_OUTER_INSET,
-            ),
-        search
-            .trailingAnchor()
-            .constraintEqualToAnchor_constant(
-                &search_container.trailingAnchor(),
-                -SEARCH_FIELD_OUTER_INSET,
-            ),
-        search
-            .topAnchor()
-            .constraintEqualToAnchor_constant(
-                &search_container.topAnchor(),
-                SEARCH_FIELD_VERTICAL_INSET,
-            ),
-        search
-            .bottomAnchor()
-            .constraintEqualToAnchor_constant(
-                &search_container.bottomAnchor(),
-                -SEARCH_FIELD_VERTICAL_INSET,
-            ),
+        search.leadingAnchor().constraintEqualToAnchor_constant(
+            &search_container.leadingAnchor(),
+            SEARCH_FIELD_OUTER_INSET,
+        ),
+        search.trailingAnchor().constraintEqualToAnchor_constant(
+            &search_container.trailingAnchor(),
+            -SEARCH_FIELD_OUTER_INSET,
+        ),
+        search.topAnchor().constraintEqualToAnchor_constant(
+            &search_container.topAnchor(),
+            SEARCH_FIELD_VERTICAL_INSET,
+        ),
+        search.bottomAnchor().constraintEqualToAnchor_constant(
+            &search_container.bottomAnchor(),
+            -SEARCH_FIELD_VERTICAL_INSET,
+        ),
     ] {
         constraint.setActive(true);
     }
@@ -528,7 +537,11 @@ fn search_popover(
             );
         }
     }) as Rc<dyn Fn()>;
-    SearchPopoverParts { popover, search, refresh }
+    SearchPopoverParts {
+        popover,
+        search,
+        refresh,
+    }
 }
 
 pub(crate) fn show_searchable_popover_at(
@@ -609,9 +622,9 @@ fn populate_search_results(
     for child in children.iter() {
         child.removeFromSuperview();
     }
-    let matches = choices.iter().filter(|choice| {
-        shrimply_component_core::selector::matches_query(&choice.label, query)
-    });
+    let matches = choices
+        .iter()
+        .filter(|choice| shrimply_component_core::selector::matches_query(&choice.label, query));
     let mut row_index = 0usize;
     for choice in matches {
         let row = SearchResult::alloc(mtm).set_ivars(SearchResultIvars {
@@ -643,10 +656,13 @@ fn populate_search_results(
             checkmark.setTranslatesAutoresizingMaskIntoConstraints(false);
             row.addSubview(&checkmark);
             for constraint in [
+                checkmark.trailingAnchor().constraintEqualToAnchor_constant(
+                    &row.trailingAnchor(),
+                    -SEARCH_ROW_HORIZONTAL_INSET,
+                ),
                 checkmark
-                    .trailingAnchor()
-                    .constraintEqualToAnchor_constant(&row.trailingAnchor(), -SEARCH_ROW_HORIZONTAL_INSET),
-                checkmark.centerYAnchor().constraintEqualToAnchor(&row.centerYAnchor()),
+                    .centerYAnchor()
+                    .constraintEqualToAnchor(&row.centerYAnchor()),
                 checkmark.widthAnchor().constraintEqualToConstant(14.0),
                 checkmark.heightAnchor().constraintEqualToConstant(14.0),
             ] {
@@ -715,9 +731,15 @@ pub fn switch_row(
     toggle.setTranslatesAutoresizingMaskIntoConstraints(false);
     aligned.addSubview(&toggle);
     for constraint in [
-        toggle.trailingAnchor().constraintEqualToAnchor(&aligned.trailingAnchor()),
-        toggle.centerYAnchor().constraintEqualToAnchor(&aligned.centerYAnchor()),
-        aligned.heightAnchor().constraintGreaterThanOrEqualToAnchor(&toggle.heightAnchor()),
+        toggle
+            .trailingAnchor()
+            .constraintEqualToAnchor(&aligned.trailingAnchor()),
+        toggle
+            .centerYAnchor()
+            .constraintEqualToAnchor(&aligned.centerYAnchor()),
+        aligned
+            .heightAnchor()
+            .constraintGreaterThanOrEqualToAnchor(&toggle.heightAnchor()),
     ] {
         constraint.setActive(true);
     }
@@ -793,12 +815,7 @@ pub fn split_button(
     );
     action::attach(&primary, move |_| on_primary(), mtm);
     let disclosure = unsafe {
-        NSButton::buttonWithImage_target_action(
-            &symbol("chevron.down", secondary),
-            None,
-            None,
-            mtm,
-        )
+        NSButton::buttonWithImage_target_action(&symbol("chevron.down", secondary), None, None, mtm)
     };
     disclosure.setBezelStyle(NSBezelStyle::Push);
     disclosure.setToolTip(Some(&NSString::from_str(secondary)));
@@ -877,18 +894,15 @@ impl ProgressButton {
         indicator.setTranslatesAutoresizingMaskIntoConstraints(false);
         button.addSubview(&indicator);
         for constraint in [
-            indicator.leadingAnchor().constraintEqualToAnchor_constant(
-                &button.leadingAnchor(),
-                5.0,
-            ),
-            indicator.trailingAnchor().constraintEqualToAnchor_constant(
-                &button.trailingAnchor(),
-                -5.0,
-            ),
-            indicator.bottomAnchor().constraintEqualToAnchor_constant(
-                &button.bottomAnchor(),
-                -2.0,
-            ),
+            indicator
+                .leadingAnchor()
+                .constraintEqualToAnchor_constant(&button.leadingAnchor(), 5.0),
+            indicator
+                .trailingAnchor()
+                .constraintEqualToAnchor_constant(&button.trailingAnchor(), -5.0),
+            indicator
+                .bottomAnchor()
+                .constraintEqualToAnchor_constant(&button.bottomAnchor(), -2.0),
             indicator.heightAnchor().constraintEqualToConstant(2.0),
         ] {
             constraint.setActive(true);
@@ -1051,13 +1065,27 @@ impl Tabs {
         root.addSubview(&selector);
         root.addSubview(&content);
         for constraint in [
-            selector.leadingAnchor().constraintEqualToAnchor_constant(&root.leadingAnchor(), 16.0),
-            selector.trailingAnchor().constraintEqualToAnchor_constant(&root.trailingAnchor(), -16.0),
-            selector.topAnchor().constraintEqualToAnchor_constant(&root.topAnchor(), 12.0),
-            content.leadingAnchor().constraintEqualToAnchor(&root.leadingAnchor()),
-            content.trailingAnchor().constraintEqualToAnchor(&root.trailingAnchor()),
-            content.topAnchor().constraintEqualToAnchor_constant(&selector.bottomAnchor(), 8.0),
-            content.bottomAnchor().constraintEqualToAnchor(&root.bottomAnchor()),
+            selector
+                .leadingAnchor()
+                .constraintEqualToAnchor_constant(&root.leadingAnchor(), 16.0),
+            selector
+                .trailingAnchor()
+                .constraintEqualToAnchor_constant(&root.trailingAnchor(), -16.0),
+            selector
+                .topAnchor()
+                .constraintEqualToAnchor_constant(&root.topAnchor(), 12.0),
+            content
+                .leadingAnchor()
+                .constraintEqualToAnchor(&root.leadingAnchor()),
+            content
+                .trailingAnchor()
+                .constraintEqualToAnchor(&root.trailingAnchor()),
+            content
+                .topAnchor()
+                .constraintEqualToAnchor_constant(&selector.bottomAnchor(), 8.0),
+            content
+                .bottomAnchor()
+                .constraintEqualToAnchor(&root.bottomAnchor()),
         ] {
             constraint.setActive(true);
         }
@@ -1121,16 +1149,18 @@ pub fn playback_shortcuts(
     });
     let surface: Retained<PlaybackSurface> =
         unsafe { msg_send![super(surface), initWithFrame: NSRect::ZERO] };
-    let label = NSTextField::labelWithString(
-        &NSString::from_str("Click, then press Space or L"),
-        mtm,
-    );
+    let label =
+        NSTextField::labelWithString(&NSString::from_str("Click, then press Space or L"), mtm);
     label.setTextColor(Some(&NSColor::secondaryLabelColor()));
     label.setTranslatesAutoresizingMaskIntoConstraints(false);
     surface.addSubview(&label);
     for constraint in [
-        label.centerXAnchor().constraintEqualToAnchor(&surface.centerXAnchor()),
-        label.centerYAnchor().constraintEqualToAnchor(&surface.centerYAnchor()),
+        label
+            .centerXAnchor()
+            .constraintEqualToAnchor(&surface.centerXAnchor()),
+        label
+            .centerYAnchor()
+            .constraintEqualToAnchor(&surface.centerYAnchor()),
         surface.heightAnchor().constraintEqualToConstant(44.0),
     ] {
         constraint.setActive(true);
@@ -1156,16 +1186,20 @@ pub fn modifier_menu(
     button.setTranslatesAutoresizingMaskIntoConstraints(false);
     row.addSubview(&button);
     for constraint in [
-        button.centerXAnchor().constraintEqualToAnchor(&row.centerXAnchor()),
+        button
+            .centerXAnchor()
+            .constraintEqualToAnchor(&row.centerXAnchor()),
         button.topAnchor().constraintEqualToAnchor(&row.topAnchor()),
-        button.bottomAnchor().constraintEqualToAnchor(&row.bottomAnchor()),
-        button.heightAnchor().constraintGreaterThanOrEqualToConstant(CONTROL_HEIGHT),
+        button
+            .bottomAnchor()
+            .constraintEqualToAnchor(&row.bottomAnchor()),
+        button
+            .heightAnchor()
+            .constraintGreaterThanOrEqualToConstant(CONTROL_HEIGHT),
     ] {
         constraint.setActive(true);
     }
-    StringSelector {
-        view: row,
-    }
+    StringSelector { view: row }
 }
 
 pub fn live_performance(mtm: MainThreadMarker) -> Retained<NSGlassEffectView> {
@@ -1232,7 +1266,11 @@ pub fn live_performance(mtm: MainThreadMarker) -> Retained<NSGlassEffectView> {
                     .downcast_ref::<NSButton>()
                     .expect("live performance disclosure sender")
                     .setImage(Some(&symbol(
-                        if expanded { "chevron.down" } else { "chevron.right" },
+                        if expanded {
+                            "chevron.down"
+                        } else {
+                            "chevron.right"
+                        },
                         if expanded { "Collapse" } else { "Expand" },
                     )));
                 if expanded {
@@ -1315,21 +1353,23 @@ fn refresh_performance(
     };
     clear_stack(rows);
     if entries.is_empty() {
-        column_append(rows, &NSTextField::labelWithString(
-            &NSString::from_str("No performance samples"),
-            mtm,
-        ));
+        column_append(
+            rows,
+            &NSTextField::labelWithString(&NSString::from_str("No performance samples"), mtm),
+        );
         return;
     }
     for entry in entries {
         let item = column_stack(1.0, mtm);
-        column_append(&item, &NSTextField::labelWithString(
-            &NSString::from_str(&entry.title),
-            mtm,
-        ));
+        column_append(
+            &item,
+            &NSTextField::labelWithString(&NSString::from_str(&entry.title), mtm),
+        );
         let subtitle = NSTextField::labelWithString(&NSString::from_str(&entry.subtitle), mtm);
         subtitle.setTextColor(Some(&NSColor::secondaryLabelColor()));
-        subtitle.setFont(Some(&NSFont::systemFontOfSize(NSFont::smallSystemFontSize())));
+        subtitle.setFont(Some(&NSFont::systemFontOfSize(
+            NSFont::smallSystemFontSize(),
+        )));
         column_append(&item, &subtitle);
         column_append(rows, &item);
     }

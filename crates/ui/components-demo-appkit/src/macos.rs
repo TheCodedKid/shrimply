@@ -83,7 +83,6 @@ define_class!(
             app.activate();
         }
     }
-
 );
 
 pub fn run() {
@@ -107,30 +106,38 @@ fn window_shell(content: &NSView, mtm: MainThreadMarker) -> Retained<NSGlassEffe
     glass.setAutoresizingMask(
         NSAutoresizingMaskOptions::ViewWidthSizable | NSAutoresizingMaskOptions::ViewHeightSizable,
     );
-    let root = NSView::initWithFrame(
-        NSView::alloc(mtm),
-        NSRect::new(NSPoint::ZERO, WINDOW_SIZE),
-    );
+    let root = NSView::initWithFrame(NSView::alloc(mtm), NSRect::new(NSPoint::ZERO, WINDOW_SIZE));
     root.setAutoresizingMask(
-        NSAutoresizingMaskOptions::ViewWidthSizable
-            | NSAutoresizingMaskOptions::ViewHeightSizable,
+        NSAutoresizingMaskOptions::ViewWidthSizable | NSAutoresizingMaskOptions::ViewHeightSizable,
     );
-    let title = NSTextField::labelWithString(
-        &NSString::from_str("Shrimply AppKit Components"),
-        mtm,
-    );
-    title.setFont(Some(&NSFont::boldSystemFontOfSize(NSFont::systemFontSize())));
+    let title =
+        NSTextField::labelWithString(&NSString::from_str("Shrimply AppKit Components"), mtm);
+    title.setFont(Some(
+        &NSFont::boldSystemFontOfSize(NSFont::systemFontSize()),
+    ));
     title.setTranslatesAutoresizingMaskIntoConstraints(false);
     content.setTranslatesAutoresizingMaskIntoConstraints(false);
     root.addSubview(&title);
     root.addSubview(content);
     for constraint in [
-        title.centerXAnchor().constraintEqualToAnchor(&root.centerXAnchor()),
-        title.topAnchor().constraintEqualToAnchor_constant(&root.topAnchor(), 14.0),
-        content.leadingAnchor().constraintEqualToAnchor(&root.leadingAnchor()),
-        content.trailingAnchor().constraintEqualToAnchor(&root.trailingAnchor()),
-        content.topAnchor().constraintEqualToAnchor_constant(&root.topAnchor(), 44.0),
-        content.bottomAnchor().constraintEqualToAnchor(&root.bottomAnchor()),
+        title
+            .centerXAnchor()
+            .constraintEqualToAnchor(&root.centerXAnchor()),
+        title
+            .topAnchor()
+            .constraintEqualToAnchor_constant(&root.topAnchor(), 14.0),
+        content
+            .leadingAnchor()
+            .constraintEqualToAnchor(&root.leadingAnchor()),
+        content
+            .trailingAnchor()
+            .constraintEqualToAnchor(&root.trailingAnchor()),
+        content
+            .topAnchor()
+            .constraintEqualToAnchor_constant(&root.topAnchor(), 44.0),
+        content
+            .bottomAnchor()
+            .constraintEqualToAnchor(&root.bottomAnchor()),
     ] {
         constraint.setActive(true);
     }
@@ -139,10 +146,7 @@ fn window_shell(content: &NSView, mtm: MainThreadMarker) -> Retained<NSGlassEffe
 }
 
 fn build_showcase(mtm: MainThreadMarker) -> Tabs {
-    let events = NSTextView::initWithFrame(
-        NSTextView::alloc(mtm),
-        NSRect::ZERO,
-    );
+    let events = NSTextView::initWithFrame(NSTextView::alloc(mtm), NSRect::ZERO);
     events.setEditable(false);
     events.setFont(Some(&NSFont::monospacedSystemFontOfSize_weight(
         NSFont::systemFontSize(),
@@ -370,16 +374,19 @@ fn general_page(log: Rc<dyn Fn(String)>, mtm: MainThreadMarker) -> Retained<NSVi
     column_append(&transform_group, modifiers.view());
     column_append(&general, &transform_group);
     column_append(&general, &live_performance(mtm));
-    column_append(&general, &switch_row(
-        "Enabled",
-        Some("Toggle this option"),
-        true,
-        {
-            let log = log.clone();
-            move |value| log(format!("switch {value}"))
-        },
-        mtm,
-    ));
+    column_append(
+        &general,
+        &switch_row(
+            "Enabled",
+            Some("Toggle this option"),
+            true,
+            {
+                let log = log.clone();
+                move |value| log(format!("switch {value}"))
+            },
+            mtm,
+        ),
+    );
     let color = ColorPicker::new(
         shrimply_math_color::Color::new(0x35, 0x84, 0xe4, 0xcc),
         {
@@ -709,10 +716,7 @@ struct ScrollingPage {
 }
 
 fn scrolling_page(content: Retained<NSStackView>, mtm: MainThreadMarker) -> ScrollingPage {
-    let scroll = NSScrollView::initWithFrame(
-        NSScrollView::alloc(mtm),
-        NSRect::ZERO,
-    );
+    let scroll = NSScrollView::initWithFrame(NSScrollView::alloc(mtm), NSRect::ZERO);
     scroll.setHasVerticalScroller(true);
     scroll.setHasHorizontalScroller(false);
     scroll.setAutohidesScrollers(true);
@@ -738,10 +742,18 @@ fn scrolling_page(content: Retained<NSStackView>, mtm: MainThreadMarker) -> Scro
         document
             .heightAnchor()
             .constraintGreaterThanOrEqualToAnchor(&scroll.contentView().heightAnchor()),
-        content.leadingAnchor().constraintEqualToAnchor(&document.leadingAnchor()),
-        content.trailingAnchor().constraintEqualToAnchor(&document.trailingAnchor()),
-        content.topAnchor().constraintEqualToAnchor(&document.topAnchor()),
-        content.bottomAnchor().constraintLessThanOrEqualToAnchor(&document.bottomAnchor()),
+        content
+            .leadingAnchor()
+            .constraintEqualToAnchor(&document.leadingAnchor()),
+        content
+            .trailingAnchor()
+            .constraintEqualToAnchor(&document.trailingAnchor()),
+        content
+            .topAnchor()
+            .constraintEqualToAnchor(&document.topAnchor()),
+        content
+            .bottomAnchor()
+            .constraintLessThanOrEqualToAnchor(&document.bottomAnchor()),
     ] {
         constraint.setActive(true);
     }
@@ -749,10 +761,7 @@ fn scrolling_page(content: Retained<NSStackView>, mtm: MainThreadMarker) -> Scro
 }
 
 fn text_scroll(view: Retained<NSTextView>, mtm: MainThreadMarker) -> Retained<NSScrollView> {
-    let scroll = NSScrollView::initWithFrame(
-        NSScrollView::alloc(mtm),
-        NSRect::ZERO,
-    );
+    let scroll = NSScrollView::initWithFrame(NSScrollView::alloc(mtm), NSRect::ZERO);
     scroll.setHasVerticalScroller(true);
     scroll.setHasHorizontalScroller(true);
     scroll.setDocumentView(Some(&view));

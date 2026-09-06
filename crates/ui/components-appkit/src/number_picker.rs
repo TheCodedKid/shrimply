@@ -2,14 +2,14 @@ use crate::action;
 use objc2::rc::Retained;
 use objc2::runtime::ProtocolObject;
 use objc2::{AnyThread, ClassType, DefinedClass, MainThreadOnly, define_class, msg_send, sel};
+use objc2_app_kit::NSAffineTransformNSAppKitAdditions;
 use objc2_app_kit::NSControlTextEditingDelegate;
 use objc2_app_kit::{
     NSButton, NSButtonType, NSColor, NSControlStateValueOn, NSCursor, NSEvent, NSEventMask,
     NSEventType, NSGraphicsContext, NSImage, NSImageView, NSLayoutConstraintOrientation,
-    NSLayoutPriorityDefaultLow, NSTextAlignment, NSTextField, NSTextFieldDelegate,
-    NSTrackingArea, NSTrackingAreaOptions, NSView,
+    NSLayoutPriorityDefaultLow, NSTextAlignment, NSTextField, NSTextFieldDelegate, NSTrackingArea,
+    NSTrackingAreaOptions, NSView,
 };
-use objc2_app_kit::NSAffineTransformNSAppKitAdditions;
 use objc2_core_graphics::{CGAssociateMouseAndMouseCursorPosition, CGError};
 use objc2_foundation::{
     MainThreadMarker, NSAffineTransform, NSNotification, NSObjectProtocol, NSPoint, NSRect,
@@ -62,10 +62,7 @@ define_class!(
 impl RotatingImageView {
     fn set_angle(&self, angle_degrees: f64) {
         if self.ivars().angle_degrees.replace(angle_degrees) != angle_degrees {
-            self.as_super()
-                .as_super()
-                .as_super()
-                .setNeedsDisplay(true);
+            self.as_super().as_super().as_super().setNeedsDisplay(true);
         }
     }
 }
@@ -262,15 +259,18 @@ impl NumberPickerView {
     }
 
     fn finish_drag(&self) {
-        assert!(self.ivars().drag.get().moved(), "finish_drag requires movement");
+        assert!(
+            self.ivars().drag.get().moved(),
+            "finish_drag requires movement"
+        );
         self.release_pointer();
         (self.ivars().on_commit)(self.ivars().value.get());
     }
 
     fn refresh(&self) {
         if !self.ivars().rotating_icon.isHidden() {
-            let angle = fraction_as_f64(self.ivars().value.get())
-                + self.ivars().rotation_offset_degrees;
+            let angle =
+                fraction_as_f64(self.ivars().value.get()) + self.ivars().rotation_offset_degrees;
             self.ivars().rotating_icon.set_angle(angle);
         }
         self.ivars()
@@ -561,30 +561,56 @@ impl NumberPickerBuilder {
         let has_prefix = !self.prefix.trim().is_empty();
         let has_suffix = !self.suffix.trim().is_empty();
         for constraint in [
-            background.leadingAnchor().constraintEqualToAnchor(&display.leadingAnchor()),
-            background.trailingAnchor().constraintEqualToAnchor(&display.trailingAnchor()),
-            background.topAnchor().constraintEqualToAnchor(&display.topAnchor()),
-            background.bottomAnchor().constraintEqualToAnchor(&display.bottomAnchor()),
-            rotating_icon.leadingAnchor().constraintEqualToAnchor_constant(&display.leadingAnchor(), 8.0),
-            rotating_icon.centerYAnchor().constraintEqualToAnchor(&display.centerYAnchor()),
-            rotating_icon.widthAnchor().constraintEqualToConstant(if has_icon { 14.0 } else { 0.0 }),
-            rotating_icon.heightAnchor().constraintEqualToConstant(if has_icon { 14.0 } else { 0.0 }),
+            background
+                .leadingAnchor()
+                .constraintEqualToAnchor(&display.leadingAnchor()),
+            background
+                .trailingAnchor()
+                .constraintEqualToAnchor(&display.trailingAnchor()),
+            background
+                .topAnchor()
+                .constraintEqualToAnchor(&display.topAnchor()),
+            background
+                .bottomAnchor()
+                .constraintEqualToAnchor(&display.bottomAnchor()),
+            rotating_icon
+                .leadingAnchor()
+                .constraintEqualToAnchor_constant(&display.leadingAnchor(), 8.0),
+            rotating_icon
+                .centerYAnchor()
+                .constraintEqualToAnchor(&display.centerYAnchor()),
+            rotating_icon
+                .widthAnchor()
+                .constraintEqualToConstant(if has_icon { 14.0 } else { 0.0 }),
+            rotating_icon
+                .heightAnchor()
+                .constraintEqualToConstant(if has_icon { 14.0 } else { 0.0 }),
             prefix.leadingAnchor().constraintEqualToAnchor_constant(
                 &rotating_icon.trailingAnchor(),
                 if has_icon && has_prefix { 4.0 } else { 0.0 },
             ),
-            prefix.centerYAnchor().constraintEqualToAnchor(&display.centerYAnchor()),
-            value_label.leadingAnchor().constraintEqualToAnchor_constant(
-                &prefix.trailingAnchor(),
-                if has_prefix { 4.0 } else { 0.0 },
-            ),
-            value_label.centerYAnchor().constraintEqualToAnchor(&display.centerYAnchor()),
+            prefix
+                .centerYAnchor()
+                .constraintEqualToAnchor(&display.centerYAnchor()),
+            value_label
+                .leadingAnchor()
+                .constraintEqualToAnchor_constant(
+                    &prefix.trailingAnchor(),
+                    if has_prefix { 4.0 } else { 0.0 },
+                ),
+            value_label
+                .centerYAnchor()
+                .constraintEqualToAnchor(&display.centerYAnchor()),
             suffix.leadingAnchor().constraintEqualToAnchor_constant(
                 &value_label.trailingAnchor(),
                 if has_suffix { 4.0 } else { 0.0 },
             ),
-            suffix.trailingAnchor().constraintEqualToAnchor_constant(&display.trailingAnchor(), -8.0),
-            suffix.centerYAnchor().constraintEqualToAnchor(&display.centerYAnchor()),
+            suffix
+                .trailingAnchor()
+                .constraintEqualToAnchor_constant(&display.trailingAnchor(), -8.0),
+            suffix
+                .centerYAnchor()
+                .constraintEqualToAnchor(&display.centerYAnchor()),
         ] {
             constraint.setActive(true);
         }
@@ -634,7 +660,9 @@ impl NumberPickerBuilder {
             display
                 .trailingAnchor()
                 .constraintEqualToAnchor(&view.trailingAnchor()),
-            display.topAnchor().constraintEqualToAnchor(&view.topAnchor()),
+            display
+                .topAnchor()
+                .constraintEqualToAnchor(&view.topAnchor()),
             display
                 .bottomAnchor()
                 .constraintEqualToAnchor(&view.bottomAnchor()),
@@ -987,8 +1015,10 @@ fn number_row(
         );
         row.addSubview(lock);
         for constraint in [
-            lock.leadingAnchor().constraintEqualToAnchor(&row.leadingAnchor()),
-            lock.centerYAnchor().constraintEqualToAnchor(&row.centerYAnchor()),
+            lock.leadingAnchor()
+                .constraintEqualToAnchor(&row.leadingAnchor()),
+            lock.centerYAnchor()
+                .constraintEqualToAnchor(&row.centerYAnchor()),
             lock.widthAnchor()
                 .constraintEqualToConstant(lock.intrinsicContentSize().width),
         ] {
@@ -999,20 +1029,24 @@ fn number_row(
         field.setTranslatesAutoresizingMaskIntoConstraints(false);
         row.addSubview(field);
         let leading = if let Some(previous) = previous {
+            field.leadingAnchor().constraintEqualToAnchor_constant(
+                &previous.trailingAnchor(),
+                f64::from(shrimply_component_core::layout::CONTROL_ROW_GAP),
+            )
+        } else {
             field
                 .leadingAnchor()
-                .constraintEqualToAnchor_constant(
-                    &previous.trailingAnchor(),
-                    f64::from(shrimply_component_core::layout::CONTROL_ROW_GAP),
-                )
-        } else {
-            field.leadingAnchor().constraintEqualToAnchor(&row.leadingAnchor())
+                .constraintEqualToAnchor(&row.leadingAnchor())
         };
         for constraint in [
             leading,
             field.topAnchor().constraintEqualToAnchor(&row.topAnchor()),
-            field.bottomAnchor().constraintEqualToAnchor(&row.bottomAnchor()),
-            field.widthAnchor().constraintEqualToAnchor(&fields[0].widthAnchor()),
+            field
+                .bottomAnchor()
+                .constraintEqualToAnchor(&row.bottomAnchor()),
+            field
+                .widthAnchor()
+                .constraintEqualToAnchor(&fields[0].widthAnchor()),
         ] {
             constraint.setActive(true);
         }

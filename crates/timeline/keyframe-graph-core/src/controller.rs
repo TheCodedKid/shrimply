@@ -17,8 +17,7 @@ use uuid::Uuid;
 use crate::{
     CURSOR_LANE_HEIGHT, GRAPH_PAD, GraphDomain, KeyframeGraph, KeyframeGraphDraw, KeyframePoint,
     RawSegment, STEP_GRAPH_RANGE, draw_keyframes, graph_value_at, raw_point, raw_range,
-    segment_speed_at,
-    speed_range, time_x, value_y,
+    segment_speed_at, speed_range, time_x, value_y,
 };
 
 pub const GRAPH_SLIDER_HEIGHT: f64 = 20.0;

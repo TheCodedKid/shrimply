@@ -3,12 +3,13 @@ use std::rc::Rc;
 
 use adw::prelude::*;
 use gtk::{gdk, glib};
-use shrimply_interpolation::Interpolation;
+pub use shrimply_framegraph_core::SharedFrameGraphState;
 use shrimply_framegraph_core::{
-    FrameGraphAction, FrameGraphCommand, FrameGraphComponentAction, FrameGraphComponents, FrameGraphKey,
-    FrameGraphInputResult, FrameGraphModifiers, FrameGraphPointerButton, FrameGraphPointerPosition,
-    FrameGraphScrollInput, FrameGraphState, FrameGraphStatus, SharedFrameGraphState,
+    FrameGraphAction, FrameGraphCommand, FrameGraphComponentAction, FrameGraphComponents,
+    FrameGraphInputResult, FrameGraphKey, FrameGraphModifiers, FrameGraphPointerButton,
+    FrameGraphPointerPosition, FrameGraphScrollInput, FrameGraphState, FrameGraphStatus,
 };
+use shrimply_interpolation::Interpolation;
 use shrimply_skia_adw_core::canvas::UVec2;
 use shrimply_skia_gl::TimelineRenderer;
 
@@ -357,12 +358,7 @@ impl FrameGraph {
                     gdk::Key::minus => FrameGraphKey::ZoomOut,
                     _ => return glib::Propagation::Proceed,
                 };
-                finish_input(
-                    &area,
-                    &on_action,
-                    &sync,
-                    state.key(graph_key),
-                );
+                finish_input(&area, &on_action, &sync, state.key(graph_key));
                 glib::Propagation::Stop
             }
         });
@@ -445,8 +441,7 @@ impl FrameGraph {
     }
 
     pub fn refresh(&self) {
-        self.area
-            .set_height_request(self.state.preferred_height());
+        self.area.set_height_request(self.state.preferred_height());
         if self.area.is_mapped() {
             (self.sync)();
             self.area.queue_render();
@@ -502,12 +497,7 @@ fn connect_button(
     let handler = handler.clone();
     let sync = sync.clone();
     button.connect_clicked(move |_| {
-        finish_input(
-            &area,
-            &handler,
-            &sync,
-            state.command(command),
-        );
+        finish_input(&area, &handler, &sync, state.command(command));
     });
 }
 
@@ -550,14 +540,12 @@ fn add_drag(
         let sync = sync.clone();
         move |_, dx, dy| {
             let (start_x, start_y) = start.get();
-            let result = state.update_pointer(
-                FrameGraphPointerPosition {
-                    x: start_x + dx,
-                    y: start_y + dy,
-                    width: f64::from(area.width().max(1)),
-                    height: f64::from(area.height().max(1)),
-                },
-            );
+            let result = state.update_pointer(FrameGraphPointerPosition {
+                x: start_x + dx,
+                y: start_y + dy,
+                width: f64::from(area.width().max(1)),
+                height: f64::from(area.height().max(1)),
+            });
             finish_input(&area, &handler, &sync, result);
         }
     });
@@ -567,12 +555,7 @@ fn add_drag(
         let handler = handler.clone();
         let sync = sync.clone();
         move |_, _, _| {
-            finish_input(
-                &area,
-                &handler,
-                &sync,
-                state.end_pointer(),
-            );
+            finish_input(&area, &handler, &sync, state.end_pointer());
         }
     });
     area.add_controller(drag);
