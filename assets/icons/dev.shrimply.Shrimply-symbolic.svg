@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 128 128">
+  <title>Shrimply — symbolic</title>
+  <desc>A solid white shrimp silhouette with a transparent eye and split tail.</desc>
+  <path fill="#ffffff" fill-rule="evenodd" transform="translate(.5 4)" d="M12 18H78C99 18 116 37 116 60C116 83 100 102 80 102C91 102 99 92 99 81C99 69 91 61 80 61H48C28 61 12 42 12 18Z M12 77L80 102H34C21 102 12 92 12 77Z M48 77H59C71 77 80 88 80 102Z M38 34A4.5 4.5 0 1 1 29 34A4.5 4.5 0 1 1 38 34Z"/>
+</svg>

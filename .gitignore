@@ -45,3 +45,4 @@ latex_cache/
 .gradio/certificate.pem
 TODO.md
 TODO-appkit-components.md
+assets/.DS_Store
