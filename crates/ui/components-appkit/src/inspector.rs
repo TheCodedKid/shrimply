@@ -1,6 +1,6 @@
 use crate::{
-    FrameGraph, MultilineTextInput, action, column_append, column_stack,
-    control_row_with_suffix, row_stack,
+    FrameGraph, MultilineTextInput, action, column_append, column_stack, control_row_with_suffix,
+    row_stack,
 };
 use block2::RcBlock;
 use objc2::MainThreadOnly;
@@ -200,10 +200,18 @@ fn inset_view(
     child.setTranslatesAutoresizingMaskIntoConstraints(false);
     wrapper.addSubview(child);
     for constraint in [
-        child.leadingAnchor().constraintEqualToAnchor_constant(&wrapper.leadingAnchor(), left),
-        child.trailingAnchor().constraintEqualToAnchor_constant(&wrapper.trailingAnchor(), -right),
-        child.topAnchor().constraintEqualToAnchor_constant(&wrapper.topAnchor(), top),
-        child.bottomAnchor().constraintEqualToAnchor_constant(&wrapper.bottomAnchor(), -bottom),
+        child
+            .leadingAnchor()
+            .constraintEqualToAnchor_constant(&wrapper.leadingAnchor(), left),
+        child
+            .trailingAnchor()
+            .constraintEqualToAnchor_constant(&wrapper.trailingAnchor(), -right),
+        child
+            .topAnchor()
+            .constraintEqualToAnchor_constant(&wrapper.topAnchor(), top),
+        child
+            .bottomAnchor()
+            .constraintEqualToAnchor_constant(&wrapper.bottomAnchor(), -bottom),
     ] {
         constraint.setActive(true);
     }
@@ -287,7 +295,10 @@ impl InspectorGraphProperty {
         keyframes.setToolTip(Some(&NSString::from_str("Toggle keyframes")));
         let expression = unsafe {
             NSButton::buttonWithImage_target_action(
-                &symbol("chevron.left.forwardslash.chevron.right", "Toggle expression"),
+                &symbol(
+                    "chevron.left.forwardslash.chevron.right",
+                    "Toggle expression",
+                ),
                 None,
                 None,
                 mtm,

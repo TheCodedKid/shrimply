@@ -4,8 +4,8 @@ use objc2::runtime::ProtocolObject;
 use objc2::{ClassType, DefinedClass, MainThreadOnly, define_class, msg_send, sel};
 use objc2_app_kit::{
     NSBackgroundColorAttributeName, NSColor, NSControlTextEditingDelegate, NSFont,
-    NSForegroundColorAttributeName, NSScrollView, NSTextDelegate, NSTextField,
-    NSTextFieldDelegate, NSTextView, NSTextViewDelegate,
+    NSForegroundColorAttributeName, NSScrollView, NSTextDelegate, NSTextField, NSTextFieldDelegate,
+    NSTextView, NSTextViewDelegate,
 };
 use objc2_foundation::{
     MainThreadMarker, NSNotification, NSObject, NSObjectProtocol, NSRange, NSRect, NSSize, NSString,
@@ -302,8 +302,8 @@ impl MultilineTextInput {
             view.setHorizontallyResizable(true);
             view.setVerticallyResizable(true);
             view.setMaxSize(NSSize::new(f64::MAX, f64::MAX));
-            let container = unsafe { view.textContainer() }
-                .expect("code editor must have a text container");
+            let container =
+                unsafe { view.textContainer() }.expect("code editor must have a text container");
             container.setWidthTracksTextView(false);
             container.setContainerSize(NSSize::new(f64::MAX, f64::MAX));
         }
@@ -364,12 +364,18 @@ fn highlight_expression(view: &NSTextView, source: &str) {
         for span in shrimply_component_core::syntax::expression_spans(source) {
             let color = match span.kind {
                 shrimply_component_core::syntax::SyntaxKind::Keyword => NSColor::systemBlueColor(),
-                shrimply_component_core::syntax::SyntaxKind::Boolean => NSColor::systemOrangeColor(),
+                shrimply_component_core::syntax::SyntaxKind::Boolean => {
+                    NSColor::systemOrangeColor()
+                }
                 shrimply_component_core::syntax::SyntaxKind::Function => NSColor::systemTealColor(),
-                shrimply_component_core::syntax::SyntaxKind::Variable => NSColor::systemIndigoColor(),
+                shrimply_component_core::syntax::SyntaxKind::Variable => {
+                    NSColor::systemIndigoColor()
+                }
                 shrimply_component_core::syntax::SyntaxKind::Number => NSColor::systemPurpleColor(),
                 shrimply_component_core::syntax::SyntaxKind::String => NSColor::systemRedColor(),
-                shrimply_component_core::syntax::SyntaxKind::Comment => NSColor::secondaryLabelColor(),
+                shrimply_component_core::syntax::SyntaxKind::Comment => {
+                    NSColor::secondaryLabelColor()
+                }
             };
             storage.addAttribute_value_range(
                 NSForegroundColorAttributeName,
@@ -407,8 +413,17 @@ fn current_line_indent(source: &str, utf16_location: usize) -> String {
     )
     .rsplit_once('\n')
     .map_or_else(
-        || source.chars().take_while(|character| character.is_whitespace()).collect(),
-        |(_, line)| line.chars().take_while(|character| matches!(character, ' ' | '\t')).collect(),
+        || {
+            source
+                .chars()
+                .take_while(|character| character.is_whitespace())
+                .collect()
+        },
+        |(_, line)| {
+            line.chars()
+                .take_while(|character| matches!(character, ' ' | '\t'))
+                .collect()
+        },
     )
 }
 
@@ -475,7 +490,11 @@ fn move_to_smart_line_edge(view: &NSTextView, end: bool) {
         .rfind(|index| !matches!(source[*index] as u8 as char, ' ' | '\t'))
         .map_or(start, |index| index + 1);
     let target = if end {
-        if caret == content_end { line_end } else { content_end }
+        if caret == content_end {
+            line_end
+        } else {
+            content_end
+        }
     } else if caret == content_start {
         start
     } else {
@@ -507,8 +526,12 @@ fn show_matching_bracket(view: &NSTextView) {
     let mut cursor = index as isize;
     loop {
         cursor += direction;
-        let Ok(candidate) = usize::try_from(cursor) else { return };
-        let Some(character) = source.get(candidate).copied() else { return };
+        let Ok(candidate) = usize::try_from(cursor) else {
+            return;
+        };
+        let Some(character) = source.get(candidate).copied() else {
+            return;
+        };
         if character == if direction > 0 { open } else { close } {
             depth += 1;
         } else if character == if direction > 0 { close } else { open } {

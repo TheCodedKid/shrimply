@@ -53,7 +53,9 @@ pub fn expression_spans(source: &str) -> Vec<SyntaxSpan> {
             spans.push(span(source, start, end, SyntaxKind::String));
             index = end_index;
         } else if character.is_ascii_digit()
-            && index.checked_sub(1).is_none_or(|previous| !is_identifier(chars[previous].1))
+            && index
+                .checked_sub(1)
+                .is_none_or(|previous| !is_identifier(chars[previous].1))
         {
             let mut end_index = index + 1;
             while chars
@@ -86,7 +88,10 @@ pub fn expression_spans(source: &str) -> Vec<SyntaxSpan> {
                 }
             }
             let end = chars.get(end_index).map_or(source.len(), |(byte, _)| *byte);
-            if chars.get(end_index).is_none_or(|(_, next)| !is_identifier(*next)) {
+            if chars
+                .get(end_index)
+                .is_none_or(|(_, next)| !is_identifier(*next))
+            {
                 spans.push(span(source, start, end, SyntaxKind::Number));
             }
             index = end_index;
@@ -104,24 +109,68 @@ pub fn expression_spans(source: &str) -> Vec<SyntaxSpan> {
                 Some(SyntaxKind::Boolean)
             } else if matches!(
                 word,
-                "break" | "const" | "continue" | "else" | "export" | "fn" | "for"
-                    | "if" | "in" | "let" | "loop" | "return" | "while"
+                "break"
+                    | "const"
+                    | "continue"
+                    | "else"
+                    | "export"
+                    | "fn"
+                    | "for"
+                    | "if"
+                    | "in"
+                    | "let"
+                    | "loop"
+                    | "return"
+                    | "while"
             ) {
                 Some(SyntaxKind::Keyword)
             } else if matches!(
                 word,
-                "Fraction" | "abs" | "clamp" | "cos" | "int" | "lerp" | "gray"
-                    | "graya" | "hsv" | "hsva" | "oklab" | "oklaba" | "pow"
-                    | "random" | "rgb" | "rgba" | "shake" | "sin" | "sqrt" | "tan"
+                "Fraction"
+                    | "abs"
+                    | "clamp"
+                    | "cos"
+                    | "int"
+                    | "lerp"
+                    | "gray"
+                    | "graya"
+                    | "hsv"
+                    | "hsva"
+                    | "oklab"
+                    | "oklaba"
+                    | "pow"
+                    | "random"
+                    | "rgb"
+                    | "rgba"
+                    | "shake"
+                    | "sin"
+                    | "sqrt"
+                    | "tan"
                     | "vol"
             ) {
                 Some(SyntaxKind::Function)
             } else if matches!(
                 word,
-                "canvas_height" | "canvas_width" | "duration" | "fps" | "local_t"
-                    | "media_height" | "media_width" | "seed" | "source_height"
-                    | "source_width" | "t" | "time" | "value" | "a" | "b" | "g"
-                    | "r" | "x" | "y" | "z"
+                "canvas_height"
+                    | "canvas_width"
+                    | "duration"
+                    | "fps"
+                    | "local_t"
+                    | "media_height"
+                    | "media_width"
+                    | "seed"
+                    | "source_height"
+                    | "source_width"
+                    | "t"
+                    | "time"
+                    | "value"
+                    | "a"
+                    | "b"
+                    | "g"
+                    | "r"
+                    | "x"
+                    | "y"
+                    | "z"
             ) {
                 Some(SyntaxKind::Variable)
             } else {
