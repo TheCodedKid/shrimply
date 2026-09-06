@@ -33,6 +33,21 @@ impl Scene {
         let mut active_items =
             shrimply_video_core::sequence::active_tracks(tracks, scope.time, None);
         active_items.retain(|active| Some(active.item.id) != self.excluded_item_id);
+        if let Some(target) = &self.capture_item {
+            let depth = scope.path.len();
+            if depth <= target.sequence_path().len() {
+                let target_item_id = target
+                    .sequence_path()
+                    .get(depth)
+                    .copied()
+                    .unwrap_or_else(|| target.item_id());
+                let final_item = depth == target.sequence_path().len();
+                active_items.retain(|active| {
+                    active.item.id == target_item_id
+                        && (!final_item || active.track_id == target.track_id())
+                });
+            }
+        }
         let mut items = Vec::new();
         for (active_index, active) in active_items.iter().enumerate() {
             let morph = morph_endpoint(&active_items, active_index);

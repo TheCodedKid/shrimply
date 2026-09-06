@@ -15,6 +15,7 @@ pub const ANALYZE_TOOLTIP: &str =
     "Precompute compact CPU mask frames so normal playback does not run SAM2";
 
 pub(super) fn presentation(
+    address: &shrimply_project::project::ItemAddress,
     value: &Sam2Modifier,
     index: usize,
     modifier_id: uuid::Uuid,
@@ -130,7 +131,10 @@ pub(super) fn presentation(
     let can_analyze = !value.points.is_empty() || value.box_prompt.is_some();
     let prompt_signature = value.prompt_signature();
     let analysis = sam2_analysis_control(
-        modifier_id,
+        &sam2_analysis::AnalysisTarget {
+            address: address.clone(),
+            modifier_id,
+        },
         value.analysis_generation,
         prompt_signature,
         can_analyze,
@@ -156,12 +160,12 @@ pub(super) fn presentation(
 }
 
 pub fn sam2_analysis_control(
-    modifier_id: uuid::Uuid,
+    target: &sam2_analysis::AnalysisTarget,
     generation: u64,
     prompt_signature: u64,
     can_analyze: bool,
 ) -> AnalysisControlPresentation {
-    match sam2_analysis::get_for_prompt(modifier_id, generation, prompt_signature) {
+    match sam2_analysis::get_for_prompt(target, generation, prompt_signature) {
         Some(sam2_analysis::Status::Running {
             message,
             completed_frames,
@@ -425,13 +429,17 @@ impl InspectorController {
         modifier_id: uuid::Uuid,
         server_url: String,
     ) -> Result<(), String> {
+        let analysis_target = sam2_analysis::AnalysisTarget {
+            address: super::video_address(target)?.clone(),
+            modifier_id,
+        };
         let mut project = self.project.borrow_mut();
         let sam2 = sam2_modifier_mut(&mut project, target, modifier_id)?;
         let current_generation = sam2.analysis_generation;
         let prompt_signature = sam2.prompt_signature();
         if let Some((run_id, _)) =
-            sam2_analysis::active_run(modifier_id, current_generation, prompt_signature)
-            && sam2_analysis::cancel(modifier_id, run_id)
+            sam2_analysis::active_run(&analysis_target, current_generation, prompt_signature)
+            && sam2_analysis::cancel(&analysis_target, run_id)
         {
             drop(project);
             super::refresh(&self.player_state);
@@ -445,7 +453,7 @@ impl InspectorController {
         shrimply_project::project::commit_edit(&project, EDIT_COMMIT);
         drop(project);
         sam2_analysis::start(
-            modifier_id,
+            analysis_target,
             next_generation,
             sam2_analysis::Status::Running {
                 message: "Sending request…".to_string(),
@@ -465,13 +473,17 @@ impl InspectorController {
         modifier_id: uuid::Uuid,
         edit: impl FnOnce(&mut Sam2Modifier) -> bool,
     ) -> Result<(), String> {
+        let analysis_target = sam2_analysis::AnalysisTarget {
+            address: super::video_address(target)?.clone(),
+            modifier_id,
+        };
         let mut project = self.project.borrow_mut();
         let sam2 = sam2_modifier_mut(&mut project, target, modifier_id)?;
         if !edit(sam2) {
             return Ok(());
         }
         sam2_analysis::invalidate_if_stale(
-            modifier_id,
+            &analysis_target,
             sam2.analysis_generation,
             sam2.prompt_signature(),
         );

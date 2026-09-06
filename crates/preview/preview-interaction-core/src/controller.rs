@@ -204,7 +204,11 @@ impl PreparedProvider {
         if response.edit.changed()
             && let Some(item) = project.video_item(&self.item)
         {
-            shrimply_video_core::sam2::invalidate_item_analysis(item, self.target.owner_id());
+            shrimply_video_core::sam2::invalidate_item_analysis(
+                &self.item,
+                item,
+                self.target.owner_id(),
+            );
         }
         response
     }
@@ -231,7 +235,11 @@ impl PreparedProvider {
         if response.edit.changed()
             && let Some(item) = project.video_item(&self.item)
         {
-            shrimply_video_core::sam2::invalidate_item_analysis(item, self.target.owner_id());
+            shrimply_video_core::sam2::invalidate_item_analysis(
+                &self.item,
+                item,
+                self.target.owner_id(),
+            );
         }
         response
     }

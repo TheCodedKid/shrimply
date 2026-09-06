@@ -3,7 +3,7 @@ use std::hash::{DefaultHasher, Hash, Hasher};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender, SyncSender};
-use std::sync::{Arc, Mutex, Weak};
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -92,7 +92,6 @@ type PendingProject = Arc<Mutex<Option<(Arc<Project>, u64, u64)>>>;
 #[derive(Clone)]
 pub struct VideoCommandSender {
     sender: Sender<WorkerCommand>,
-    _sam2_claim_waiter: Arc<crate::sam2_analysis::ClaimWaiter>,
     next_request_id: Arc<AtomicU64>,
     cancel_generation: Arc<AtomicU64>,
     last_render: Arc<Mutex<Option<CompositeAccuracy>>>,
@@ -868,25 +867,24 @@ pub fn spawn_worker_with_resources_and_observer(
     let latest_project_generation = Arc::new(AtomicU64::new(0));
     let pending_project = Arc::new(Mutex::new(None));
     let project_notification_pending = Arc::new(AtomicBool::new(false));
-    let sam2_claim_waiter = Arc::new(crate::sam2_analysis::ClaimWaiter::new({
+    let sam2_scheduler = crate::sam2_analysis::Scheduler::new({
         let command_tx = command_tx.clone();
         move || {
             let _ = command_tx.send(WorkerCommand::ScheduleSam2Analysis);
         }
-    }));
+    });
     let worker_cancel_generation = cancel_generation.clone();
     let worker_project_generation = latest_project_generation.clone();
     let worker_project = pending_project.clone();
     let worker_project_notification = project_notification_pending.clone();
     let worker_playback_observer = playback_observer.clone();
-    let worker_sam2_claim_waiter = Arc::downgrade(&sam2_claim_waiter);
     thread::spawn(move || {
         video_compositor_worker(
             project,
             resource_config,
             VideoWorkerChannels {
                 command_rx,
-                sam2_claim_waiter: worker_sam2_claim_waiter,
+                sam2_scheduler,
                 event_tx,
                 cancel_generation: worker_cancel_generation,
                 latest_project_generation: worker_project_generation,
@@ -899,7 +897,6 @@ pub fn spawn_worker_with_resources_and_observer(
     (
         VideoCommandSender {
             sender: command_tx,
-            _sam2_claim_waiter: sam2_claim_waiter,
             next_request_id,
             cancel_generation,
             last_render,
@@ -914,7 +911,7 @@ pub fn spawn_worker_with_resources_and_observer(
 
 struct VideoWorkerChannels {
     command_rx: Receiver<WorkerCommand>,
-    sam2_claim_waiter: Weak<crate::sam2_analysis::ClaimWaiter>,
+    sam2_scheduler: crate::sam2_analysis::Scheduler,
     event_tx: SyncSender<VideoEvent>,
     cancel_generation: Arc<AtomicU64>,
     latest_project_generation: Arc<AtomicU64>,
@@ -930,7 +927,7 @@ fn video_compositor_worker(
 ) {
     let VideoWorkerChannels {
         command_rx,
-        sam2_claim_waiter,
+        mut sam2_scheduler,
         event_tx,
         cancel_generation,
         latest_project_generation,
@@ -950,7 +947,6 @@ fn video_compositor_worker(
     );
     let mut render_cache = RenderCache::default();
     let mut last_errors = Vec::new();
-    let mut sam2_analyses = HashMap::new();
     let mut project_revision = 0;
     let mut project_generation = 0;
     let mut preview_exclusion = None;
@@ -972,21 +968,14 @@ fn video_compositor_worker(
                     let _measurement =
                         shrimply_benchmarking::measure("Video / Retain project sessions");
                     retain_project_sessions(&project, &mut sessions);
-                    schedule_sam2_analysis(
-                        &project,
-                        &mut sam2_analyses,
-                        &event_tx,
-                        &sam2_claim_waiter,
-                    );
+                    schedule_sam2_analysis(&project, &mut sam2_scheduler, &event_tx);
                 }
             }
             WorkerCommand::SetPreviewExclusion(item_id) => preview_exclusion = item_id,
             WorkerCommand::ConfigureResources(config) => sessions.configure_resources(config),
             WorkerCommand::ScheduleSam2Analysis => {
-                if let Some(waiter) = sam2_claim_waiter.upgrade() {
-                    waiter.consume_notification();
-                }
-                schedule_sam2_analysis(&project, &mut sam2_analyses, &event_tx, &sam2_claim_waiter);
+                sam2_scheduler.consume_notification();
+                schedule_sam2_analysis(&project, &mut sam2_scheduler, &event_tx);
             }
             WorkerCommand::Render {
                 position,
@@ -1010,13 +999,13 @@ fn video_compositor_worker(
                         &command_rx,
                         &pending_project,
                         &project_notification_pending,
-                        &sam2_claim_waiter,
+                        &sam2_scheduler,
                     )
                 };
                 let Some((position, accuracy, request_id, render_generation)) = coalesced else {
                     return;
                 };
-                schedule_sam2_analysis(&project, &mut sam2_analyses, &event_tx, &sam2_claim_waiter);
+                schedule_sam2_analysis(&project, &mut sam2_scheduler, &event_tx);
                 let render_project_generation = project_generation;
                 let decode_control =
                     DecodeControl::new(render_generation, cancel_generation.clone());
@@ -1259,7 +1248,7 @@ fn coalesce_pending_commands(
     command_rx: &Receiver<WorkerCommand>,
     pending_project: &Mutex<Option<(Arc<Project>, u64, u64)>>,
     project_notification_pending: &AtomicBool,
-    sam2_claim_waiter: &Weak<crate::sam2_analysis::ClaimWaiter>,
+    sam2_scheduler: &crate::sam2_analysis::Scheduler,
 ) -> Option<(Time, CompositeAccuracy, u64, u64)> {
     while let Ok(next) = command_rx.try_recv() {
         match next {
@@ -1277,9 +1266,7 @@ fn coalesce_pending_commands(
             WorkerCommand::SetPreviewExclusion(item_id) => *preview_exclusion = item_id,
             WorkerCommand::ConfigureResources(config) => sessions.configure_resources(config),
             WorkerCommand::ScheduleSam2Analysis => {
-                if let Some(waiter) = sam2_claim_waiter.upgrade() {
-                    waiter.consume_notification();
-                }
+                sam2_scheduler.consume_notification();
             }
             WorkerCommand::Render {
                 position: next_position,
@@ -1300,20 +1287,11 @@ fn coalesce_pending_commands(
 
 fn schedule_sam2_analysis(
     project: &Project,
-    scheduled: &mut HashMap<Uuid, crate::sam2_analysis::RunId>,
+    scheduler: &mut crate::sam2_analysis::Scheduler,
     event_tx: &SyncSender<VideoEvent>,
-    claim_waiter: &Weak<crate::sam2_analysis::ClaimWaiter>,
 ) {
-    let Some(claim_waiter) = claim_waiter.upgrade() else {
-        return;
-    };
-    let Some(job) = sam2::pending_analysis(project, scheduled) else {
-        return;
-    };
-    let modifier_id = job.modifier_id;
-    let run_id = job.run_id;
-    if sam2::spawn_analysis(project, job, event_tx.clone(), &claim_waiter) {
-        scheduled.insert(modifier_id, run_id);
+    if let Err(error) = sam2::schedule_analysis(project, scheduler, event_tx.clone()) {
+        let _ = event_tx.try_send(VideoEvent::Error(error));
     }
 }
 
@@ -1540,7 +1518,6 @@ mod cancellation_tests {
         let cancel_generation = Arc::new(AtomicU64::new(0));
         let commands = VideoCommandSender {
             sender,
-            _sam2_claim_waiter: Arc::new(crate::sam2_analysis::ClaimWaiter::new(|| {})),
             next_request_id: Arc::new(AtomicU64::new(0)),
             cancel_generation: cancel_generation.clone(),
             last_render: Arc::new(Mutex::new(None)),

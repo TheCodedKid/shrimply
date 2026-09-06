@@ -51,7 +51,7 @@ impl GeneratedGpuRenderer {
         context: Arc<CudaContext>,
         stream: &Arc<CudaStream>,
         preview: &PreviewModule,
-        session: &mut shrimply_render_3d::ObjRenderSession,
+        session: &shrimply_render_3d::ObjRenderSession,
         width: u32,
         height: u32,
         params: &shrimply_render_3d::SceneRenderParams,
@@ -315,7 +315,7 @@ impl Scene3dRenderer {
 
     fn render(
         &mut self,
-        session: &mut shrimply_render_3d::ObjRenderSession,
+        session: &shrimply_render_3d::ObjRenderSession,
         width: u32,
         height: u32,
         params: &shrimply_render_3d::SceneRenderParams,
@@ -914,7 +914,7 @@ impl Scene3dRenderer {
                     .ok_or_else(|| "3D instance references a missing BLAS".to_string())?;
                 Ok(vk::AccelerationStructureInstanceKHR {
                     transform: vk::TransformMatrixKHR {
-                        matrix: instance.transform,
+                        matrix: Self::vulkan_transform(instance.transform),
                     },
                     instance_custom_index_and_mask: vk::Packed24_8::new(
                         instance_index as u32,
@@ -933,6 +933,23 @@ impl Scene3dRenderer {
                 })
             })
             .collect()
+    }
+
+    fn vulkan_transform(columns: [f32; 16]) -> [f32; 12] {
+        [
+            columns[0],
+            columns[4],
+            columns[8],
+            columns[12],
+            columns[1],
+            columns[5],
+            columns[9],
+            columns[13],
+            columns[2],
+            columns[6],
+            columns[10],
+            columns[14],
+        ]
     }
 
     fn upload_storage_buffer<T>(&self, values: &[T]) -> Result<VulkanBuffer, String> {

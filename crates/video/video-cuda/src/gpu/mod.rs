@@ -231,8 +231,8 @@ impl CudaVideoCompositor {
         Ok(layer)
     }
 
-    pub(crate) fn begin_sam2_analysis(&mut self, modifier_id: uuid::Uuid) {
-        self.modifier_workspace.begin_sam2_analysis(modifier_id);
+    pub(crate) fn begin_sam2_analysis(&mut self, target: crate::sam2_analysis::AnalysisTarget) {
+        self.modifier_workspace.begin_sam2_analysis(target);
     }
 
     pub(crate) fn end_sam2_analysis(&mut self) {
@@ -571,7 +571,7 @@ impl CudaVideoCompositor {
 
     pub(crate) fn render_scene_3d(
         &mut self,
-        session: &mut shrimply_render_3d::ObjRenderSession,
+        session: &shrimply_render_3d::ObjRenderSession,
         width: u32,
         height: u32,
         params: &shrimply_render_3d::SceneRenderParams,

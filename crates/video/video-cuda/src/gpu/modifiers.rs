@@ -121,7 +121,7 @@ pub(crate) struct ModifierContext<'a> {
     modules: &'a mut ModifierModules,
     sam2_mask_upload: &'a mut Option<DeviceBuffer<i8>>,
     transparent_fill_mask_upload: &'a mut Option<DeviceBuffer<u8>>,
-    sam2_analysis_target: Option<uuid::Uuid>,
+    sam2_analysis_target: Option<&'a crate::sam2_analysis::AnalysisTarget>,
     sam2_proxy: &'a mut Option<Vec<u8>>,
 }
 
@@ -263,10 +263,10 @@ impl ModifierContext<'_> {
 
     pub(crate) fn capture_sam2(
         &mut self,
-        modifier_id: uuid::Uuid,
+        target: &crate::sam2_analysis::AnalysisTarget,
         input: &CanvasRgbaFrame,
     ) -> Result<bool, String> {
-        if self.sam2_analysis_target != Some(modifier_id) {
+        if self.sam2_analysis_target != Some(target) {
             return Ok(false);
         }
         let pixels = crate::modifiers::sam2::MODEL_SIZE as usize
@@ -305,22 +305,7 @@ impl ModifierContext<'_> {
                 std::mem::size_of_val(host.as_slice()),
             )
         };
-        let size = crate::modifiers::sam2::MODEL_SIZE as i32;
-        let image = skia_safe::images::raster_from_data(
-            &skia_safe::ImageInfo::new(
-                (size, size),
-                skia_safe::ColorType::RGBA8888,
-                skia_safe::AlphaType::Opaque,
-                None,
-            ),
-            skia_safe::Data::new_copy(bytes),
-            crate::modifiers::sam2::MODEL_SIZE as usize * 4,
-        )
-        .ok_or_else(|| "create SAM2 proxy image".to_string())?;
-        let encoded = image
-            .encode(None, skia_safe::EncodedImageFormat::JPEG, Some(95))
-            .ok_or_else(|| "encode SAM2 proxy JPEG".to_string())?;
-        *self.sam2_proxy = Some(encoded.as_bytes().to_vec());
+        *self.sam2_proxy = Some(bytes.to_vec());
         Ok(true)
     }
 
@@ -348,7 +333,7 @@ pub(crate) struct ModifierWorkspace {
     modules: ModifierModules,
     sam2_mask_upload: Option<DeviceBuffer<i8>>,
     transparent_fill_mask_upload: Option<DeviceBuffer<u8>>,
-    sam2_analysis_target: Option<uuid::Uuid>,
+    sam2_analysis_target: Option<crate::sam2_analysis::AnalysisTarget>,
     sam2_proxy: Option<Vec<u8>>,
 }
 
@@ -426,8 +411,8 @@ impl ModifierWorkspace {
         }
     }
 
-    pub(crate) fn begin_sam2_analysis(&mut self, modifier_id: uuid::Uuid) {
-        self.sam2_analysis_target = Some(modifier_id);
+    pub(crate) fn begin_sam2_analysis(&mut self, target: crate::sam2_analysis::AnalysisTarget) {
+        self.sam2_analysis_target = Some(target);
         self.sam2_proxy = None;
     }
 
@@ -516,7 +501,7 @@ impl ModifierWorkspace {
             modules: &mut self.modules,
             sam2_mask_upload: &mut self.sam2_mask_upload,
             transparent_fill_mask_upload: &mut self.transparent_fill_mask_upload,
-            sam2_analysis_target: self.sam2_analysis_target,
+            sam2_analysis_target: self.sam2_analysis_target.as_ref(),
             sam2_proxy: &mut self.sam2_proxy,
         };
         for modifier in modifiers {

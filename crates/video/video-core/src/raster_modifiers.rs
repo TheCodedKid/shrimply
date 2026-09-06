@@ -112,6 +112,7 @@ pub fn modifier(
     let operation = match &**effect {
         RasterModifierEffect::Sam2(_) => crate::sam2::resolve(
             request.project,
+            request.address,
             request.item,
             request.position,
             modifier.id,

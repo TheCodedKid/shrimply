@@ -26,5 +26,6 @@ shrimply-math-color = { path = "../../math/color" }
 shrimply-loading-screen = { path = "../loading-screen" }
 shrimply-i18n-core = { path = "../../ui/i18n-core" }
 shrimply-layered-image = { path = "../../layered-image/layered-image" }
+shrimply-scene-3d = { path = "../../3d/scene-3d" }
 shrimply-manim-wgpu = { path = "../../manim/manim-wgpu" }
 glam.workspace = true

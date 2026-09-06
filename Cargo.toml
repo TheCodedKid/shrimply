@@ -121,6 +121,7 @@ members = [
     "crates/3d/3dgs-metal",
     "crates/3d/optix-denoiser",
     "crates/3d/render-3d",
+    "crates/3d/render-3d-metal",
     "crates/3d/scene-3d",
     "crates/3d/scene-3d-modifiers",
     "crates/3d/shape-3d",

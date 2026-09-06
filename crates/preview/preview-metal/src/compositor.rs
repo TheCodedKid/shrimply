@@ -110,10 +110,14 @@ pub(super) struct Compositor {
     used_layered_sources: HashSet<(String, usize)>,
     manim: Option<shrimply_manim_metal::Renderer>,
     gaussian: Option<shrimply_3dgs_metal::Renderer>,
+    obj: Option<shrimply_render_3d_metal::Renderer>,
     manim_slots: HashMap<uuid::Uuid, usize>,
     next_manim_slot: usize,
     raster_morphs: HashMap<shrimply_preview_render_core::MorphCacheKey, RasterMorphState>,
     deferred_submissions: Vec<shrimply_render_metal::Submission>,
+    sam2_analysis_target: Option<shrimply_video_core::sam2::analysis::AnalysisTarget>,
+    sam2_proxy_buffer: Option<shrimply_render_metal::Buffer>,
+    sam2_proxy_ready: Option<Vec<u8>>,
 }
 
 impl Compositor {
@@ -125,6 +129,22 @@ impl Compositor {
         self.scene.set_interaction(playing, scrubbing);
     }
 
+    pub fn set_sam2_analysis_target(
+        &mut self,
+        target: shrimply_video_core::sam2::analysis::AnalysisTarget,
+    ) {
+        if self.sam2_analysis_target.as_ref() == Some(&target) {
+            return;
+        }
+        self.invalidate();
+        self.scene.set_capture_item(Some(target.address.clone()));
+        self.sam2_analysis_target = Some(target);
+    }
+
+    pub fn take_sam2_proxy(&mut self) -> Option<Vec<u8>> {
+        self.sam2_proxy_ready.take()
+    }
+
     pub fn invalidate(&mut self) {
         self.scene.invalidate();
         self.revision += 1;
@@ -133,6 +153,8 @@ impl Compositor {
         self.raster_morphs.clear();
         self.layered_sources.clear();
         self.used_layered_sources.clear();
+        self.sam2_proxy_buffer = None;
+        self.sam2_proxy_ready = None;
         // In-flight resources remain alive. The old complete frame stays visible
         // until a frame for the new project revision has actually completed.
     }
@@ -172,6 +194,11 @@ impl Compositor {
                 None
             } {
                 if pending.revision == self.revision {
+                    if pending.loading {
+                        self.sam2_proxy_buffer = None;
+                    } else if let Some(proxy) = self.sam2_proxy_buffer.take() {
+                        self.sam2_proxy_ready = Some(proxy.copy_bytes());
+                    }
                     let info = ImageInfo::new(
                         (pending.width as i32, pending.height as i32),
                         ColorType::RGBA8888,
@@ -351,18 +378,21 @@ impl Compositor {
                         )?;
                     (rendered.buffer, Some(rendered.row_bytes))
                 }
-                Source::Obj => {
-                    let renderer = self.compute.as_ref().expect("initialized Metal compositor");
-                    if !renderer.supports_ray_tracing() {
-                        return Err(
-                            "OBJ rendering requires Metal compute ray tracing, which this device does not support"
-                                .into(),
-                        );
+                Source::Obj(plan) => {
+                    if self.obj.is_none() {
+                        self.obj = Some(shrimply_render_3d_metal::Renderer::new(
+                            self.compute.as_ref().expect("initialized Metal compositor"),
+                        )?);
                     }
-                    return Err(
-                        "OBJ rendering requires the shared Slang Metal compute-raytracing shader, which is unavailable"
-                            .into(),
-                    );
+                    let rendered = self
+                        .obj
+                        .as_mut()
+                        .expect("initialized OBJ Metal renderer")
+                        .render(
+                            self.compute.as_ref().expect("initialized Metal compositor"),
+                            plan,
+                        )?;
+                    (rendered.buffer, Some(rendered.row_bytes))
                 }
                 Source::Manim(frame) => {
                     used_manim.insert(frame.item_id);
@@ -496,6 +526,8 @@ impl Compositor {
                 &layer.effects,
                 layer.render_size,
                 effect_submissions,
+                self.sam2_analysis_target.as_ref(),
+                &mut self.sam2_proxy_buffer,
             )?;
             let mut buffer = buffer;
             if let Some(samples) = &layer.motion_blur {
@@ -898,5 +930,49 @@ impl Compositor {
             .upload(&bytes)?;
         self.sources.insert(image.unique_id(), buffer.clone());
         Ok(buffer)
+    }
+}
+
+pub(super) struct Sam2ProxyFrameSource {
+    compositor: Compositor,
+    request_id: u64,
+    position: Option<Time>,
+}
+
+impl Sam2ProxyFrameSource {
+    pub(super) fn new() -> Result<Self, String> {
+        Ok(Self {
+            compositor: Compositor::default(),
+            request_id: 0,
+            position: None,
+        })
+    }
+}
+
+impl shrimply_video_core::sam2::analysis::ProxyFrameSource for Sam2ProxyFrameSource {
+    fn frame(
+        &mut self,
+        request: shrimply_video_core::sam2::analysis::ProxyFrameRequest<'_>,
+    ) -> Result<shrimply_video_core::sam2::analysis::ProxyFrameStatus, String> {
+        self.compositor
+            .set_sam2_analysis_target(request.target.clone());
+        if self.position != Some(request.timeline_position) {
+            self.position = Some(request.timeline_position);
+            self.request_id = self.request_id.wrapping_add(1);
+        }
+        objc2::rc::autoreleasepool(|_| {
+            self.compositor
+                .update(request.project, request.timeline_position, self.request_id)?;
+            if let Some(rgba) = self.compositor.take_sam2_proxy() {
+                let _ = self.compositor.take_presented();
+                return Ok(shrimply_video_core::sam2::analysis::ProxyFrameStatus::Ready(rgba));
+            }
+            if self.compositor.take_presented().is_some_and(|presented| {
+                presented.request_id == self.request_id && !presented.loading
+            }) {
+                return Err("SAM2 modifier did not capture a Metal proxy frame".to_string());
+            }
+            Ok(shrimply_video_core::sam2::analysis::ProxyFrameStatus::Pending)
+        })
     }
 }
