@@ -325,12 +325,12 @@ impl NumberPickerView {
                 .constraintEqualToAnchor(&self.trailingAnchor()),
             self.ivars()
                 .entry
-                .topAnchor()
-                .constraintEqualToAnchor(&self.topAnchor()),
+                .centerYAnchor()
+                .constraintEqualToAnchor(&self.centerYAnchor()),
             self.ivars()
                 .entry
-                .bottomAnchor()
-                .constraintEqualToAnchor(&self.bottomAnchor()),
+                .heightAnchor()
+                .constraintEqualToConstant(self.ivars().entry.intrinsicContentSize().height),
         ] {
             constraint.setActive(true);
         }
