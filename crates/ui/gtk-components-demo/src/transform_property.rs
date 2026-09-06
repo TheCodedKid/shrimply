@@ -136,9 +136,12 @@ fn property(
     on_graph_value: impl Fn(f64) + 'static,
 ) -> InspectorGraphProperty {
     on_graph_value(config.initial_value);
+    let status_controller = controller.clone();
     graph.connect_status({
         move |status| {
-            on_graph_value(status.value);
+            if status_controller.keyframes() {
+                on_graph_value(status.value);
+            }
         }
     });
     let expression_label = config.label.to_string();

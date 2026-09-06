@@ -23,7 +23,10 @@ use std::rc::Rc;
 pub use shrimply_component_core::selector::StringChoice;
 
 const CONTROL_HEIGHT: f64 = 28.0;
+const SEARCH_FIELD_OUTER_INSET: f64 = 10.0;
+const SEARCH_FIELD_VERTICAL_INSET: f64 = 8.0;
 const SEARCH_ROW_HORIZONTAL_INSET: f64 = 8.0;
+const SEARCH_VISIBLE_ROWS: usize = 8;
 static SEARCH_POPOVER_KEY: u8 = 0;
 
 pub fn row_stack(spacing: f64, mtm: MainThreadMarker) -> Retained<NSStackView> {
@@ -367,13 +370,7 @@ fn search_popover(
 ) -> SearchPopoverParts {
     let popover = NSPopover::new(mtm);
     popover.setBehavior(NSPopoverBehavior::Transient);
-    let content = column_stack(6.0, mtm);
-    content.setEdgeInsets(objc2_foundation::NSEdgeInsets {
-        top: 6.0,
-        left: 6.0,
-        bottom: 6.0,
-        right: 6.0,
-    });
+    let content = column_stack(0.0, mtm);
     let list = SearchResultsView::alloc(mtm).set_ivars(());
     let list: Retained<SearchResultsView> =
         unsafe { msg_send![super(list), initWithFrame: NSRect::ZERO] };
@@ -403,6 +400,37 @@ fn search_popover(
         unsafe { msg_send![super(search), initWithFrame: NSRect::ZERO] };
     search.setPlaceholderString(Some(&NSString::from_str(placeholder)));
     search.setSendsSearchStringImmediately(true);
+    search.setTranslatesAutoresizingMaskIntoConstraints(false);
+    let search_container = NSView::new(mtm);
+    search_container.addSubview(&search);
+    for constraint in [
+        search
+            .leadingAnchor()
+            .constraintEqualToAnchor_constant(
+                &search_container.leadingAnchor(),
+                SEARCH_FIELD_OUTER_INSET,
+            ),
+        search
+            .trailingAnchor()
+            .constraintEqualToAnchor_constant(
+                &search_container.trailingAnchor(),
+                -SEARCH_FIELD_OUTER_INSET,
+            ),
+        search
+            .topAnchor()
+            .constraintEqualToAnchor_constant(
+                &search_container.topAnchor(),
+                SEARCH_FIELD_VERTICAL_INSET,
+            ),
+        search
+            .bottomAnchor()
+            .constraintEqualToAnchor_constant(
+                &search_container.bottomAnchor(),
+                -SEARCH_FIELD_VERTICAL_INSET,
+            ),
+    ] {
+        constraint.setActive(true);
+    }
     let scroll = NSScrollView::initWithFrame(
         NSScrollView::alloc(mtm),
         NSRect::new(NSPoint::ZERO, NSSize::new(280.0, 240.0)),
@@ -413,12 +441,19 @@ fn search_popover(
     scroll.setDocumentView(Some(&list));
     list.setFrameSize(NSSize::new(280.0, 240.0));
     list.setAutoresizingMask(NSAutoresizingMaskOptions::ViewWidthSizable);
-    scroll.heightAnchor().constraintEqualToConstant(240.0).setActive(true);
-    column_append(&content, &search);
+    let results_height = CONTROL_HEIGHT * SEARCH_VISIBLE_ROWS as f64;
+    scroll
+        .heightAnchor()
+        .constraintEqualToConstant(results_height)
+        .setActive(true);
+    column_append(&content, &search_container);
     column_append(&content, &scroll);
     let controller = NSViewController::new(mtm);
     controller.setView(&content);
-    controller.setPreferredContentSize(NSSize::new(292.0, 280.0));
+    controller.setPreferredContentSize(NSSize::new(
+        292.0,
+        CONTROL_HEIGHT + SEARCH_FIELD_VERTICAL_INSET * 2.0 + results_height,
+    ));
     popover.setContentViewController(Some(&controller));
 
     let weak_button = main_button;
@@ -627,7 +662,7 @@ fn populate_search_results(
     }
     list.setFrameSize(NSSize::new(
         280.0,
-        (row_index as f64 * CONTROL_HEIGHT).max(240.0),
+        (row_index.max(SEARCH_VISIBLE_ROWS) as f64) * CONTROL_HEIGHT,
     ));
 }
 
