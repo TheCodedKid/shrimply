@@ -393,11 +393,12 @@ impl InspectorGraphProperty {
 }
 
 fn set_toggle_tint(button: &NSButton, active: bool) {
-    button.setContentTintColor(Some(if active {
-        &NSColor::controlAccentColor()
+    let color = if active {
+        NSColor::controlAccentColor()
     } else {
-        &NSColor::secondaryLabelColor()
-    }));
+        NSColor::secondaryLabelColor()
+    };
+    button.setContentTintColor(Some(&color));
 }
 
 fn invalidate_ancestor_layout(view: &NSView) {
