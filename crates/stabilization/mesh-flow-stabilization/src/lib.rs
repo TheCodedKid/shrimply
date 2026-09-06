@@ -4,7 +4,6 @@ use glam::{Mat3, Vec2};
 use opencv::core::{
     self, Mat, MatTraitConst, Point2f, Size, TermCriteria, TermCriteria_Type, Vector,
 };
-use opencv::features::good_features_to_track;
 use opencv::prelude::*;
 use opencv::{imgproc, video, videoio};
 use shrimply_math_core::{Time, fraction_as_u32_ratio, frame_rate_from_f64};
@@ -212,7 +211,7 @@ fn tracked_features(previous: &Mat, current: &Mat) -> Result<Vec<[f32; 6]>, Stri
     imgproc::cvt_color_def(current, &mut current_gray, imgproc::COLOR_BGR2GRAY)
         .map_err(|error| error.to_string())?;
     let mut previous_points = Vector::<Point2f>::new();
-    good_features_to_track(
+    imgproc::good_features_to_track(
         &previous_gray,
         &mut previous_points,
         MAXIMUM_FEATURES,

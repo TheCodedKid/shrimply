@@ -8,7 +8,7 @@ use crate::{
 };
 
 pub(crate) use shrimply_video_core::sam2::{
-    MASK_LOGIT_QUANTIZATION_SCALE, MASK_SIZE, Sam2MaskCache, cache_key, validate_cache,
+    MASK_LOGIT_QUANTIZATION_SCALE, MASK_SIZE, MODEL_SIZE, Sam2MaskCache, cache_key, validate_cache,
 };
 
 impl GpuModifier for shrimply_video_core::sam2::ResolvedMask {
