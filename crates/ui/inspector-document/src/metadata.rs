@@ -1,4 +1,4 @@
-use crate::{
+use shrimply_inspector_core::{
     ControlKind, InspectorControl, InspectorSection,
     info::{SourceMetadata, metadata::MetadataState},
 };
@@ -39,7 +39,7 @@ pub(super) fn section(
                 };
                 if count > 1 {
                     let selected = selected.min(count - 1);
-                    section.add(crate::selector::selector(
+                    section.add(shrimply_inspector_core::selector::selector(
                         "/track_id",
                         format!("{label} Stream"),
                         selected.to_string(),
@@ -48,7 +48,7 @@ pub(super) fn section(
                         }),
                     ));
                     if kind == "video" {
-                        section.add(crate::selector::optional_number_selector(
+                        section.add(shrimply_inspector_core::selector::optional_number_selector(
                             "/alpha_mask_video",
                             "Alpha Mask Stream",
                             alpha_mask.filter(|index| *index != selected),

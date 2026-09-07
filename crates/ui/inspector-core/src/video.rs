@@ -283,6 +283,9 @@ impl InspectorController {
         commit_name: &str,
         commit_immediately: bool,
     ) -> Result<(), String> {
+        if let Some(result) = self.set_manim_text_field(target, path, text, commit_name) {
+            return result;
+        }
         if path == pdf::PAGE_PATH {
             let displayed = text
                 .parse::<f64>()
@@ -496,6 +499,9 @@ impl InspectorController {
         value: shrimply_math_core::Fraction,
         commit_name: &str,
     ) -> Result<(), String> {
+        if let Some(result) = self.set_manim_fraction(target, path, value, commit_name) {
+            return result;
+        }
         validate_video_edit(target, commit_name)?;
         let InspectorTarget::Item(address) = target else {
             unreachable!("validated video target must be an item")

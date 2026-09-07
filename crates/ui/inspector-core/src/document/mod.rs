@@ -1,50 +1,10 @@
-mod audio;
-mod audio_generator;
-mod audio_modifiers;
-mod caption;
 pub mod graph;
 mod layered;
-mod metadata;
-mod modifiers;
-mod project;
-mod track;
-mod video;
 
 use serde_json::Value;
 use shrimply_project::project::ItemAddress;
 
-use crate::{
-    ControlKind, InspectorCommit, InspectorControl, InspectorDetail, InspectorSection,
-    InspectorSnapshot, InspectorTarget,
-};
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct InspectorDocument {
-    pub target: InspectorTarget,
-    pub title: String,
-    pub categories: Vec<InspectorCategory>,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct InspectorCategory {
-    pub key: &'static str,
-    pub label: &'static str,
-    pub icon: CategoryIcon,
-    pub items: Vec<InspectorListItem>,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum CategoryIcon {
-    Project,
-    Track,
-    Text,
-    Visual,
-    Audio,
-    Playback,
-    Info,
-    Performance,
-    Transition,
-}
+use crate::{ControlKind, InspectorCommit, InspectorControl, InspectorTarget};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum BasicInspectorAction {
@@ -58,6 +18,8 @@ pub enum BasicInspectorAction {
     ResetAudioOutput,
     ResetAudioGenerator,
     ResetVideo(crate::VideoReset),
+    ResetManim(crate::manim_parameters::ManimReset),
+    ResetManimParameters(crate::manim_parameters::ManimParametersReset),
     SetBoolean {
         path: String,
         value: bool,
@@ -107,127 +69,9 @@ impl InspectorToggleAction {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct InspectorItem {
-    pub presentation: crate::item::InspectorItemPresentation,
-    pub section: InspectorSection,
-    pub reset: Option<BasicInspectorAction>,
-    pub actions: Vec<crate::item::HeaderAction<BasicInspectorAction>>,
-    pub toggle: Option<crate::item::HeaderToggle<BasicInspectorAction>>,
-    pub button_toggle: Option<crate::item::HeaderButtonToggle<InspectorToggleAction>>,
-}
-
-impl InspectorItem {
-    pub fn new(
-        key: impl Into<String>,
-        title: impl Into<String>,
-        section: InspectorSection,
-    ) -> Self {
-        Self {
-            presentation: crate::item::InspectorItemPresentation::new(key, title),
-            section,
-            reset: None,
-            actions: Vec::new(),
-            toggle: None,
-            button_toggle: None,
-        }
-    }
-
-    pub fn reset(mut self, reset: BasicInspectorAction) -> Self {
-        self.reset = Some(reset);
-        self
-    }
-
-    pub fn toggle(mut self, toggle: crate::item::HeaderToggle<BasicInspectorAction>) -> Self {
-        self.toggle = Some(toggle);
-        self
-    }
-
-    pub fn alpha_mask(
-        mut self,
-        target: shrimply_project::project::VisualAlphaMaskTarget,
-        mask: &crate::AlphaMaskPresentation,
-    ) -> Self {
-        self.section
-            .controls
-            .extend(mask.section.controls.iter().cloned());
-        self.button_toggle = Some(crate::item::HeaderButtonToggle {
-            icon: "select-symbolic",
-            active: mask.active,
-            tooltip: "Mask",
-            activate: InspectorToggleAction::AlphaMask(target),
-        });
-        self
-    }
-
-    pub fn preview_facet(mut self, facet: shrimply_preview_core::PreviewFacetKey) -> Self {
-        self.presentation = self.presentation.preview_facet(facet);
-        self
-    }
-
-    pub fn boxed(self) -> InspectorListItem {
-        InspectorListItem::Item(Box::new(self))
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum InspectorListItem {
-    Item(Box<InspectorItem>),
-    Flat(InspectorSection),
-}
-
-pub fn basic(snapshot: InspectorSnapshot) -> InspectorDocument {
-    let categories = match &snapshot.target {
-        InspectorTarget::Project => project::categories(
-            snapshot
-                .project
-                .as_ref()
-                .expect("project snapshot must include project presentation"),
-        ),
-        InspectorTarget::Track(_) => track::categories(
-            snapshot
-                .track
-                .as_ref()
-                .expect("track snapshot must include track presentation"),
-        ),
-        InspectorTarget::Transition { .. } => {
-            let transition = snapshot
-                .transition
-                .as_ref()
-                .expect("transition snapshot must include transition presentation");
-            vec![InspectorCategory {
-                key: "transition",
-                label: transition.title,
-                icon: CategoryIcon::Transition,
-                items: vec![
-                    InspectorItem::new("transition", transition.title, transition.section())
-                        .boxed(),
-                ],
-            }]
-        }
-        InspectorTarget::Item(ItemAddress::Caption { .. }) => {
-            caption::categories(&snapshot.value, &snapshot.details)
-        }
-        InspectorTarget::Item(ItemAddress::Audio { .. }) => {
-            audio::categories(&snapshot.value, &snapshot.details, snapshot.runtime)
-        }
-        InspectorTarget::Item(ItemAddress::Video { .. }) => video::categories(
-            snapshot
-                .video
-                .as_ref()
-                .expect("video snapshot must include video presentation"),
-            &snapshot.details,
-        ),
-    };
-    InspectorDocument {
-        target: snapshot.target,
-        title: snapshot.title,
-        categories,
-    }
-}
-
 impl crate::InspectorController {
-    pub fn poll_document(&self) -> bool {
+    pub fn poll_document_dependencies(&self) -> bool {
+        let manim_scenes = crate::manim_parameters::poll_scenes();
         let media = self.media_metadata.borrow_mut().poll();
         let voices = self.voice_models.borrow_mut().poll();
         let cameras = self.camera_models.borrow_mut().poll();
@@ -236,15 +80,10 @@ impl crate::InspectorController {
         let tts = self.poll_tts();
         let fill = self.poll_transparent_fill_analysis();
         let caches = self.poll_visual_caches();
-        media || voices || cameras || analysis || sam2 || tts || fill || caches
+        manim_scenes || media || voices || cameras || analysis || sam2 || tts || fill || caches
     }
 
-    pub fn document(
-        &self,
-        format_date: fn(i64) -> Option<String>,
-        server_url: &str,
-        remembered_tts_model: &str,
-    ) -> InspectorDocument {
+    pub fn document_snapshot(&self, server_url: &str) -> crate::InspectorSnapshot {
         let camera_models = crate::camera_source::cached_tracking_models(server_url);
         let snapshot = self.snapshot_with_camera_models(camera_models.as_ref());
         if snapshot.video.as_ref().is_some_and(|video| {
@@ -261,67 +100,27 @@ impl crate::InspectorController {
                 crate::camera_source::tracking_models,
             );
         }
-        let media = self
-            .media_metadata
-            .borrow_mut()
-            .request(snapshot.media.as_ref(), format_date);
-        let source = snapshot
-            .media
-            .as_ref()
-            .map_or(crate::info::SourceMetadata::None, |media| media.selected);
-        let alpha_mask = snapshot
-            .value
-            .get("alpha_mask_video")
-            .and_then(Value::as_u64)
-            .and_then(|value| u32::try_from(value).ok());
-        let mut document = basic(snapshot);
-        if let Some(media) = media
-            && let Some(category) = document
-                .categories
-                .iter_mut()
-                .find(|category| category.key == "info")
-        {
-            category
-                .items
-                .push(InspectorListItem::Flat(metadata::section(
-                    &media, source, alpha_mask,
-                )));
-        }
-        for category in &mut document.categories {
-            for item in &mut category.items {
-                let section = match item {
-                    InspectorListItem::Flat(section) => section,
-                    InspectorListItem::Item(item) => &mut item.section,
-                };
-                for control in &mut section.controls {
-                    if control.kind == ControlKind::TtsEditor {
-                        match self.tts_editor(&document.target, server_url, remembered_tts_model) {
-                            Ok(presentation) => control.tts = Some(Box::new(presentation)),
-                            Err(error) => {
-                                control.subtitle = error;
-                                control.sensitive = false;
-                            }
-                        }
-                    }
-                    if control.kind == ControlKind::VoiceModel {
-                        self.voice_models.borrow_mut().populate(server_url, control);
-                    }
-                    let can_paste = match control.kind {
-                        ControlKind::AudioModifierMenu => self
-                            .can_paste_audio_modifiers(&document.target, &self.property_clipboard),
-                        ControlKind::VisualModifierMenu => self
-                            .can_paste_visual_modifiers(&document.target, &self.property_clipboard),
-                        _ => continue,
-                    };
-                    if can_paste {
-                        control.values.push("__paste__".into());
-                        control.labels.push("Paste modifiers".into());
-                        control.search_terms.push("Paste copied modifiers".into());
-                    }
-                }
-            }
-        }
-        document
+        snapshot
+    }
+
+    pub fn document_metadata(
+        &self,
+        media: Option<&crate::InspectorMedia>,
+        format_date: fn(i64) -> Option<String>,
+    ) -> Option<crate::info::metadata::MetadataState> {
+        self.media_metadata.borrow_mut().request(media, format_date)
+    }
+
+    pub fn populate_voice_model_control(
+        &self,
+        server_url: &str,
+        control: &mut crate::InspectorControl,
+    ) {
+        self.voice_models.borrow_mut().populate(server_url, control);
+    }
+
+    pub fn property_clipboard(&self) -> shrimply_property_transfer::SharedClipboard {
+        self.property_clipboard.clone()
     }
 
     pub fn add_control_modifier(
@@ -442,6 +241,10 @@ impl crate::InspectorController {
                 )
             }
             BasicInspectorAction::ResetVideo(reset) => self.reset_video(target, reset),
+            BasicInspectorAction::ResetManim(reset) => self.reset_manim(target, reset),
+            BasicInspectorAction::ResetManimParameters(reset) => {
+                self.reset_manim_parameters(target, reset)
+            }
             BasicInspectorAction::SetBoolean { path, value } => {
                 self.set_value(target, path, Value::Bool(*value))
             }
@@ -581,6 +384,24 @@ impl crate::InspectorController {
             return Err(format!(
                 "inspector control requires {expected} finite components"
             ));
+        }
+        if control.kind == ControlKind::Color
+            && matches!(target, InspectorTarget::Item(ItemAddress::Video { .. }))
+            && !control.commit_name.is_empty()
+            && values.iter().all(|value| (0.0..=255.0).contains(value))
+            && let Some(result) = self.set_manim_color(
+                target,
+                &control.path,
+                shrimply_project::project::Color::new(
+                    values[0] as u8,
+                    values[1] as u8,
+                    values[2] as u8,
+                    values[3] as u8,
+                ),
+                &control.commit_name,
+            )
+        {
+            return result;
         }
         if let Some(crate::InspectorControlAction::SetSam2PointPosition {
             modifier_id,
@@ -754,31 +575,4 @@ fn finite_number(value: f64) -> Result<Value, String> {
     serde_json::Number::from_f64(value)
         .map(Value::Number)
         .ok_or_else(|| "timeline value must be finite".to_string())
-}
-
-fn detail_item(details: &[InspectorDetail]) -> InspectorListItem {
-    let mut section = InspectorSection::default();
-    for detail in details {
-        section.add(
-            crate::InspectorControl::new(
-                if matches!(detail.label, "File Location" | "Project File") {
-                    crate::ControlKind::FileLocation
-                } else {
-                    crate::ControlKind::ReadOnly
-                },
-                "",
-                detail.label,
-            )
-            .value(&detail.value)
-            .read_only(),
-        );
-    }
-    InspectorListItem::Flat(section)
-}
-
-fn text<'a>(value: &'a Value, path: &str) -> &'a str {
-    value
-        .pointer(path)
-        .and_then(Value::as_str)
-        .unwrap_or_else(|| panic!("inspector text is unavailable: {path}"))
 }

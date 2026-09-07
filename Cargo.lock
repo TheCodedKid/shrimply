@@ -5934,6 +5934,7 @@ dependencies = [
  "serde_json",
  "shrimply-components-appkit",
  "shrimply-inspector-core",
+ "shrimply-inspector-document",
  "shrimply-math-color",
  "shrimply-math-core",
  "shrimply-preview-metal",
@@ -5985,6 +5986,21 @@ dependencies = [
  "strum",
  "tempfile",
  "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "shrimply-inspector-document"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "shrimply-audio-modifiers",
+ "shrimply-core",
+ "shrimply-inspector-core",
+ "shrimply-math-core",
+ "shrimply-preview-core",
+ "shrimply-project",
+ "shrimply-video-modifiers",
  "uuid",
 ]
 

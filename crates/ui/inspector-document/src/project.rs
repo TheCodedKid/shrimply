@@ -1,4 +1,6 @@
-use crate::{ControlKind, InspectorControl, InspectorSection, ProjectPresentation};
+use shrimply_inspector_core::{
+    ControlKind, InspectorControl, InspectorSection, ProjectPresentation,
+};
 
 use super::{CategoryIcon, InspectorCategory, InspectorListItem, detail_item};
 
@@ -33,7 +35,9 @@ pub(super) fn categories(project: &ProjectPresentation) -> Vec<InspectorCategory
             key: "performance",
             label: "Performance",
             icon: CategoryIcon::Performance,
-            items: vec![InspectorListItem::Flat(crate::benchmarking::section())],
+            items: vec![InspectorListItem::Flat(
+                shrimply_inspector_core::benchmarking::section(),
+            )],
         },
     ]
 }

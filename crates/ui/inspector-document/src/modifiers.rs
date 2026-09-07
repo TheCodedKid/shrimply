@@ -1,6 +1,8 @@
 use super::{BasicInspectorAction as Action, InspectorItem, InspectorListItem};
-use crate::item::{HeaderAction, HeaderToggle};
-use crate::{ControlKind, InspectorControl, InspectorSection, VisualModifierPresentation};
+use shrimply_inspector_core::item::{HeaderAction, HeaderToggle};
+use shrimply_inspector_core::{
+    ControlKind, InspectorControl, InspectorSection, VisualModifierPresentation,
+};
 
 pub(super) fn visual(modifier: &VisualModifierPresentation) -> InspectorListItem {
     let id = modifier.id;

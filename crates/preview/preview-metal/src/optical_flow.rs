@@ -36,10 +36,10 @@ pub fn estimate_rgba(
     objc2::rc::autoreleasepool(|_| {
         let source = input_buffer(source, width, height)?;
         let target = input_buffer(target, width, height)?;
-        // Vision reports targeted-image -> handler-image motion. Reverse the
-        // arguments so these match NVOF's source -> target convention.
-        let forward = estimate_direction(&target, &source, width, height)?;
-        let backward = estimate_direction(&source, &target, width, height)?;
+        // Vision reports handler-image -> targeted-image motion, matching the
+        // source -> target convention used by the shared Morph presentation.
+        let forward = estimate_direction(&source, &target, width, height)?;
+        let backward = estimate_direction(&target, &source, width, height)?;
         let grid_size = regular_grid_size(width, height)?;
         OpticalFlowField::new(grid_size, forward, backward)
     })

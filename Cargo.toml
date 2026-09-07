@@ -85,6 +85,7 @@ members = [
     "crates/timeline/keyframe-graph-core",
     "crates/timeline/discrete-keyframe-graph-core",
     "crates/ui/inspector-core",
+    "crates/ui/inspector-document",
     "crates/ui/inspector-appkit",
     "crates/ui/inspector-gtk",
     "crates/ui/inspector-qt",

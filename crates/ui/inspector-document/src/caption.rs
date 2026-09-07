@@ -1,7 +1,9 @@
 use serde_json::{Value, json};
 use shrimply_project::project::{CaptionItem, Color};
 
-use crate::{ControlKind, InspectorControl, InspectorDetail, InspectorSection, NumberSpec};
+use shrimply_inspector_core::{
+    ControlKind, InspectorControl, InspectorDetail, InspectorSection, NumberSpec,
+};
 
 use super::{BasicInspectorAction, CategoryIcon, InspectorCategory, InspectorItem, detail_item};
 
@@ -34,7 +36,7 @@ pub(super) fn categories(value: &Value, details: &[InspectorDetail]) -> Vec<Insp
 }
 
 fn text_item(caption: &CaptionItem) -> InspectorItem {
-    let value = crate::caption::CaptionText::from(caption);
+    let value = shrimply_inspector_core::caption::CaptionText::from(caption);
     let mut section = InspectorSection::default();
     section
         .add(InspectorControl::new(ControlKind::MultilineText, "/text", "Text").value(value.text));
@@ -42,43 +44,43 @@ fn text_item(caption: &CaptionItem) -> InspectorItem {
         "/writing_direction",
         "Writing",
         value.writing_direction,
-        crate::caption::WRITING_DIRECTIONS,
+        shrimply_inspector_core::caption::WRITING_DIRECTIONS,
     ));
     InspectorItem::new("caption-text", "Text", section).reset(BasicInspectorAction::ResetFields {
         values: vec![(
             "/writing_direction".to_string(),
-            json!(crate::caption::CaptionText::default().writing_direction),
+            json!(shrimply_inspector_core::caption::CaptionText::default().writing_direction),
         )],
     })
 }
 
 fn layout_item(caption: &CaptionItem) -> InspectorItem {
-    let layout = crate::caption::CaptionLayout::from(caption);
+    let layout = shrimply_inspector_core::caption::CaptionLayout::from(caption);
     let mut section = InspectorSection::default();
     section.add(selector(
         "/h_align",
         "H align",
         layout.horizontal_align,
-        crate::caption::HORIZONTAL_ALIGNMENTS,
+        shrimply_inspector_core::caption::HORIZONTAL_ALIGNMENTS,
     ));
     section.add(selector(
         "/v_align",
         "V align",
         layout.vertical_align,
-        crate::caption::VERTICAL_ALIGNMENTS,
+        shrimply_inspector_core::caption::VERTICAL_ALIGNMENTS,
     ));
     section.add(number(
         "/position_x",
         u16::from(layout.position_x),
-        crate::caption::POSITION_X,
+        shrimply_inspector_core::caption::POSITION_X,
     ));
     section.add(number(
         "/position_y",
         u16::from(layout.position_y),
-        crate::caption::POSITION_Y,
+        shrimply_inspector_core::caption::POSITION_Y,
     ));
     section.set_sensitive(layout.enabled);
-    let defaults = crate::caption::CaptionLayout::default();
+    let defaults = shrimply_inspector_core::caption::CaptionLayout::default();
     InspectorItem::new("caption-layout", "Layout", section)
         .reset(BasicInspectorAction::ResetFields {
             values: vec![
@@ -89,7 +91,7 @@ fn layout_item(caption: &CaptionItem) -> InspectorItem {
                 ("/position_y".to_string(), json!(defaults.position_y)),
             ],
         })
-        .toggle(crate::item::HeaderToggle {
+        .toggle(shrimply_inspector_core::item::HeaderToggle {
             active: layout.enabled,
             tooltip: "Enable layout",
             activate: BasicInspectorAction::SetBoolean {
@@ -100,24 +102,24 @@ fn layout_item(caption: &CaptionItem) -> InspectorItem {
 }
 
 fn appearance_item(caption: &CaptionItem) -> InspectorItem {
-    let appearance = crate::caption::CaptionAppearance::from(caption);
+    let appearance = shrimply_inspector_core::caption::CaptionAppearance::from(caption);
     let mut section = InspectorSection::default();
     section.add(number(
         "/font_scale",
         appearance.font_scale,
-        crate::caption::FONT_SCALE,
+        shrimply_inspector_core::caption::FONT_SCALE,
     ));
     section.add(selector(
         "/font",
         "Font",
         appearance.font,
-        crate::caption::FONTS,
+        shrimply_inspector_core::caption::FONTS,
     ));
     section.add(selector(
         "/edge_style",
         "Edge",
         appearance.edge_style,
-        crate::caption::EDGE_STYLES,
+        shrimply_inspector_core::caption::EDGE_STYLES,
     ));
     section.add(color("/text_color", "Text color", appearance.text_color));
     section.add(color(
@@ -127,7 +129,7 @@ fn appearance_item(caption: &CaptionItem) -> InspectorItem {
     ));
     section.add(color("/edge_color", "Edge color", appearance.edge_color));
     section.set_sensitive(appearance.enabled);
-    let defaults = crate::caption::CaptionAppearance::default();
+    let defaults = shrimply_inspector_core::caption::CaptionAppearance::default();
     InspectorItem::new("caption-appearance", "Appearance", section)
         .reset(BasicInspectorAction::ResetFields {
             values: vec![
@@ -146,7 +148,7 @@ fn appearance_item(caption: &CaptionItem) -> InspectorItem {
                 ("/edge_color".to_string(), json!(defaults.edge_color)),
             ],
         })
-        .toggle(crate::item::HeaderToggle {
+        .toggle(shrimply_inspector_core::item::HeaderToggle {
             active: appearance.enabled,
             tooltip: "Enable styling",
             activate: BasicInspectorAction::SetBoolean {
@@ -159,7 +161,7 @@ fn appearance_item(caption: &CaptionItem) -> InspectorItem {
 fn number(
     path: &str,
     value: u16,
-    presentation: crate::caption::CaptionNumberPresentation,
+    presentation: shrimply_inspector_core::caption::CaptionNumberPresentation,
 ) -> InspectorControl {
     InspectorControl::new(ControlKind::Number, path, presentation.label)
         .value(value.to_string())
@@ -181,12 +183,12 @@ fn selector<T: Copy + Eq>(
     path: &str,
     label: &str,
     selected: T,
-    choices: &[crate::caption::CaptionChoice<T>],
+    choices: &[shrimply_inspector_core::caption::CaptionChoice<T>],
 ) -> InspectorControl {
-    crate::selector::selector(
+    shrimply_inspector_core::selector::selector(
         path,
         label,
-        crate::caption::choice(choices, selected).key,
+        shrimply_inspector_core::caption::choice(choices, selected).key,
         choices
             .iter()
             .map(|choice| (choice.key.to_string(), choice.label.to_string())),
