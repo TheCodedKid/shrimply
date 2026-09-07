@@ -8,7 +8,7 @@
 
 <img width="1150" height="791" alt="image" src="https://github.com/user-attachments/assets/97bbadac-d930-46ae-9df8-033bd81ab6ce" />
 
-<img width="2238" height="1584" alt="image" src="https://github.com/user-attachments/assets/9bdab1ab-1e6b-4667-a5aa-0ff60dc0e9d2" />
+<img width="2238" height="1584" alt="image" src="https://github.com/user-attachments/assets/9a162d60-5439-4a83-a22c-f2147454eaf3" />
 
 
 Shrimply is a simple yet powerful cross platform video editor.
