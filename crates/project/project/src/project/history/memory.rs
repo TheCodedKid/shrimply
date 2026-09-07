@@ -50,6 +50,22 @@ pub(super) fn finish_coalesced_edit() {
     });
 }
 
+pub(super) fn can_undo() -> bool {
+    HISTORY.with(|slot| {
+        slot.borrow()
+            .as_ref()
+            .is_some_and(|history| history.index > 0)
+    })
+}
+
+pub(super) fn can_redo() -> bool {
+    HISTORY.with(|slot| {
+        slot.borrow()
+            .as_ref()
+            .is_some_and(|history| history.index + 1 < history.snapshots.len())
+    })
+}
+
 pub(super) fn undo(project: &mut Project) -> Option<usize> {
     HISTORY.with(|slot| slot.borrow_mut().as_mut()?.undo(project))
 }

@@ -92,12 +92,29 @@ pub enum BasicInspectorAction {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub enum InspectorToggleAction {
+    AlphaMask(shrimply_project::project::VisualAlphaMaskTarget),
+}
+
+impl InspectorToggleAction {
+    pub fn action(&self, enabled: bool) -> BasicInspectorAction {
+        match self {
+            Self::AlphaMask(target) => BasicInspectorAction::SetAlphaMask {
+                target: *target,
+                enabled,
+            },
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct InspectorItem {
     pub presentation: crate::item::InspectorItemPresentation,
     pub section: InspectorSection,
     pub reset: Option<BasicInspectorAction>,
     pub actions: Vec<crate::item::HeaderAction<BasicInspectorAction>>,
     pub toggle: Option<crate::item::HeaderToggle<BasicInspectorAction>>,
+    pub button_toggle: Option<crate::item::HeaderButtonToggle<InspectorToggleAction>>,
 }
 
 impl InspectorItem {
@@ -112,6 +129,7 @@ impl InspectorItem {
             reset: None,
             actions: Vec::new(),
             toggle: None,
+            button_toggle: None,
         }
     }
 
@@ -122,6 +140,23 @@ impl InspectorItem {
 
     pub fn toggle(mut self, toggle: crate::item::HeaderToggle<BasicInspectorAction>) -> Self {
         self.toggle = Some(toggle);
+        self
+    }
+
+    pub fn alpha_mask(
+        mut self,
+        target: shrimply_project::project::VisualAlphaMaskTarget,
+        mask: &crate::AlphaMaskPresentation,
+    ) -> Self {
+        self.section
+            .controls
+            .extend(mask.section.controls.iter().cloned());
+        self.button_toggle = Some(crate::item::HeaderButtonToggle {
+            icon: "select-symbolic",
+            active: mask.active,
+            tooltip: "Mask",
+            activate: InspectorToggleAction::AlphaMask(target),
+        });
         self
     }
 
@@ -457,11 +492,12 @@ impl crate::InspectorController {
                 let number = value
                     .parse::<f64>()
                     .map_err(|_| "invalid modifier number")?;
-                self.set_audio_modifier_timeline_base(
+                self.set_audio_modifier_timeline_base_with_commit(
                     target,
                     id,
                     timeline,
                     control.store_number(number) as f32,
+                    control_commit(control),
                 )
             } else if control.kind == ControlKind::Number {
                 self.set_audio_modifier_live_field(target, id, &control.path, value)
@@ -633,6 +669,18 @@ impl crate::InspectorController {
         target: &InspectorTarget,
         control: &InspectorControl,
     ) -> Result<(), String> {
+        if control_commit(control) == InspectorCommit::Deferred {
+            let project = self.project.borrow();
+            crate::model::target_value(&project, target)
+                .ok_or("inspector target is no longer available")?;
+            shrimply_project::project::commit_edit(&project, &control.commit_name);
+            drop(project);
+            shrimply_state::player_state::refresh_project(
+                &self.player_state,
+                crate::refresh::target_change(target, None, true),
+            );
+            return Ok(());
+        }
         if matches!(
             control.kind,
             ControlKind::LayeredNumber
@@ -691,6 +739,12 @@ impl crate::InspectorController {
 fn control_commit(control: &InspectorControl) -> InspectorCommit<'_> {
     if control.commit_immediately {
         InspectorCommit::Immediate(&control.commit_name)
+    } else if matches!(
+        control.kind,
+        ControlKind::LayeredNumber | ControlKind::LayeredVector2 | ControlKind::LayeredVector3
+    ) {
+        // Match GTK: changes only update the live preview; the picker commits once.
+        InspectorCommit::Deferred
     } else {
         InspectorCommit::Coalesced(&control.commit_name)
     }

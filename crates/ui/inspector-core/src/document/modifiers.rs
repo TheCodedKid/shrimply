@@ -4,15 +4,10 @@ use crate::{ControlKind, InspectorControl, InspectorSection, VisualModifierPrese
 
 pub(super) fn visual(modifier: &VisualModifierPresentation) -> InspectorListItem {
     let id = modifier.id;
-    let mut section = modifier
+    let section = modifier
         .body
         .as_ref()
         .map_or_else(InspectorSection::default, |body| body.section());
-    if let Some(mask) = &modifier.alpha_mask {
-        section
-            .controls
-            .extend(mask.section.controls.iter().cloned());
-    }
     let mut item = InspectorItem::new(format!("modifier:{id}"), modifier.title, section)
         .reset(Action::ResetModifier { id, audio: false })
         .toggle(HeaderToggle {
@@ -38,15 +33,10 @@ pub(super) fn visual(modifier: &VisualModifierPresentation) -> InspectorListItem
         modifier.can_remove,
     );
     if let Some(mask) = &modifier.alpha_mask {
-        item.actions.push(HeaderAction {
-            icon: "select-symbolic",
-            tooltip: "Mask",
-            sensitive: true,
-            activate: Action::SetAlphaMask {
-                target: shrimply_project::project::VisualAlphaMaskTarget::Modifier(id),
-                enabled: !mask.active,
-            },
-        });
+        item = item.alpha_mask(
+            shrimply_project::project::VisualAlphaMaskTarget::Modifier(id),
+            mask,
+        );
     }
     item.boxed()
 }

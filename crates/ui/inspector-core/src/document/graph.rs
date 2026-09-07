@@ -1,6 +1,7 @@
 use super::layered::{owner, timeline};
 use crate::keyframe_graph::{
-    FrameGraphAction, FrameGraphState, KeyframeGraph, KeyframePoint, RawSegment, SpeedSegment,
+    FrameGraphAction, FrameGraphKeyMove, FrameGraphState, KeyframeGraph, KeyframePoint, RawSegment,
+    SpeedSegment,
 };
 use crate::{
     AudioModifierKeyframeMove, ControlKind, InspectorCommit, InspectorControl, InspectorController,
@@ -104,6 +105,82 @@ impl InspectorController {
             text_commits(control)?.text_interpolation,
         )
     }
+    pub fn move_control_graph_keys(
+        &self,
+        target: &InspectorTarget,
+        control: &InspectorControl,
+        moves: &[FrameGraphKeyMove],
+    ) -> Result<Vec<Time>, String> {
+        let path = control.timeline_path.as_deref().unwrap_or(&control.path);
+        if !control.audio_modifier
+            && let Some(id) = control.timeline_id
+        {
+            self.ensure_timeline(target, path, id)?;
+        }
+        let times = moves
+            .iter()
+            .map(|m| (m.old_time, m.time))
+            .collect::<Vec<_>>();
+        let commit = InspectorCommit::Coalesced(
+            control
+                .keyframe_commits
+                .map_or("inspector-keyframe-move", |c| c.move_keyframe),
+        );
+        if control.kind == ControlKind::LayeredNumber {
+            let changes = moves
+                .iter()
+                .map(|m| AudioModifierKeyframeMove {
+                    old_time: m.old_time,
+                    time: m.time,
+                    displayed_value: control.store_number(m.value),
+                    store_multiplier: 1.0,
+                })
+                .collect::<Vec<_>>();
+            return if control.audio_modifier {
+                self.move_audio_modifier_keyframes(
+                    target,
+                    owner(control)?,
+                    timeline(control)?,
+                    &changes,
+                )
+            } else if control.scalar_storage == crate::section::ScalarStorage::UnsignedInteger {
+                self.move_background_integer_keyframes(target, path, timeline(control)?, &changes)
+            } else {
+                self.move_scalar_keyframes(
+                    target,
+                    path,
+                    &changes,
+                    control.number_constraint,
+                    commit,
+                )
+            };
+        }
+        match control.kind {
+            ControlKind::LayeredVector2 => {
+                self.move_vector2_keyframes(target, path, &times, commit)
+            }
+            ControlKind::LayeredVector3 => {
+                self.move_vector3_keyframes(target, path, &times, commit)
+            }
+            ControlKind::LayeredColor => {
+                self.move_color_keyframes(target, path, timeline(control)?, &times, commit)
+            }
+            ControlKind::LayeredText => self.move_text_keyframes(
+                target,
+                path,
+                timeline(control)?,
+                &times,
+                text_commits(control)?,
+            ),
+            ControlKind::LayeredDrawing => {
+                self.move_paint_drawing_keyframes(target, timeline(control)?, &times)
+            }
+            ControlKind::LayeredBoolean => self.move_bool_keyframes(target, path, &times),
+            ControlKind::LayeredSelector => self.move_step_keyframes(target, path, &times, commit),
+            _ => Err("control has no movable keyframes".into()),
+        }
+    }
+
     pub fn apply_control_graph_action(
         &self,
         target: &InspectorTarget,
@@ -131,80 +208,9 @@ impl InspectorController {
                 Ok(())
             }
             FrameGraphAction::EditFinished => self.finish_live_inspector_edit(target),
-            FrameGraphAction::KeysMoved(moves) => {
-                let times = moves
-                    .iter()
-                    .map(|m| (m.old_time, m.time))
-                    .collect::<Vec<_>>();
-                let commit = InspectorCommit::Coalesced(
-                    control
-                        .keyframe_commits
-                        .map_or("inspector-keyframe-move", |c| c.move_keyframe),
-                );
-                if control.kind == ControlKind::LayeredNumber {
-                    let changes = moves
-                        .into_iter()
-                        .map(|m| AudioModifierKeyframeMove {
-                            old_time: m.old_time,
-                            time: m.time,
-                            displayed_value: control.store_number(m.value),
-                            store_multiplier: 1.0,
-                        })
-                        .collect::<Vec<_>>();
-                    return if control.audio_modifier {
-                        self.move_audio_modifier_keyframes(
-                            target,
-                            owner(control)?,
-                            timeline(control)?,
-                            &changes,
-                        )
-                    } else if control.scalar_storage
-                        == crate::section::ScalarStorage::UnsignedInteger
-                    {
-                        self.move_background_integer_keyframes(
-                            target,
-                            path,
-                            timeline(control)?,
-                            &changes,
-                        )
-                    } else {
-                        self.move_scalar_keyframes(
-                            target,
-                            path,
-                            &changes,
-                            control.number_constraint,
-                            commit,
-                        )
-                    };
-                }
-                match control.kind {
-                    ControlKind::LayeredVector2 => {
-                        self.move_vector2_keyframes(target, path, &times, commit)
-                    }
-                    ControlKind::LayeredVector3 => {
-                        self.move_vector3_keyframes(target, path, &times, commit)
-                    }
-                    ControlKind::LayeredColor => {
-                        self.move_color_keyframes(target, path, timeline(control)?, &times, commit)
-                    }
-                    ControlKind::LayeredText => self.move_text_keyframes(
-                        target,
-                        path,
-                        timeline(control)?,
-                        &times,
-                        text_commits(control)?,
-                    ),
-                    ControlKind::LayeredDrawing => {
-                        self.move_paint_drawing_keyframes(target, timeline(control)?, &times)
-                    }
-                    ControlKind::LayeredBoolean => self.move_bool_keyframes(target, path, &times),
-                    ControlKind::LayeredSelector => {
-                        self.move_step_keyframes(target, path, &times, commit)
-                    }
-                    _ => return Err("control has no movable keyframes".into()),
-                }
-                .map(|_| ())
-            }
+            FrameGraphAction::KeysMoved(moves) => self
+                .move_control_graph_keys(target, control, &moves)
+                .map(|_| ()),
             FrameGraphAction::KeyAdded(point) => {
                 self.add_control_keyframe(target, control, point.time)
             }

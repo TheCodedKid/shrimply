@@ -8,7 +8,7 @@ use objc2_core_video::{
     CVPixelBuffer, CVPixelBufferCreate, CVPixelBufferGetBaseAddress, CVPixelBufferGetBytesPerRow,
     CVPixelBufferGetHeight, CVPixelBufferGetPixelFormatType, CVPixelBufferGetWidth,
     CVPixelBufferLockBaseAddress, CVPixelBufferLockFlags, CVPixelBufferUnlockBaseAddress,
-    kCVPixelFormatType_32RGBA, kCVPixelFormatType_TwoComponent32Float, kCVReturnSuccess,
+    kCVPixelFormatType_32BGRA, kCVPixelFormatType_TwoComponent32Float, kCVReturnSuccess,
 };
 use objc2_foundation::{NSArray, NSDictionary};
 use objc2_vision::{
@@ -52,7 +52,7 @@ fn input_buffer(bytes: &[u8], width: u32, height: u32) -> Result<Retained<CVPixe
             None,
             width as usize,
             height as usize,
-            kCVPixelFormatType_32RGBA,
+            kCVPixelFormatType_32BGRA,
             None,
             NonNull::from(&mut raw),
         )
@@ -79,12 +79,13 @@ fn input_buffer(bytes: &[u8], width: u32, height: u32) -> Result<Retained<CVPixe
         return Err("Apple optical-flow input buffer has invalid storage".into());
     }
     for row in 0..height as usize {
-        unsafe {
-            std::ptr::copy_nonoverlapping(
-                bytes.as_ptr().add(row * packed_row_bytes),
-                base.add(row * row_bytes),
-                packed_row_bytes,
-            );
+        // Core Video allocates BGRA input buffers; renderer readback is RGBA.
+        // Convert only the packed pixels, leaving Core Video's row padding alone.
+        let source = &bytes[row * packed_row_bytes..(row + 1) * packed_row_bytes];
+        let destination =
+            unsafe { std::slice::from_raw_parts_mut(base.add(row * row_bytes), packed_row_bytes) };
+        for (rgba, bgra) in source.chunks_exact(4).zip(destination.chunks_exact_mut(4)) {
+            bgra.copy_from_slice(&[rgba[2], rgba[1], rgba[0], rgba[3]]);
         }
     }
     let status = unsafe { CVPixelBufferUnlockBaseAddress(&buffer, flags) };

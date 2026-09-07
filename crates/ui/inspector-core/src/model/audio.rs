@@ -80,13 +80,38 @@ impl InspectorController {
         value_id: uuid::Uuid,
         next: f32,
     ) -> Result<(), String> {
+        self.set_audio_modifier_timeline_base_with_commit(
+            target,
+            modifier_id,
+            value_id,
+            next,
+            InspectorCommit::Coalesced("audio-modifier-value"),
+        )
+    }
+
+    pub(crate) fn set_audio_modifier_timeline_base_with_commit(
+        &self,
+        target: &InspectorTarget,
+        modifier_id: uuid::Uuid,
+        value_id: uuid::Uuid,
+        next: f32,
+        commit: InspectorCommit<'_>,
+    ) -> Result<(), String> {
         let mut project = self.project.borrow_mut();
         let time = audio_modifier_time(&project, &self.player_state, target)?;
         let value = audio_modifier_number_mut(&mut project, target, modifier_id, value_id)?;
         if !crate::keyframe_model::set_scalar_value(value, time, next) {
             return Ok(());
         }
-        shrimply_project::project::commit_coalesced_edit(&project, "audio-modifier-value");
+        match commit {
+            InspectorCommit::Deferred => {}
+            InspectorCommit::Coalesced(name) => {
+                shrimply_project::project::commit_coalesced_edit(&project, name);
+            }
+            InspectorCommit::Immediate(name) => {
+                shrimply_project::project::commit_edit(&project, name);
+            }
+        }
         drop(project);
         self.refresh_audio_modifier(false, false, true);
         Ok(())
@@ -861,6 +886,7 @@ impl InspectorController {
             value_id,
             std::slice::from_ref(&change),
         )
+        .map(|_| ())
     }
 
     pub fn move_audio_modifier_keyframes(
@@ -869,9 +895,9 @@ impl InspectorController {
         modifier_id: uuid::Uuid,
         value_id: uuid::Uuid,
         changes: &[AudioModifierKeyframeMove],
-    ) -> Result<(), String> {
+    ) -> Result<Vec<Time>, String> {
         if changes.is_empty() {
-            return Ok(());
+            return Ok(Vec::new());
         }
         let mut project = self.project.borrow_mut();
         let changes = changes
@@ -895,7 +921,7 @@ impl InspectorController {
         shrimply_project::project::commit_coalesced_edit(&project, "audio-modifier-keyframe");
         drop(project);
         self.refresh_audio_modifier_graph();
-        Ok(())
+        Ok(changes.iter().map(|change| change.1).collect())
     }
 
     pub fn delete_audio_modifier_keyframe(

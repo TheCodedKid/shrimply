@@ -2,6 +2,7 @@
 
 mod control;
 mod files;
+mod focus;
 mod fonts;
 mod info;
 mod layered;
@@ -30,6 +31,7 @@ const CONTENT_SPACING: f64 = 10.0;
 const CONTENT_INSET: f64 = 12.0;
 
 pub struct Inspector {
+    _focus_monitor: focus::FocusMonitor,
     state: Rc<State>,
 }
 
@@ -41,8 +43,10 @@ struct State {
     controller: InspectorController,
     host: ViewHost,
     dirty: Rc<Cell<bool>>,
+    force_rebuild: Rc<Cell<bool>>,
     polls: control::Polls,
     list: Rc<RefCell<shrimply_inspector_core::list::InspectorListState>>,
+    focus: Rc<focus::FocusMap>,
     visible_document: RefCell<Option<InspectorDocument>>,
     visible_scroll: Rc<RefCell<Option<ScrollingColumn>>>,
 }
@@ -53,6 +57,7 @@ impl Inspector {
         player: player_state::SharedPlayerState,
         selection: selection_state::SharedSelectionState,
         clipboard: shrimply_property_transfer::SharedClipboard,
+        preview_focus: shrimply_state::preview_focus::SharedPreviewFocus,
         preferences: shrimply_state::preferences::SharedPreferences,
         mtm: MainThreadMarker,
     ) -> Self {
@@ -82,6 +87,14 @@ impl Inspector {
             }
         });
         let server_url = shrimply_state::preferences::snapshot(&preferences).compute_server_url;
+        let controller = InspectorController::new(project, player, selection)
+            .with_property_clipboard(clipboard)
+            .with_analysis_backend(
+                shrimply_inspector_core::InspectorAnalysisBackend::default()
+                    .camera(shrimply_preview_metal::camera_reconstruction::analyze)
+                    .transparent_fill(shrimply_preview_metal::transparent_fill_analysis::analyze)
+                    .visual_cache(shrimply_preview_metal::modifier_cache::bake),
+            );
         let state = Rc::new(State {
             #[cfg(debug_assertions)]
             layout_diagnostic_pending: Cell::new(
@@ -89,18 +102,11 @@ impl Inspector {
             ),
             server_url: Rc::new(RefCell::new(server_url)),
             preferences: preferences.clone(),
-            controller: InspectorController::new(project, player, selection)
-                .with_property_clipboard(clipboard)
-                .with_analysis_backend(
-                    shrimply_inspector_core::InspectorAnalysisBackend::default()
-                        .camera(shrimply_preview_metal::camera_reconstruction::analyze)
-                        .transparent_fill(
-                            shrimply_preview_metal::transparent_fill_analysis::analyze,
-                        )
-                        .visual_cache(shrimply_preview_metal::modifier_cache::bake),
-                ),
+            controller: controller.clone(),
+            focus: focus::FocusMap::new(controller, preview_focus),
             host: ViewHost::new(mtm),
             dirty,
+            force_rebuild: Rc::new(Cell::new(false)),
             polls: Rc::new(RefCell::new(Vec::new())),
             list: Rc::new(RefCell::new(Default::default())),
             visible_document: RefCell::new(None),
@@ -120,7 +126,11 @@ impl Inspector {
         });
         state.dirty.set(false);
         state.rebuild(mtm);
-        Self { state }
+        let monitor = focus::FocusMonitor::new(state.host.view(), &state.focus, mtm);
+        Self {
+            _focus_monitor: monitor,
+            state,
+        }
     }
 
     pub fn view(&self) -> &NSView {
@@ -170,7 +180,9 @@ impl State {
             &self.server_url.borrow(),
             &shrimply_state::preferences::snapshot(&self.preferences).last_tts_model,
         );
-        if self.visible_document.borrow().as_ref() == Some(&document) {
+        if !self.force_rebuild.replace(false)
+            && self.visible_document.borrow().as_ref() == Some(&document)
+        {
             return;
         }
         if let (Some(previous), Some(scroll)) = (
@@ -182,6 +194,7 @@ impl State {
                 .set_scroll_position(&previous.target, scroll.position());
         }
         self.polls.borrow_mut().clear();
+        self.focus.clear(&document.target);
         let scroll_position = self.list.borrow().scroll_position(&document.target);
         let view = self.document_view(&document, mtm);
         self.visible_document.replace(Some(document));
@@ -209,11 +222,13 @@ impl State {
             })
             .unwrap_or_default();
         let context = control::Context {
+            focus: self.focus.clone(),
             preferences: self.preferences.clone(),
             server_url: self.server_url.clone(),
             controller: self.controller.clone(),
             target: document.target.clone(),
             dirty: self.dirty.clone(),
+            force_rebuild: self.force_rebuild.clone(),
             polls: self.polls.clone(),
         };
         let mut tabs = Vec::with_capacity(document.categories.len());
@@ -301,6 +316,14 @@ impl State {
         } else {
             InspectorCard::without_reset(&item.presentation.title, expanded, mtm)
         };
+        self.focus.register(
+            card.view().as_super(),
+            target,
+            shrimply_inspector_core::item::ControlPreviewFocus::new(
+                &item.presentation.key,
+                item.presentation.preview_target,
+            ),
+        );
         if let Some(toggle) = &item.toggle {
             let context = context.clone();
             let action = toggle.activate.clone();
@@ -311,6 +334,32 @@ impl State {
                 mtm,
             );
             card.append_before_reset(toggle.view().as_super().as_super());
+        }
+        if let Some(toggle) = &item.button_toggle {
+            let context = context.clone();
+            let action = toggle.activate.clone();
+            let button = shrimply_components_appkit::ActionButton::symbol_toggle(
+                action_symbol(toggle.icon),
+                toggle.tooltip,
+                toggle.active,
+                move |requested| {
+                    let result = context
+                        .controller
+                        .apply_basic_action(&context.target, &action.action(requested));
+                    let accepted = if result.is_ok() {
+                        requested
+                    } else {
+                        !requested
+                    };
+                    if result.is_ok() {
+                        context.focus.toggle(&context.target, &action, requested);
+                    }
+                    context.refresh(result);
+                    accepted
+                },
+                mtm,
+            );
+            card.append_before_reset(button.view());
         }
         for action in &item.actions {
             let context = context.clone();

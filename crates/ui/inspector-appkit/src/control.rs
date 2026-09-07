@@ -23,11 +23,13 @@ pub(super) type Polls = Rc<RefCell<Vec<Box<dyn Fn()>>>>;
 
 #[derive(Clone)]
 pub(super) struct Context {
+    pub focus: Rc<super::focus::FocusMap>,
     pub preferences: shrimply_state::preferences::SharedPreferences,
     pub server_url: Rc<RefCell<String>>,
     pub controller: InspectorController,
     pub target: InspectorTarget,
     pub dirty: Rc<Cell<bool>>,
+    pub force_rebuild: Rc<Cell<bool>>,
     pub polls: Polls,
 }
 
@@ -94,13 +96,20 @@ pub(super) fn view(
     context: &Context,
     mtm: MainThreadMarker,
 ) -> Retained<NSView> {
-    if shrimply_inspector_core::InspectorGraphKind::for_control(control.kind).is_some() {
+    let view = if shrimply_inspector_core::InspectorGraphKind::for_control(control.kind).is_some() {
         let mut unlabelled = control.clone();
         unlabelled.label.clear();
         let editor = editor_view(&unlabelled, context, mtm);
-        return super::layered::view(control, &editor, context, mtm);
+        super::layered::view(control, &editor, context, mtm)
+    } else {
+        editor_view(control, context, mtm)
+    };
+    if let Some(focus) = &control.preview_focus {
+        context
+            .focus
+            .register(&view, &context.target, focus.clone());
     }
-    editor_view(control, context, mtm)
+    view
 }
 
 fn editor_view(
@@ -151,7 +160,7 @@ fn editor_view(
     {
         return read_only(control, false, mtm);
     }
-    let view = match control.kind {
+    let view: Retained<NSView> = match control.kind {
         ControlKind::Boolean | ControlKind::LayeredBoolean => {
             let context = context.clone();
             let edited_control = control.clone();
@@ -359,7 +368,7 @@ fn disable_native_controls(view: &NSView) {
         text.setEditable(false);
         text.setTextColor(Some(&objc2_app_kit::NSColor::disabledControlTextColor()));
     }
-    for child in view.subviews() {
+    for child in view.subviews().iter() {
         disable_native_controls(&child);
     }
 }
@@ -700,7 +709,11 @@ fn project_settings(
         "Discard",
         {
             let dirty = context.dirty.clone();
-            move || dirty.set(true)
+            let force_rebuild = context.force_rebuild.clone();
+            move || {
+                force_rebuild.set(true);
+                dirty.set(true);
+            }
         },
         mtm,
     );

@@ -122,6 +122,14 @@ pub fn finish_coalesced_edit() {
     memory::finish_coalesced_edit();
 }
 
+pub fn can_undo() -> bool {
+    memory::can_undo()
+}
+
+pub fn can_redo() -> bool {
+    memory::can_redo()
+}
+
 pub fn undo(project: &mut Project) -> bool {
     if memory::undo(project).is_none() {
         return false;

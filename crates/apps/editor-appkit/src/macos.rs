@@ -16,8 +16,9 @@ use objc2_app_kit::{
     NSAlert, NSAlertFirstButtonReturn, NSAlertSecondButtonReturn, NSAlertThirdButtonReturn,
     NSApplication, NSApplicationActivationPolicy, NSApplicationDelegate, NSBackingStoreType,
     NSButton, NSColorWell, NSControl, NSControlStateValueOff, NSControlStateValueOn, NSMenuItem,
-    NSPopUpButton, NSTextField, NSToolbar, NSToolbarDelegate, NSToolbarDisplayMode, NSToolbarItem,
-    NSWindow, NSWindowDelegate, NSWindowStyleMask, NSWindowToolbarStyle,
+    NSMenuItemValidation, NSPopUpButton, NSTextField, NSToolbar, NSToolbarDelegate,
+    NSToolbarDisplayMode, NSToolbarItem, NSWindow, NSWindowDelegate, NSWindowStyleMask,
+    NSWindowToolbarStyle,
 };
 use objc2_foundation::{
     MainThreadMarker, NSArray, NSNotification, NSObject, NSObjectProtocol, NSPoint, NSRect,
@@ -68,6 +69,23 @@ define_class!(
     struct Editor;
 
     unsafe impl NSObjectProtocol for Editor {}
+
+    unsafe impl NSMenuItemValidation for Editor {
+        #[unsafe(method(validateMenuItem:))]
+        fn validate_menu_item(&self, item: &NSMenuItem) -> bool {
+            match item.action() {
+                Some(action) if action == sel!(undo:) => {
+                    text_undo_manager(self, false).is_some()
+                        || shrimply_project::project::can_undo()
+                }
+                Some(action) if action == sel!(redo:) => {
+                    text_undo_manager(self, true).is_some()
+                        || shrimply_project::project::can_redo()
+                }
+                _ => true,
+            }
+        }
+    }
 
     unsafe impl NSApplicationDelegate for Editor {
         #[unsafe(method(applicationDidFinishLaunching:))]
@@ -228,6 +246,38 @@ define_class!(
         #[unsafe(method(importMedia:))]
         fn import_media(&self, _sender: &NSObject) {
             if let Err(error) = media::choose_files(&self.ivars().imports, self.ivars().session.get().expect("project loaded"), &[], self.mtm()) { self.show_error(&error); }
+        }
+
+        #[unsafe(method(undo:))]
+        fn undo(&self, _sender: &NSObject) {
+            if let Some(manager) = text_undo_manager(self, false) {
+                manager.undo();
+                return;
+            }
+            // Finish an active field edit before restoring the project snapshot.
+            if !self.ivars().window.get().expect("window created").makeFirstResponder(None) {
+                return;
+            }
+            let session = self.ivars().session.get().expect("project loaded");
+            shrimply_cross_ui_core::editor::change_history(
+                &session.project, &session.player_state, shrimply_project::project::undo,
+            );
+        }
+
+        #[unsafe(method(redo:))]
+        fn redo(&self, _sender: &NSObject) {
+            if let Some(manager) = text_undo_manager(self, true) {
+                manager.redo();
+                return;
+            }
+            // Finish an active field edit before restoring the project snapshot.
+            if !self.ivars().window.get().expect("window created").makeFirstResponder(None) {
+                return;
+            }
+            let session = self.ivars().session.get().expect("project loaded");
+            shrimply_cross_ui_core::editor::change_history(
+                &session.project, &session.player_state, shrimply_project::project::redo,
+            );
         }
 
         #[unsafe(method(saveProject:))]
@@ -442,6 +492,24 @@ define_class!(
         }
     }
 );
+
+fn text_undo_manager(
+    editor: &Editor,
+    redo: bool,
+) -> Option<Retained<objc2_foundation::NSUndoManager>> {
+    let responder = editor.ivars().window.get()?.firstResponder()?;
+    let text = responder.downcast_ref::<objc2_app_kit::NSTextView>()?;
+    if !text.allowsUndo() {
+        return None;
+    }
+    let manager = text.undoManager()?;
+    (if redo {
+        manager.canRedo()
+    } else {
+        manager.canUndo()
+    })
+    .then_some(manager)
+}
 
 impl Editor {
     fn show_error(&self, error: &str) {
