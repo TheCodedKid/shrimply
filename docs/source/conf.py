@@ -21,7 +21,7 @@ html_theme_options = {
     },
     "source_edit_link": "https://github.com/soirihiroka/shrimply/edit/main/docs/source/{filename}",
 }
-html_favicon = "_static/shrimply.svg"
+html_favicon = "_static/shrimply-symbolic.svg"
 html_static_path = ["_static"]
 html_css_files = ["gnome.css"]
 html_show_copyright = 0
