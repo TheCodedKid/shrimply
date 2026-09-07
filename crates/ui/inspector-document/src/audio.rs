@@ -1,7 +1,7 @@
 use serde_json::{Value, json};
 use shrimply_project::project::{AudioItem, AudioSource, Time};
 
-use crate::{
+use shrimply_inspector_core::{
     ControlKind, InspectorControl, InspectorDetail, InspectorRuntime, InspectorSection,
     LayeredState, NumberSpec,
 };
@@ -60,7 +60,7 @@ pub(super) fn categories(
         }));
     categories[0].items.push(super::modifiers::menu(
         ControlKind::AudioModifierMenu,
-        crate::audio_modifier_catalog()
+        shrimply_inspector_core::audio_modifier_catalog()
             .into_iter()
             .map(|c| (c.key, c.label.to_string(), c.search_text)),
     ));
@@ -139,7 +139,7 @@ fn playback_items(value: &Value) -> Vec<InspectorListItem> {
             }),
     );
     let mut method = InspectorSection::default();
-    method.add(crate::selector::selector(
+    method.add(shrimply_inspector_core::selector::selector(
         "/speed_method",
         "Method",
         text(value, "/speed_method"),
@@ -149,7 +149,7 @@ fn playback_items(value: &Value) -> Vec<InspectorListItem> {
         ],
     ));
     let mut repeat = InspectorSection::default();
-    repeat.add(crate::selector::selector(
+    repeat.add(shrimply_inspector_core::selector::selector(
         "/repeat_strategy",
         "Strategy",
         text(value, "/repeat_strategy"),

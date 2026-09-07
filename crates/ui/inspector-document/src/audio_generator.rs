@@ -1,6 +1,6 @@
 use shrimply_project::project::{AudioGenerator, Time};
 
-use crate::{
+use shrimply_inspector_core::{
     ControlKind, InspectorControl, InspectorRuntime, InspectorSection, LayeredState,
     NumberConstraint, NumberSpec, audio_generator::AudioGeneratorControl,
 };
@@ -9,14 +9,14 @@ use super::{BasicInspectorAction, InspectorItem};
 
 pub(super) fn item(generator: &AudioGenerator, runtime: InspectorRuntime) -> InspectorItem {
     let mut section = InspectorSection::default();
-    for control in crate::audio_generator::controls(generator) {
+    for control in shrimply_inspector_core::audio_generator::controls(generator) {
         match control {
             AudioGeneratorControl::Waveform { value, choices } => {
                 let selected = choices
                     .iter()
                     .find(|choice| choice.value == value)
                     .expect("generator waveform must have a choice");
-                section.add(crate::selector::selector(
+                section.add(shrimply_inspector_core::selector::selector(
                     "/source/waveform",
                     "Waveform",
                     selected.key,

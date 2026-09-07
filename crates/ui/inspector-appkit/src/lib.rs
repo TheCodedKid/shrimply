@@ -18,9 +18,8 @@ use shrimply_components_appkit::{
     InspectorCard, ScrollingColumn, Switch, Tab, Tabs, ViewHost, column_append_intrinsic,
     column_stack, inset,
 };
-use shrimply_inspector_core::{
-    InspectorController, InspectorDocument, InspectorItem, InspectorListItem, InspectorTarget,
-};
+use shrimply_inspector_core::{InspectorController, InspectorTarget};
+use shrimply_inspector_document::{InspectorDocument, InspectorItem, InspectorListItem};
 use shrimply_project::project::Project;
 use shrimply_state::player_state;
 use shrimply_timeline::selection_state;
@@ -149,7 +148,7 @@ impl Inspector {
             layout_debug::dump(self.view(), 0);
             layout_debug::expanded_cards(mtm);
         }
-        if self.state.controller.poll_document() {
+        if shrimply_inspector_document::poll(&self.state.controller) {
             self.state.dirty.set(true);
         }
         for poll in self.state.polls.borrow().iter() {
@@ -175,7 +174,8 @@ impl Inspector {
 
 impl State {
     fn rebuild(self: &Rc<Self>, mtm: MainThreadMarker) {
-        let document = self.controller.document(
+        let document = shrimply_inspector_document::document(
+            &self.controller,
             info::format_date,
             &self.server_url.borrow(),
             &shrimply_state::preferences::snapshot(&self.preferences).last_tts_model,
@@ -391,8 +391,8 @@ impl State {
     }
 }
 
-fn category_symbol(icon: shrimply_inspector_core::document::CategoryIcon) -> &'static str {
-    use shrimply_inspector_core::document::CategoryIcon;
+fn category_symbol(icon: shrimply_inspector_document::CategoryIcon) -> &'static str {
+    use shrimply_inspector_document::CategoryIcon;
     match icon {
         CategoryIcon::Project | CategoryIcon::Track => "slider.horizontal.3",
         CategoryIcon::Text => "textformat",

@@ -54,9 +54,7 @@ pub use audio_modifiers::{
     voice_change_models,
 };
 pub use camera_source::CameraSourcePresentation;
-pub use document::{
-    BasicInspectorAction, InspectorCategory, InspectorDocument, InspectorItem, InspectorListItem,
-};
+pub use document::BasicInspectorAction;
 pub use info::InspectorMedia;
 pub use keyframe_graph::{GraphPoint, GraphSegment, InspectorGraphKind, ScalarGraph};
 pub use layered::LayeredState;

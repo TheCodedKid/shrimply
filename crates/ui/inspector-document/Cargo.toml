@@ -1,0 +1,15 @@
+[package]
+name = "shrimply-inspector-document"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+serde_json.workspace = true
+shrimply-audio-modifiers = { path = "../../audio/audio-modifiers" }
+shrimply-core = { path = "../../core" }
+shrimply-inspector-core = { path = "../inspector-core", default-features = false }
+shrimply-math-core = { path = "../../math/core" }
+shrimply-preview-core = { path = "../../preview/preview-core" }
+shrimply-project = { path = "../../project/project" }
+shrimply-video-modifiers = { path = "../../video/video-modifiers" }
+uuid.workspace = true

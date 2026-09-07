@@ -1,13 +1,13 @@
 use super::{BasicInspectorAction as Action, InspectorItem};
-use crate::item::HeaderToggle;
-use crate::{
-    AudioModifierControl, ControlKind, GraphPoint, GraphSegment, InspectorControl,
-    InspectorRuntime, InspectorSection, NumberSpec, ScalarGraph,
-};
 use shrimply_audio_modifiers::AudioModifier;
 use shrimply_core::{
     modifier_model::ModifierModel,
     timeline_value::{Interpolation, TimelineBase, TimelineValue},
+};
+use shrimply_inspector_core::item::HeaderToggle;
+use shrimply_inspector_core::{
+    AudioModifierControl, ControlKind, GraphPoint, GraphSegment, InspectorControl,
+    InspectorRuntime, InspectorSection, NumberSpec, ScalarGraph,
 };
 use shrimply_project::project::Time;
 
@@ -18,11 +18,11 @@ pub(super) fn item(
     runtime: InspectorRuntime,
 ) -> InspectorItem {
     let mut section = InspectorSection::default();
-    for control in crate::audio_modifier_controls(&modifier.effect) {
+    for control in shrimply_inspector_core::audio_modifier_controls(&modifier.effect) {
         match control {
             AudioModifierControl::Cache(cache) => {
                 section.controls.extend(
-                    crate::audio_cache_presentation(&cache, modifier.id)
+                    shrimply_inspector_core::audio_cache_presentation(&cache, modifier.id)
                         .section
                         .controls,
                 );
@@ -41,7 +41,7 @@ pub(super) fn item(
                 label,
                 value,
                 options,
-            } => section.add(crate::selector::selector(
+            } => section.add(shrimply_inspector_core::selector::selector(
                 path,
                 label,
                 &value,
@@ -113,7 +113,7 @@ fn scalar(
     label: &str,
     timeline: &TimelineValue<f32>,
     runtime: InspectorRuntime,
-    presentation: crate::AudioModifierScalarPresentation,
+    presentation: shrimply_inspector_core::AudioModifierScalarPresentation,
 ) {
     section.add(
         InspectorControl::new(ControlKind::LayeredNumber, path, label)
@@ -130,7 +130,7 @@ fn scalar(
                 unit: presentation.unit.unwrap_or_default(),
             })
             .store_multiplier(presentation.store_multiplier)
-            .layered(path, crate::LayeredState::from(timeline))
+            .layered(path, shrimply_inspector_core::LayeredState::from(timeline))
             .timeline(
                 timeline.id,
                 scalar_graph(timeline, runtime, presentation.display),
@@ -147,9 +147,9 @@ pub(crate) fn scalar_graph(
         return None;
     }
     let static_value = display(timeline.value_at(runtime.local_time.unwrap_or(Time::ZERO)));
-    let crate::keyframe_graph::KeyframeGraph::RawValue {
+    let shrimply_inspector_core::keyframe_graph::KeyframeGraph::RawValue {
         points, segments, ..
-    } = crate::keyframe_model::scalar_graph(timeline, static_value, display)
+    } = shrimply_inspector_core::keyframe_model::scalar_graph(timeline, static_value, display)
     else {
         unreachable!("scalar timeline must produce a raw keyframe graph")
     };

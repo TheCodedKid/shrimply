@@ -1,6 +1,6 @@
 use shrimply_project::project::ItemKind;
 
-use crate::{ControlKind, InspectorControl, InspectorSection, TrackPresentation};
+use shrimply_inspector_core::{ControlKind, InspectorControl, InspectorSection, TrackPresentation};
 
 use super::{CategoryIcon, InspectorCategory, InspectorListItem, detail_item};
 
@@ -11,7 +11,7 @@ pub(super) fn categories(track: &TrackPresentation) -> Vec<InspectorCategory> {
             .subtitle("Include this track in playback and export"),
     ];
     if track.kind == ItemKind::Caption {
-        controls.push(crate::selector::optional_selector(
+        controls.push(shrimply_inspector_core::selector::optional_selector(
             "/language",
             "Language",
             track.language.as_deref(),
