@@ -1359,6 +1359,7 @@ impl InspectorController {
             constraint,
             commit,
         )
+        .map(|_| ())
     }
 
     pub fn move_scalar_keyframes(
@@ -1368,9 +1369,9 @@ impl InspectorController {
         changes: &[AudioModifierKeyframeMove],
         constraint: crate::NumberConstraint,
         commit: InspectorCommit<'_>,
-    ) -> Result<(), String> {
+    ) -> Result<Vec<Time>, String> {
         if changes.is_empty() {
-            return Ok(());
+            return Ok(Vec::new());
         }
         let changes = changes
             .iter()
@@ -1391,7 +1392,8 @@ impl InspectorController {
             path,
             serialize_timeline(value),
             commit,
-        )
+        )?;
+        Ok(changes.iter().map(|change| change.1).collect())
     }
 
     pub fn delete_scalar_keyframe(

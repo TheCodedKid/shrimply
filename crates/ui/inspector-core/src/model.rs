@@ -310,6 +310,43 @@ impl InspectorController {
         );
     }
 
+    pub fn resolve_preview_focus(
+        &self,
+        target: &InspectorTarget,
+        focus: &crate::item::ControlPreviewFocus,
+    ) -> Option<shrimply_state::preview_focus::FocusedPreview> {
+        let InspectorTarget::Item(address) = target else {
+            return None;
+        };
+        let project = self.project.borrow();
+        let item = project.video_item(address)?;
+        let resolved = focus.target.resolve(item.id);
+        item.owns_preview_target(resolved)
+            .then(|| shrimply_state::preview_focus::FocusedPreview {
+                item: address.clone(),
+                card_key: focus.card_key.clone(),
+                target: resolved,
+            })
+    }
+
+    pub fn toggle_preview_focus(
+        &self,
+        target: &InspectorTarget,
+        action: &crate::document::InspectorToggleAction,
+        enabled: bool,
+    ) -> Option<shrimply_state::preview_focus::FocusedPreview> {
+        let InspectorTarget::Item(address) = target else {
+            return None;
+        };
+        let id = self.project.borrow().video_item(address)?.id;
+        let focus = match action {
+            crate::document::InspectorToggleAction::AlphaMask(mask) => {
+                crate::alpha_mask::preview_focus(id, *mask, enabled)
+            }
+        };
+        self.resolve_preview_focus(target, &focus)
+    }
+
     pub fn valid_preview_focus(
         &self,
         focused_item: &ItemAddress,

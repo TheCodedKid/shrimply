@@ -56,6 +56,12 @@ fn item(card: crate::VideoCard) -> InspectorListItem {
             activate: BasicInspectorAction::Video(action.activate),
         })
         .collect();
+    if let Some(mask) = &card.alpha_mask {
+        item = item.alpha_mask(
+            shrimply_project::project::VisualAlphaMaskTarget::Compositing,
+            mask,
+        );
+    }
     if let Some(reset) = card.reset {
         item = item.reset(BasicInspectorAction::ResetVideo(reset));
     }

@@ -101,9 +101,14 @@ pub fn install(editor: &Editor) {
     item(&file, "Close Window", "w", Some(sel!(performClose:)), mtm);
 
     let edit = submenu(&main, "Edit", mtm);
-    item(&edit, "Undo", "z", None, mtm);
-    let redo = item(&edit, "Redo", "z", None, mtm);
+    edit.setAutoenablesItems(true);
+    let undo = item(&edit, "Undo", "z", Some(sel!(undo:)), mtm);
+    let redo = item(&edit, "Redo", "z", Some(sel!(redo:)), mtm);
     redo.setKeyEquivalentModifierMask(NSEventModifierFlags::Command | NSEventModifierFlags::Shift);
+    unsafe {
+        undo.setTarget(Some(editor));
+        redo.setTarget(Some(editor));
+    }
 
     let view = submenu(&main, "View", mtm);
     let mut view_items = Vec::new();

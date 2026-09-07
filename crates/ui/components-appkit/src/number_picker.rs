@@ -408,8 +408,14 @@ impl NumberPickerView {
         ] {
             constraint.setActive(true);
         }
-        self.ivars().preview_value.set(None);
+        let preview = self.ivars().preview_value.take();
         self.refresh();
+        // Text edits publish live values without replacing the committed value.
+        // Cancellation (or invalid final text) must roll that preview back too.
+        let value = self.ivars().value.get();
+        if preview.is_some_and(|preview| preview != value) {
+            (self.ivars().on_change)(value);
+        }
     }
 }
 

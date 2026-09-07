@@ -1,6 +1,7 @@
 use crate::{export, player_state, project};
 use adw::prelude::*;
 use gtk::gio;
+use shrimply_cross_ui_core::editor::change_history;
 use shrimply_gtk_components::tr;
 use shrimply_gtk_components::ui::I18nMenuExt;
 use std::cell::RefCell;
@@ -355,34 +356,6 @@ fn add_track(
             captions: matches!(kind, NewTrackKind::Caption),
             inspector: true,
             ..Default::default()
-        },
-    );
-}
-
-fn change_history(
-    project: &Rc<RefCell<project::Project>>,
-    player_state: &player_state::SharedPlayerState,
-    change: fn(&mut project::Project) -> bool,
-) {
-    if !change(&mut project.borrow_mut()) {
-        return;
-    }
-    let (duration, frame_rate) = {
-        let project = project.borrow();
-        (project.duration(), project.fps)
-    };
-    player_state::refresh_project(
-        player_state,
-        player_state::ProjectChange {
-            duration: Some(duration),
-            frame_rate: Some(frame_rate),
-            audio: true,
-            audio_beats: true,
-            audio_waveforms: true,
-            video: true,
-            live_preview: false,
-            captions: true,
-            inspector: true,
         },
     );
 }

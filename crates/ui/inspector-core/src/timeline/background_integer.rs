@@ -218,6 +218,7 @@ impl InspectorController {
             timeline_id,
             std::slice::from_ref(&change),
         )
+        .map(|_| ())
     }
 
     pub fn move_background_integer_keyframes(
@@ -226,9 +227,9 @@ impl InspectorController {
         path: &str,
         timeline_id: uuid::Uuid,
         changes: &[AudioModifierKeyframeMove],
-    ) -> Result<(), String> {
+    ) -> Result<Vec<Time>, String> {
         if changes.is_empty() {
-            return Ok(());
+            return Ok(Vec::new());
         }
         let changes = changes
             .iter()
@@ -255,7 +256,8 @@ impl InspectorController {
                 commit: InspectorCommit::Coalesced(keyframe_commit),
                 refresh_inspector: false,
             },
-        )
+        )?;
+        Ok(changes.iter().map(|change| change.1).collect())
     }
 
     pub fn delete_background_integer_keyframe(

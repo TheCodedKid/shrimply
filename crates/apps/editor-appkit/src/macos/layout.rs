@@ -158,6 +158,7 @@ pub fn build(editor: &Editor) -> Layout {
         session.player_state.clone(),
         session.selection_state.clone(),
         session.property_clipboard.clone(),
+        session.preview_focus.clone(),
         session.preferences.clone(),
         mtm,
     );
