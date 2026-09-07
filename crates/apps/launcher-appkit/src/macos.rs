@@ -4,7 +4,7 @@ mod recents;
 use block2::StackBlock;
 use objc2::rc::Retained;
 use objc2::runtime::ProtocolObject;
-use objc2::{DefinedClass, MainThreadOnly, define_class, msg_send, sel};
+use objc2::{AnyThread, DefinedClass, MainThreadOnly, define_class, msg_send, sel};
 use objc2_app_kit::{
     NSAlert, NSApplication, NSApplicationActivationPolicy, NSApplicationDelegate,
     NSAutoresizingMaskOptions, NSBackingStoreType, NSBezelStyle, NSButton, NSColor, NSControlSize,
@@ -14,8 +14,8 @@ use objc2_app_kit::{
     NSWindowStyleMask, NSWindowTitleVisibility, NSWindowToolbarStyle, NSWorkspace,
 };
 use objc2_foundation::{
-    MainThreadMarker, NSArray, NSNotification, NSObject, NSObjectProtocol, NSPoint, NSRect, NSSize,
-    NSString, NSURL, ns_string,
+    MainThreadMarker, NSArray, NSData, NSNotification, NSObject, NSObjectProtocol, NSPoint, NSRect,
+    NSSize, NSString, NSProcessInfo, NSURL, ns_string,
 };
 use shrimply_cross_ui_core::launcher;
 use shrimply_support::recent_projects::{self, RecentProject};
@@ -285,7 +285,6 @@ define_class!(
                 .expect("window must only be created once");
             self.refresh_recents("");
 
-            app.setActivationPolicy(NSApplicationActivationPolicy::Regular);
             app.activate();
         }
     }
@@ -556,8 +555,18 @@ impl Delegate {
 pub fn run() {
     shrimply_support::diagnostics::init();
     let mtm = MainThreadMarker::new().expect("AppKit must start on the main thread");
+    NSProcessInfo::processInfo().setProcessName(ns_string!("Shrimply"));
     NSWindow::setAllowsAutomaticWindowTabbing(false, mtm);
     let app = NSApplication::sharedApplication(mtm);
+    app.setActivationPolicy(NSApplicationActivationPolicy::Regular);
+    let icon = NSImage::initWithData(
+        NSImage::alloc(),
+        &NSData::with_bytes(include_bytes!(
+            "../../../../assets/icons/dev.shrimply.Shrimply.png"
+        )),
+    )
+    .expect("the embedded Shrimply icon must be valid");
+    unsafe { app.setApplicationIconImage(Some(&icon)) };
     let delegate = Delegate::new(mtm);
     app.setDelegate(Some(ProtocolObject::from_ref(&*delegate)));
     app.run();

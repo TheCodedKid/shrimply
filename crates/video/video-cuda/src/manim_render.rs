@@ -73,11 +73,11 @@ impl VisualElement for ManimElement {
         matches!(item.content, VideoItemContent::Manim(_)) && self.canvas_size == canvas_size
     }
 
-    fn take_manim_updates(&mut self) -> Vec<shrimply_state::manim_status::Update> {
+    fn take_manim_updates(&mut self) -> Vec<shrimply_manim_core::Update> {
         self.source.take_updates()
     }
 
-    fn manim_status(&self, error: Option<String>) -> Option<shrimply_state::manim_status::Update> {
+    fn manim_status(&self, error: Option<String>) -> Option<shrimply_manim_core::Update> {
         Some(self.source.identity().error(error))
     }
 

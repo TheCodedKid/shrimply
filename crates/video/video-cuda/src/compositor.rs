@@ -254,7 +254,7 @@ pub enum VideoEvent {
         render_elapsed: Duration,
         render_generation: u64,
     },
-    Manim(shrimply_state::manim_status::Update),
+    Manim(shrimply_manim_core::Update),
     Error(String),
 }
 
@@ -277,7 +277,7 @@ struct RenderedFrame {
     loading_placeholder: bool,
     clear: bool,
     errors: Vec<String>,
-    manim_updates: Vec<shrimply_state::manim_status::Update>,
+    manim_updates: Vec<shrimply_manim_core::Update>,
     superseded: bool,
 }
 
