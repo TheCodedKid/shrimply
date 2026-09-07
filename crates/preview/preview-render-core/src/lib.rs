@@ -152,7 +152,7 @@ pub struct Scene {
         std::rc::Rc<shrimply_video_core::vector_morph::PreparedVectorMorph>,
     >,
     manim: std::collections::HashMap<uuid::Uuid, shrimply_manim_wgpu::Source>,
-    manim_updates: Vec<shrimply_state::manim_status::Update>,
+    manim_updates: Vec<shrimply_manim_core::Update>,
     manim_loading: bool,
     manim_pending: bool,
     blender: std::collections::HashMap<uuid::Uuid, shrimply_video_core::blender::Source>,
@@ -168,7 +168,7 @@ pub struct Scene {
 }
 
 impl Scene {
-    pub fn take_manim_updates(&mut self) -> Vec<shrimply_state::manim_status::Update> {
+    pub fn take_manim_updates(&mut self) -> Vec<shrimply_manim_core::Update> {
         std::mem::take(&mut self.manim_updates)
     }
 

@@ -51,7 +51,7 @@ struct RequestTiming {
 struct Slots {
     request: Option<Request>,
     completed: Option<(Target, Result<compositor::Presented, String>)>,
-    manim_updates: Vec<shrimply_state::manim_status::Update>,
+    manim_updates: Vec<shrimply_manim_core::Update>,
     sam2_errors: Vec<String>,
     schedule_sam2: bool,
     stop: bool,
@@ -81,7 +81,7 @@ pub struct Renderer {
     scrubbing: bool,
     render_elapsed: Option<Duration>,
     next_request_id: u64,
-    manim_updates: Vec<shrimply_state::manim_status::Update>,
+    manim_updates: Vec<shrimply_manim_core::Update>,
     error: Option<String>,
 }
 
@@ -265,7 +265,7 @@ impl Renderer {
         self.error.clone().map_or(Ok(()), Err)
     }
 
-    pub fn take_manim_updates(&mut self) -> Vec<shrimply_state::manim_status::Update> {
+    pub fn take_manim_updates(&mut self) -> Vec<shrimply_manim_core::Update> {
         std::mem::take(&mut self.manim_updates)
     }
 

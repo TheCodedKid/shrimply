@@ -12,8 +12,8 @@ use objc2_core_video::{
 };
 use objc2_foundation::{NSArray, NSDictionary};
 use objc2_vision::{
-    VNGenerateOpticalFlowRequest, VNGenerateOpticalFlowRequestComputationAccuracy, VNImageOption,
-    VNImageRequestHandler, VNRequest,
+    VNGenerateOpticalFlowRequest, VNGenerateOpticalFlowRequestComputationAccuracy,
+    VNGenerateOpticalFlowRequestRevision2, VNImageOption, VNImageRequestHandler, VNRequest,
 };
 use shrimply_math_geometry::Vec2;
 use shrimply_video_core::raster_morph::{OpticalFlowField, regular_grid_size};
@@ -112,6 +112,7 @@ fn estimate_direction(
         )
     };
     unsafe {
+        request.setRevision(VNGenerateOpticalFlowRequestRevision2);
         request.setComputationAccuracy(VNGenerateOpticalFlowRequestComputationAccuracy::High);
         request.setOutputPixelFormat(kCVPixelFormatType_TwoComponent32Float);
     }
@@ -197,7 +198,10 @@ fn sample_flow(buffer: &CVPixelBuffer, width: u32, height: u32) -> Result<Vec<Ve
                         .cast::<[f32; 2]>()
                 };
                 let value = unsafe { address.read_unaligned() };
-                values.push(Vec2::from_array(value));
+                // Revision 2 reports components in its half-resolution analysis
+                // coordinates even though Vision expands the result buffer to the
+                // full input dimensions. MeshFlow consumes source-pixel offsets.
+                values.push(Vec2::from_array(value) * 2.0);
             }
         }
         Ok(values)

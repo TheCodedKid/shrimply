@@ -123,7 +123,6 @@ define_class!(
             window.makeKeyAndOrderFront(None);
             self.ivars().window.set(window).expect("window already installed");
             self.install_fullscreen_events();
-            app.setActivationPolicy(NSApplicationActivationPolicy::Regular);
             app.activate();
             let timer = unsafe {
                 objc2_foundation::NSTimer::scheduledTimerWithTimeInterval_target_selector_userInfo_repeats(
@@ -745,6 +744,7 @@ pub fn run(project: Option<&Path>) -> Result<bool, ()> {
     let mtm = MainThreadMarker::new().expect("AppKit must start on the main thread");
     objc2_foundation::NSProcessInfo::processInfo().setProcessName(ns_string!("Shrimply"));
     let app = NSApplication::sharedApplication(mtm);
+    app.setActivationPolicy(NSApplicationActivationPolicy::Regular);
     let icon = objc2_app_kit::NSImage::initWithData(
         objc2_app_kit::NSImage::alloc(),
         &objc2_foundation::NSData::with_bytes(include_bytes!(

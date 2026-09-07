@@ -82,7 +82,7 @@ pub(super) struct Presented {
 #[derive(Default)]
 pub(super) struct Compositor {
     scene: Scene,
-    manim_updates: Vec<shrimply_state::manim_status::Update>,
+    manim_updates: Vec<shrimply_manim_core::Update>,
     compute: Option<shrimply_render_metal::Renderer>,
     pending: Option<Pending>,
     queued: Option<FramePlan>,
@@ -119,13 +119,13 @@ impl Compositor {
         self.update(project, time, 0)?;
         for update in self.take_manim_updates() {
             match update {
-                shrimply_state::manim_status::Update::Parameters {
+                shrimply_manim_core::Update::Parameters {
                     render_is_current: false,
                     ..
                 } => {
                     return Err("Manim parameters changed while preparing the frame; wait for the preview to update and try again".into());
                 }
-                shrimply_state::manim_status::Update::Error {
+                shrimply_manim_core::Update::Error {
                     error: Some(error), ..
                 } => return Err(error),
                 _ => {}
@@ -184,7 +184,7 @@ impl Compositor {
         self.presented.take()
     }
 
-    pub fn take_manim_updates(&mut self) -> Vec<shrimply_state::manim_status::Update> {
+    pub fn take_manim_updates(&mut self) -> Vec<shrimply_manim_core::Update> {
         let mut updates = self.scene.take_manim_updates();
         updates.append(&mut self.manim_updates);
         updates
