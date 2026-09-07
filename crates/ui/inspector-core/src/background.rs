@@ -666,6 +666,7 @@ pub fn card(background: &Background, runtime: InspectorRuntime) -> VideoCard {
         alpha_mask: None,
         preview_facet: None,
         actions: Vec::new(),
+        scope: crate::VideoCardScope::Source,
     }
     .reset(
         GENERATOR_PATH,
@@ -781,7 +782,7 @@ fn integer(
                 digits: 0,
                 unit: "",
             })
-            .integer()
+            .unsigned_integer_timeline()
             .width_characters(8)
             .layered(&path, LayeredState::from(value))
             .timeline(value.id, integer_graph(value, runtime))

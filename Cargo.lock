@@ -5662,6 +5662,7 @@ dependencies = [
  "shrimply-cross-ui-theme",
  "shrimply-evaluation",
  "shrimply-export-core",
+ "shrimply-inspector-appkit",
  "shrimply-math-core",
  "shrimply-paint-edit",
  "shrimply-playback-performance",
@@ -5919,6 +5920,28 @@ version = "0.1.0"
 dependencies = [
  "cxx-qt-lib",
  "shrimply-i18n-core",
+]
+
+[[package]]
+name = "shrimply-inspector-appkit"
+version = "0.1.0"
+dependencies = [
+ "block2",
+ "objc2",
+ "objc2-app-kit",
+ "objc2-foundation",
+ "objc2-uniform-type-identifiers",
+ "serde_json",
+ "shrimply-components-appkit",
+ "shrimply-inspector-core",
+ "shrimply-math-color",
+ "shrimply-math-core",
+ "shrimply-preview-metal",
+ "shrimply-project",
+ "shrimply-property-transfer",
+ "shrimply-state",
+ "shrimply-timeline",
+ "shrimply-tts",
 ]
 
 [[package]]
@@ -6625,11 +6648,13 @@ dependencies = [
 name = "shrimply-preview-metal"
 version = "0.1.0"
 dependencies = [
+ "ffmpeg-next",
  "objc2",
  "objc2-core-ml",
  "objc2-core-video",
  "objc2-foundation",
  "objc2-vision",
+ "shrimply-3dgs",
  "shrimply-3dgs-metal",
  "shrimply-manim-metal",
  "shrimply-math-core",
@@ -6641,6 +6666,7 @@ dependencies = [
  "shrimply-render-3d-metal",
  "shrimply-render-core",
  "shrimply-render-metal",
+ "shrimply-resource-pipeline",
  "shrimply-state",
  "shrimply-video-core",
  "skia-safe",
@@ -7285,9 +7311,11 @@ version = "0.1.0"
 dependencies = [
  "cached",
  "cairo-rs",
+ "ffmpeg-next",
  "glam 0.33.5",
  "glib",
  "hashbrown 0.17.1",
+ "libc",
  "num-traits",
  "pango",
  "pangocairo",

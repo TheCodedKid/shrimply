@@ -19,6 +19,16 @@ use crate::audio_modifiers::{
 use crate::target::InspectorTarget;
 
 impl InspectorController {
+    pub fn audio_beat_detection_loading(&self, target: &InspectorTarget) -> bool {
+        let Ok(address) = audio_item_address(target) else {
+            return false;
+        };
+        self.project
+            .borrow()
+            .audio_item(address)
+            .is_some_and(|item| item.beat_detection && shrimply_audio::beat::is_loading(item.id))
+    }
+
     pub fn set_audio_modifier_enabled(
         &self,
         target: &InspectorTarget,
@@ -845,18 +855,42 @@ impl InspectorController {
         value_id: uuid::Uuid,
         change: AudioModifierKeyframeMove,
     ) -> Result<(), String> {
+        self.move_audio_modifier_keyframes(
+            target,
+            modifier_id,
+            value_id,
+            std::slice::from_ref(&change),
+        )
+    }
+
+    pub fn move_audio_modifier_keyframes(
+        &self,
+        target: &InspectorTarget,
+        modifier_id: uuid::Uuid,
+        value_id: uuid::Uuid,
+        changes: &[AudioModifierKeyframeMove],
+    ) -> Result<(), String> {
+        if changes.is_empty() {
+            return Ok(());
+        }
         let mut project = self.project.borrow_mut();
-        let time = audio_modifier_keyframe_time(&project, target, change.time)?;
-        let next = (change.displayed_value * change.store_multiplier) as f32;
+        let changes = changes
+            .iter()
+            .map(|change| {
+                Ok((
+                    change.old_time,
+                    audio_modifier_keyframe_time(&project, target, change.time)?,
+                    (change.displayed_value * change.store_multiplier) as f32,
+                ))
+            })
+            .collect::<Result<Vec<_>, String>>()?;
         let value = audio_modifier_number_mut(&mut project, target, modifier_id, value_id)?;
-        if !crate::timeline_value::scalar::move_stored_keyframe(
+        if !crate::timeline_value::scalar::move_stored_keyframes(
             value,
-            change.old_time,
-            time,
-            next,
+            &changes,
             crate::NumberConstraint::default(),
         ) {
-            return Ok(());
+            return Err("audio keyframe move contains invalid values or stale source keys".into());
         }
         shrimply_project::project::commit_coalesced_edit(&project, "audio-modifier-keyframe");
         drop(project);
@@ -871,9 +905,26 @@ impl InspectorController {
         value_id: uuid::Uuid,
         time: Time,
     ) -> Result<(), String> {
+        self.delete_audio_modifier_keyframes(
+            target,
+            modifier_id,
+            value_id,
+            std::slice::from_ref(&time),
+        )
+    }
+
+    pub fn delete_audio_modifier_keyframes(
+        &self,
+        target: &InspectorTarget,
+        modifier_id: uuid::Uuid,
+        value_id: uuid::Uuid,
+        times: &[Time],
+    ) -> Result<(), String> {
         let mut project = self.project.borrow_mut();
         let value = audio_modifier_number_mut(&mut project, target, modifier_id, value_id)?;
-        if !crate::keyframe_model::delete_scalar_keyframe(value, time) {
+        if !crate::keyframe_model::edit_keyframe_selection(value, times, |value, time| {
+            Ok(crate::keyframe_model::delete_scalar_keyframe(value, time))
+        })? {
             return Ok(());
         }
         let keyframes_disabled = !matches!(

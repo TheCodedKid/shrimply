@@ -1,9 +1,13 @@
 #![cfg(target_os = "macos")]
 
 mod alpha_mask;
+pub mod camera_reconstruction;
+mod capture;
 mod compositor;
 mod effects;
+pub mod modifier_cache;
 mod optical_flow;
+pub mod transparent_fill_analysis;
 pub use compositor::render_png;
 
 use shrimply_math_core::Time;
@@ -134,7 +138,11 @@ impl Renderer {
     pub fn set_project_revision(&mut self, revision: u64) {
         if self.project_revision != revision {
             self.project_revision = revision;
-            self.invalidate();
+            // A newer edit must not prevent the preceding edit from appearing.
+            // Explicit invalidation/exclusion changes still fence old frames.
+            self.project = None;
+            self.requested = None;
+            self.error = None;
         }
     }
 
@@ -222,7 +230,10 @@ impl Renderer {
                     self.presented_target = Some(completed_target);
                     self.error = None;
                 }
-                Err(error) => self.error = Some(error),
+                Err(error) if completed_target.project_revision == self.project_revision => {
+                    self.error = Some(error);
+                }
+                Err(_) => {}
             }
         }
         if self.requested != Some(target) {
@@ -296,6 +307,7 @@ fn worker(shared: Arc<Shared>, mut sam2_scheduler: shrimply_video_core::sam2::an
     let mut current: Option<Request> = None;
     let mut timings = BTreeMap::<u64, RequestTiming>::new();
     let mut active = false;
+    let mut project_frame_completed = false;
     let mut request_started = Instant::now();
     let mut slow_request_reported = false;
     loop {
@@ -314,12 +326,24 @@ fn worker(shared: Arc<Shared>, mut sam2_scheduler: shrimply_video_core::sam2::an
             sam2_scheduler.consume_notification();
         }
         let mut project_changed = false;
-        if let Some(request) = slots.request.take() {
-            if current
-                .as_ref()
-                .is_some_and(|previous| previous.target.revision != request.target.revision)
-            {
+        // Coalesce live edits while one project revision is rendering. Replacing
+        // it before its first frame completes can starve presentation for an
+        // entire number drag. Time-only playback/scrub requests remain immediate.
+        let accept_request = slots.request.as_ref().is_some_and(|request| {
+            !active
+                || project_frame_completed
+                || current.as_ref().is_none_or(|previous| {
+                    previous.target.revision != request.target.revision
+                        || previous.target.project_revision == request.target.project_revision
+                })
+        });
+        if accept_request && let Some(request) = slots.request.take() {
+            if current.as_ref().is_some_and(|previous| {
+                previous.target.revision != request.target.revision
+                    || previous.target.project_revision != request.target.project_revision
+            }) {
                 renderer.invalidate();
+                project_frame_completed = false;
             }
             renderer.set_interaction(request.target.playing, request.target.scrubbing);
             renderer.set_exclusion(request.target.excluded_item_id);
@@ -372,6 +396,8 @@ fn worker(shared: Arc<Shared>, mut sam2_scheduler: shrimply_video_core::sam2::an
             let completed_target = timings
                 .get(&completed_request_id)
                 .map_or(request.target, |timing| timing.target);
+            project_frame_completed |= completed_target.revision == request.target.revision
+                && completed_target.project_revision == request.target.project_revision;
             if let Ok(frame) = &completed
                 && !frame.loading
                 && completed_request_id == request.request_id
@@ -405,7 +431,7 @@ fn worker(shared: Arc<Shared>, mut sam2_scheduler: shrimply_video_core::sam2::an
             slots.completed = Some((completed_target, completed));
             timings.retain(|id, _| *id >= completed_request_id);
         }
-        if active && slots.request.is_none() && !slots.stop {
+        if active && (slots.request.is_none() || !accept_request) && !slots.stop {
             drop(
                 shared
                     .wake

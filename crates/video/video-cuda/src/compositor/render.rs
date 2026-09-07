@@ -874,18 +874,21 @@ impl FrameItemRenderer<'_> {
             .or_else(|| cached_item.as_ref().map(|_| item))
             .unwrap_or(item);
         let item = cached_item.as_ref().unwrap_or(item);
-        let cache_item = self.cache_item.as_ref().is_some_and(|address| {
-            address.sequence_path() == self.sequence_path
-                && address.track_id() == track_id
-                && address.item_id() == item.id
-        });
-        let cache_host = self.cache_item.as_ref().is_some_and(|address| {
-            address
-                .sequence_path()
-                .get(self.sequence_path.len())
-                .is_some_and(|host_id| *host_id == item.id)
-        });
-        let cache_branch = cache_item || cache_host;
+        use shrimply_video_core::modifier_input::{CaptureBranch, capture_branch};
+        let capture_address = ItemAddress::Video {
+            sequence_path: self.sequence_path.clone(),
+            track_id,
+            item_id: item.id,
+        };
+        let branch = self
+            .cache_item
+            .as_ref()
+            .map_or(CaptureBranch::Normal, |target| {
+                capture_branch(target, &capture_address)
+            });
+        let cache_item = branch == CaptureBranch::Item;
+        let cache_host = branch == CaptureBranch::Host;
+        let cache_branch = branch != CaptureBranch::Normal;
         let content_position = if cache_item && self.snap_cache_item {
             crate::modifiers::transparent_fill::snapped_transparent_fill_position(
                 self.project,

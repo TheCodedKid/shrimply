@@ -20,30 +20,8 @@ pub fn render_png(project: &Project, time: Time) -> Result<Vec<u8>, String> {
     objc2::rc::autoreleasepool(|_| {
         let mut renderer = Compositor::default();
         loop {
-            renderer.update(project, time, 0)?;
-            for update in renderer.take_manim_updates() {
-                match update {
-                    shrimply_state::manim_status::Update::Parameters {
-                        render_is_current: false,
-                        ..
-                    } => {
-                        return Err(
-                            "Manim parameters changed while preparing the frame; wait for the preview to update and try again"
-                                .into(),
-                        );
-                    }
-                    shrimply_state::manim_status::Update::Error {
-                        error: Some(error), ..
-                    } => return Err(error),
-                    _ => {}
-                }
-            }
-            if let Some(image) = &renderer.presented
-                && !image.loading
-                && image.accuracy.content_accurate()
-            {
+            if let Some(image) = renderer.poll_accurate_image(project, time)? {
                 return image
-                    .image
                     .encode(None, skia_safe::EncodedImageFormat::PNG, None)
                     .map(|data| data.as_bytes().to_vec())
                     .ok_or_else(|| "Could not encode the rendered frame as PNG".into());
@@ -126,6 +104,41 @@ pub(super) struct Compositor {
 }
 
 impl Compositor {
+    pub fn set_capture_target(&mut self, target: shrimply_preview_render_core::CaptureTarget) {
+        if self.scene.set_capture_target(Some(target)) {
+            self.invalidate();
+        }
+    }
+
+    /// Polls a completed, accurate CPU image without blocking media or GPU work.
+    pub fn poll_accurate_image(
+        &mut self,
+        project: &Project,
+        time: Time,
+    ) -> Result<Option<Image>, String> {
+        self.update(project, time, 0)?;
+        for update in self.take_manim_updates() {
+            match update {
+                shrimply_state::manim_status::Update::Parameters {
+                    render_is_current: false,
+                    ..
+                } => {
+                    return Err("Manim parameters changed while preparing the frame; wait for the preview to update and try again".into());
+                }
+                shrimply_state::manim_status::Update::Error {
+                    error: Some(error), ..
+                } => return Err(error),
+                _ => {}
+            }
+        }
+        Ok(self
+            .take_presented()
+            .filter(|frame| {
+                frame.time == time && !frame.loading && frame.accuracy.content_accurate()
+            })
+            .map(|frame| frame.image))
+    }
+
     pub fn set_exclusion(&mut self, excluded_item_id: Option<uuid::Uuid>) {
         self.scene.set_exclusion(excluded_item_id);
     }
@@ -142,7 +155,10 @@ impl Compositor {
             return;
         }
         self.invalidate();
-        self.scene.set_capture_item(Some(target.address.clone()));
+        self.scene
+            .set_capture_target(Some(shrimply_preview_render_core::CaptureTarget::Item(
+                target.address.clone(),
+            )));
         self.sam2_analysis_target = Some(target);
     }
 
@@ -575,14 +591,18 @@ impl Compositor {
                 renderer,
                 buffer,
                 state,
-                &layer.effects,
-                layer.render_size,
-                external_masks,
-                size,
-                layer.output_transform,
+                super::effects::ModifierRequest {
+                    operations: &layer.effects,
+                    size: layer.render_size,
+                    external_masks: super::effects::ExternalMasks {
+                        frames: external_masks,
+                        size,
+                        output_transform: layer.output_transform,
+                    },
+                    sam2_target: self.sam2_analysis_target.as_ref(),
+                    sam2_proxy: &mut self.sam2_proxy_buffer,
+                },
                 effect_submissions,
-                self.sam2_analysis_target.as_ref(),
-                &mut self.sam2_proxy_buffer,
             )?;
             let mut buffer = buffer;
             if let Some(samples) = &layer.motion_blur {

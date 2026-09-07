@@ -396,6 +396,27 @@ pub fn add_discrete_keyframe<T: TimelineValueType>(
     set_discrete_value(value, time, current, frame_step)
 }
 
+/// Applies a selection edit without exposing partially edited state on failure.
+/// Callers replace/commit the resulting timeline once after this returns true.
+pub fn edit_keyframe_selection<T: Clone>(
+    value: &mut T,
+    times: &[Time],
+    mut edit: impl FnMut(&mut T, Time) -> Result<bool, String>,
+) -> Result<bool, String> {
+    if times.is_empty() {
+        return Ok(false);
+    }
+    let mut next = value.clone();
+    let mut changed = false;
+    for &time in times {
+        changed |= edit(&mut next, time)?;
+    }
+    if changed {
+        *value = next;
+    }
+    Ok(changed)
+}
+
 pub fn delete_discrete_keyframe<T: TimelineValueType>(
     value: &mut TimelineValue<T>,
     time: Time,
@@ -463,6 +484,39 @@ pub fn move_discrete_keyframes<T: TimelineValueType>(
     }
     keyframes.extend(destinations);
     keyframes.sort_by_key(TimelineKeyframe::time);
+    true
+}
+
+/// Updates selected values before moving their keys as a single operation.
+/// Work on a copy so stale/duplicate source times cannot partially edit a timeline.
+pub fn update_keyframes<T: TimelineValueType>(
+    value: &mut TimelineValue<T>,
+    changes: &[(Time, Time, T)],
+) -> bool {
+    if changes.is_empty() {
+        return false;
+    }
+    let mut next = value.clone();
+    let TimelineBase::Keyframes(keyframes) = &mut next.base else {
+        return false;
+    };
+    for (old_time, _, stored) in changes {
+        let Some(keyframe) = keyframes
+            .iter_mut()
+            .find(|keyframe| keyframe.time().approx_eq(*old_time))
+        else {
+            return false;
+        };
+        *keyframe.value_mut() = stored.clone();
+    }
+    let moves = changes
+        .iter()
+        .map(|(old, time, _)| (*old, *time))
+        .collect::<Vec<_>>();
+    if !move_discrete_keyframes(&mut next, &moves) {
+        return false;
+    }
+    *value = next;
     true
 }
 
@@ -538,6 +592,15 @@ pub fn delete_json_discrete_keyframe(
     time: Time,
     frame_step: Time,
 ) -> Result<bool, String> {
+    // A batch may already have removed the last key before encountering a stale
+    // selection entry. Match the typed deletion helpers' constant-timeline no-op.
+    if value
+        .get("base")
+        .and_then(|base| base.get("const"))
+        .is_some()
+    {
+        return Ok(false);
+    }
     let (removed, empty) = {
         let keyframes = json_keyframes_mut(value)?;
         for keyframe in keyframes.iter() {

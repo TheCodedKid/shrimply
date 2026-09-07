@@ -1,5 +1,5 @@
 use shrimply_core::timeline_value::TimelineValue;
-use shrimply_video_cuda::transparent_fill_analysis::{self, Status};
+use shrimply_video_core::transparent_fill::analysis::{self as transparent_fill_analysis, Status};
 use shrimply_video_modifiers::{
     ModifierEffect, RasterModifierEffect,
     transparent_fill::{MAXIMUM_GAP, TransparentFillModifier},
@@ -187,6 +187,36 @@ pub(super) fn vector2<'a>(
 }
 
 impl InspectorController {
+    pub(crate) fn poll_transparent_fill_analysis(&self) -> bool {
+        self.retain_analysis_transitions();
+        let active = self
+            .analysis_transitions
+            .borrow()
+            .keys()
+            .cloned()
+            .collect::<Vec<_>>();
+        let mut finished = false;
+        for key in active {
+            let status = self
+                .transparent_fill_prepared_status(
+                    &InspectorTarget::Item(key.item.clone()),
+                    key.modifier_id,
+                )
+                .map(|prepared| transparent_fill_analysis::status_prepared(&prepared));
+            if !matches!(
+                status,
+                Ok(transparent_fill_analysis::Status::Running { .. })
+            ) {
+                self.analysis_transitions.borrow_mut().remove(&key);
+                finished = true;
+            }
+        }
+        if finished {
+            self.refresh_analysis_output();
+        }
+        finished
+    }
+
     pub fn retain_analysis_transitions(&self) {
         let project = self.project.borrow();
         self.analysis_transitions
@@ -208,6 +238,17 @@ impl InspectorController {
         action: InspectorControlAction,
         presentation: &AnalysisControlPresentation,
     ) -> bool {
+        if action == InspectorControlAction::ToggleCameraAnalysis {
+            let Ok(item) = super::video_address(target) else {
+                return false;
+            };
+            let mut active = self.camera_analysis_transitions.borrow_mut();
+            if presentation.active() {
+                active.insert(item.clone());
+                return false;
+            }
+            return active.remove(item);
+        }
         let InspectorControlAction::ToggleTransparentFillAnalysis { modifier_id } = action else {
             return false;
         };
@@ -333,6 +374,9 @@ impl InspectorController {
         {
             return Ok(());
         }
+        let analyze = self.analysis_backend.transparent_fill.ok_or_else(|| {
+            "Transparent Fill analysis is unavailable on this renderer".to_string()
+        })?;
         let mut project = self.project.borrow_mut();
         let fill = transparent_fill_modifier_mut(&mut project, target, modifier_id)?;
         if fill.points.is_empty() {
@@ -343,7 +387,7 @@ impl InspectorController {
         shrimply_project::project::commit_edit(&project, EDIT_COMMIT);
         let snapshot = project.clone();
         drop(project);
-        let result = transparent_fill_analysis::analyze(snapshot, &address, modifier_id).map(drop);
+        let result = analyze(snapshot, &address, modifier_id).map(drop);
         let key = AnalysisTransitionKey {
             item: address,
             modifier_id,

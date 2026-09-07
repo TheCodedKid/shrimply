@@ -293,7 +293,7 @@ impl Renderer {
         let instance_buffer = metal.upload(bytes_slice(&instance_descriptors))?;
         let uploaded = self.uploaded.as_ref().expect("OBJ geometry uploaded");
         let tlas_descriptor = MTLInstanceAccelerationStructureDescriptor::new();
-        tlas_descriptor.setInstanceDescriptorBuffer(Some(&instance_buffer.metal()));
+        tlas_descriptor.setInstanceDescriptorBuffer(Some(instance_buffer.metal()));
         tlas_descriptor.setInstanceCount(instance_descriptors.len());
         let blases = NSArray::from_retained_slice(&uploaded.blases);
         tlas_descriptor.setInstancedAccelerationStructures(Some(&blases));
@@ -324,12 +324,12 @@ impl Renderer {
             composite_encoder.setComputePipelineState(&self.composite_upload_pipeline);
             unsafe {
                 composite_encoder.setBuffer_offset_atIndex(
-                    Some(&composite_size.metal()),
+                    Some(composite_size.metal()),
                     0,
                     obj_metal::COMPOSITE_SIZE_BINDING,
                 );
                 composite_encoder.setBuffer_offset_atIndex(
-                    Some(&background.buffer.metal()),
+                    Some(background.buffer.metal()),
                     0,
                     obj_metal::COMPOSITE_PIXELS_BINDING,
                 );
@@ -371,9 +371,9 @@ impl Renderer {
             .ok_or("Could not create OBJ Metal compute encoder")?;
         encoder.setComputePipelineState(&self.pipeline);
         unsafe {
-            encoder.setBuffer_offset_atIndex(Some(&scene.metal()), 0, obj_metal::SCENE_BINDING);
+            encoder.setBuffer_offset_atIndex(Some(scene.metal()), 0, obj_metal::SCENE_BINDING);
             encoder.setBuffer_offset_atIndex(
-                Some(&output_size.metal()),
+                Some(output_size.metal()),
                 0,
                 obj_metal::OUTPUT_SIZE_BINDING,
             );
@@ -382,37 +382,37 @@ impl Renderer {
                 obj_metal::SCENE_ACCELERATION_BINDING,
             );
             encoder.setBuffer_offset_atIndex(
-                Some(&uploaded.positions.metal()),
+                Some(uploaded.positions.metal()),
                 0,
                 obj_metal::POSITIONS_BINDING,
             );
             encoder.setBuffer_offset_atIndex(
-                Some(&uploaded.normals.metal()),
+                Some(uploaded.normals.metal()),
                 0,
                 obj_metal::NORMALS_BINDING,
             );
             encoder.setBuffer_offset_atIndex(
-                Some(&uploaded.tangents.metal()),
+                Some(uploaded.tangents.metal()),
                 0,
                 obj_metal::TANGENTS_BINDING,
             );
             encoder.setBuffer_offset_atIndex(
-                Some(&uploaded.tex_coords_0.metal()),
+                Some(uploaded.tex_coords_0.metal()),
                 0,
                 obj_metal::TEX_COORDS_0_BINDING,
             );
             encoder.setBuffer_offset_atIndex(
-                Some(&uploaded.tex_coords_1.metal()),
+                Some(uploaded.tex_coords_1.metal()),
                 0,
                 obj_metal::TEX_COORDS_1_BINDING,
             );
             encoder.setBuffer_offset_atIndex(
-                Some(&uploaded.vertex_colors.metal()),
+                Some(uploaded.vertex_colors.metal()),
                 0,
                 obj_metal::VERTEX_COLORS_BINDING,
             );
             encoder.setBuffer_offset_atIndex(
-                Some(&materials.metal()),
+                Some(materials.metal()),
                 0,
                 obj_metal::MATERIALS_BINDING,
             );
@@ -443,22 +443,22 @@ impl Renderer {
                 obj_metal::COMPOSITE_TEXTURE_BINDING,
             );
             encoder.setBuffer_offset_atIndex(
-                Some(&mesh_instances.metal()),
+                Some(mesh_instances.metal()),
                 0,
                 obj_metal::MESH_INSTANCES_BINDING,
             );
             encoder.setBuffer_offset_atIndex(
-                Some(&output.metal()),
+                Some(output.metal()),
                 0,
                 obj_metal::OUTPUT_PIXELS_BINDING,
             );
             encoder.setBuffer_offset_atIndex(
-                Some(&outline_guide.metal()),
+                Some(outline_guide.metal()),
                 0,
                 obj_metal::OUTLINE_GUIDE_BINDING,
             );
             encoder.setBuffer_offset_atIndex(
-                Some(&outline_distance.metal()),
+                Some(outline_distance.metal()),
                 0,
                 obj_metal::OUTLINE_DISTANCE_BINDING,
             );
@@ -621,12 +621,12 @@ impl Renderer {
             composite_encoder.setComputePipelineState(&self.denoise_composite_pipeline);
             unsafe {
                 composite_encoder.setBuffer_offset_atIndex(
-                    Some(&output_size.metal()),
+                    Some(output_size.metal()),
                     0,
                     obj_metal::OUTPUT_SIZE_BINDING,
                 );
                 composite_encoder.setBuffer_offset_atIndex(
-                    Some(&output.metal()),
+                    Some(output.metal()),
                     0,
                     obj_metal::OUTPUT_PIXELS_BINDING,
                 );
@@ -714,7 +714,7 @@ impl Renderer {
             let mut triangles = Vec::with_capacity(geometry.geometry_count as usize);
             for slot in 0..geometry.geometry_count as usize {
                 let descriptor = MTLAccelerationStructureTriangleGeometryDescriptor::new();
-                descriptor.setVertexBuffer(Some(&positions.metal()));
+                descriptor.setVertexBuffer(Some(positions.metal()));
                 unsafe {
                     descriptor.setVertexBufferOffset(
                         geometry.vertex_offsets[slot] as usize * size_of::<[f32; 4]>(),

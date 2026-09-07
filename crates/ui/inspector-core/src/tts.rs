@@ -1,3 +1,8 @@
+pub(crate) mod editor;
+mod generation;
+pub use editor::{EditorPresentation, GenerationPresentation};
+pub use generation::{GenerationEvent, GenerationTask};
+
 use std::{
     collections::{BTreeMap, HashMap},
     path::PathBuf,
@@ -87,12 +92,14 @@ pub enum TtsInputEdit {
 }
 
 pub fn available_models(server_url: &str) -> Result<Vec<TtsModel>, String> {
-    let mut catalogs = MODEL_CATALOGS
-        .get_or_init(Default::default)
+    let catalogs = MODEL_CATALOGS.get_or_init(Default::default);
+    if let Some(models) = catalogs
         .lock()
-        .expect("TTS model catalog cache lock is poisoned");
-    if let Some(models) = catalogs.get(server_url) {
-        return Ok(models.clone());
+        .expect("TTS model catalog cache lock is poisoned")
+        .get(server_url)
+        .cloned()
+    {
+        return Ok(models);
     }
     let advertised = shrimply_server_client::server_status(server_url)?
         .capabilities
@@ -104,7 +111,10 @@ pub fn available_models(server_url: &str) -> Result<Vec<TtsModel>, String> {
     }
     let mut models = shrimply_tts::models(server_url)?;
     models.retain(|model| advertised.contains(&model.id));
-    catalogs.insert(server_url.to_string(), models.clone());
+    catalogs
+        .lock()
+        .expect("TTS model catalog cache lock is poisoned")
+        .insert(server_url.to_string(), models.clone());
     Ok(models)
 }
 
@@ -336,7 +346,8 @@ pub fn decimal_places(step: Fraction) -> usize {
     6
 }
 
-pub fn generate(
+fn generate_in(
+    directory: &std::path::Path,
     server_url: &str,
     cancellation: &shrimply_server_client::CancellationToken,
     model: &TtsModel,
@@ -346,11 +357,18 @@ pub fn generate(
     let request =
         shrimply_tts::speech_request(model, settings, shrimply_audio::recording::transcode_to_wav)?;
     let speech = shrimply_tts::synthesize(server_url, cancellation, &request, progress)?;
-    save_speech(speech)
+    save_speech_in(speech, directory)
 }
 
 pub fn save_speech(speech: Speech) -> Result<TtsGeneration, String> {
-    let directory = shrimply_project::project::project_directory().join("media/tts");
+    save_speech_in(speech, &shrimply_project::project::project_directory())
+}
+
+fn save_speech_in(
+    speech: Speech,
+    project_directory: &std::path::Path,
+) -> Result<TtsGeneration, String> {
+    let directory = project_directory.join("media/tts");
     let path = directory.join(format!("{}.opus", uuid::Uuid::new_v4()));
     shrimply_audio::recording::save_wav_as_opus(&speech.wav, &path).map(|duration| TtsGeneration {
         path,

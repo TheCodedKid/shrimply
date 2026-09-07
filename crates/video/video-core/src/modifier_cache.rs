@@ -1,3 +1,7 @@
+pub mod encoder;
+mod frames;
+pub use frames::render_and_encode;
+
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
@@ -263,22 +267,11 @@ pub fn bake(
     if matches!(status_for_key(&key), Status::Baking { .. }) {
         return Err("this cache is already baking".to_string());
     }
-    let (project, address, start, duration, time_offset, playback_speed, settings) =
-        bake_project(project, &address, modifier_id)?;
-    let (first_frame, end_frame) = frame_range(start, duration, project.fps)?;
+    let input = bake_input(project, &address, modifier_id, key.clone(), executor)?;
+    let (first_frame, end_frame) = frame_range(input.start, input.duration, input.project.fps)?;
     let total = end_frame - first_frame;
     invalidate_inner(&key)?;
-    let (disposition, subscription) = RUNTIME.request(BakeInput {
-        project,
-        address,
-        key: key.clone(),
-        start,
-        duration,
-        time_offset,
-        playback_speed,
-        settings,
-        executor,
-    });
+    let (disposition, subscription) = RUNTIME.request(input);
     if disposition == RequestDisposition::Joined {
         subscription.cancel();
         return Err("this cache is already baking".to_string());
@@ -371,22 +364,13 @@ pub fn effective_item(
     Ok(Some(effective))
 }
 
-fn bake_project(
+fn bake_input(
     mut project: Project,
     address: &ItemAddress,
     modifier_id: Uuid,
-) -> Result<
-    (
-        Project,
-        ItemAddress,
-        Time,
-        Time,
-        Time,
-        Fraction,
-        CacheModifier,
-    ),
-    String,
-> {
+    key: CacheKey,
+    executor: BakeExecutor,
+) -> Result<BakeInput, String> {
     let (start, end) = project
         .projected_item_times(address)
         .ok_or_else(|| "visual cache item is outside its folded-sequence hosts".to_string())?;
@@ -443,15 +427,17 @@ fn bake_project(
         .video_item_mut(address)
         .expect("visual cache item disappeared from cloned project");
     item.modifiers.truncate(index);
-    Ok((
+    Ok(BakeInput {
         project,
-        address.clone(),
+        address: address.clone(),
+        key,
         start,
         duration,
         time_offset,
         playback_speed,
         settings,
-    ))
+        executor,
+    })
 }
 
 fn bake_inner(input: BakeInput, context: &JobContext<Progress>) -> Result<(), String> {
@@ -464,88 +450,85 @@ fn bake_inner(input: BakeInput, context: &JobContext<Progress>) -> Result<(), St
         .prefix(&format!(".{}-", input.key.modifier_id.simple()))
         .tempdir_in(&root)
         .map_err(|error| format!("could not create temporary cache folder: {error}"))?;
-    let result = (|| {
-        let BakeInput {
+    let BakeInput {
+        project,
+        address,
+        start,
+        duration,
+        time_offset,
+        playback_speed,
+        settings,
+        executor,
+        key,
+        ..
+    } = input;
+    let width = project.canvas_size.width.max(1);
+    let height = project.canvas_size.height.max(1);
+    let coded_width = even(width);
+    let coded_height = even(height);
+    let fps = project.fps;
+    let (first_frame, end_frame) = frame_range(start, duration, fps)?;
+    let total = end_frame - first_frame;
+    executor(
+        BakeRequest {
             project,
             address,
+            settings,
             start,
             duration,
-            time_offset,
-            playback_speed,
-            settings,
-            executor,
-            key,
-            ..
-        } = input;
-        let width = project.canvas_size.width.max(1);
-        let height = project.canvas_size.height.max(1);
-        let coded_width = even(width);
-        let coded_height = even(height);
-        let fps = project.fps;
-        let (first_frame, end_frame) = frame_range(start, duration, fps)?;
-        let total = end_frame - first_frame;
-        executor(
-            BakeRequest {
-                project,
-                address,
-                settings,
-                start,
-                duration,
-                first_frame,
-                total_frames: total,
-                width,
-                height,
-                coded_width,
-                coded_height,
-                output: temporary.path().join(MEDIA_NAME),
-            },
-            context,
-        )?;
-        if !temporary.path().join(MEDIA_NAME).is_file() {
-            return Err("visual cache executor did not produce media".to_string());
-        }
-        let manifest = Manifest {
-            version: CACHE_VERSION,
-            kind: "visual".to_string(),
+            first_frame,
+            total_frames: total,
             width,
             height,
             coded_width,
             coded_height,
-            duration,
-            time_offset,
-            playback_speed_numerator: fraction_numerator(playback_speed),
-            playback_speed_denominator: fraction_denominator(playback_speed),
-            fps_numerator: fraction_numerator(fps),
-            fps_denominator: fraction_denominator(fps),
-        };
-        fs::write(
-            temporary.path().join(MANIFEST_NAME),
-            serde_json::to_vec(&manifest)
-                .map_err(|error| format!("could not encode visual cache manifest: {error}"))?,
-        )
-        .map_err(|error| format!("could not write visual cache manifest: {error}"))?;
-        let destination = cache_directory(&key);
-        let _operation = CACHE_OPERATIONS
-            .lock()
-            .expect("visual cache operation lock poisoned");
-        if context.is_cancelled() {
-            return Err("visual cache bake cancelled".to_string());
-        }
-        fs::create_dir_all(
-            destination
-                .parent()
-                .expect("visual cache destination must have a parent"),
-        )
-        .map_err(|error| format!("could not create visual cache destination: {error}"))?;
-        fs::rename(temporary.path(), &destination)
-            .map_err(|error| format!("could not finish visual cache: {error}"))?;
-        READY
-            .lock()
-            .expect("visual modifier ready cache lock poisoned")
-            .remove(&key);
-        Ok(())
-    })();
-    result
+            output: temporary.path().join(MEDIA_NAME),
+        },
+        context,
+    )?;
+    if !temporary.path().join(MEDIA_NAME).is_file() {
+        return Err("visual cache executor did not produce media".to_string());
+    }
+    let manifest = Manifest {
+        version: CACHE_VERSION,
+        kind: "visual".to_string(),
+        width,
+        height,
+        coded_width,
+        coded_height,
+        duration,
+        time_offset,
+        playback_speed_numerator: fraction_numerator(playback_speed),
+        playback_speed_denominator: fraction_denominator(playback_speed),
+        fps_numerator: fraction_numerator(fps),
+        fps_denominator: fraction_denominator(fps),
+    };
+    fs::write(
+        temporary.path().join(MANIFEST_NAME),
+        serde_json::to_vec(&manifest)
+            .map_err(|error| format!("could not encode visual cache manifest: {error}"))?,
+    )
+    .map_err(|error| format!("could not write visual cache manifest: {error}"))?;
+    let destination = cache_directory(&key);
+    let _operation = CACHE_OPERATIONS
+        .lock()
+        .expect("visual cache operation lock poisoned");
+    if context.is_cancelled() {
+        return Err("visual cache bake cancelled".to_string());
+    }
+    fs::create_dir_all(
+        destination
+            .parent()
+            .expect("visual cache destination must have a parent"),
+    )
+    .map_err(|error| format!("could not create visual cache destination: {error}"))?;
+    fs::rename(temporary.path(), &destination)
+        .map_err(|error| format!("could not finish visual cache: {error}"))?;
+    READY
+        .lock()
+        .expect("visual modifier ready cache lock poisoned")
+        .remove(&key);
+    Ok(())
 }
 
 fn ready_entry(key: &CacheKey) -> Result<ReadyEntry, String> {

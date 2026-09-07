@@ -685,8 +685,23 @@ impl InspectorController {
         timeline_id: uuid::Uuid,
         time: Time,
     ) -> Result<(), String> {
+        self.delete_paint_drawing_keyframes(target, timeline_id, std::slice::from_ref(&time))
+    }
+
+    pub fn delete_paint_drawing_keyframes(
+        &self,
+        target: &InspectorTarget,
+        timeline_id: uuid::Uuid,
+        times: &[Time],
+    ) -> Result<(), String> {
         let (mut value, runtime) = self.paint_drawing_timeline(target, timeline_id)?;
-        if !crate::keyframe_model::delete_discrete_keyframe(&mut value, time, runtime.frame_step) {
+        if !crate::keyframe_model::edit_keyframe_selection(&mut value, times, |value, time| {
+            Ok(crate::keyframe_model::delete_discrete_keyframe(
+                value,
+                time,
+                runtime.frame_step,
+            ))
+        })? {
             return Ok(());
         }
         self.replace_paint_drawing(

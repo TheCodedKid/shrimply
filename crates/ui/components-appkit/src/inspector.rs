@@ -1,26 +1,37 @@
 use crate::{
     FrameGraph, MultilineTextInput, action, column_append, column_stack, control_row_with_suffix,
-    row_stack,
+    inset, row_stack,
 };
 use block2::RcBlock;
-use objc2::MainThreadOnly;
-use objc2::rc::Retained;
+use objc2::rc::{Retained, Weak};
+use objc2::{ClassType, MainThreadOnly};
 use objc2_app_kit::{
     NSAnimationContext, NSButton, NSButtonType, NSColor, NSControlStateValueOn, NSGlassEffectView,
     NSGlassEffectViewStyle, NSImage, NSLayoutConstraint, NSStackView, NSTextAlignment, NSTextField,
     NSView,
 };
-use objc2_foundation::{MainThreadMarker, NSRect, NSString};
+use objc2_foundation::{MainThreadMarker, NSEdgeInsets, NSRect, NSString};
 use shrimply_component_core::layered::LayeredPropertyController;
-use std::{cell::RefCell, rc::Rc};
+use std::{
+    cell::{Cell, RefCell},
+    rc::Rc,
+};
 
 const CARD_GAP: f64 = 8.0;
 const CARD_ANIMATION_SECONDS: f64 = 0.18;
 type ExpansionHandlers = Rc<RefCell<Vec<Box<dyn Fn(bool, bool)>>>>;
 
+#[derive(Clone)]
+struct CardHeight {
+    natural: Retained<NSLayoutConstraint>,
+    animated: Retained<NSLayoutConstraint>,
+}
+
 pub struct InspectorCard {
     root: Retained<NSGlassEffectView>,
     controls: Retained<NSStackView>,
+    header_before_reset: Retained<NSStackView>,
+    header_after_reset: Retained<NSStackView>,
     expansion_handlers: ExpansionHandlers,
 }
 
@@ -29,6 +40,19 @@ impl InspectorCard {
         title: &str,
         expanded: bool,
         on_reset: impl Fn() + 'static,
+        mtm: MainThreadMarker,
+    ) -> Self {
+        Self::build(title, expanded, Some(Box::new(on_reset)), mtm)
+    }
+
+    pub fn without_reset(title: &str, expanded: bool, mtm: MainThreadMarker) -> Self {
+        Self::build(title, expanded, None, mtm)
+    }
+
+    fn build(
+        title: &str,
+        expanded: bool,
+        on_reset: Option<Box<dyn Fn()>>,
         mtm: MainThreadMarker,
     ) -> Self {
         let root = NSGlassEffectView::initWithFrame(NSGlassEffectView::alloc(mtm), NSRect::ZERO);
@@ -53,48 +77,117 @@ impl InspectorCard {
         };
         disclosure.setBordered(false);
         let label = NSTextField::labelWithString(&NSString::from_str(title), mtm);
+        label.setUsesSingleLineMode(true);
+        label.setLineBreakMode(objc2_app_kit::NSLineBreakMode::ByTruncatingTail);
+        label.setToolTip(Some(&NSString::from_str(title)));
+        label.setContentCompressionResistancePriority_forOrientation(
+            objc2_app_kit::NSLayoutPriorityDefaultLow,
+            objc2_app_kit::NSLayoutConstraintOrientation::Horizontal,
+        );
         label.setFont(Some(&objc2_app_kit::NSFont::boldSystemFontOfSize(
             objc2_app_kit::NSFont::systemFontSize(),
         )));
         let spacer = NSView::new(mtm);
-        let reset = unsafe {
-            NSButton::buttonWithImage_target_action(
-                &symbol("arrow.counterclockwise", "Reset"),
-                None,
-                None,
-                mtm,
-            )
-        };
-        reset.setBordered(false);
-        reset.setToolTip(Some(&NSString::from_str("Reset")));
-        action::attach(&reset, move |_| on_reset(), mtm);
+        let header_before_reset = row_stack(4.0, mtm);
+        let header_after_reset = row_stack(4.0, mtm);
         header.addArrangedSubview(&disclosure);
         header.addArrangedSubview(&label);
         header.addArrangedSubview(&spacer);
-        header.addArrangedSubview(&reset);
+        header.addArrangedSubview(&header_before_reset);
+        if let Some(on_reset) = on_reset {
+            let reset = unsafe {
+                NSButton::buttonWithImage_target_action(
+                    &symbol("arrow.counterclockwise", "Reset"),
+                    None,
+                    None,
+                    mtm,
+                )
+            };
+            reset.setBordered(false);
+            reset.setToolTip(Some(&NSString::from_str("Reset")));
+            action::attach(&reset, move |_| on_reset(), mtm);
+            header.addArrangedSubview(&reset);
+        }
+        header.addArrangedSubview(&header_after_reset);
         let controls = column_stack(CARD_GAP, mtm);
-        let controls_container = inset_view(&controls, 12.0, 12.0, 4.0, 12.0, mtm);
+        let controls_content = inset(
+            &controls,
+            NSEdgeInsets {
+                top: 4.0,
+                left: 12.0,
+                bottom: 12.0,
+                right: 12.0,
+            },
+            mtm,
+        );
+        // A clipping viewport can shrink without compressing the controls inside it.
+        let controls_container = NSView::new(mtm);
+        controls_container.setWantsLayer(true);
+        controls_container
+            .layer()
+            .expect("card clipping layer")
+            .setMasksToBounds(true);
+        controls_content.setTranslatesAutoresizingMaskIntoConstraints(false);
+        controls_container.addSubview(&controls_content);
+        for constraint in [
+            controls_content
+                .leadingAnchor()
+                .constraintEqualToAnchor(&controls_container.leadingAnchor()),
+            controls_content
+                .trailingAnchor()
+                .constraintEqualToAnchor(&controls_container.trailingAnchor()),
+            controls_content
+                .topAnchor()
+                .constraintEqualToAnchor(&controls_container.topAnchor()),
+        ] {
+            constraint.setActive(true);
+        }
+        let natural_height = controls_container
+            .heightAnchor()
+            .constraintEqualToAnchor(&controls_content.heightAnchor());
+        natural_height.setActive(true);
+        controls.setHuggingPriority_forOrientation(
+            objc2_app_kit::NSLayoutPriorityRequired,
+            objc2_app_kit::NSLayoutConstraintOrientation::Vertical,
+        );
+        controls.setClippingResistancePriority_forOrientation(
+            objc2_app_kit::NSLayoutPriorityRequired,
+            objc2_app_kit::NSLayoutConstraintOrientation::Vertical,
+        );
         controls_container.setHidden(!expanded);
         let animation_height = controls_container
             .heightAnchor()
             .constraintEqualToConstant(0.0);
         let callback_container = controls_container.clone();
-        let callback_root = root.clone();
-        let callback_height = animation_height.clone();
+        let callback_root = Weak::new(&*root);
+        let callback_height = CardHeight {
+            natural: natural_height,
+            animated: animation_height,
+        };
+        let expanded_state = Rc::new(Cell::new(expanded));
+        let animation_generation = Rc::new(Cell::new(0_u64));
         let expansion_handlers = Rc::new(RefCell::new(Vec::<Box<dyn Fn(bool, bool)>>::new()));
         let callback_handlers = expansion_handlers.clone();
         action::attach(
             &disclosure,
             move |control| {
-                let expanding = callback_container.isHidden();
+                let Some(root) = callback_root.load() else {
+                    return;
+                };
+                let expanding = !expanded_state.get();
+                expanded_state.set(expanding);
+                let generation = animation_generation.get().wrapping_add(1);
+                animation_generation.set(generation);
                 for handler in callback_handlers.borrow().iter() {
                     handler(expanding, false);
                 }
                 animate_card_content(
-                    callback_root.clone(),
+                    root,
                     callback_container.clone(),
                     callback_height.clone(),
                     expanding,
+                    generation,
+                    animation_generation.clone(),
                     callback_handlers.clone(),
                 );
                 control
@@ -111,18 +204,65 @@ impl InspectorCard {
             },
             mtm,
         );
-        column_append(&vertical, &inset_view(&header, 8.0, 8.0, 6.0, 6.0, mtm));
+        column_append(
+            &vertical,
+            &inset(
+                &header,
+                NSEdgeInsets {
+                    top: 6.0,
+                    left: 8.0,
+                    bottom: 6.0,
+                    right: 8.0,
+                },
+                mtm,
+            ),
+        );
         column_append(&vertical, &controls_container);
+        vertical.setTranslatesAutoresizingMaskIntoConstraints(false);
+        vertical.setHuggingPriority_forOrientation(
+            objc2_app_kit::NSLayoutPriorityRequired,
+            objc2_app_kit::NSLayoutConstraintOrientation::Vertical,
+        );
+        vertical.setClippingResistancePriority_forOrientation(
+            objc2_app_kit::NSLayoutPriorityRequired,
+            objc2_app_kit::NSLayoutConstraintOrientation::Vertical,
+        );
         root.setContentView(Some(&vertical));
+        for constraint in [
+            vertical
+                .leadingAnchor()
+                .constraintEqualToAnchor(&root.leadingAnchor()),
+            vertical
+                .trailingAnchor()
+                .constraintEqualToAnchor(&root.trailingAnchor()),
+            vertical
+                .topAnchor()
+                .constraintEqualToAnchor(&root.topAnchor()),
+            vertical
+                .bottomAnchor()
+                .constraintEqualToAnchor(&root.bottomAnchor()),
+        ] {
+            constraint.setActive(true);
+        }
         Self {
             root,
             controls,
+            header_before_reset,
+            header_after_reset,
             expansion_handlers,
         }
     }
 
     pub fn append(&self, child: &NSView) {
         column_append(&self.controls, child);
+    }
+
+    pub fn append_before_reset(&self, child: &NSView) {
+        self.header_before_reset.addArrangedSubview(child);
+    }
+
+    pub fn append_after_reset(&self, child: &NSView) {
+        self.header_after_reset.addArrangedSubview(child);
     }
     pub fn view(&self) -> &NSGlassEffectView {
         &self.root
@@ -136,51 +276,55 @@ impl InspectorCard {
 fn animate_card_content(
     root: Retained<NSGlassEffectView>,
     container: Retained<NSView>,
-    height: Retained<NSLayoutConstraint>,
+    heights: CardHeight,
     expanding: bool,
+    generation: u64,
+    animation_generation: Rc<Cell<u64>>,
     handlers: ExpansionHandlers,
 ) {
-    root.layoutSubtreeIfNeeded();
+    let layout = highest_ancestor(root.as_super());
+    let current_height = if container.isHidden() {
+        0.0
+    } else {
+        container
+            .layer()
+            .and_then(|layer| unsafe { layer.presentationLayer() })
+            .map_or(container.frame().size.height, |layer| {
+                layer.frame().size.height
+            })
+    };
+    layout.layoutSubtreeIfNeeded();
+    let target = container.subviews().objectAtIndex(0).fittingSize().height;
+    heights.natural.setActive(false);
+    let height = heights.animated;
     if expanding {
         container.setHidden(false);
-        height.setActive(false);
-        root.layoutSubtreeIfNeeded();
-        let target = container.fittingSize().height;
-        height.setConstant(0.0);
-        height.setActive(true);
-        root.layoutSubtreeIfNeeded();
-        animate_height(root, container, height, target, true, handlers);
-    } else {
-        height.setConstant(container.frame().size.height);
-        height.setActive(true);
-        root.layoutSubtreeIfNeeded();
-        animate_height(root, container, height, 0.0, false, handlers);
     }
-}
-
-fn animate_height(
-    root: Retained<NSGlassEffectView>,
-    container: Retained<NSView>,
-    height: Retained<NSLayoutConstraint>,
-    target: f64,
-    expanding: bool,
-    handlers: ExpansionHandlers,
-) {
-    let changes_root = root.clone();
+    height.setConstant(current_height);
+    height.setActive(true);
+    invalidate_ancestor_layout(&container);
+    layout.layoutSubtreeIfNeeded();
+    let target = if expanding { target } else { 0.0 };
+    let changes_layout = layout.clone();
     let changes_height = height.clone();
     let changes = RcBlock::new(move |context: std::ptr::NonNull<NSAnimationContext>| {
         unsafe { context.as_ref() }.setDuration(CARD_ANIMATION_SECONDS);
         unsafe { context.as_ref() }.setAllowsImplicitAnimation(true);
         changes_height.setConstant(target);
-        changes_root.layoutSubtreeIfNeeded();
+        changes_layout.layoutSubtreeIfNeeded();
     });
-    let completion_root = root;
+    let completion_layout = layout;
     let completion_container = container;
     let completion_height = height;
     let completion = RcBlock::new(move || {
+        if animation_generation.get() != generation {
+            return;
+        }
         completion_container.setHidden(!expanding);
         completion_height.setActive(false);
-        completion_root.layoutSubtreeIfNeeded();
+        heights.natural.setActive(true);
+        invalidate_ancestor_layout(&completion_container);
+        completion_layout.layoutSubtreeIfNeeded();
         for handler in handlers.borrow().iter() {
             handler(expanding, true);
         }
@@ -188,34 +332,14 @@ fn animate_height(
     NSAnimationContext::runAnimationGroup_completionHandler(&changes, Some(&completion));
 }
 
-fn inset_view(
-    child: &NSView,
-    left: f64,
-    right: f64,
-    top: f64,
-    bottom: f64,
-    mtm: MainThreadMarker,
-) -> Retained<NSView> {
-    let wrapper = NSView::new(mtm);
-    child.setTranslatesAutoresizingMaskIntoConstraints(false);
-    wrapper.addSubview(child);
-    for constraint in [
-        child
-            .leadingAnchor()
-            .constraintEqualToAnchor_constant(&wrapper.leadingAnchor(), left),
-        child
-            .trailingAnchor()
-            .constraintEqualToAnchor_constant(&wrapper.trailingAnchor(), -right),
-        child
-            .topAnchor()
-            .constraintEqualToAnchor_constant(&wrapper.topAnchor(), top),
-        child
-            .bottomAnchor()
-            .constraintEqualToAnchor_constant(&wrapper.bottomAnchor(), -bottom),
-    ] {
-        constraint.setActive(true);
+fn highest_ancestor(view: &NSView) -> Retained<NSView> {
+    let mut highest = Retained::from(view);
+    let mut ancestor = unsafe { view.superview() };
+    while let Some(view) = ancestor {
+        ancestor = unsafe { view.superview() };
+        highest = view;
     }
-    wrapper
+    highest
 }
 
 pub struct ExpressionEditor {

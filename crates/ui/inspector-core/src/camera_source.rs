@@ -8,7 +8,7 @@ use shrimply_3dgs::{
     TrackingSettings, VGGT_SLAM_TRACKING_MODEL,
 };
 use shrimply_project::project::{ItemAddress, Project, VideoItemContent};
-use shrimply_video_cuda::camera_reconstruction::{self, AnalysisStatus};
+use shrimply_video_core::camera_reconstruction::{self, AnalysisStatus};
 use strum::IntoEnumIterator;
 
 use crate::{
@@ -269,6 +269,25 @@ pub fn status_label(status: &AnalysisStatus) -> String {
 }
 
 impl InspectorController {
+    pub(crate) fn poll_camera_analysis(&self) -> bool {
+        let changed = {
+            let project = self.project.borrow();
+            let mut active = self.camera_analysis_transitions.borrow_mut();
+            let previous_count = active.len();
+            active.retain(|address| {
+                selected_source(&project, address)
+                    .ok()
+                    .and_then(|source| tracking_status(&project, address, source))
+                    .is_some_and(|status| analysis_running(&status))
+            });
+            previous_count != active.len()
+        };
+        if changed {
+            self.refresh_analysis_output();
+        }
+        changed
+    }
+
     pub fn set_camera_source_field(
         &self,
         target: &InspectorTarget,
@@ -386,9 +405,29 @@ impl InspectorController {
         if active {
             camera_reconstruction::cancel(item_id, &source);
         } else {
-            camera_reconstruction::analyze((*project).clone(), address.clone(), source, server_url);
+            let analyze = self
+                .analysis_backend
+                .camera
+                .ok_or_else(|| "camera analysis is unavailable on this renderer".to_string())?;
+            analyze(
+                (*project).clone(),
+                address.clone(),
+                source.clone(),
+                server_url,
+            );
         }
         drop(project);
+        // Register the active job before a frontend rebuild can replace its controls.
+        let presentation = analysis_presentation(
+            &camera_reconstruction::status(item_id, &source),
+            camera_reconstruction::has_matching_cache(item_id, &source),
+            true,
+        );
+        self.observe_analysis_transition(
+            target,
+            InspectorControlAction::ToggleCameraAnalysis,
+            &presentation,
+        );
         self.refresh_analysis_output();
         Ok(())
     }

@@ -1,4 +1,4 @@
-use shrimply_video_cuda::modifier_cache;
+use shrimply_video_core::modifier_cache;
 use shrimply_video_modifiers::{
     ModifierEffect, RasterModifierEffect,
     cache::{CacheModifier, CacheQuality},
@@ -8,6 +8,12 @@ use crate::{
     CacheStatus, ControlKind, InspectorControl, InspectorController, InspectorRuntime,
     InspectorSection, InspectorTarget,
 };
+
+#[derive(Default)]
+pub(crate) struct ActiveVisualCaches {
+    project_path: std::path::PathBuf,
+    items: std::collections::HashSet<(shrimply_project::project::ItemAddress, uuid::Uuid)>,
+}
 
 pub(super) fn presentation(
     value: &CacheModifier,
@@ -79,6 +85,28 @@ pub fn visual_cache_status(
 }
 
 impl InspectorController {
+    pub(crate) fn poll_visual_caches(&self) -> bool {
+        let mut active = self.visual_cache_transitions.borrow_mut();
+        if active.project_path != shrimply_project::project::active_project_path() {
+            active.items.clear();
+            return false;
+        }
+        let mut finished = false;
+        active.items.retain(|(address, id)| {
+            let baking = matches!(
+                visual_cache_status(address, *id),
+                CacheStatus::Baking { .. }
+            );
+            finished |= !baking;
+            baking
+        });
+        drop(active);
+        if finished {
+            self.refresh_visual_cache();
+        }
+        finished
+    }
+
     pub fn set_visual_cache_quality(
         &self,
         target: &InspectorTarget,
@@ -143,8 +171,19 @@ impl InspectorController {
             drop(project);
             modifier_cache::invalidate(&address, id)?;
         } else {
+            let bake = self
+                .analysis_backend
+                .visual_cache
+                .ok_or_else(|| "visual cache baking is unavailable on this renderer".to_string())?;
             let project = project.clone();
-            modifier_cache::bake(project, address, id)?;
+            bake(project, address.clone(), id)?;
+            let mut active = self.visual_cache_transitions.borrow_mut();
+            let path = shrimply_project::project::active_project_path();
+            if active.project_path != path {
+                active.items.clear();
+                active.project_path = path;
+            }
+            active.items.insert((address, id));
         }
         self.refresh_visual_cache();
         Ok(())

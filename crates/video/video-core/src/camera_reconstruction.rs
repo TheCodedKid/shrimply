@@ -70,7 +70,60 @@ pub trait AnalysisFrameRenderer {
         project: &Project,
         position: Time,
         track: &TrackAddress,
+        cancelled: &AtomicBool,
     ) -> Result<Option<Vec<u8>>, String>;
+}
+
+/// Encodes an unpremultiplied RGBA frame for camera tracking, composited on black.
+/// Fully transparent frames have no tracking content and return None.
+pub fn encode_tracking_frame(
+    rgba: &[u8],
+    size: shrimply_project::project::CanvasSize,
+    stride: usize,
+) -> Result<Option<Vec<u8>>, String> {
+    let width = i32::try_from(size.width).map_err(|_| "tracking frame width is too large")?;
+    let height = i32::try_from(size.height).map_err(|_| "tracking frame height is too large")?;
+    let row_bytes = (size.width as usize)
+        .checked_mul(4)
+        .ok_or("tracking frame row is too large")?;
+    let byte_count = stride
+        .checked_mul(size.height as usize)
+        .ok_or("tracking frame is too large")?;
+    if width == 0 || height == 0 || stride < row_bytes || rgba.len() < byte_count {
+        return Err("invalid tracking RGBA frame dimensions or stride".into());
+    }
+    let mut visible = false;
+    let mut pixels = Vec::with_capacity(row_bytes * size.height as usize);
+    for row in rgba[..byte_count].chunks_exact(stride) {
+        for pixel in row[..row_bytes].chunks_exact(4) {
+            let alpha = u16::from(pixel[3]);
+            visible |= alpha != 0;
+            pixels.extend_from_slice(&[
+                (u16::from(pixel[0]) * alpha / 255) as u8,
+                (u16::from(pixel[1]) * alpha / 255) as u8,
+                (u16::from(pixel[2]) * alpha / 255) as u8,
+                255,
+            ]);
+        }
+    }
+    if !visible {
+        return Ok(None);
+    }
+    let image = skia_safe::images::raster_from_data(
+        &skia_safe::ImageInfo::new(
+            (width, height),
+            skia_safe::ColorType::RGBA8888,
+            skia_safe::AlphaType::Opaque,
+            None,
+        ),
+        skia_safe::Data::new_copy(&pixels),
+        row_bytes,
+    )
+    .ok_or("could not create 3D tracking proxy image")?;
+    image
+        .encode(None, skia_safe::EncodedImageFormat::JPEG, Some(95))
+        .map(|data| Some(data.as_bytes().to_vec()))
+        .ok_or_else(|| "could not encode 3D tracking proxy JPEG".into())
 }
 
 pub type AnalysisFrameRendererFactory = fn() -> Result<Box<dyn AnalysisFrameRenderer>, String>;
@@ -584,7 +637,12 @@ fn run_analysis(job: &Job, state: &Mutex<State>) -> Result<CachedTrack, String> 
         let normalized_time =
             Time::from_fraction(numerator, i64::from(job.source.settings.analysis_fps));
         let position = analysis_position_start.saturating_add(normalized_time);
-        let jpeg = renderer.render_jpeg(&analysis_project, position, &source_track_address)?;
+        let jpeg = renderer.render_jpeg(
+            &analysis_project,
+            position,
+            &source_track_address,
+            &job.cancellation,
+        )?;
         visible_frames += u64::from(jpeg.is_some());
         shrimply_server_client::write_tracking_3d_archive_frame(
             archive.as_file_mut(),

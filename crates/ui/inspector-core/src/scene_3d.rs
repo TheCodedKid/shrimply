@@ -779,6 +779,7 @@ fn card<T: Serialize>(
         alpha_mask: None,
         preview_facet: None,
         actions: Vec::new(),
+        scope: crate::VideoCardScope::Source,
     }
 }
 

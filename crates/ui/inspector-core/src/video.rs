@@ -52,6 +52,14 @@ pub struct VideoCard {
     pub alpha_mask: Option<crate::AlphaMaskPresentation>,
     pub preview_facet: Option<shrimply_preview_core::PreviewFacetKey>,
     pub actions: Vec<crate::item::HeaderAction<VideoCardAction>>,
+    pub scope: VideoCardScope,
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum VideoCardScope {
+    #[default]
+    Source,
+    Common,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -97,7 +105,13 @@ impl VideoCard {
             alpha_mask: None,
             preview_facet: None,
             actions: Vec::new(),
+            scope: VideoCardScope::Source,
         }
+    }
+
+    pub(crate) fn common(mut self) -> Self {
+        self.scope = VideoCardScope::Common;
+        self
     }
 
     pub(crate) fn actions(
@@ -245,7 +259,7 @@ impl InspectorController {
             crate::paint::bump_serialized_revision(&mut value)?;
         }
         if reset.cancel_stabilization {
-            shrimply_video_cuda::video_stabilization::cancel(
+            shrimply_video_core::stabilization::cancel(
                 project
                     .video_item(address)
                     .expect("validated video item must remain available"),
@@ -442,7 +456,7 @@ impl InspectorController {
                 .video_item(address)
                 .expect("replaced video item must remain available");
             if item.stabilize_video {
-                shrimply_video_cuda::video_stabilization::request(item);
+                shrimply_video_core::stabilization::request(item);
             }
         }
         if commit_immediately {
@@ -569,6 +583,43 @@ impl InspectorController {
         Ok(())
     }
 
+    pub fn control_analysis_presentation(
+        &self,
+        target: &InspectorTarget,
+        action: InspectorControlAction,
+        server_url: &str,
+    ) -> Result<Option<crate::AnalysisControlPresentation>, String> {
+        match action {
+            InspectorControlAction::ToggleCameraAnalysis => {
+                self.camera_analysis_control(target, server_url).map(Some)
+            }
+            InspectorControlAction::ToggleTransparentFillAnalysis { modifier_id } => self
+                .transparent_fill_analysis_control(target, modifier_id)
+                .map(Some),
+            InspectorControlAction::ToggleSam2Analysis {
+                modifier_id,
+                generation,
+                prompt_signature,
+                can_analyze,
+            } => {
+                validate_video_target(target)?;
+                let InspectorTarget::Item(address) = target else {
+                    unreachable!("validated video target must be an item");
+                };
+                Ok(Some(crate::visual_modifiers::sam2_analysis_control(
+                    &shrimply_video_core::sam2::analysis::AnalysisTarget {
+                        address: address.clone(),
+                        modifier_id,
+                    },
+                    generation,
+                    prompt_signature,
+                    can_analyze,
+                )))
+            }
+            _ => Ok(None),
+        }
+    }
+
     pub fn trigger_video_control_action(
         &self,
         target: &InspectorTarget,
@@ -584,14 +635,14 @@ impl InspectorController {
                 let item = project
                     .video_item(address)
                     .ok_or_else(|| "video item is no longer available".to_string())?;
-                if shrimply_video_cuda::video_stabilization::is_generating(item) {
-                    shrimply_video_cuda::video_stabilization::cancel(item);
+                if shrimply_video_core::stabilization::is_generating(item) {
+                    shrimply_video_core::stabilization::cancel(item);
                 } else {
                     let timeline_position = player_state::current_time(&self.player_state);
                     let source_position =
                         shrimply_project::project::video_source_time_at(item, timeline_position)
                             .unwrap_or(item.time_offset);
-                    shrimply_video_cuda::video_stabilization::rebuild(item, source_position);
+                    shrimply_video_core::stabilization::rebuild(item, source_position);
                 }
             }
             InspectorControlAction::ClearMaskSource { modifier_id } => {
@@ -677,7 +728,7 @@ impl InspectorController {
         self.project
             .borrow()
             .video_item(address)
-            .map(shrimply_video_cuda::video_stabilization::is_generating)
+            .map(shrimply_video_core::stabilization::is_generating)
     }
 }
 
@@ -871,20 +922,32 @@ fn compositing_item(
         );
     }
     section.add(
-        layered_number(
-            video,
+        InspectorControl::new(
+            ControlKind::LayeredNumber,
             "/compositing/opacity",
             "Opacity",
-            f64::from(item.compositing.opacity.value_at(local_time)) * 100.0,
-            NumberSpec {
-                minimum: 0.0,
-                maximum: 100.0,
-                drag_step: 1.0,
-                digits: 0,
-                unit: "%",
-            },
-            0.01,
         )
+        .value(item.compositing.opacity.value_at(local_time).to_string())
+        .number(NumberSpec {
+            minimum: 0.0,
+            maximum: 100.0,
+            drag_step: 1.0,
+            digits: 0,
+            unit: "%",
+        })
+        .layered(
+            "/compositing/opacity",
+            LayeredState::from(&item.compositing.opacity),
+        )
+        .timeline(
+            item.compositing.opacity.id,
+            crate::transform::scalar_graph(
+                &item.compositing.opacity,
+                item.compositing.opacity.value_at(local_time),
+                runtime,
+            ),
+        )
+        .scale_number_display(100.0)
         .live_commit("visual-compositing-opacity"),
     );
     section.add(
@@ -897,28 +960,30 @@ fn compositing_item(
         .live_commit("video-compositing-blend-mode"),
     );
 
-    let mut card = VideoCard::new("compositing", "Compositing", section).reset_fields(
-        [
-            (
-                "/compositing",
-                serde_json::to_value(VisualCompositing::default())
-                    .expect("default visual compositing must serialize"),
-            ),
-            (
-                "/visibility",
-                serde_json::to_value(TimelineValue::<TimelineBool>::default())
-                    .expect("default visibility must serialize"),
-            ),
-            (
-                "/sample_method",
-                serde_json::to_value(
-                    TimelineValue::<shrimply_project::project::VideoSampleMethod>::default(),
-                )
-                .expect("default sample method must serialize"),
-            ),
-        ],
-        "reset-video-compositing",
-    );
+    let mut card = VideoCard::new("compositing", "Compositing", section)
+        .common()
+        .reset_fields(
+            [
+                (
+                    "/compositing",
+                    serde_json::to_value(VisualCompositing::default())
+                        .expect("default visual compositing must serialize"),
+                ),
+                (
+                    "/visibility",
+                    serde_json::to_value(TimelineValue::<TimelineBool>::default())
+                        .expect("default visibility must serialize"),
+                ),
+                (
+                    "/sample_method",
+                    serde_json::to_value(TimelineValue::<
+                        shrimply_project::project::VideoSampleMethod,
+                    >::default())
+                    .expect("default sample method must serialize"),
+                ),
+            ],
+            "reset-video-compositing",
+        );
     if item.modifier_output_kind().ok() == Some(VisualKind::Raster) {
         card.alpha_mask = Some(crate::alpha_mask::presentation(
             item.compositing.alpha_mask.as_ref(),
@@ -957,9 +1022,7 @@ fn stabilization_item(item: &VideoItem) -> VideoCard {
         )
         .subtitle(stabilization_status(item))
         .sensitive(!unavailable)
-        .busy(shrimply_video_cuda::video_stabilization::is_generating(
-            item,
-        ))
+        .busy(shrimply_video_core::stabilization::is_generating(item))
         .immediate_commit("video-stabilization-method"),
     );
     if method != VideoStabilizationMethod::Off {
@@ -1071,7 +1134,7 @@ fn stabilization_item(item: &VideoItem) -> VideoCard {
         );
     }
     if method != VideoStabilizationMethod::Off {
-        let generating = shrimply_video_cuda::video_stabilization::is_generating(item);
+        let generating = shrimply_video_core::stabilization::is_generating(item);
         section.add(
             InspectorControl::new(ControlKind::Action, "", "Stabilization cache")
                 .subtitle("Discard and reanalyze the current source-time chunk")
@@ -1178,11 +1241,11 @@ fn stabilization_status(item: &VideoItem) -> &'static str {
         "Unavailable while an alpha-mask stream is selected"
     } else if !item.stabilize_video {
         ""
-    } else if shrimply_video_cuda::video_stabilization::is_generating(item) {
+    } else if shrimply_video_core::stabilization::is_generating(item) {
         "Analyzing source motion…"
-    } else if shrimply_video_cuda::video_stabilization::has_failed(item) {
+    } else if shrimply_video_core::stabilization::has_failed(item) {
         "Analysis failed; use Rebuild to retry"
-    } else if shrimply_video_cuda::video_stabilization::is_ready(item) {
+    } else if shrimply_video_core::stabilization::is_ready(item) {
         "Using the reusable chunked analysis cache"
     } else {
         "Analysis starts as source-time chunks are viewed"
@@ -1195,21 +1258,6 @@ fn enum_text(value: impl serde::Serialize) -> String {
         .as_str()
         .expect("video inspector enum must serialize as text")
         .to_string()
-}
-
-fn layered_number(
-    value: &Value,
-    path: &str,
-    label: &str,
-    current: f64,
-    number: NumberSpec,
-    store_multiplier: f64,
-) -> InspectorControl {
-    InspectorControl::new(ControlKind::LayeredNumber, path, label)
-        .value(current.to_string())
-        .number(number)
-        .store_multiplier(store_multiplier)
-        .layered(path, layered_state(value, path))
 }
 
 fn layered_boolean(

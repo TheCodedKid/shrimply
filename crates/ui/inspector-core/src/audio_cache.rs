@@ -180,3 +180,21 @@ pub struct CacheStatusPoll<K> {
 pub fn audio_cache_control(status: CacheStatus) -> CacheControlPresentation {
     crate::cache_control_presentation(status, "")
 }
+
+impl crate::InspectorController {
+    pub fn cache_status(
+        &self,
+        target: &crate::InspectorTarget,
+        kind: ControlKind,
+        id: uuid::Uuid,
+    ) -> CacheStatus {
+        match kind {
+            ControlKind::AudioCache => audio_cache_status(id),
+            ControlKind::VisualCache => match target {
+                crate::InspectorTarget::Item(address) => crate::visual_cache_status(address, id),
+                _ => CacheStatus::Failed("visual cache requires a video item".into()),
+            },
+            _ => CacheStatus::Failed("control is not a cache".into()),
+        }
+    }
+}

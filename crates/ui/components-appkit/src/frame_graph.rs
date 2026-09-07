@@ -194,6 +194,11 @@ impl FrameGraph {
         }
     }
 
+    /// Coordinate space used by graph pointer actions and anchored popovers.
+    pub fn canvas_view(&self) -> &objc2_app_kit::NSView {
+        &self.view
+    }
+
     pub fn view(&self) -> &NSStackView {
         &self.root
     }

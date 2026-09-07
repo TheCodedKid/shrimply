@@ -5,22 +5,23 @@ use objc2::rc::{Retained, Weak};
 use objc2::{ClassType, DefinedClass, MainThreadOnly, define_class, msg_send};
 use objc2_app_kit::{
     NSAutoresizingMaskOptions, NSBezelStyle, NSButton, NSCellImagePosition, NSColor, NSColorWell,
-    NSControlStateValueOff, NSControlStateValueOn, NSEvent, NSFont, NSGlassEffectView,
-    NSGlassEffectViewStyle, NSImage, NSImageView, NSLayoutAttribute, NSLayoutConstraintOrientation,
-    NSLayoutPriorityDefaultLow, NSLayoutPriorityRequired, NSPasteboard, NSPasteboardTypeString,
-    NSPopover, NSPopoverBehavior, NSProgressIndicator, NSProgressIndicatorStyle, NSScrollView,
-    NSSearchField, NSSegmentedControl, NSStackView, NSStackViewDistribution, NSSwitch,
-    NSTextAlignment, NSTextField, NSUserInterfaceLayoutOrientation, NSView, NSViewController,
+    NSControlStateValueOff, NSControlStateValueOn, NSEvent, NSFont, NSGlassEffectView, NSImage,
+    NSImageView, NSLayoutAttribute, NSLayoutConstraintOrientation, NSLayoutPriorityDefaultLow,
+    NSLayoutPriorityRequired, NSPasteboard, NSPasteboardTypeString, NSPopover, NSPopoverBehavior,
+    NSProgressIndicator, NSProgressIndicatorStyle, NSScrollView, NSSearchField, NSSegmentedControl,
+    NSStackView, NSStackViewDistribution, NSSwitch, NSTextAlignment, NSTextField,
+    NSUserInterfaceLayoutOrientation, NSView, NSViewController,
 };
 use objc2_foundation::{
-    MainThreadMarker, NSObjectProtocol, NSPoint, NSRect, NSRectEdge, NSSize, NSString, NSTimer,
+    MainThreadMarker, NSEdgeInsets, NSObjectProtocol, NSPoint, NSRect, NSRectEdge, NSSize,
+    NSString, NSTimer,
 };
 use shrimply_math_color::Color;
 use std::cell::RefCell;
 use std::ffi::c_void;
 use std::rc::Rc;
 
-pub use shrimply_component_core::selector::StringChoice;
+pub use shrimply_component_core::selector::{SearchChoices, StringChoice};
 
 const CONTROL_HEIGHT: f64 = 28.0;
 const SEARCH_FIELD_OUTER_INSET: f64 = 10.0;
@@ -60,6 +61,47 @@ pub fn column_append(column: &NSStackView, child: &NSView) {
         .setActive(true);
 }
 
+pub fn column_append_intrinsic(column: &NSStackView, child: &NSView) {
+    column_append(column, child);
+    if let Some(stack) = child.downcast_ref::<NSStackView>() {
+        stack.setHuggingPriority_forOrientation(
+            NSLayoutPriorityRequired,
+            NSLayoutConstraintOrientation::Vertical,
+        );
+        stack.setClippingResistancePriority_forOrientation(
+            NSLayoutPriorityRequired,
+            NSLayoutConstraintOrientation::Vertical,
+        );
+    }
+    child.setContentHuggingPriority_forOrientation(
+        NSLayoutPriorityRequired,
+        NSLayoutConstraintOrientation::Vertical,
+    );
+}
+
+pub fn inset(child: &NSView, insets: NSEdgeInsets, mtm: MainThreadMarker) -> Retained<NSView> {
+    let wrapper = NSView::new(mtm);
+    child.setTranslatesAutoresizingMaskIntoConstraints(false);
+    wrapper.addSubview(child);
+    for constraint in [
+        child
+            .leadingAnchor()
+            .constraintEqualToAnchor_constant(&wrapper.leadingAnchor(), insets.left),
+        child
+            .trailingAnchor()
+            .constraintEqualToAnchor_constant(&wrapper.trailingAnchor(), -insets.right),
+        child
+            .topAnchor()
+            .constraintEqualToAnchor_constant(&wrapper.topAnchor(), insets.top),
+        child
+            .bottomAnchor()
+            .constraintEqualToAnchor_constant(&wrapper.bottomAnchor(), -insets.bottom),
+    ] {
+        constraint.setActive(true);
+    }
+    wrapper
+}
+
 pub fn control_row(label: &str, child: &NSView, mtm: MainThreadMarker) -> Retained<NSView> {
     control_row_with_suffix(label, child, None, mtm)
 }
@@ -70,48 +112,66 @@ pub fn control_row_with_suffix(
     suffix: Option<&NSView>,
     mtm: MainThreadMarker,
 ) -> Retained<NSView> {
-    let row = NSView::new(mtm);
+    let row = row_stack(
+        f64::from(shrimply_component_core::layout::CONTROL_ROW_GAP),
+        mtm,
+    );
     let label = NSTextField::labelWithString(&NSString::from_str(label), mtm);
-    let column_measure = NSTextField::labelWithString(
+    label.setTextColor(Some(&NSColor::secondaryLabelColor()));
+    label.setUsesSingleLineMode(true);
+    label.setLineBreakMode(objc2_app_kit::NSLineBreakMode::ByTruncatingTail);
+    label.setToolTip(Some(&label.stringValue()));
+    let measure = NSTextField::labelWithString(
         &NSString::from_str(
             &"0".repeat(shrimply_component_core::layout::CONTROL_ROW_LABEL_COLUMNS),
         ),
         mtm,
     );
-    let label_width = label
-        .intrinsicContentSize()
-        .width
-        .max(column_measure.intrinsicContentSize().width);
-    label.setTextColor(Some(&NSColor::secondaryLabelColor()));
-    label.setAlignment(NSTextAlignment::Left);
-    label.setTranslatesAutoresizingMaskIntoConstraints(false);
+    let preferred_width = label
+        .widthAnchor()
+        .constraintEqualToConstant(measure.intrinsicContentSize().width);
+    preferred_width.setPriority(objc2_app_kit::NSLayoutPriorityDefaultHigh);
+    preferred_width.setActive(true);
+    label.setContentCompressionResistancePriority_forOrientation(
+        NSLayoutPriorityDefaultLow,
+        NSLayoutConstraintOrientation::Horizontal,
+    );
+    row.addArrangedSubview(&label);
+
+    // The slot expands, while a bounded editor stays at its leading edge.
+    // This keeps surplus width out of the label and out of the action buttons.
+    let slot = NSView::new(mtm);
     child.setTranslatesAutoresizingMaskIntoConstraints(false);
-    row.addSubview(&label);
-    row.addSubview(child);
+    slot.addSubview(child);
     for constraint in [
-        label
+        child
             .leadingAnchor()
-            .constraintEqualToAnchor(&row.leadingAnchor()),
-        label.widthAnchor().constraintEqualToConstant(label_width),
-        label
-            .centerYAnchor()
-            .constraintEqualToAnchor(&row.centerYAnchor()),
-        child.leadingAnchor().constraintEqualToAnchor_constant(
-            &label.trailingAnchor(),
-            f64::from(shrimply_component_core::layout::CONTROL_ROW_GAP),
-        ),
-        child.topAnchor().constraintEqualToAnchor(&row.topAnchor()),
+            .constraintEqualToAnchor(&slot.leadingAnchor()),
+        child
+            .trailingAnchor()
+            .constraintLessThanOrEqualToAnchor(&slot.trailingAnchor()),
+        child.topAnchor().constraintEqualToAnchor(&slot.topAnchor()),
         child
             .bottomAnchor()
-            .constraintEqualToAnchor(&row.bottomAnchor()),
-        child
-            .heightAnchor()
+            .constraintEqualToAnchor(&slot.bottomAnchor()),
+        slot.heightAnchor()
             .constraintGreaterThanOrEqualToConstant(CONTROL_HEIGHT),
     ] {
         constraint.setActive(true);
     }
+    child.setContentHuggingPriority_forOrientation(
+        NSLayoutPriorityDefaultLow,
+        NSLayoutConstraintOrientation::Horizontal,
+    );
+    let fill = child
+        .trailingAnchor()
+        .constraintEqualToAnchor(&slot.trailingAnchor());
+    // Expand editors before satisfying their intrinsic-size preferences, while
+    // letting native divider/window sizing take precedence.
+    fill.setPriority(objc2_app_kit::NSLayoutPriorityDragThatCannotResizeWindow - 1.0);
+    fill.setActive(true);
+    row.addArrangedSubview(&slot);
     if let Some(suffix) = suffix {
-        suffix.setTranslatesAutoresizingMaskIntoConstraints(false);
         suffix.setContentHuggingPriority_forOrientation(
             NSLayoutPriorityRequired,
             NSLayoutConstraintOrientation::Horizontal,
@@ -120,30 +180,15 @@ pub fn control_row_with_suffix(
             NSLayoutPriorityRequired,
             NSLayoutConstraintOrientation::Horizontal,
         );
-        row.addSubview(suffix);
-        let suffix_width = suffix.fittingSize().width;
-        for constraint in [
-            suffix.leadingAnchor().constraintEqualToAnchor_constant(
-                &child.trailingAnchor(),
-                f64::from(shrimply_component_core::layout::CONTROL_ROW_GAP),
-            ),
-            suffix
-                .trailingAnchor()
-                .constraintEqualToAnchor(&row.trailingAnchor()),
-            suffix
-                .centerYAnchor()
-                .constraintEqualToAnchor(&row.centerYAnchor()),
-            suffix.widthAnchor().constraintEqualToConstant(suffix_width),
-        ] {
-            constraint.setActive(true);
+        if let Some(stack) = suffix.downcast_ref::<NSStackView>() {
+            stack.setHuggingPriority_forOrientation(
+                NSLayoutPriorityRequired,
+                NSLayoutConstraintOrientation::Horizontal,
+            );
         }
-    } else {
-        child
-            .trailingAnchor()
-            .constraintEqualToAnchor(&row.trailingAnchor())
-            .setActive(true);
+        row.addArrangedSubview(suffix);
     }
-    row
+    row.into_super()
 }
 
 pub struct StringSelector {
@@ -164,7 +209,7 @@ impl StringSelector {
                 &title,
                 None,
                 "Search choices",
-                choices,
+                choices.into(),
                 true,
                 on_change,
                 mtm,
@@ -315,7 +360,7 @@ fn search_menu_button(
     title: &str,
     icon: Option<&str>,
     placeholder: &str,
-    choices: Vec<StringChoice>,
+    choices: SearchChoices,
     update_title: bool,
     on_select: impl Fn(String) + 'static,
     mtm: MainThreadMarker,
@@ -336,6 +381,7 @@ fn search_menu_button(
     let choices = Rc::new(choices);
     let selected = Rc::new(RefCell::new(
         choices
+            .choices
             .iter()
             .find(|choice| choice.label == title)
             .map(|choice| choice.value.clone()),
@@ -380,7 +426,7 @@ struct SearchPopoverParts {
 
 fn search_popover(
     placeholder: &str,
-    choices: Rc<Vec<StringChoice>>,
+    choices: Rc<SearchChoices>,
     selected: Rc<RefCell<Option<String>>>,
     main_button: Option<Weak<NSButton>>,
     update_title: bool,
@@ -544,7 +590,7 @@ fn search_popover(
     }
 }
 
-pub(crate) fn show_searchable_popover_at(
+pub fn show_searchable_popover_at(
     view: &NSView,
     point: NSPoint,
     placeholder: &str,
@@ -555,7 +601,7 @@ pub(crate) fn show_searchable_popover_at(
 ) {
     let parts = search_popover(
         placeholder,
-        Rc::new(choices),
+        Rc::new(choices.into()),
         Rc::new(RefCell::new(Some(selected))),
         None,
         false,
@@ -610,7 +656,7 @@ fn focus_result(list: &NSView, last: bool) -> bool {
 fn populate_search_results(
     list: &NSView,
     query: &str,
-    choices: &Rc<Vec<StringChoice>>,
+    choices: &Rc<SearchChoices>,
     selected: &Rc<RefCell<Option<String>>>,
     main_button: &Option<Weak<NSButton>>,
     popover: &Weak<NSPopover>,
@@ -622,11 +668,10 @@ fn populate_search_results(
     for child in children.iter() {
         child.removeFromSuperview();
     }
-    let matches = choices
-        .iter()
-        .filter(|choice| shrimply_component_core::selector::matches_query(&choice.label, query));
+    let matches = choices.matching_indices(query);
     let mut row_index = 0usize;
-    for choice in matches {
+    for index in matches {
+        let choice = &choices.choices[index];
         let row = SearchResult::alloc(mtm).set_ivars(SearchResultIvars {
             list: Weak::new(list),
             popover: popover.clone(),
@@ -707,43 +752,166 @@ pub fn switch_row(
     on_change: impl Fn(bool) + 'static,
     mtm: MainThreadMarker,
 ) -> Retained<NSView> {
-    let toggle = NSSwitch::new(mtm);
-    toggle.setState(if active {
-        NSControlStateValueOn
-    } else {
-        NSControlStateValueOff
-    });
-    toggle.setToolTip(tooltip.map(NSString::from_str).as_deref());
-    action::attach(
-        &toggle,
-        move |control| {
-            on_change(
-                control
-                    .downcast_ref::<NSSwitch>()
-                    .expect("switch sender")
-                    .state()
-                    == NSControlStateValueOn,
-            )
-        },
-        mtm,
-    );
+    let toggle = Switch::new(active, tooltip, on_change, mtm);
     let aligned = NSView::new(mtm);
-    toggle.setTranslatesAutoresizingMaskIntoConstraints(false);
-    aligned.addSubview(&toggle);
+    toggle
+        .view()
+        .setTranslatesAutoresizingMaskIntoConstraints(false);
+    aligned.addSubview(toggle.view());
     for constraint in [
         toggle
+            .view()
             .trailingAnchor()
             .constraintEqualToAnchor(&aligned.trailingAnchor()),
         toggle
+            .view()
             .centerYAnchor()
             .constraintEqualToAnchor(&aligned.centerYAnchor()),
         aligned
             .heightAnchor()
-            .constraintGreaterThanOrEqualToAnchor(&toggle.heightAnchor()),
+            .constraintGreaterThanOrEqualToAnchor(&toggle.view().heightAnchor()),
     ] {
         constraint.setActive(true);
     }
     control_row(label, &aligned, mtm)
+}
+
+pub struct Switch {
+    view: Retained<NSSwitch>,
+}
+
+impl Switch {
+    pub fn new(
+        active: bool,
+        tooltip: Option<&str>,
+        on_change: impl Fn(bool) + 'static,
+        mtm: MainThreadMarker,
+    ) -> Self {
+        let view = NSSwitch::new(mtm);
+        view.setState(if active {
+            NSControlStateValueOn
+        } else {
+            NSControlStateValueOff
+        });
+        view.setToolTip(tooltip.map(NSString::from_str).as_deref());
+        action::attach(
+            &view,
+            move |control| {
+                on_change(
+                    control
+                        .downcast_ref::<NSSwitch>()
+                        .expect("switch sender")
+                        .state()
+                        == NSControlStateValueOn,
+                )
+            },
+            mtm,
+        );
+        Self { view }
+    }
+
+    pub fn view(&self) -> &NSSwitch {
+        &self.view
+    }
+}
+
+pub struct ActionButton {
+    view: Retained<NSButton>,
+}
+
+impl ActionButton {
+    pub fn set_toggle_state(&self, enabled: bool) {
+        self.view
+            .setButtonType(objc2_app_kit::NSButtonType::PushOnPushOff);
+        self.view.setState(if enabled {
+            NSControlStateValueOn
+        } else {
+            NSControlStateValueOff
+        });
+        let tint = if enabled {
+            NSColor::controlAccentColor()
+        } else {
+            NSColor::secondaryLabelColor()
+        };
+        self.view.setContentTintColor(Some(&tint));
+    }
+
+    pub fn symbol(
+        name: &str,
+        label: &str,
+        on_action: impl Fn() + 'static,
+        mtm: MainThreadMarker,
+    ) -> Self {
+        Self::symbol_with_action(name, label, move |_| on_action(), mtm)
+    }
+
+    /// The callback receives the requested state and returns the accepted state.
+    /// Rejected edits therefore restore both the native state and its tint.
+    pub fn symbol_toggle(
+        name: &str,
+        label: &str,
+        active: bool,
+        on_change: impl Fn(bool) -> bool + 'static,
+        mtm: MainThreadMarker,
+    ) -> Self {
+        let button = Self::symbol_with_action(
+            name,
+            label,
+            move |sender| {
+                let button = sender.downcast_ref::<NSButton>().expect("toggle sender");
+                let accepted = on_change(button.state() == NSControlStateValueOn);
+                Self {
+                    view: Retained::from(button),
+                }
+                .set_toggle_state(accepted);
+            },
+            mtm,
+        );
+        button.set_toggle_state(active);
+        button
+    }
+
+    fn symbol_with_action(
+        name: &str,
+        label: &str,
+        on_action: impl Fn(&objc2_app_kit::NSControl) + 'static,
+        mtm: MainThreadMarker,
+    ) -> Self {
+        let view = unsafe {
+            NSButton::buttonWithImage_target_action(&symbol(name, label), None, None, mtm)
+        };
+        view.setBordered(false);
+        view.setToolTip(Some(&NSString::from_str(label)));
+        view.widthAnchor()
+            .constraintEqualToConstant(CONTROL_HEIGHT)
+            .setActive(true);
+        view.heightAnchor()
+            .constraintEqualToConstant(CONTROL_HEIGHT)
+            .setActive(true);
+        view.setContentHuggingPriority_forOrientation(
+            NSLayoutPriorityRequired,
+            NSLayoutConstraintOrientation::Horizontal,
+        );
+        view.setContentCompressionResistancePriority_forOrientation(
+            NSLayoutPriorityRequired,
+            NSLayoutConstraintOrientation::Horizontal,
+        );
+        action::attach(&view, on_action, mtm);
+        Self { view }
+    }
+
+    pub fn new(label: &str, on_action: impl Fn() + 'static, mtm: MainThreadMarker) -> Self {
+        let view = unsafe {
+            NSButton::buttonWithTitle_target_action(&NSString::from_str(label), None, None, mtm)
+        };
+        view.setBezelStyle(NSBezelStyle::Push);
+        action::attach(&view, move |_| on_action(), mtm);
+        Self { view }
+    }
+
+    pub fn view(&self) -> &NSButton {
+        &self.view
+    }
 }
 
 pub struct ColorPicker {
@@ -914,6 +1082,10 @@ impl ProgressButton {
         &self.button
     }
 
+    pub fn connect_action(&self, on_action: impl Fn() + 'static, mtm: MainThreadMarker) {
+        action::attach(&self.button, move |_| on_action(), mtm);
+    }
+
     pub fn set_state(&self, state: ProgressButtonState) {
         match state {
             ProgressButtonState::Idle => {
@@ -952,6 +1124,13 @@ impl ReadOnlyField {
         let root = row_stack(4.0, mtm);
         let field = NSTextField::labelWithString(&NSString::from_str(value), mtm);
         field.setSelectable(true);
+        field.setUsesSingleLineMode(true);
+        field.setLineBreakMode(objc2_app_kit::NSLineBreakMode::ByTruncatingTail);
+        field.setToolTip(Some(&NSString::from_str(value)));
+        field.setContentCompressionResistancePriority_forOrientation(
+            NSLayoutPriorityDefaultLow,
+            NSLayoutConstraintOrientation::Horizontal,
+        );
         field.setAlignment(if right_aligned {
             NSTextAlignment::Right
         } else {
@@ -999,16 +1178,62 @@ pub struct Tabs {
     root: Retained<NSView>,
 }
 
+pub struct Tab {
+    pub label: String,
+    pub symbol: Option<String>,
+    pub view: Retained<NSView>,
+}
+
+impl Tab {
+    pub fn new(label: impl Into<String>, view: Retained<NSView>) -> Self {
+        Self {
+            label: label.into(),
+            symbol: None,
+            view,
+        }
+    }
+
+    pub fn symbol(mut self, symbol: impl Into<String>) -> Self {
+        self.symbol = Some(symbol.into());
+        self
+    }
+}
+
 impl Tabs {
     pub fn new(pages: Vec<(&str, Retained<NSView>)>, mtm: MainThreadMarker) -> Self {
+        Self::with_selection(
+            pages
+                .into_iter()
+                .map(|(label, view)| {
+                    Tab::new(label, view).symbol(match label {
+                        "General" => "gearshape",
+                        "Info" => "info.circle",
+                        "Log" => "terminal",
+                        _ => "square.grid.2x2",
+                    })
+                })
+                .collect(),
+            0,
+            |_| {},
+            mtm,
+        )
+    }
+
+    pub fn with_selection(
+        pages: Vec<Tab>,
+        selected: usize,
+        on_select: impl Fn(usize) + 'static,
+        mtm: MainThreadMarker,
+    ) -> Self {
         assert!(!pages.is_empty(), "tabs need at least one page");
+        assert!(selected < pages.len(), "selected tab must exist");
         let root = NSView::new(mtm);
         let selector = unsafe {
             NSSegmentedControl::segmentedControlWithLabels_trackingMode_target_action(
                 &objc2_foundation::NSArray::from_retained_slice(
                     &pages
                         .iter()
-                        .map(|(label, _)| NSString::from_str(label))
+                        .map(|page| NSString::from_str(&page.label))
                         .collect::<Vec<_>>(),
                 ),
                 objc2_app_kit::NSSegmentSwitchTracking::SelectOne,
@@ -1017,21 +1242,17 @@ impl Tabs {
                 mtm,
             )
         };
-        selector.setSelectedSegment(0);
-        for (index, (label, _)) in pages.iter().enumerate() {
-            let icon = match *label {
-                "General" => "gearshape",
-                "Info" => "info.circle",
-                "Log" => "terminal",
-                _ => "square.grid.2x2",
-            };
-            selector.setImage_forSegment(Some(&symbol(icon, label)), index as isize);
+        selector.setSelectedSegment(selected as isize);
+        for (index, page) in pages.iter().enumerate() {
+            if let Some(icon) = &page.symbol {
+                selector.setImage_forSegment(Some(&symbol(icon, &page.label)), index as isize);
+            }
         }
         let content = NSView::initWithFrame(NSView::alloc(mtm), NSRect::ZERO);
-        let page_views = Rc::new(pages.into_iter().map(|(_, view)| view).collect::<Vec<_>>());
+        let page_views = Rc::new(pages.into_iter().map(|page| page.view).collect::<Vec<_>>());
         for (index, page) in page_views.iter().enumerate() {
             page.setTranslatesAutoresizingMaskIntoConstraints(false);
-            page.setHidden(index != 0);
+            page.setHidden(index != selected);
             content.addSubview(page);
             for constraint in [
                 page.leadingAnchor()
@@ -1056,6 +1277,9 @@ impl Tabs {
                     .selectedSegment();
                 for (index, page) in callback_pages.iter().enumerate() {
                     page.setHidden(index as isize != selected);
+                }
+                if let Ok(selected) = usize::try_from(selected) {
+                    on_select(selected);
                 }
             },
             mtm,
@@ -1169,20 +1393,22 @@ pub fn playback_shortcuts(
 }
 
 pub fn modifier_menu(
-    choices: Vec<StringChoice>,
+    choices: SearchChoices,
+    on_change: impl Fn(String) + 'static,
+    mtm: MainThreadMarker,
+) -> StringSelector {
+    choice_menu("Add modifier", "plus", choices, on_change, mtm)
+}
+
+pub fn choice_menu(
+    title: &str,
+    icon: &str,
+    choices: SearchChoices,
     on_change: impl Fn(String) + 'static,
     mtm: MainThreadMarker,
 ) -> StringSelector {
     let row = NSView::new(mtm);
-    let button = search_menu_button(
-        "Add modifier",
-        Some("plus"),
-        "Search modifiers",
-        choices,
-        false,
-        on_change,
-        mtm,
-    );
+    let button = search_menu_button(title, Some(icon), title, choices, false, on_change, mtm);
     button.setTranslatesAutoresizingMaskIntoConstraints(false);
     row.addSubview(&button);
     for constraint in [
@@ -1203,104 +1429,53 @@ pub fn modifier_menu(
 }
 
 pub fn live_performance(mtm: MainThreadMarker) -> Retained<NSGlassEffectView> {
-    let root = NSGlassEffectView::new(mtm);
-    root.setStyle(NSGlassEffectViewStyle::Regular);
-    root.setCornerRadius(8.0);
-    let vertical = column_stack(0.0, mtm);
-    let header = row_stack(4.0, mtm);
-    header.setEdgeInsets(objc2_foundation::NSEdgeInsets {
-        top: 6.0,
-        left: 8.0,
-        bottom: 6.0,
-        right: 8.0,
-    });
-    let disclosure = unsafe {
-        NSButton::buttonWithImage_target_action(
-            &symbol("chevron.right", "Expand Live Performance"),
-            None,
-            None,
-            mtm,
-        )
-    };
-    disclosure.setBordered(false);
-    let title = NSTextField::labelWithString(&NSString::from_str("Live Performance"), mtm);
-    let clear = unsafe {
-        NSButton::buttonWithImage_target_action(&symbol("trash", "Clear"), None, None, mtm)
-    };
-    clear.setBordered(false);
-    clear.setToolTip(Some(&NSString::from_str("Clear")));
-    let copy = unsafe {
-        NSButton::buttonWithImage_target_action(&symbol("doc.on.doc", "Copy JSON"), None, None, mtm)
-    };
-    copy.setBordered(false);
-    copy.setToolTip(Some(&NSString::from_str("Copy JSON")));
-    header.addArrangedSubview(&disclosure);
-    header.addArrangedSubview(&title);
-    header.addArrangedSubview(&NSView::new(mtm));
-    header.addArrangedSubview(&clear);
-    header.addArrangedSubview(&copy);
+    let card = crate::InspectorCard::without_reset("Live Performance", false, mtm);
     let rows = column_stack(4.0, mtm);
-    rows.setEdgeInsets(objc2_foundation::NSEdgeInsets {
-        top: 4.0,
-        left: 12.0,
-        bottom: 12.0,
-        right: 12.0,
-    });
-    rows.setHidden(true);
-    column_append(&vertical, &header);
-    column_append(&vertical, &rows);
-    root.setContentView(Some(&vertical));
-
+    rows.setHuggingPriority_forOrientation(
+        NSLayoutPriorityRequired,
+        NSLayoutConstraintOrientation::Vertical,
+    );
+    card.append(&rows);
+    let expanded = Rc::new(std::cell::Cell::new(false));
     let performance = Rc::new(RefCell::new(
         shrimply_component_core::performance::PerformanceRows::default(),
     ));
-    action::attach(
-        &disclosure,
-        {
-            let rows = rows.clone();
-            let performance = performance.clone();
-            move |control| {
-                let expanded = rows.isHidden();
-                rows.setHidden(!expanded);
-                control
-                    .downcast_ref::<NSButton>()
-                    .expect("live performance disclosure sender")
-                    .setImage(Some(&symbol(
-                        if expanded {
-                            "chevron.down"
-                        } else {
-                            "chevron.right"
-                        },
-                        if expanded { "Collapse" } else { "Expand" },
-                    )));
-                if expanded {
-                    refresh_performance(&rows, &performance, mtm);
-                } else {
-                    clear_stack(&rows);
-                    *performance.borrow_mut() = Default::default();
-                }
+    card.connect_expansion({
+        let rows = rows.clone();
+        let performance = performance.clone();
+        let expanded = expanded.clone();
+        move |is_expanded, completed| {
+            expanded.set(is_expanded);
+            if is_expanded && !completed {
+                refresh_performance(&rows, &performance, mtm);
+            } else if !is_expanded && completed {
+                clear_stack(&rows);
+                *performance.borrow_mut() = Default::default();
             }
-        },
-        mtm,
-    );
-    action::attach(
-        &clear,
+        }
+    });
+    let clear = ActionButton::symbol(
+        "trash",
+        "Clear",
         {
             let rows = rows.clone();
             let performance = performance.clone();
-            move |_| {
+            let expanded = expanded.clone();
+            move || {
                 shrimply_component_core::performance::clear();
                 *performance.borrow_mut() = Default::default();
-                if !rows.isHidden() {
+                if expanded.get() {
                     refresh_performance(&rows, &performance, mtm);
                 }
             }
         },
         mtm,
     );
-    action::attach(
-        &copy,
-        move |_| {
+    card.append_after_reset(clear.view());
+    let copy = ActionButton::symbol(
+        "doc.on.doc",
+        "Copy JSON",
+        move || {
             let pasteboard = NSPasteboard::generalPasteboard();
             pasteboard.clearContents();
             assert!(
@@ -1313,9 +1488,9 @@ pub fn live_performance(mtm: MainThreadMarker) -> Retained<NSGlassEffectView> {
         },
         mtm,
     );
-    let weak_root = Weak::new(&*root);
+    card.append_after_reset(copy.view());
+    let weak_root = Weak::new(card.view());
     let weak_rows = Weak::new(&*rows);
-    let timer_performance = performance.clone();
     let timer = RcBlock::new(move |timer: std::ptr::NonNull<NSTimer>| {
         let Some(root) = weak_root.load() else {
             unsafe { timer.as_ref() }.invalidate();
@@ -1325,8 +1500,8 @@ pub fn live_performance(mtm: MainThreadMarker) -> Retained<NSGlassEffectView> {
             unsafe { timer.as_ref() }.invalidate();
             return;
         };
-        if root.window().is_some() && !rows.isHidden() {
-            refresh_performance(&rows, &timer_performance, mtm);
+        if root.window().is_some() && !root.isHiddenOrHasHiddenAncestor() && expanded.get() {
+            refresh_performance(&rows, &performance, mtm);
         }
     });
     unsafe {
@@ -1336,7 +1511,7 @@ pub fn live_performance(mtm: MainThreadMarker) -> Retained<NSGlassEffectView> {
             &timer,
         );
     }
-    root
+    card.view().into()
 }
 
 fn refresh_performance(

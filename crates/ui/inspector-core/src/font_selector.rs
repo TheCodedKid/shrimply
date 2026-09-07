@@ -409,3 +409,40 @@ fn with_name(family: &ProjectFontFamily, name: String) -> ProjectFontFamily {
         ProjectFontFamily::GoogleFonts { .. } => ProjectFontFamily::GoogleFonts { name },
     }
 }
+
+#[derive(Clone)]
+pub enum FamilyEdit {
+    Append(ProjectFontFamily),
+    Remove(usize),
+    Move { index: usize, offset: isize },
+}
+
+impl crate::InspectorController {
+    pub fn edit_control_font_family(
+        &self,
+        target: &crate::InspectorTarget,
+        control: &crate::InspectorControl,
+        edit: FamilyEdit,
+    ) -> Result<(), String> {
+        let (value, _) = self.control_graph_source(target)?;
+        let families = value
+            .pointer(&control.path)
+            .cloned()
+            .ok_or("font list is unavailable")?;
+        let families: Vec<ProjectFontFamily> = serde_json::from_value(families)
+            .map_err(|error| format!("invalid font list: {error}"))?;
+        let next = match edit {
+            FamilyEdit::Append(family) => append_family(&families, family),
+            FamilyEdit::Remove(index) => remove_family(&families, index),
+            FamilyEdit::Move { index, offset } => move_family(&families, index, offset),
+        };
+        if let Some(next) = next {
+            self.set_basic_control_value(
+                target,
+                control,
+                &serde_json::to_string(&next).expect("font families serialize"),
+            )?;
+        }
+        Ok(())
+    }
+}

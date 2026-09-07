@@ -57,10 +57,10 @@ use super::renderer::{Vec2, vec2};
 use super::silence;
 use super::timeline_operation::{SequenceTimeline, TimelineOperationContext};
 use super::{
-    RULER_HEIGHT, TRACK_HEIGHT, TimelineCursor, TimelineModifiers, TimelineRuntime,
-    TimelineScrollEvent, TimelineScrollInput, TrackAddMenuRequest, TrackKey, TrackLabelAction,
-    WAVEFORM_POLL_INTERVAL, import, selected_timeline_items, selected_timeline_tracks, timeline_x,
-    track_label_action_at, x_to_time,
+    RULER_HEIGHT, SCROLL_PIXELS_PER_STEP, TRACK_HEIGHT, TimelineCursor, TimelineModifiers,
+    TimelineRuntime, TimelineScrollEvent, TimelineScrollInput, TrackAddMenuRequest, TrackKey,
+    TrackLabelAction, WAVEFORM_POLL_INTERVAL, import, selected_timeline_items,
+    selected_timeline_tracks, timeline_x, track_label_action_at, x_to_time,
 };
 
 pub(crate) use context_actions::folded_items::move_item_out_of_sequence_core;

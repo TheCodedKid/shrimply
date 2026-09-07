@@ -44,11 +44,6 @@ pub(crate) fn handle_timeline_input(
     frame_step_seconds: f64,
 ) {
     for scroll in std::mem::take(&mut runtime.pending_scrolls) {
-        let delta = scroll.delta
-            * match scroll.input {
-                TimelineScrollInput::Wheel => SCROLL_PIXELS_PER_STEP as f32,
-                TimelineScrollInput::Surface => 1.0,
-            };
         if !scroll.ctrl {
             let scrollbar = horizontal_scrollbar(
                 runtime.view,
@@ -57,10 +52,10 @@ pub(crate) fn handle_timeline_input(
                 duration_seconds,
                 shrimply_skia_adw_core::slider::idle_state(),
             );
-            let scrollbar_delta = if delta.x.abs() > f32::EPSILON {
-                delta.x as f64
+            let scrollbar_delta = if scroll.delta.x.abs() > f32::EPSILON {
+                scroll.delta.x as f64
             } else {
-                delta.y as f64
+                scroll.delta.y as f64
             };
             let mut scroll_seconds = runtime.view.scroll_seconds;
             let event = runtime.horizontal_scrollbar.scroll_pages_at(
@@ -83,10 +78,10 @@ pub(crate) fn handle_timeline_input(
                 track_content_height,
                 shrimply_skia_adw_core::slider::idle_state(),
             ) {
-                let scrollbar_delta = if delta.y.abs() > f32::EPSILON {
-                    delta.y as f64
+                let scrollbar_delta = if scroll.delta.y.abs() > f32::EPSILON {
+                    scroll.delta.y as f64
                 } else {
-                    delta.x as f64
+                    scroll.delta.x as f64
                 };
                 let mut scroll_y = runtime.view.scroll_y;
                 let event = runtime.vertical_scrollbar.scroll_units_at(
@@ -106,7 +101,7 @@ pub(crate) fn handle_timeline_input(
         let previous_zoom = runtime.view.seconds_per_pixel;
         runtime.overscroll = handle_scroll(
             &mut runtime.view,
-            delta,
+            scroll.delta,
             scroll.ctrl,
             scroll.input,
             scroll.pointer,

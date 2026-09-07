@@ -13,7 +13,9 @@ use shrimply_evaluation::{
 use shrimply_math_core::Time;
 pub use shrimply_preview_core::accuracy::CompositeAccuracy;
 use shrimply_preview_core::accuracy::{FINAL_PREVIEW_DELAY, LOCAL_SCRUB_WINDOW_SECONDS};
-use shrimply_project::project::{ItemAddress, Project, VideoItemContent, video_source_time_at};
+use shrimply_project::project::{
+    ItemAddress, Project, TrackAddress, VideoItemContent, video_source_time_at,
+};
 use shrimply_render_core::{LayerKind, Nv12LayerParams, TextureAddressMode};
 use skia_safe::Image;
 use std::time::Instant;
@@ -93,6 +95,12 @@ struct PreparedDependency<'a> {
     items: Vec<items::PreparedItem<'a>>,
 }
 
+#[derive(Default)]
+struct DependencyTraversal<'a> {
+    stack: Vec<ItemAddress>,
+    records: Vec<PreparedDependency<'a>>,
+}
+
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct MorphCacheKey {
     sequence_path: Vec<uuid::Uuid>,
@@ -103,6 +111,17 @@ pub struct MorphCacheKey {
     height: u32,
     content_revision: u64,
     cacheable: bool,
+}
+
+/// Selects capture output while retaining the full project for external dependencies.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum CaptureTarget {
+    Item(ItemAddress),
+    Track(TrackAddress),
+    ModifierInput {
+        address: ItemAddress,
+        snap_content: bool,
+    },
 }
 
 /// Shared media scheduling and evaluated layer inputs. Pixel rendering belongs to
@@ -123,7 +142,7 @@ pub struct Scene {
     requested_accuracy: CompositeAccuracy,
     prepared: Option<(Time, u64, CompositeAccuracy)>,
     excluded_item_id: Option<uuid::Uuid>,
-    capture_item: Option<ItemAddress>,
+    capture_target: Option<CaptureTarget>,
     audio_sampler: shrimply_audio::streaming::FrameAudioSampler,
     audio_revision: u64,
     audio_pending: bool,
@@ -160,11 +179,13 @@ impl Scene {
         }
     }
 
-    pub fn set_capture_item(&mut self, capture_item: Option<ItemAddress>) {
-        if self.capture_item != capture_item {
-            self.capture_item = capture_item;
-            self.prepared = None;
+    pub fn set_capture_target(&mut self, target: Option<CaptureTarget>) -> bool {
+        if self.capture_target == target {
+            return false;
         }
+        self.capture_target = target;
+        self.prepared = None;
+        true
     }
 
     pub fn needs_update(&self) -> bool {
@@ -256,7 +277,7 @@ impl Scene {
             .sample(project, time, self.audio_revision);
         self.sampled_audio.clear();
         let mut requests = Vec::new();
-        let capture_item = self.capture_item.clone();
+        let capture_target = self.capture_target.clone();
         let items = self.items(
             project,
             &project.video_tracks,
@@ -265,13 +286,25 @@ impl Scene {
                 time,
                 ..Default::default()
             },
-            capture_item.as_ref().map(|address| items::Target {
-                address,
-                scope_positions: None,
+            capture_target.as_ref().map(|target| match target {
+                CaptureTarget::Item(address) => items::Target::Item {
+                    address,
+                    scope_positions: None,
+                    modifier_input: None,
+                },
+                CaptureTarget::ModifierInput {
+                    address,
+                    snap_content,
+                } => items::Target::Item {
+                    address,
+                    scope_positions: None,
+                    modifier_input: Some(*snap_content),
+                },
+                CaptureTarget::Track(address) => items::Target::Track(address),
             }),
             &mut requests,
         )?;
-        let mut dependency_records = Vec::new();
+        let mut traversal = DependencyTraversal::default();
         for (dependency, dependency_audio) in external_dependencies(project, &items, &audio)? {
             self.collect_external_dependency(
                 project,
@@ -279,10 +312,10 @@ impl Scene {
                 dependency,
                 dependency_audio,
                 &mut requests,
-                &mut Vec::new(),
-                &mut dependency_records,
+                &mut traversal,
             )?;
         }
+        let dependency_records = traversal.records;
         if !self.media.request(requests)? {
             return Ok(None);
         }
@@ -389,16 +422,19 @@ impl Scene {
         dependency: shrimply_video_core::raster_modifiers::ExternalDependency,
         audio: FrameAudioAnalysis,
         requests: &mut Vec<media::Request>,
-        stack: &mut Vec<ItemAddress>,
-        records: &mut Vec<PreparedDependency<'a>>,
+        traversal: &mut DependencyTraversal<'a>,
     ) -> Result<(), String> {
-        if records.iter().any(|record| record.dependency == dependency) {
+        if traversal
+            .records
+            .iter()
+            .any(|record| record.dependency == dependency)
+        {
             return Ok(());
         }
-        if stack.contains(&dependency.address) {
+        if traversal.stack.contains(&dependency.address) {
             return Err("cyclic mask reference".to_string());
         }
-        stack.push(dependency.address.clone());
+        traversal.stack.push(dependency.address.clone());
         let dependency_items = self.items(
             project,
             &project.video_tracks,
@@ -407,9 +443,10 @@ impl Scene {
                 time: root_time,
                 ..Default::default()
             },
-            Some(items::Target {
+            Some(items::Target::Item {
                 address: &dependency.address,
                 scope_positions: Some(&dependency.scope_positions),
+                modifier_input: None,
             }),
             requests,
         )?;
@@ -420,12 +457,11 @@ impl Scene {
                 child,
                 child_audio,
                 requests,
-                stack,
-                records,
+                traversal,
             )?;
         }
-        stack.pop();
-        records.push(PreparedDependency {
+        traversal.stack.pop();
+        traversal.records.push(PreparedDependency {
             dependency,
             audio,
             items: dependency_items,
