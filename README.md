@@ -8,8 +8,10 @@
 
 <img width="1150" height="791" alt="image" src="https://github.com/user-attachments/assets/97bbadac-d930-46ae-9df8-033bd81ab6ce" />
 
-Shrimply is a free and open-source video editor for creating videos from start
-to finish, whether you are making a quick edit or something fancy.
+<img width="2238" height="1584" alt="image" src="https://github.com/user-attachments/assets/9bdab1ab-1e6b-4667-a5aa-0ff60dc0e9d2" />
+
+
+Shrimply is a simple yet powerful cross platform video editor.
 
 Shrimply is currently pre-alpha software, which means you should expect:
 
