@@ -14,6 +14,9 @@ pub const EDIT_COMMIT: &str = "edit-sam2-prompts";
 pub const ANALYZE_TOOLTIP: &str =
     "Precompute compact CPU mask frames so normal playback does not run SAM2";
 
+pub(crate) type ActiveAnalyses =
+    std::collections::HashMap<sam2_analysis::AnalysisTarget, (u64, u64)>;
+
 pub(super) fn presentation(
     address: &shrimply_project::project::ItemAddress,
     value: &Sam2Modifier,
@@ -243,6 +246,24 @@ pub fn sam2_analysis_control(
 }
 
 impl InspectorController {
+    pub(crate) fn poll_sam2_analysis(&self) -> bool {
+        let changed = {
+            let mut active = self.sam2_analysis_transitions.borrow_mut();
+            let previous_count = active.len();
+            active.retain(|target, (generation, signature)| {
+                matches!(
+                    sam2_analysis::get_for_prompt(target, *generation, *signature),
+                    Some(sam2_analysis::Status::Running { .. } | sam2_analysis::Status::Cancelling)
+                )
+            });
+            previous_count != active.len()
+        };
+        if changed {
+            self.refresh_analysis_output();
+        }
+        changed
+    }
+
     pub fn sam2_presentation(
         &self,
         target: &InspectorTarget,
@@ -455,7 +476,7 @@ impl InspectorController {
         shrimply_project::project::commit_edit(&project, EDIT_COMMIT);
         drop(project);
         sam2_analysis::start(
-            analysis_target,
+            analysis_target.clone(),
             next_generation,
             sam2_analysis::Status::Running {
                 message: "Sending request…".to_string(),
@@ -465,6 +486,10 @@ impl InspectorController {
                 server_url,
             },
         );
+        // Observe completion independently of which inspector card is visible.
+        self.sam2_analysis_transitions
+            .borrow_mut()
+            .insert(analysis_target, (next_generation, prompt_signature));
         super::refresh(&self.player_state);
         Ok(())
     }

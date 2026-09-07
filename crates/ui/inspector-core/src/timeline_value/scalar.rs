@@ -103,6 +103,21 @@ pub fn move_stored_keyframe(
     move_keyframe(value, old_time, time, stored, constraint.into())
 }
 
+pub fn move_stored_keyframes(
+    value: &mut TimelineValue<f32>,
+    changes: &[(Time, Time, f32)],
+    constraint: NumberConstraint,
+) -> bool {
+    let changes = changes
+        .iter()
+        .map(|(old, time, stored)| (*old, *time, constraint.clamp_f32(*stored)))
+        .collect::<Vec<_>>();
+    if changes.iter().any(|(_, _, stored)| !stored.is_finite()) {
+        return false;
+    }
+    crate::keyframe_model::update_keyframes(value, &changes)
+}
+
 fn move_keyframe(
     value: &mut TimelineValue<f32>,
     old_time: Time,

@@ -207,17 +207,9 @@ fn general_page(log: Rc<dyn Fn(String)>, mtm: MainThreadMarker) -> Retained<NSVi
     let vector = shrimply_components_appkit::Number3Picker::builder([1.0, 2.0, 3.0])
         .prefixes(["X", "Y", "Z"])
         .enable_lock()
-        .on_change(0, {
+        .on_change({
             let log = log.clone();
-            move |value| log(format!("vector 0 {value}"))
-        })
-        .on_change(1, {
-            let log = log.clone();
-            move |value| log(format!("vector 1 {value}"))
-        })
-        .on_change(2, {
-            let log = log.clone();
-            move |value| log(format!("vector 2 {value}"))
+            move |values, component| log(format!("vector {component}: {values:?}"))
         })
         .build_with_handles(mtm);
     column_append(&general, &control_row("Vector", &vector.widget, mtm));
@@ -362,7 +354,8 @@ fn general_page(log: Rc<dyn Fn(String)>, mtm: MainThreadMarker) -> Retained<NSVi
                 value: name.to_string(),
                 label: name.to_string(),
             })
-            .collect(),
+            .collect::<Vec<_>>()
+            .into(),
         {
             let log = log.clone();
             move |value| log(format!("add modifier {value}"))

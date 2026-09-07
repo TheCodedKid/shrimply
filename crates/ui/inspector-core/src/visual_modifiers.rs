@@ -15,6 +15,7 @@ use crate::{
 mod alpha_outline;
 mod bulge_pinch;
 mod cache;
+pub(crate) use cache::ActiveVisualCaches;
 mod channel_mixer;
 mod chroma_key;
 mod chromatic_aberration;
@@ -55,6 +56,7 @@ mod repeat;
 mod sam2;
 mod sampling;
 mod scanlines_crt;
+mod section;
 mod shaky_path;
 mod shape_3d;
 mod sharpen;
@@ -90,6 +92,7 @@ pub use repeat::{
     OFFSET_AXIS_COMMIT as REPEAT_OFFSET_AXIS_COMMIT, offset_axis as repeat_offset_axis,
     offset_axis_mut as repeat_offset_axis_mut,
 };
+pub(crate) use sam2::ActiveAnalyses as ActiveSam2Analyses;
 pub use sam2::{
     ANALYZE_TOOLTIP as SAM2_ANALYZE_TOOLTIP, EDIT_COMMIT as SAM2_EDIT_COMMIT, sam2_analysis_control,
 };
@@ -500,7 +503,7 @@ pub fn visual_modifier_presentations(
                                 value,
                                 index,
                                 modifier.id,
-                                shrimply_video_cuda::transparent_fill_analysis::status(
+                                shrimply_video_core::transparent_fill::analysis::status(
                                     project,
                                     address,
                                     modifier.id,
@@ -1566,7 +1569,7 @@ impl InspectorController {
             });
         drop(project);
         if cached {
-            shrimply_video_cuda::modifier_cache::invalidate(video_address(target)?, id)?;
+            shrimply_video_core::modifier_cache::invalidate(video_address(target)?, id)?;
         }
         self.edit_visual_modifier_chain(target, id, VisualModifierChainAction::Remove)
     }

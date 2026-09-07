@@ -233,7 +233,7 @@ impl Renderer {
                 0,
                 MTLOrigin { x: 0, y: 0, z: 0 },
                 MTLSize { width: width as usize, height: height as usize, depth: 1 },
-                &output.metal(),
+                output.metal(),
                 0,
                 row_bytes,
                 output_size,
@@ -305,7 +305,7 @@ impl Renderer {
         unsafe {
             encoder.drawPrimitives_indirectBuffer_indirectBufferOffset(
                 MTLPrimitiveType::TriangleStrip,
-                &uploaded.draw_indirect.metal(),
+                uploaded.draw_indirect.metal(),
                 0,
             );
         }
@@ -580,7 +580,7 @@ fn bind_compute_resources(
 ) {
     unsafe {
         for (index, buffer) in compute_buffers(uploaded, uniforms) {
-            encoder.setBuffer_offset_atIndex(Some(&buffer.metal()), 0, index);
+            encoder.setBuffer_offset_atIndex(Some(buffer.metal()), 0, index);
         }
         encoder.setBytes_length_atIndex(
             NonNull::from(constants).cast(),
@@ -598,8 +598,8 @@ fn bind_render_resources(
 ) {
     unsafe {
         for (index, buffer) in raster_buffers(uploaded, uniforms) {
-            encoder.setVertexBuffer_offset_atIndex(Some(&buffer.metal()), 0, index);
-            encoder.setFragmentBuffer_offset_atIndex(Some(&buffer.metal()), 0, index);
+            encoder.setVertexBuffer_offset_atIndex(Some(buffer.metal()), 0, index);
+            encoder.setFragmentBuffer_offset_atIndex(Some(buffer.metal()), 0, index);
         }
         encoder.setVertexTexture_atIndex(
             Some(accumulation),

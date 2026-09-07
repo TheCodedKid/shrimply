@@ -3,12 +3,12 @@ use objc2::DefinedClass;
 use objc2::rc::Retained;
 use objc2::{MainThreadOnly, sel};
 use objc2_app_kit::{
-    NSBezelStyle, NSBox, NSBoxType, NSButton, NSColor, NSFont, NSGlassEffectView,
-    NSGlassEffectViewStyle, NSImage, NSImageScaling, NSImageView, NSLayoutAttribute,
-    NSLayoutConstraint, NSLayoutConstraintOrientation, NSLayoutPriorityDefaultLow,
-    NSProgressIndicator, NSProgressIndicatorStyle, NSSlider, NSSplitViewController,
-    NSSplitViewDividerStyle, NSSplitViewItem, NSStackView, NSStackViewDistribution, NSTextField,
-    NSTitlePosition, NSUserInterfaceLayoutOrientation, NSView, NSViewController,
+    NSBezelStyle, NSButton, NSColor, NSFont, NSGlassEffectView, NSGlassEffectViewStyle, NSImage,
+    NSLayoutAttribute, NSLayoutConstraint, NSLayoutConstraintOrientation,
+    NSLayoutPriorityDefaultLow, NSProgressIndicator, NSProgressIndicatorStyle, NSSlider,
+    NSSplitViewController, NSSplitViewDividerStyle, NSSplitViewItem, NSStackView,
+    NSStackViewDistribution, NSTextField, NSUserInterfaceLayoutOrientation, NSView,
+    NSViewController,
 };
 use objc2_foundation::{MainThreadMarker, NSEdgeInsets, NSPoint, NSRect, NSSize, NSString};
 
@@ -18,28 +18,23 @@ const SOLID_SELECTION_CORNER_RADIUS: f64 = 7.0;
 
 pub const WINDOW_SIZE: NSSize = NSSize::new(1280.0, 800.0);
 pub const MINIMUM_WINDOW_SIZE: NSSize = NSSize::new(960.0, 640.0);
-const INSPECTOR_MIN_WIDTH: f64 = 280.0;
-const PREVIEW_MIN_WIDTH: f64 = 480.0;
 const TOP_MIN_HEIGHT: f64 = 260.0;
 const TIMELINE_MIN_HEIGHT: f64 = 260.0;
-const INSPECTOR_FRACTION: f64 = 0.3;
 const TIMELINE_FRACTION: f64 = 0.4;
-pub const PADDING: f64 = 12.0;
 pub const GAP: f64 = 6.0;
 pub const TOOLBAR_WIDTH: f64 = 44.0;
 pub const BUTTON_SIZE: f64 = 28.0;
-const SYMBOL_SIZE: f64 = 32.0;
-const HEADING_FONT_SIZE: f64 = 13.0;
 const PLAYBAR_HEIGHT: f64 = 44.0;
 
 pub struct Layout {
     pub root: Retained<NSSplitViewController>,
+    pub inspector_controller: shrimply_inspector_appkit::Inspector,
     pub canvases: Vec<Retained<canvas::CanvasView>>,
     pub progress: Retained<NSSlider>,
     pub time: Retained<NSTextField>,
     pub speed: Retained<NSTextField>,
     pub play: Retained<NSButton>,
-    pub inspector: Retained<NSSplitViewItem>,
+    pub inspector: super::inspector_split::InspectorSplit,
     pub timeline: Retained<NSSplitViewItem>,
     pub preview_layout: Retained<NSStackView>,
     pub viewer: Retained<NSStackView>,
@@ -149,56 +144,6 @@ pub fn stack(vertical: bool, mtm: MainThreadMarker) -> Retained<NSStackView> {
     view
 }
 
-pub fn surface(mtm: MainThreadMarker) -> Retained<NSBox> {
-    let panel = NSBox::initWithFrame(NSBox::alloc(mtm), NSRect::ZERO);
-    panel.setBoxType(NSBoxType::Custom);
-    panel.setTitlePosition(NSTitlePosition::NoTitle);
-    panel.setBorderWidth(0.0);
-    panel.setContentViewMargins(NSSize::ZERO);
-    panel.setFillColor(&NSColor::controlBackgroundColor());
-    panel
-}
-
-pub fn placeholder(title: &str, icon: &str, mtm: MainThreadMarker) -> Retained<NSBox> {
-    let panel = surface(mtm);
-    let content = panel.contentView().expect("panel must have a content view");
-    let image = NSImageView::imageViewWithImage(&symbol(icon, title), mtm);
-    image.setImageScaling(NSImageScaling::ScaleProportionallyUpOrDown);
-    image.setContentTintColor(Some(&NSColor::tertiaryLabelColor()));
-    image.setTranslatesAutoresizingMaskIntoConstraints(false);
-    content.addSubview(&image);
-    image
-        .widthAnchor()
-        .constraintEqualToConstant(SYMBOL_SIZE)
-        .setActive(true);
-    image
-        .heightAnchor()
-        .constraintEqualToConstant(SYMBOL_SIZE)
-        .setActive(true);
-    image
-        .centerXAnchor()
-        .constraintEqualToAnchor(&content.centerXAnchor())
-        .setActive(true);
-    image
-        .centerYAnchor()
-        .constraintEqualToAnchor_constant(&content.centerYAnchor(), -PADDING)
-        .setActive(true);
-    let label = NSTextField::labelWithString(&NSString::from_str(title), mtm);
-    label.setFont(Some(&NSFont::systemFontOfSize(HEADING_FONT_SIZE)));
-    label.setTextColor(Some(&NSColor::secondaryLabelColor()));
-    label.setTranslatesAutoresizingMaskIntoConstraints(false);
-    content.addSubview(&label);
-    label
-        .centerXAnchor()
-        .constraintEqualToAnchor(&content.centerXAnchor())
-        .setActive(true);
-    label
-        .topAnchor()
-        .constraintEqualToAnchor_constant(&image.bottomAnchor(), GAP)
-        .setActive(true);
-    panel
-}
-
 pub fn split_item(view: &NSView, mtm: MainThreadMarker) -> Retained<NSSplitViewItem> {
     let controller = NSViewController::new(mtm);
     controller.setView(view);
@@ -207,14 +152,15 @@ pub fn split_item(view: &NSView, mtm: MainThreadMarker) -> Retained<NSSplitViewI
 
 pub fn build(editor: &Editor) -> Layout {
     let mtm = editor.mtm();
-    let inspector_content = placeholder("Inspector", "slider.horizontal.3", mtm);
-    let glass = NSGlassEffectView::initWithFrame(NSGlassEffectView::alloc(mtm), NSRect::ZERO);
-    glass.setStyle(NSGlassEffectViewStyle::Regular);
-    glass.setContentView(inspector_content.contentView().as_deref());
-    let inspector = split_item(&glass, mtm);
-    inspector.setMinimumThickness(INSPECTOR_MIN_WIDTH);
-    inspector.setPreferredThicknessFraction(INSPECTOR_FRACTION);
-    inspector.setCanCollapse(true);
+    let session = editor.ivars().session.get().expect("project loaded");
+    let inspector_controller = shrimply_inspector_appkit::Inspector::new(
+        session.project.clone(),
+        session.player_state.clone(),
+        session.selection_state.clone(),
+        session.property_clipboard.clone(),
+        session.preferences.clone(),
+        mtm,
+    );
 
     // GTK: preview tools on the left, playback strip directly below the viewer.
     let preview_tools = stack(true, mtm);
@@ -299,7 +245,6 @@ pub fn build(editor: &Editor) -> Layout {
     preview_tools.addArrangedSubview(&NSView::initWithFrame(NSView::alloc(mtm), NSRect::ZERO));
     let viewer = stack(false, mtm);
     viewer.addArrangedSubview(&preview_tools);
-    let session = editor.ivars().session.get().expect("project loaded");
     let preview_canvas = canvas::new(
         canvas::Content::Preview(Box::new(canvas::preview::State::new(
             guides.clone(),
@@ -521,16 +466,13 @@ pub fn build(editor: &Editor) -> Layout {
     preview_layout.setDistribution(NSStackViewDistribution::Fill);
     preview_layout.addArrangedSubview(&preview_host);
     preview_layout.addArrangedSubview(&playbar);
-    let preview = split_item(&preview_layout, mtm);
-    preview.setMinimumThickness(PREVIEW_MIN_WIDTH);
-
-    let top = NSSplitViewController::new(mtm);
-    top.splitView().setVertical(true);
-    top.splitView()
-        .setDividerStyle(NSSplitViewDividerStyle::Thin);
-    top.addSplitViewItem(&inspector);
-    top.addSplitViewItem(&preview);
-    let top = NSSplitViewItem::splitViewItemWithViewController(&top);
+    let inspector = super::inspector_split::InspectorSplit::new(
+        inspector_controller.view(),
+        &preview_layout,
+        WINDOW_SIZE,
+        mtm,
+    );
+    let top = split_item(inspector.view(), mtm);
     top.setMinimumThickness(TOP_MIN_HEIGHT);
     let (timeline_view, timeline_canvas, meter_canvas) =
         timeline::build(session.clone(), editor.ivars().imports.clone(), mtm);
@@ -562,6 +504,7 @@ pub fn build(editor: &Editor) -> Layout {
     ];
     Layout {
         root,
+        inspector_controller,
         canvases: vec![preview_canvas, timeline_canvas, meter_canvas],
         progress,
         time,

@@ -491,14 +491,6 @@ enum TtsMessage {
         server_url: String,
         result: Result<Vec<TtsModel>, String>,
     },
-    Progress {
-        audio_id: uuid::Uuid,
-        status: String,
-    },
-    Generated {
-        audio_id: uuid::Uuid,
-        result: Result<TtsGeneration, String>,
-    },
 }
 
 struct TtsModelResult {
@@ -511,8 +503,7 @@ struct TtsGenerationJob {
     audio_id: uuid::Uuid,
     target: InspectorTarget,
     model: TtsModel,
-    cancellation: shrimply_server_client::CancellationToken,
-    running: bool,
+    task: Option<shrimply_inspector_core::tts::GenerationTask>,
     status: String,
     error: Option<String>,
 }
@@ -572,7 +563,7 @@ struct TtsGenerationStatus {
 pub(crate) fn poll_tts_runtime() -> bool {
     TTS_RUNTIME.with_borrow_mut(|runtime| {
         let messages = runtime.receiver.try_iter().collect::<Vec<_>>();
-        let changed = !messages.is_empty();
+        let mut changed = !messages.is_empty();
         for message in messages {
             match message {
                 TtsMessage::Models { server_url, result } => {
@@ -595,18 +586,36 @@ pub(crate) fn poll_tts_runtime() -> bool {
                     }
                     runtime.view_revision = runtime.view_revision.wrapping_add(1);
                 }
-                TtsMessage::Progress { audio_id, status } => {
+            }
+        }
+        let events = runtime
+            .generations
+            .iter_mut()
+            .flat_map(|job| {
+                let mut events = Vec::new();
+                if let Some(task) = &mut job.task {
+                    while let Some(event) = task.poll() {
+                        events.push((job.audio_id, event));
+                    }
+                }
+                events
+            })
+            .collect::<Vec<_>>();
+        changed |= !events.is_empty();
+        for (audio_id, event) in events {
+            match event {
+                shrimply_inspector_core::tts::GenerationEvent::Progress(status) => {
                     if let Some(job) = runtime
                         .generations
                         .iter_mut()
-                        .find(|job| job.audio_id == audio_id && job.running)
+                        .find(|job| job.audio_id == audio_id)
                         && job.status != status
                     {
                         job.status = status;
                         runtime.status_revision = runtime.status_revision.wrapping_add(1);
                     }
                 }
-                TtsMessage::Generated { audio_id, result } => {
+                shrimply_inspector_core::tts::GenerationEvent::Done(result) => {
                     finish_generation(runtime, audio_id, result);
                     runtime.view_revision = runtime.view_revision.wrapping_add(1);
                     runtime.status_revision = runtime.status_revision.wrapping_add(1);
@@ -625,14 +634,18 @@ fn finish_generation(
     let Some(index) = runtime
         .generations
         .iter()
-        .position(|job| job.audio_id == audio_id && job.running)
+        .position(|job| job.audio_id == audio_id && job.task.is_some())
     else {
         if let Ok(generation) = result {
             let _ = std::fs::remove_file(generation.path);
         }
         return;
     };
-    let cancelled = runtime.generations[index].cancellation.is_cancelled();
+    let cancelled = runtime.generations[index]
+        .task
+        .as_ref()
+        .expect("active TTS generation")
+        .is_cancelled();
     let target = runtime.generations[index].target.clone();
     let model = runtime.generations[index].model.clone();
     let outcome = match result {
@@ -648,7 +661,7 @@ fn finish_generation(
         Err(error) => Err(error),
     };
     let job = &mut runtime.generations[index];
-    job.running = false;
+    job.task = None;
     match outcome {
         Ok(status) => {
             job.status = status;
@@ -721,7 +734,7 @@ fn generation_status(audio_id: uuid::Uuid) -> Option<TtsGenerationStatus> {
             .iter()
             .find(|job| job.audio_id == audio_id)
             .map(|job| TtsGenerationStatus {
-                running: job.running,
+                running: job.task.is_some(),
                 status: job.status.clone(),
                 error: job.error.clone(),
             })
@@ -736,7 +749,7 @@ fn build_tts_view(audio_id: uuid::Uuid) -> Result<TtsEditorView, String> {
     TTS_RUNTIME.with_borrow_mut(|runtime| {
         runtime
             .generations
-            .retain(|job| job.running || job.audio_id == audio_id);
+            .retain(|job| job.task.is_some() || job.audio_id == audio_id);
     });
     let snapshot = super::CONTROLLER.with_borrow(|controller| {
         controller
@@ -808,12 +821,11 @@ fn start_generation(view: &TtsEditorView) -> Result<(), String> {
         .model
         .clone()
         .ok_or_else(|| "Select a text-to-speech model".to_string())?;
-    let cancellation = shrimply_server_client::CancellationToken::new(&view.server_url)?;
     TTS_RUNTIME.with_borrow_mut(|runtime| {
         if runtime
             .generations
             .iter()
-            .any(|job| job.audio_id == view.audio_id && job.running)
+            .any(|job| job.audio_id == view.audio_id && job.task.is_some())
         {
             return Err("Text-to-speech generation is already running".to_string());
         }
@@ -821,8 +833,11 @@ fn start_generation(view: &TtsEditorView) -> Result<(), String> {
             audio_id: view.audio_id,
             target: view.target.clone(),
             model: model.clone(),
-            cancellation: cancellation.clone(),
-            running: true,
+            task: Some(shrimply_inspector_core::tts::GenerationTask::start(
+                &view.server_url,
+                model.clone(),
+                view.settings.clone(),
+            )?),
             status: "Sending request…".to_string(),
             error: None,
         };
@@ -836,27 +851,6 @@ fn start_generation(view: &TtsEditorView) -> Result<(), String> {
             runtime.generations.push(job);
         }
         runtime.status_revision = runtime.status_revision.wrapping_add(1);
-        let sender = runtime.sender.clone();
-        let server_url = view.server_url.clone();
-        let settings = view.settings.clone();
-        let audio_id = view.audio_id;
-        thread::spawn(move || {
-            let progress_sender = sender.clone();
-            let result = shrimply_inspector_core::tts::generate(
-                &server_url,
-                &cancellation,
-                &model,
-                &settings,
-                |status| {
-                    let _ = progress_sender.send(TtsMessage::Progress {
-                        audio_id,
-                        status: status.to_string(),
-                    });
-                    !cancellation.is_cancelled()
-                },
-            );
-            let _ = sender.send(TtsMessage::Generated { audio_id, result });
-        });
         Ok(())
     })
 }
@@ -866,9 +860,9 @@ fn cancel_generation(audio_id: uuid::Uuid) -> Result<(), String> {
         let job = runtime
             .generations
             .iter_mut()
-            .find(|job| job.audio_id == audio_id && job.running)
+            .find(|job| job.audio_id == audio_id && job.task.is_some())
             .ok_or_else(|| "Text-to-speech generation is not running".to_string())?;
-        job.cancellation.cancel();
+        job.task.as_ref().expect("active TTS generation").cancel();
         job.status = "Cancelling…".to_string();
         runtime.status_revision = runtime.status_revision.wrapping_add(1);
         Ok(())

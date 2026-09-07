@@ -6,6 +6,40 @@ pub struct StringChoice {
     pub label: String,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SearchChoices {
+    pub choices: Vec<StringChoice>,
+    keywords: Vec<String>,
+}
+
+impl From<Vec<StringChoice>> for SearchChoices {
+    fn from(choices: Vec<StringChoice>) -> Self {
+        Self {
+            choices,
+            keywords: Vec::new(),
+        }
+    }
+}
+
+impl SearchChoices {
+    pub fn with_keywords(mut self, keywords: Vec<String>) -> Self {
+        assert!(
+            keywords.is_empty() || keywords.len() == self.choices.len(),
+            "search keywords must correspond to choices"
+        );
+        self.keywords = keywords;
+        self
+    }
+
+    pub fn matching_indices(&self, query: &str) -> Vec<usize> {
+        ranked_indices(
+            self.choices.iter().map(|choice| choice.label.as_str()),
+            &self.keywords,
+            query,
+        )
+    }
+}
+
 pub fn identity_choices(options: Vec<String>) -> Vec<StringChoice> {
     options
         .into_iter()
@@ -54,8 +88,15 @@ pub fn ranked_matching_indices(
     keyword_groups: &[String],
     query: &str,
 ) -> Vec<usize> {
+    ranked_indices(labels.iter().map(String::as_str), keyword_groups, query)
+}
+
+fn ranked_indices<'a>(
+    labels: impl Iterator<Item = &'a str>,
+    keyword_groups: &[String],
+    query: &str,
+) -> Vec<usize> {
     let mut matches = labels
-        .iter()
         .enumerate()
         .filter_map(|(index, label)| {
             let keywords = keyword_groups.get(index).map_or("", String::as_str);

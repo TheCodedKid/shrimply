@@ -14,6 +14,20 @@ pub(super) struct PreparedVector {
     morph_scene: Option<shrimply_video_core::vector_morph::MorphScene>,
 }
 
+pub(super) struct VectorRequest<'a> {
+    pub project: &'a Project,
+    pub address: &'a ItemAddress,
+    pub item: &'a VideoItem,
+    pub position: Time,
+    pub scope_positions: &'a [Time],
+    pub require_complete_assets: bool,
+    pub evaluation: VisualEvaluation,
+    pub native: CanvasSize,
+    pub transform: ComposedTransform2D,
+    pub transition: Option<shrimply_video_core::generated::GeneratedTransition>,
+    pub svg: Option<media::SvgFrame>,
+}
+
 impl PreparedVector {
     pub fn morph_scene(
         &self,
@@ -68,19 +82,20 @@ impl GeneratedVisual for TextSource {
 }
 
 impl Scene {
-    pub(super) fn vector(
-        &mut self,
-        project: &Project,
-        address: &ItemAddress,
-        item: &VideoItem,
-        position: Time,
-        scope_positions: &[Time],
-        evaluation: VisualEvaluation,
-        native: CanvasSize,
-        transform: ComposedTransform2D,
-        transition: Option<shrimply_video_core::generated::GeneratedTransition>,
-        svg: Option<media::SvgFrame>,
-    ) -> Result<PreparedVector, String> {
+    pub(super) fn vector(&mut self, request: VectorRequest<'_>) -> Result<PreparedVector, String> {
+        let VectorRequest {
+            project,
+            address,
+            item,
+            position,
+            scope_positions,
+            require_complete_assets,
+            evaluation,
+            native,
+            transform,
+            transition,
+            svg,
+        } = request;
         let render_size = shrimply_video_core::generated::render_canvas(
             item,
             native,
@@ -134,7 +149,7 @@ impl Scene {
                         position,
                         scope_positions,
                         modifier_index,
-                        require_complete_assets: false,
+                        require_complete_assets,
                     },
                     &evaluation,
                     &mut self.expressions,

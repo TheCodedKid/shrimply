@@ -14,6 +14,7 @@ pub enum ControlKind {
     LayeredText,
     LayeredDrawing,
     FontFamilies,
+    VoiceModel,
     Selector,
     OptionalSelector,
     OptionalNumberSelector,
@@ -50,6 +51,14 @@ impl ControlKind {
             _ => crate::timeline_value::SCALAR_EXPRESSION_DEFAULT,
         }
     }
+}
+
+/// Storage type is independent of whether the editor displays whole numbers.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum ScalarStorage {
+    #[default]
+    Float,
+    UnsignedInteger,
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -277,7 +286,10 @@ pub struct InspectorControl {
     pub label: String,
     pub subtitle: String,
     pub tooltip: String,
+    /// Scalar numeric values are in display units, like NumberSpec and scalar_graph.
+    /// Convert user edits back to storage with store_number.
     pub value: String,
+    pub image_bytes: Option<std::sync::Arc<[u8]>>,
     pub components: Vec<String>,
     pub kind: ControlKind,
     pub editable: bool,
@@ -287,6 +299,7 @@ pub struct InspectorControl {
     pub number_constraint: NumberConstraint,
     pub accepted_range: Option<(f64, f64)>,
     pub integer: bool,
+    pub scalar_storage: ScalarStorage,
     pub width_characters: i32,
     pub prefixes: Vec<String>,
     pub suffix: String,
@@ -313,6 +326,7 @@ pub struct InspectorControl {
     pub timeline_id: Option<uuid::Uuid>,
     pub scalar_graph: Option<ScalarGraph>,
     pub analysis: Option<AnalysisControlPresentation>,
+    pub tts: Option<Box<crate::tts::EditorPresentation>>,
     pub action: Option<InspectorControlAction>,
     pub action_sensitive: bool,
     pub secondary_action: Option<InspectorControlAction>,
@@ -334,6 +348,7 @@ impl InspectorControl {
             subtitle: String::new(),
             tooltip: String::new(),
             value: String::new(),
+            image_bytes: None,
             components: Vec::new(),
             kind,
             editable: true,
@@ -343,6 +358,7 @@ impl InspectorControl {
             number_constraint: NumberConstraint::default(),
             accepted_range: None,
             integer: false,
+            scalar_storage: ScalarStorage::Float,
             width_characters: 8,
             prefixes: Vec::new(),
             suffix: String::new(),
@@ -369,6 +385,7 @@ impl InspectorControl {
             timeline_id: None,
             scalar_graph: None,
             analysis: None,
+            tts: None,
             action: None,
             action_sensitive: true,
             secondary_action: None,
@@ -524,7 +541,14 @@ impl InspectorControl {
 
     pub fn integer(mut self) -> Self {
         self.integer = true;
+        self.number_constraint.integer = true;
         self
+    }
+
+    pub fn unsigned_integer_timeline(mut self) -> Self {
+        self.integer = true;
+        self.scalar_storage = ScalarStorage::UnsignedInteger;
+        self.integer()
     }
 
     pub fn width_characters(mut self, width: i32) -> Self {
@@ -609,6 +633,33 @@ impl InspectorControl {
 
     pub fn number_mapping(mut self, mapping: NumberMapping) -> Self {
         self.number_mapping = mapping;
+        self
+    }
+
+    /// Scale a scalar presentation built in stored units, including its graph.
+    /// NumberSpec already describes the desired display units.
+    pub fn scale_number_display(mut self, multiplier: f64) -> Self {
+        assert!(multiplier.is_finite() && multiplier > 0.0);
+        assert!(matches!(
+            self.kind,
+            ControlKind::Number | ControlKind::LayeredNumber
+        ));
+        assert_eq!(self.number_mapping, NumberMapping::Linear);
+        let value: f64 = self
+            .value
+            .parse()
+            .expect("numeric presentation must contain a number");
+        self.value = (value * multiplier).to_string();
+        self.store_multiplier /= multiplier;
+        if let Some(graph) = &mut self.scalar_graph {
+            for point in &mut graph.points {
+                point.value *= multiplier;
+            }
+            for segment in &mut graph.segments {
+                segment.start_value *= multiplier;
+                segment.end_value *= multiplier;
+            }
+        }
         self
     }
 

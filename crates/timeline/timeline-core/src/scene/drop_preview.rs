@@ -81,9 +81,9 @@ impl Scene {
         let project = self.project.borrow();
         let rows = items::track_rows(&project);
         let y = f64::from(point.y).max(RULER_HEIGHT) + self.view.scroll_y;
-        !crate::math::track_row_at_y(y)
+        crate::math::track_row_at_y(y)
             .and_then(|index| rows.get(index))
-            .is_some_and(|row| row.root_key.is_none())
+            .is_none_or(|row| row.root_key.is_some())
     }
 
     pub(crate) fn drop_surface_target(&self, point: Vec2) -> bool {

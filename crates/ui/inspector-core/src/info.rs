@@ -5,6 +5,8 @@ use shrimply_project::project::{AudioSource, ItemRef, Project, VideoItemContent}
 
 use crate::InspectorTarget;
 
+pub mod metadata;
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MediaInfoPresentation {
     pub artwork: Option<MediaInfoArtwork>,

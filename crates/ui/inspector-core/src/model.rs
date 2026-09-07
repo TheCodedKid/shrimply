@@ -145,23 +145,77 @@ pub struct AudioModifierKeyframeMove {
     pub store_multiplier: f64,
 }
 
+pub type CameraAnalysis = fn(Project, ItemAddress, shrimply_3dgs::TrackingCameraSource, String);
+pub type TransparentFillAnalysis =
+    fn(
+        Project,
+        &ItemAddress,
+        uuid::Uuid,
+    ) -> Result<shrimply_video_core::transparent_fill::analysis::RunId, String>;
+pub type VisualCacheBake = fn(Project, ItemAddress, uuid::Uuid) -> Result<(), String>;
+
+#[derive(Clone, Copy)]
+#[cfg_attr(not(feature = "cuda-backend"), derive(Default))]
+pub struct InspectorAnalysisBackend {
+    pub(crate) camera: Option<CameraAnalysis>,
+    pub(crate) transparent_fill: Option<TransparentFillAnalysis>,
+    pub(crate) visual_cache: Option<VisualCacheBake>,
+}
+
+#[cfg(feature = "cuda-backend")]
+impl Default for InspectorAnalysisBackend {
+    fn default() -> Self {
+        Self {
+            camera: Some(shrimply_video_cuda::camera_reconstruction::analyze),
+            transparent_fill: Some(shrimply_video_cuda::transparent_fill_analysis::analyze),
+            visual_cache: Some(shrimply_video_cuda::modifier_cache::bake),
+        }
+    }
+}
+
+impl InspectorAnalysisBackend {
+    pub fn camera(mut self, analyze: CameraAnalysis) -> Self {
+        self.camera = Some(analyze);
+        self
+    }
+
+    pub fn transparent_fill(mut self, analyze: TransparentFillAnalysis) -> Self {
+        self.transparent_fill = Some(analyze);
+        self
+    }
+
+    pub fn visual_cache(mut self, bake: VisualCacheBake) -> Self {
+        self.visual_cache = Some(bake);
+        self
+    }
+}
+
 #[derive(Clone)]
 pub struct InspectorController {
     pub(crate) project: Rc<RefCell<Project>>,
     pub(crate) player_state: SharedPlayerState,
     selection_state: SharedSelectionState,
     default_text_font: Option<shrimply_core::FontFamily>,
+    pub(crate) property_clipboard: shrimply_property_transfer::SharedClipboard,
     pub(crate) keyframe_clipboard: Rc<crate::keyframe_model::KeyframeClipboardCache>,
     pub(crate) expression_cache: Rc<RefCell<shrimply_evaluation::TransformExpressionCache>>,
     pub(crate) audio_sampler: Rc<RefCell<shrimply_audio::streaming::FrameAudioSampler>>,
     pub(crate) analysis_transitions: Rc<RefCell<HashMap<AnalysisTransitionKey, u64>>>,
     pub(crate) transparent_fill_statuses:
         Rc<RefCell<HashMap<AnalysisTransitionKey, CachedTransparentFillStatus>>>,
+    pub(crate) visual_cache_transitions: Rc<RefCell<crate::visual_modifiers::ActiveVisualCaches>>,
+    pub(crate) analysis_backend: InspectorAnalysisBackend,
+    pub(crate) camera_analysis_transitions: Rc<RefCell<std::collections::HashSet<ItemAddress>>>,
+    pub(crate) sam2_analysis_transitions: Rc<RefCell<crate::visual_modifiers::ActiveSam2Analyses>>,
+    pub(crate) camera_models: Rc<RefCell<crate::model_catalog::ModelCatalog>>,
+    pub(crate) voice_models: Rc<RefCell<crate::voice_models::VoiceModels>>,
+    pub(crate) tts_runtime: Rc<RefCell<crate::tts::editor::Runtime>>,
+    pub(crate) media_metadata: Rc<RefCell<crate::info::metadata::Metadata>>,
 }
 
 pub(crate) struct CachedTransparentFillStatus {
     pub(crate) revision: u64,
-    pub(crate) prepared: shrimply_video_cuda::transparent_fill_analysis::PreparedStatus,
+    pub(crate) prepared: shrimply_video_core::transparent_fill::analysis::PreparedStatus,
 }
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
@@ -181,6 +235,7 @@ impl InspectorController {
             player_state,
             selection_state,
             default_text_font: None,
+            property_clipboard: shrimply_property_transfer::new_clipboard(),
             keyframe_clipboard: Rc::new(crate::keyframe_model::KeyframeClipboardCache::new()),
             expression_cache: Rc::new(RefCell::new(Default::default())),
             audio_sampler: Rc::new(RefCell::new(
@@ -190,11 +245,32 @@ impl InspectorController {
             )),
             analysis_transitions: Rc::new(RefCell::new(HashMap::new())),
             transparent_fill_statuses: Rc::new(RefCell::new(HashMap::new())),
+            visual_cache_transitions: Rc::new(RefCell::new(Default::default())),
+            analysis_backend: InspectorAnalysisBackend::default(),
+            camera_analysis_transitions: Rc::new(RefCell::new(Default::default())),
+            sam2_analysis_transitions: Rc::new(RefCell::new(Default::default())),
+            camera_models: Rc::new(RefCell::new(Default::default())),
+            voice_models: Rc::new(RefCell::new(Default::default())),
+            tts_runtime: Rc::new(RefCell::new(Default::default())),
+            media_metadata: Rc::new(RefCell::new(Default::default())),
         }
+    }
+
+    pub fn with_property_clipboard(
+        mut self,
+        clipboard: shrimply_property_transfer::SharedClipboard,
+    ) -> Self {
+        self.property_clipboard = clipboard;
+        self
     }
 
     pub fn with_default_text_font(mut self, font: shrimply_core::FontFamily) -> Self {
         self.default_text_font = Some(font);
+        self
+    }
+
+    pub fn with_analysis_backend(mut self, backend: InspectorAnalysisBackend) -> Self {
+        self.analysis_backend = backend;
         self
     }
 

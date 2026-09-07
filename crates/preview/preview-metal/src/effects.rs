@@ -159,22 +159,37 @@ pub(super) fn apply_motion_blur(
     Ok((motion.baked, buffer))
 }
 
+pub(super) struct ExternalMasks<'a> {
+    pub frames: &'a [(
+        shrimply_video_core::raster_modifiers::ExternalDependency,
+        Buffer,
+    )],
+    pub size: (u32, u32),
+    pub output_transform: shrimply_render_core::math::Mat3,
+}
+
+pub(super) struct ModifierRequest<'a> {
+    pub operations: &'a [shrimply_video_core::raster_modifiers::Modifier],
+    pub size: (u32, u32),
+    pub external_masks: ExternalMasks<'a>,
+    pub sam2_target: Option<&'a shrimply_video_core::sam2::analysis::AnalysisTarget>,
+    pub sam2_proxy: &'a mut Option<Buffer>,
+}
+
 pub(super) fn apply_modifiers(
     renderer: &mut Renderer,
     mut input: Buffer,
     mut state: SpatialState,
-    operations: &[shrimply_video_core::raster_modifiers::Modifier],
-    size: (u32, u32),
-    external_masks: &[(
-        shrimply_video_core::raster_modifiers::ExternalDependency,
-        Buffer,
-    )],
-    external_mask_size: (u32, u32),
-    external_mask_transform: shrimply_render_core::math::Mat3,
+    request: ModifierRequest<'_>,
     submissions: &mut Vec<Submission>,
-    sam2_target: Option<&shrimply_video_core::sam2::analysis::AnalysisTarget>,
-    sam2_proxy: &mut Option<Buffer>,
 ) -> Result<(SpatialState, Buffer), String> {
+    let ModifierRequest {
+        operations,
+        size,
+        external_masks,
+        sam2_target,
+        sam2_proxy,
+    } = request;
     use shrimply_video_core::raster_modifiers::Operation;
     for modifier in operations {
         let original = modifier
@@ -234,9 +249,7 @@ pub(super) fn apply_modifiers(
                         input,
                         state,
                         effect,
-                        external_masks,
-                        external_mask_size,
-                        external_mask_transform,
+                        &external_masks,
                         submissions,
                     )?;
                 }
@@ -271,12 +284,7 @@ fn apply_external_mask(
     input: Buffer,
     state: SpatialState,
     effect: &shrimply_video_core::raster_modifiers::ExternalMask,
-    external_masks: &[(
-        shrimply_video_core::raster_modifiers::ExternalDependency,
-        Buffer,
-    )],
-    mask_size: (u32, u32),
-    output_transform: shrimply_render_core::math::Mat3,
+    masks: &ExternalMasks<'_>,
     submissions: &mut Vec<Submission>,
 ) -> Result<(SpatialState, Buffer), String> {
     let width = state.parameters.source_width;
@@ -290,7 +298,8 @@ fn apply_external_mask(
             .ok_or("Mask output size overflow")?,
     )?;
     let mask = effect.source.as_ref().and_then(|source| {
-        external_masks
+        masks
+            .frames
             .iter()
             .find(|(dependency, _)| dependency == source)
             .map(|(_, buffer)| buffer)
@@ -303,9 +312,9 @@ fn apply_external_mask(
             &mask.map_or(0, Buffer::address).to_ne_bytes(),
         )?
         .set("params.input_width", &width.to_ne_bytes())?
-        .set("params.mask_width", &mask_size.0.to_ne_bytes())?
-        .set("params.mask_height", &mask_size.1.to_ne_bytes())?
-        .set_matrix3("params.transform", output_transform * state.transform)?
+        .set("params.mask_width", &masks.size.0.to_ne_bytes())?
+        .set("params.mask_height", &masks.size.1.to_ne_bytes())?
+        .set_matrix3("params.transform", masks.output_transform * state.transform)?
         .set("params.luminance", &[u8::from(effect.luminance)])?
         .set("params.invert", &[u8::from(effect.invert)])?
         .set("output", &output.address().to_ne_bytes())?

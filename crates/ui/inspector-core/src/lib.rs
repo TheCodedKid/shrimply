@@ -6,6 +6,8 @@ pub mod background;
 pub mod benchmarking;
 pub mod camera_source;
 pub mod caption;
+pub mod document;
+pub mod file_selection;
 pub mod font_cache;
 pub mod font_selector;
 pub mod gaussian_3d;
@@ -19,6 +21,7 @@ pub mod list;
 #[path = "video/manim_parameters.rs"]
 pub mod manim_parameters;
 mod model;
+mod model_catalog;
 pub mod paint;
 pub mod project;
 mod refresh;
@@ -51,28 +54,36 @@ pub use audio_modifiers::{
     voice_change_models,
 };
 pub use camera_source::CameraSourcePresentation;
+pub use document::{
+    BasicInspectorAction, InspectorCategory, InspectorDocument, InspectorItem, InspectorListItem,
+};
 pub use info::InspectorMedia;
 pub use keyframe_graph::{GraphPoint, GraphSegment, InspectorGraphKind, ScalarGraph};
 pub use layered::LayeredState;
 pub use model::{
     AudioCacheStatus, AudioModifierChoice, AudioModifierKeyframeMove, CacheControlPresentation,
-    CacheStatus, INSPECTOR_MIN_WIDTH, InspectorCapabilities, InspectorCommit, InspectorController,
-    InspectorDetail, InspectorExpressionOutput, InspectorRuntime, InspectorSnapshot,
-    TimelineModeChange, VisualCacheStatus, cache_control_presentation,
+    CacheStatus, CameraAnalysis, INSPECTOR_MIN_WIDTH, InspectorAnalysisBackend,
+    InspectorCapabilities, InspectorCommit, InspectorController, InspectorDetail,
+    InspectorExpressionOutput, InspectorRuntime, InspectorSnapshot, TimelineModeChange,
+    TransparentFillAnalysis, VisualCacheBake, VisualCacheStatus, cache_control_presentation,
 };
 pub use project::ProjectPresentation;
 pub use section::{
     AnalysisControlPresentation, AnalysisTooltip, ControlKind, ControlRowRole, InspectorControl,
     InspectorControlAction, InspectorSection, KeyframeCommits, NumberConstraint, NumberMapping,
-    NumberSpec, TextKeyframeCommits,
+    NumberSpec, ScalarStorage, TextKeyframeCommits,
 };
 pub use target::InspectorTarget;
 pub use track::TrackPresentation;
 pub use transition::{TransitionPresentation, TransitionType};
-pub use video::{VideoCard, VideoPresentation, VideoReset, VideoStreamPresentation};
+pub use video::{
+    VideoCard, VideoCardScope, VideoPresentation, VideoReset, VideoStreamPresentation,
+};
 pub use visual_modifiers::{
     OpacityModifierPresentation, TransformModifierPresentation,
     VisualModifierAlphaMaskPresentation, VisualModifierBodyPresentation, VisualModifierChoice,
     VisualModifierPresentation, default_visual_modifier_effect, sam2_analysis_control,
     visual_cache_status, visual_modifier_catalog, visual_modifier_presentations,
 };
+
+pub mod voice_models;

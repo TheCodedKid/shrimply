@@ -591,10 +591,15 @@ pub fn voice_change_model_catalog(server_url: &str) -> Result<Vec<String>, Strin
     Ok(models)
 }
 
-pub fn cached_voice_change_models(server_url: &str, current: &str) -> Option<Vec<String>> {
+pub(crate) fn cached_voice_change_model_catalog(server_url: &str) -> Option<Vec<String>> {
     let cache = VOICE_MODELS.get_or_init(Mutex::default).try_lock().ok()?;
     let (_, models) = cache.iter().find(|(url, _)| url == server_url)?;
-    Some(voice_models_with_current(models.clone(), current))
+    Some(models.clone())
+}
+
+pub fn cached_voice_change_models(server_url: &str, current: &str) -> Option<Vec<String>> {
+    cached_voice_change_model_catalog(server_url)
+        .map(|models| voice_models_with_current(models, current))
 }
 
 pub fn voice_change_models(server_url: &str, current: &str) -> Result<Vec<String>, String> {

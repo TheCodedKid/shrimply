@@ -1,5 +1,5 @@
 use crate::action;
-use objc2::rc::Retained;
+use objc2::rc::{Retained, Weak};
 use objc2::runtime::ProtocolObject;
 use objc2::{AnyThread, ClassType, DefinedClass, MainThreadOnly, define_class, msg_send, sel};
 use objc2_app_kit::NSAffineTransformNSAppKitAdditions;
@@ -26,8 +26,9 @@ use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 type NumberCallback = Rc<dyn Fn(Fraction)>;
+const NUMBER_MIN_WIDTH: f64 = 64.0;
 type PairCallback = Box<dyn Fn([f64; 2], usize)>;
-type ScalarCallback = Box<dyn Fn(f64)>;
+type TripleCallback = Box<dyn Fn([f64; 3], usize)>;
 
 struct RotatingImageViewIvars {
     angle_degrees: Cell<f64>,
@@ -68,6 +69,7 @@ impl RotatingImageView {
 }
 
 struct NumberPickerIvars {
+    enabled: bool,
     config: NumberConfig,
     value: Cell<Fraction>,
     display: Retained<NSView>,
@@ -133,6 +135,7 @@ define_class!(
 
         #[unsafe(method(mouseDown:))]
         fn mouse_down(&self, event: &NSEvent) {
+            if !self.ivars().enabled { return; }
             self.ivars().drag.set(NumberDrag::begin(self.ivars().value.get()));
             let origin_x = event.locationInWindow().x;
             let window = self
@@ -190,7 +193,7 @@ define_class!(
 
         #[unsafe(method(mouseEntered:))]
         fn mouse_entered(&self, _event: &NSEvent) {
-            if !self.ivars().editing.get() && !self.ivars().pointer_locked.get() {
+            if self.ivars().enabled && !self.ivars().editing.get() && !self.ivars().pointer_locked.get() {
                 NSCursor::columnResizeCursor().set();
             }
         }
@@ -325,7 +328,7 @@ impl NumberPickerView {
     }
 
     fn begin_edit(&self) {
-        if self.ivars().editing.get() {
+        if !self.ivars().enabled || self.ivars().editing.get() {
             return;
         }
         self.ivars().editing.set(true);
@@ -419,6 +422,7 @@ impl NumberPicker {
 
     pub fn fraction_builder(value: Fraction) -> NumberPickerBuilder {
         NumberPickerBuilder {
+            enabled: true,
             value,
             minimum: fraction_from_integer(DEFAULT_MINIMUM),
             maximum: fraction_from_integer(DEFAULT_MAXIMUM),
@@ -435,6 +439,7 @@ impl NumberPicker {
 }
 
 pub struct NumberPickerBuilder {
+    enabled: bool,
     value: Fraction,
     minimum: Fraction,
     maximum: Fraction,
@@ -449,6 +454,11 @@ pub struct NumberPickerBuilder {
 }
 
 impl NumberPickerBuilder {
+    pub fn enabled(mut self, enabled: bool) -> Self {
+        self.enabled = enabled;
+        self
+    }
+
     pub fn accepted_range(mut self, minimum: f64, maximum: f64) -> Self {
         self.minimum = fraction_from_f64(minimum);
         self.maximum = fraction_from_f64(maximum);
@@ -531,6 +541,12 @@ impl NumberPickerBuilder {
         let background = NSTextField::labelWithString(&NSString::new(), mtm);
         background.setBordered(true);
         background.setBezeled(true);
+        // This empty field only paints the bezel; its intrinsic width must not
+        // constrain the numeric editor's width.
+        background.setContentHuggingPriority_forOrientation(
+            NSLayoutPriorityDefaultLow,
+            NSLayoutConstraintOrientation::Horizontal,
+        );
         let rotating_icon = RotatingImageView::alloc(mtm).set_ivars(RotatingImageViewIvars {
             angle_degrees: Cell::new(f64::NAN),
         });
@@ -622,9 +638,16 @@ impl NumberPickerBuilder {
         entry.setAlignment(NSTextAlignment::Right);
         entry.setEditable(true);
         entry.setSelectable(true);
-        entry.setEnabled(true);
+        entry.setEnabled(self.enabled);
+        if !self.enabled {
+            for label in [&prefix, &value_label, &suffix] {
+                label.setTextColor(Some(&NSColor::disabledControlTextColor()));
+            }
+            background.setEnabled(false);
+        }
         entry.setTranslatesAutoresizingMaskIntoConstraints(false);
         let view = NumberPickerView::alloc(mtm).set_ivars(NumberPickerIvars {
+            enabled: self.enabled,
             config,
             value: Cell::new(value),
             display: display.clone(),
@@ -670,7 +693,7 @@ impl NumberPickerBuilder {
             constraint.setActive(true);
         }
         view.widthAnchor()
-            .constraintGreaterThanOrEqualToConstant(100.0)
+            .constraintGreaterThanOrEqualToConstant(NUMBER_MIN_WIDTH)
             .setActive(true);
         view.setContentHuggingPriority_forOrientation(
             NSLayoutPriorityDefaultLow,
@@ -708,6 +731,20 @@ impl NumberPickerHandle {
     }
 }
 
+// Widget callbacks must not own the same views that own those callbacks.
+// Public handles remain strong; only the internal links between siblings are weak.
+fn load_number_handles<const N: usize>(
+    shared: &RefCell<Option<[Weak<NumberPickerView>; N]>>,
+) -> Option<[NumberPickerHandle; N]> {
+    let shared = shared.borrow();
+    let views = shared.as_ref()?;
+    let mut handles = Vec::with_capacity(N);
+    for view in views {
+        handles.push(NumberPickerHandle { view: view.load()? });
+    }
+    Some(handles.try_into().ok().expect("number handle count"))
+}
+
 pub struct Number2Picker;
 
 impl Number2Picker {
@@ -718,6 +755,7 @@ impl Number2Picker {
             initial: [fraction_from_f64(first), fraction_from_f64(second)],
             lock: false,
             on_change: None,
+            on_commit: None,
         }
     }
 }
@@ -728,9 +766,16 @@ pub struct Number2PickerBuilder {
     initial: [Fraction; 2],
     lock: bool,
     on_change: Option<PairCallback>,
+    on_commit: Option<Box<dyn Fn()>>,
 }
 
 impl Number2PickerBuilder {
+    pub fn enabled(mut self, enabled: bool) -> Self {
+        self.first = self.first.enabled(enabled);
+        self.second = self.second.enabled(enabled);
+        self
+    }
+
     pub fn minimum(mut self, value: f64) -> Self {
         self.first = self.first.minimum(value);
         self.second = self.second.minimum(value);
@@ -739,6 +784,11 @@ impl Number2PickerBuilder {
     pub fn maximum(mut self, value: f64) -> Self {
         self.first = self.first.maximum(value);
         self.second = self.second.maximum(value);
+        self
+    }
+    pub fn drag_step(mut self, value: f64) -> Self {
+        self.first = self.first.drag_step(value);
+        self.second = self.second.drag_step(value);
         self
     }
     pub fn digits(mut self, value: usize) -> Self {
@@ -768,14 +818,23 @@ impl Number2PickerBuilder {
         self.on_change = Some(Box::new(callback));
         self
     }
+    pub fn on_commit(mut self, callback: impl Fn() + 'static) -> Self {
+        self.on_commit = Some(Box::new(callback));
+        self
+    }
 
     pub fn build_with_handles(self, mtm: MainThreadMarker) -> Number2PickerParts {
-        let handles = Rc::new(RefCell::new(None::<[NumberPickerHandle; 2]>));
+        let enabled = self.first.enabled && self.second.enabled;
+        let handles = Rc::new(RefCell::new(None::<[Weak<NumberPickerView>; 2]>));
         let locked = Rc::new(Cell::new(self.lock));
         let ratio = Rc::new(Cell::new(pair_ratio(self.initial[0], self.initial[1])));
         let callback: Rc<dyn Fn([f64; 2], usize)> = match self.on_change {
             Some(callback) => Rc::from(callback),
             None => Rc::new(|_, _| {}),
+        };
+        let commit: Rc<dyn Fn()> = match self.on_commit {
+            Some(commit) => Rc::from(commit),
+            None => Rc::new(|| {}),
         };
         let first = self
             .first
@@ -785,19 +844,22 @@ impl Number2PickerBuilder {
                 let ratio = ratio.clone();
                 let callback = callback.clone();
                 move |value| {
-                    if let Some(handles) = handles.borrow().as_ref() {
+                    if let Some(handles) = load_number_handles(&handles) {
                         if locked.get() {
                             handles[1]
                                 .set_f64(fraction_as_f64(locked_pair(0, value, ratio.get())[1]));
                         }
-                        callback(
-                            handles
-                                .clone()
-                                .map(|handle| fraction_as_f64(handle.value())),
-                            0,
-                        );
+                        let mut values = handles
+                            .clone()
+                            .map(|handle| fraction_as_f64(handle.value()));
+                        values[0] = fraction_as_f64(value);
+                        callback(values, 0);
                     }
                 }
+            })
+            .on_commit_fraction({
+                let commit = commit.clone();
+                move |_| commit()
             })
             .build_with_handle(mtm);
         let second = self
@@ -808,27 +870,32 @@ impl Number2PickerBuilder {
                 let ratio = ratio.clone();
                 let callback = callback.clone();
                 move |value| {
-                    if let Some(handles) = handles.borrow().as_ref() {
+                    if let Some(handles) = load_number_handles(&handles) {
                         if locked.get() {
                             handles[0]
                                 .set_f64(fraction_as_f64(locked_pair(1, value, ratio.get())[0]));
                         }
-                        callback(
-                            handles
-                                .clone()
-                                .map(|handle| fraction_as_f64(handle.value())),
-                            1,
-                        );
+                        let mut values = handles
+                            .clone()
+                            .map(|handle| fraction_as_f64(handle.value()));
+                        values[1] = fraction_as_f64(value);
+                        callback(values, 1);
                     }
                 }
             })
+            .on_commit_fraction(move |_| commit())
             .build_with_handle(mtm);
         let pair_handles = [first.handle.clone(), second.handle.clone()];
-        handles.replace(Some(pair_handles.clone()));
+        handles.replace(Some(
+            pair_handles
+                .each_ref()
+                .map(|handle| Weak::new(&*handle.view)),
+        ));
         let lock = if self.lock {
             let button = unsafe {
                 NSButton::buttonWithImage_target_action(&lock_symbol(true), None, None, mtm)
             };
+            button.setEnabled(enabled);
             button.setButtonType(NSButtonType::PushOnPushOff);
             button.setBordered(false);
             button.setState(NSControlStateValueOn);
@@ -847,7 +914,7 @@ impl Number2PickerBuilder {
                     } else {
                         "Lock ratio"
                     })));
-                    if active && let Some(handles) = handles.borrow().as_ref() {
+                    if active && let Some(handles) = load_number_handles(&handles) {
                         ratio.set(pair_ratio(handles[0].value(), handles[1].value()));
                     }
                 },
@@ -881,7 +948,8 @@ impl Number3Picker {
             initial: values.map(fraction_from_f64),
             prefixes: [String::new(), String::new(), String::new()],
             lock: false,
-            callbacks: [None, None, None],
+            on_change: None,
+            on_commit: None,
         }
     }
 }
@@ -891,10 +959,39 @@ pub struct Number3PickerBuilder {
     initial: [Fraction; 3],
     prefixes: [String; 3],
     lock: bool,
-    callbacks: [Option<ScalarCallback>; 3],
+    on_change: Option<TripleCallback>,
+    on_commit: Option<Box<dyn Fn()>>,
 }
 
 impl Number3PickerBuilder {
+    pub fn enabled(mut self, enabled: bool) -> Self {
+        self.builders = self.builders.map(|builder| builder.enabled(enabled));
+        self
+    }
+
+    pub fn minimum(mut self, value: f64) -> Self {
+        self.builders = self.builders.map(|builder| builder.minimum(value));
+        self
+    }
+    pub fn maximum(mut self, value: f64) -> Self {
+        self.builders = self.builders.map(|builder| builder.maximum(value));
+        self
+    }
+    pub fn drag_step(mut self, value: f64) -> Self {
+        self.builders = self.builders.map(|builder| builder.drag_step(value));
+        self
+    }
+    pub fn digits(mut self, value: usize) -> Self {
+        self.builders = self.builders.map(|builder| builder.digits(value));
+        self
+    }
+    pub fn unit_name(mut self, value: impl Into<String>) -> Self {
+        let value = value.into();
+        self.builders = self
+            .builders
+            .map(|builder| builder.unit_name(value.clone()));
+        self
+    }
     pub fn prefixes(mut self, values: [&str; 3]) -> Self {
         self.prefixes = values.map(str::to_string);
         self
@@ -903,31 +1000,38 @@ impl Number3PickerBuilder {
         self.lock = true;
         self
     }
-    pub fn on_change(mut self, component: usize, callback: impl Fn(f64) + 'static) -> Self {
-        *self
-            .callbacks
-            .get_mut(component)
-            .expect("number3 component") = Some(Box::new(callback));
+    pub fn on_change(mut self, callback: impl Fn([f64; 3], usize) + 'static) -> Self {
+        self.on_change = Some(Box::new(callback));
+        self
+    }
+    pub fn on_commit(mut self, callback: impl Fn() + 'static) -> Self {
+        self.on_commit = Some(Box::new(callback));
         self
     }
     pub fn build_with_handles(mut self, mtm: MainThreadMarker) -> Number3PickerParts {
-        let shared = Rc::new(RefCell::new(None::<[NumberPickerHandle; 3]>));
+        let enabled = self.builders.iter().all(|builder| builder.enabled);
+        let shared = Rc::new(RefCell::new(None::<[Weak<NumberPickerView>; 3]>));
         let locked = Rc::new(Cell::new(self.lock));
         let ratios = Rc::new(Cell::new(triple_ratios(self.initial)));
-        let callbacks = self
-            .callbacks
-            .map(|callback| callback.map_or_else(|| Rc::new(|_| {}) as Rc<dyn Fn(f64)>, Rc::from));
+        let callback: Rc<dyn Fn([f64; 3], usize)> = match self.on_change {
+            Some(callback) => Rc::from(callback),
+            None => Rc::new(|_, _| {}),
+        };
+        let commit: Rc<dyn Fn()> = match self.on_commit {
+            Some(commit) => Rc::from(commit),
+            None => Rc::new(|| {}),
+        };
         let mut parts = Vec::new();
         for component in 0..3 {
             let shared = shared.clone();
             let locked = locked.clone();
             let ratios = ratios.clone();
-            let callbacks = callbacks.clone();
+            let callback = callback.clone();
             let builder =
                 std::mem::replace(&mut self.builders[component], NumberPicker::builder(0.0))
                     .prefix(self.prefixes[component].clone())
                     .on_change_fraction(move |value| {
-                        if let Some(handles) = shared.borrow().as_ref() {
+                        if let Some(handles) = load_number_handles(&shared) {
                             if locked.get() {
                                 let next = locked_triple(component, value, ratios.get());
                                 for index in 0..3 {
@@ -936,8 +1040,18 @@ impl Number3PickerBuilder {
                                     }
                                 }
                             }
-                            callbacks[component](fraction_as_f64(value));
+                            let mut values = handles
+                                .clone()
+                                .map(|handle| fraction_as_f64(handle.value()));
+                            // During text editing, the callback's preview value precedes
+                            // the handle's committed value. Publish the complete live vector.
+                            values[component] = fraction_as_f64(value);
+                            callback(values, component);
                         }
+                    })
+                    .on_commit_fraction({
+                        let commit = commit.clone();
+                        move |_| commit()
                     })
                     .build_with_handle(mtm);
             parts.push(builder);
@@ -949,11 +1063,14 @@ impl Number3PickerBuilder {
             second.handle.clone(),
             third.handle.clone(),
         ];
-        shared.replace(Some(handles.clone()));
+        shared.replace(Some(
+            handles.each_ref().map(|handle| Weak::new(&*handle.view)),
+        ));
         let lock = if self.lock {
             let button = unsafe {
                 NSButton::buttonWithImage_target_action(&lock_symbol(true), None, None, mtm)
             };
+            button.setEnabled(enabled);
             button.setButtonType(NSButtonType::PushOnPushOff);
             button.setBordered(false);
             button.setState(NSControlStateValueOn);
@@ -972,7 +1089,7 @@ impl Number3PickerBuilder {
                     } else {
                         "Lock ratio"
                     })));
-                    if active && let Some(handles) = shared.borrow().as_ref() {
+                    if active && let Some(handles) = load_number_handles(&shared) {
                         ratios.set(triple_ratios(handles.clone().map(|handle| handle.value())));
                     }
                 },

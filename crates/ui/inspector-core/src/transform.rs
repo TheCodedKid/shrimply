@@ -287,6 +287,7 @@ pub(crate) fn card(
             alpha_mask: None,
             preview_facet: None,
             actions: Vec::new(),
+            scope: crate::VideoCardScope::Common,
         }
         .reset(
             "/transform",
@@ -896,8 +897,22 @@ impl InspectorController {
         time: Time,
         commit: InspectorCommit<'_>,
     ) -> Result<(), String> {
+        self.delete_vector2_keyframes(target, path, std::slice::from_ref(&time), commit)
+    }
+
+    pub fn delete_vector2_keyframes(
+        &self,
+        target: &InspectorTarget,
+        path: &str,
+        times: &[Time],
+        commit: InspectorCommit<'_>,
+    ) -> Result<(), String> {
         let (mut timeline, _) = self.vector2_timeline(target, path)?;
-        if !crate::timeline_value::vector::vec2::delete_keyframe(&mut timeline, time) {
+        if !crate::keyframe_model::edit_keyframe_selection(&mut timeline, times, |value, time| {
+            Ok(crate::timeline_value::vector::vec2::delete_keyframe(
+                value, time,
+            ))
+        })? {
             return Ok(());
         }
         self.replace_value_with_commit(
@@ -1053,8 +1068,24 @@ impl InspectorController {
         time: Time,
         commit: InspectorCommit<'_>,
     ) -> Result<(), String> {
+        self.delete_vector3_keyframes(target, path, std::slice::from_ref(&time), commit)
+    }
+
+    pub fn delete_vector3_keyframes(
+        &self,
+        target: &InspectorTarget,
+        path: &str,
+        times: &[Time],
+        commit: InspectorCommit<'_>,
+    ) -> Result<(), String> {
         let (mut timeline, _) = self.vector3_timeline(target, path)?;
-        if !crate::timeline_value::vector::vec3::delete_keyframe(&mut timeline, time, Time::ZERO) {
+        if !crate::keyframe_model::edit_keyframe_selection(&mut timeline, times, |value, time| {
+            Ok(crate::timeline_value::vector::vec3::delete_keyframe(
+                value,
+                time,
+                Time::ZERO,
+            ))
+        })? {
             return Ok(());
         }
         self.replace_value_with_commit(

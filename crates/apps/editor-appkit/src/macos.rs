@@ -2,6 +2,7 @@ mod about;
 mod canvas;
 mod error_alert;
 mod fullscreen;
+mod inspector_split;
 mod layout;
 mod media;
 mod menus;
@@ -180,6 +181,7 @@ define_class!(
             if let Some(error) = update.audio_playback_stopped { self.show_error(&error); }
             if let Some(title) = update.title { self.ivars().window.get().expect("window installed").setTitle(&NSString::from_str(&title.text)); }
             let layout = self.ivars().layout.get().expect("layout installed");
+            layout.inspector_controller.poll(self.mtm());
             let player = player_state::snapshot(&session.player_state);
             self.tick_fullscreen(player.playing);
             layout.progress.setDoubleValue(shrimply_math_core::time_ratio_f64(player.position, player.duration));
@@ -641,7 +643,7 @@ impl Editor {
         let fullscreen = ivars.fullscreen_preview.get();
         layout
             .inspector
-            .setCollapsed(fullscreen || !ivars.inspector_visible.get());
+            .set_collapsed(fullscreen || !ivars.inspector_visible.get());
         layout
             .timeline
             .setCollapsed(fullscreen || !ivars.timeline_visible.get());

@@ -3,14 +3,13 @@ use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::rc::Rc;
-use std::sync::mpsc::{self, TryRecvError};
 use std::thread;
 use std::time::Duration;
 
 use gtk::prelude::*;
 use gtk::{gio, glib};
 use shrimply_gtk_components::ui;
-use shrimply_inspector_core::tts::{TtsGeneration, TtsInputEdit};
+use shrimply_inspector_core::tts::{GenerationEvent, GenerationTask, TtsGeneration, TtsInputEdit};
 use shrimply_math_core::fraction_as_f64;
 use shrimply_project::project::Time;
 use shrimply_state::preferences as preferences_store;
@@ -18,11 +17,6 @@ use shrimply_tts::{
     Fraction, InputDefinition, Speech, TableColumn, TtsModel, TtsSettings, TtsValue, is_visible,
 };
 use uuid::Uuid;
-
-enum GenerationMessage {
-    Progress(String),
-    Done(Result<TtsGeneration, String>),
-}
 
 type VisibilityRefresh = Rc<RefCell<Option<Rc<dyn Fn()>>>>;
 
@@ -37,7 +31,7 @@ struct CachedEditor {
     widget: gtk::Widget,
     settings: Rc<RefCell<TtsSettings>>,
     callbacks: Rc<RefCell<EditorCallbacks>>,
-    active_generation: Rc<RefCell<Option<shrimply_server_client::CancellationToken>>>,
+    active_generation: Rc<RefCell<Option<GenerationTask>>>,
     server_url: String,
 }
 
@@ -137,9 +131,7 @@ pub fn editor(
     content.append(&configuration);
     content.append(&actions);
 
-    let active_generation = Rc::new(RefCell::new(
-        None::<shrimply_server_client::CancellationToken>,
-    ));
+    let active_generation = Rc::new(RefCell::new(None::<GenerationTask>));
     {
         let active_generation = active_generation.clone();
         let status = status.clone();
@@ -192,36 +184,20 @@ pub fn editor(
             };
             preferences_store::set_last_tts_model(&preferences, &selected.id);
             let server_url = preferences_store::snapshot(&preferences).compute_server_url;
-            let cancellation = match shrimply_server_client::CancellationToken::new(&server_url) {
-                Ok(cancellation) => cancellation,
+            let task = match GenerationTask::start(&server_url, selected.clone(), value) {
+                Ok(task) => task,
                 Err(error) => {
                     status.set_label(&error);
                     return;
                 }
             };
-            *active_generation.borrow_mut() = Some(cancellation.clone());
+            *active_generation.borrow_mut() = Some(task);
             button.set_sensitive(false);
             cancel.set_visible(true);
             cancel.set_sensitive(true);
             spinner.set_visible(true);
             status.set_tooltip_text(None);
             status.set_label(tr!("Sending request…").as_ref());
-
-            let (sender, receiver) = mpsc::channel();
-            let request_model = selected.clone();
-            thread::spawn(move || {
-                let result = shrimply_inspector_core::tts::generate(
-                    &server_url,
-                    &cancellation,
-                    &request_model,
-                    &value,
-                    |message| {
-                        let _ = sender.send(GenerationMessage::Progress(message.to_string()));
-                        !cancellation.is_cancelled()
-                    },
-                );
-                let _ = sender.send(GenerationMessage::Done(result));
-            });
 
             let status = status.clone();
             let spinner = spinner.clone();
@@ -231,9 +207,10 @@ pub fn editor(
             let on_generated = on_generated.clone();
             glib::timeout_add_local(Duration::from_millis(50), move || {
                 loop {
-                    match receiver.try_recv() {
-                        Ok(GenerationMessage::Progress(message)) => status.set_label(&message),
-                        Ok(GenerationMessage::Done(result)) => {
+                    let event = active_generation.borrow_mut().as_mut().and_then(GenerationTask::poll);
+                    match event {
+                        Some(GenerationEvent::Progress(message)) => status.set_label(&message),
+                        Some(GenerationEvent::Done(result)) => {
                             generate.set_sensitive(true);
                             cancel.set_visible(false);
                             cancel.set_sensitive(true);
@@ -261,16 +238,7 @@ pub fn editor(
                             }
                             return glib::ControlFlow::Break;
                         }
-                        Err(TryRecvError::Empty) => return glib::ControlFlow::Continue,
-                        Err(TryRecvError::Disconnected) => {
-                            generate.set_sensitive(true);
-                            cancel.set_visible(false);
-                            cancel.set_sensitive(true);
-                            spinner.set_visible(false);
-                            active_generation.borrow_mut().take();
-                            status.set_label(tr!("Generation worker stopped unexpectedly").as_ref());
-                            return glib::ControlFlow::Break;
-                        }
+                        None => return glib::ControlFlow::Continue,
                     }
                 }
             });

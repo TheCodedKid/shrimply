@@ -1,6 +1,7 @@
 use super::*;
 use shrimply_project::project::{ItemAddress, VideoItem, VisualTrack};
 use shrimply_video_core::clip_transition::{ActiveClipTransition, held_item};
+use shrimply_video_core::modifier_input::{CaptureBranch, capture_branch, capture_item};
 use shrimply_video_core::sequence::morph_endpoint;
 use std::borrow::Cow;
 
@@ -9,6 +10,8 @@ pub(super) struct PreparedItem<'a> {
     pub motion_blur_source: Option<Cow<'a, VideoItem>>,
     pub address: ItemAddress,
     pub time: Time,
+    pub content_time: Time,
+    pub capture_branch: CaptureBranch,
     pub scope_positions: Vec<Time>,
     pub audio: Option<FrameAudioAnalysis>,
     pub clip_transition: Option<ActiveClipTransition>,
@@ -18,9 +21,13 @@ pub(super) struct PreparedItem<'a> {
 }
 
 #[derive(Clone, Copy)]
-pub(super) struct Target<'a> {
-    pub address: &'a ItemAddress,
-    pub scope_positions: Option<&'a [Time]>,
+pub(super) enum Target<'a> {
+    Item {
+        address: &'a ItemAddress,
+        scope_positions: Option<&'a [Time]>,
+        modifier_input: Option<bool>,
+    },
+    Track(&'a TrackAddress),
 }
 
 #[derive(Default)]
@@ -41,21 +48,26 @@ impl Scene {
         target: Option<Target<'_>>,
         requests: &mut Vec<media::Request>,
     ) -> Result<Vec<PreparedItem<'a>>, String> {
-        let position = target
-            .and_then(|target| {
-                target
-                    .scope_positions
-                    .and_then(|positions| positions.get(scope.path.len()).copied())
-            })
-            .unwrap_or(scope.time);
+        let position = match target {
+            Some(Target::Item {
+                scope_positions: Some(positions),
+                ..
+            }) => positions
+                .get(scope.path.len())
+                .copied()
+                .unwrap_or(scope.time),
+            _ => scope.time,
+        };
         let mut scope_positions = scope.positions.clone();
         scope_positions.push(position);
         let mut active_items = shrimply_video_core::sequence::active_tracks(tracks, position, None);
         if target.is_none() {
             active_items.retain(|active| Some(active.item.id) != self.excluded_item_id);
         }
-        if let Some(target) = target {
-            let target = target.address;
+        if let Some(Target::Item {
+            address: target, ..
+        }) = target
+        {
             let depth = scope.path.len();
             if depth <= target.sequence_path().len() {
                 let target_item_id = target
@@ -70,9 +82,42 @@ impl Scene {
                 });
             }
         }
+        if let Some(Target::Track(track)) = target {
+            let TrackAddress::Video {
+                sequence_path,
+                track_id,
+            } = track
+            else {
+                return Err("Frame capture requires a visual track".into());
+            };
+            let depth = scope.path.len();
+            if let Some(host) = sequence_path.get(depth) {
+                active_items.retain(|active| active.item.id == *host);
+            } else if depth == sequence_path.len() {
+                active_items.retain(|active| active.track_id == *track_id);
+            }
+        }
         let mut items = Vec::new();
         for (active_index, active) in active_items.iter().enumerate() {
-            let morph = morph_endpoint(&active_items, active_index);
+            let address = ItemAddress::Video {
+                sequence_path: scope.path.clone(),
+                track_id: active.track_id,
+                item_id: active.item.id,
+            };
+            let (branch, snap_content) = match target {
+                Some(Target::Item {
+                    address: target,
+                    modifier_input: Some(snap),
+                    ..
+                }) => (capture_branch(target, &address), snap),
+                _ => (CaptureBranch::Normal, false),
+            };
+            let clip_transition = (branch == CaptureBranch::Normal)
+                .then_some(active.clip_transition)
+                .flatten();
+            let morph = (branch == CaptureBranch::Normal)
+                .then(|| morph_endpoint(&active_items, active_index))
+                .flatten();
             let endpoint_time = morph.map(|endpoint| endpoint.sample_time);
             let item_time = endpoint_time.unwrap_or(position);
             let mut item_scope_positions = scope_positions.clone();
@@ -87,17 +132,14 @@ impl Scene {
                 audio
             });
             let item_audio = endpoint_audio.as_ref().unwrap_or(audio);
-            let item = if endpoint_time.is_some() {
+            let item = if endpoint_time.is_some() || branch != CaptureBranch::Normal {
                 Cow::Borrowed(active.item)
             } else {
-                held_item(active.item, position, active.clip_transition.is_some())
+                held_item(active.item, position, clip_transition.is_some())
             };
-            let address = ItemAddress::Video {
-                sequence_path: scope.path.clone(),
-                track_id: active.track_id,
-                item_id: item.id,
-            };
-            let (item, motion_blur_source) =
+            let (item, motion_blur_source) = if branch == CaptureBranch::Host {
+                (item, None)
+            } else {
                 match shrimply_video_core::modifier_cache::effective_item(
                     &address,
                     &item,
@@ -105,8 +147,19 @@ impl Scene {
                 )? {
                     Some(cached) => (Cow::Owned(cached), Some(item)),
                     None => (item, None),
-                };
-            if target.is_none()
+                }
+            };
+            let item = capture_item(item, branch);
+            let motion_blur_source = motion_blur_source.map(|source| capture_item(source, branch));
+            let ignore_visibility = branch != CaptureBranch::Normal
+                || matches!(
+                    target,
+                    Some(Target::Item {
+                        modifier_input: None,
+                        ..
+                    })
+                );
+            if !ignore_visibility
                 && !resolve_bool(
                     &item.visibility,
                     &VisualEvaluation::for_item_with_audio(project, &item, item_time, item_audio),
@@ -115,12 +168,16 @@ impl Scene {
             {
                 continue;
             }
+            let content_time = if branch == CaptureBranch::Item && snap_content {
+                shrimply_video_core::transparent_fill::snapped_transparent_fill_position(
+                    project, &item, item_time,
+                )
+            } else {
+                shrimply_video_core::transparent_fill::render_position(project, &item, item_time)
+            };
             let source_time = match item.content {
                 VideoItemContent::Media | VideoItemContent::Gif => {
-                    let content_position = shrimply_video_core::transparent_fill::render_position(
-                        project, &item, item_time,
-                    );
-                    let Some(time) = video_source_time_at(&item, content_position) else {
+                    let Some(time) = video_source_time_at(&item, content_time) else {
                         continue;
                     };
                     time
@@ -204,9 +261,11 @@ impl Scene {
                 motion_blur_source,
                 address,
                 time: item_time,
+                content_time,
+                capture_branch: branch,
                 scope_positions: item_scope_positions,
                 audio: endpoint_audio,
-                clip_transition: active.clip_transition,
+                clip_transition,
                 morph_peer: morph.map(|endpoint| endpoint.peer_id),
                 children,
                 video_mask,

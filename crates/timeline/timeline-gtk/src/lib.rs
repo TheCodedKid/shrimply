@@ -481,7 +481,7 @@ impl ToolkitTimeline {
         }
     }
 
-    pub fn scroll(&self, dx: f32, dy: f32, ctrl: bool, shift: bool, input: TimelineScrollInput) {
+    pub fn scroll(&self, dx: f32, dy: f32, ctrl: bool, shift: bool) {
         let mut runtime = self.runtime.borrow_mut();
         let modifiers = TimelineModifiers { ctrl, shift };
         runtime
@@ -491,10 +491,13 @@ impl ToolkitTimeline {
         runtime
             .scene
             .event(TimelineEvent::Scroll(TimelineScrollEvent {
-                delta: vec2(dx, dy),
+                delta: vec2(
+                    dx * SCROLL_PIXELS_PER_STEP as f32,
+                    dy * SCROLL_PIXELS_PER_STEP as f32,
+                ),
                 ctrl,
                 pointer,
-                input,
+                input: TimelineScrollInput::Wheel,
             }));
     }
 

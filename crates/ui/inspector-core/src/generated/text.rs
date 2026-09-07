@@ -137,7 +137,7 @@ fn appearance_card(text: &TextItem, default: &TextItem, runtime: InspectorRuntim
                 ..NumberSpec::default()
             },
         )
-        .store_multiplier(PERCENT.recip()),
+        .scale_number_display(PERCENT),
     );
     section.add(step_control(
         FONT_STYLE_PATH,

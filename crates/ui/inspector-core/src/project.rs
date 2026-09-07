@@ -16,6 +16,28 @@ pub struct ProjectPresentation {
     pub file: PathBuf,
 }
 
+impl ProjectPresentation {
+    pub fn details(&self) -> Vec<crate::InspectorDetail> {
+        vec![
+            crate::InspectorDetail {
+                label: "Tracks",
+                value: format!(
+                    "{} video, {} audio, {} caption",
+                    self.video_track_count, self.audio_track_count, self.caption_track_count
+                ),
+            },
+            crate::InspectorDetail {
+                label: "Duration",
+                value: shrimply_project::time_format::project_duration(self.duration),
+            },
+            crate::InspectorDetail {
+                label: "Project File",
+                value: self.file.to_string_lossy().into_owned(),
+            },
+        ]
+    }
+}
+
 pub fn presentation(project: &Project) -> ProjectPresentation {
     ProjectPresentation {
         name: project.name.clone(),

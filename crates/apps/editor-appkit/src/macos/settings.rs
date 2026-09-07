@@ -248,7 +248,6 @@ fn compute_server_rows(
         TAG_SERVER_URL,
         sel!(changeComputeServer:),
         y,
-        mtm,
     );
 
     label(content, "Manage", *y, mtm);
@@ -526,8 +525,8 @@ fn text_row(
     tag: isize,
     action: objc2::runtime::Sel,
     y: &mut f64,
-    mtm: MainThreadMarker,
 ) {
+    let mtm = content.mtm();
     label(content, title, *y, mtm);
     let field = NSTextField::initWithFrame(
         NSTextField::alloc(mtm),

@@ -320,7 +320,7 @@ fn integer_control(value: &TimelineValue<u32>, runtime: InspectorRuntime) -> Ins
             digits: 0,
             unit: "",
         })
-        .integer()
+        .unsigned_integer_timeline()
         .width_characters(9)
         .layered(STAR_POINTS_PATH, LayeredState::from(value))
         .timeline(value.id, integer_graph(value, runtime))

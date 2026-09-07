@@ -13,6 +13,16 @@ pub struct Source {
     session: shrimply_3dgs::RenderSession,
 }
 
+pub struct Request<'a> {
+    pub project: &'a Project,
+    pub item: &'a VideoItem,
+    pub position: shrimply_math_core::Time,
+    pub audio: &'a FrameAudioAnalysis,
+    pub canvas: CanvasSize,
+    pub sequence_path: &'a [uuid::Uuid],
+    pub track_id: uuid::Uuid,
+}
+
 #[derive(Clone)]
 pub struct Prepared {
     pub session: shrimply_3dgs::RenderSession,
@@ -39,15 +49,18 @@ impl Source {
 
     pub fn prepare(
         &self,
-        project: &Project,
-        item: &VideoItem,
-        position: shrimply_math_core::Time,
-        audio: &FrameAudioAnalysis,
-        canvas: CanvasSize,
-        sequence_path: &[uuid::Uuid],
-        track_id: uuid::Uuid,
+        request: Request<'_>,
         expressions: &mut TransformExpressionCache,
     ) -> Result<Prepared, String> {
+        let Request {
+            project,
+            item,
+            position,
+            audio,
+            canvas,
+            sequence_path,
+            track_id,
+        } = request;
         let VideoItemContent::Gaussian(_) = &item.content else {
             return Err("Gaussian source received a different visual type".into());
         };

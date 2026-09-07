@@ -18,6 +18,13 @@ impl Scene {
         let mut pending_morph = None;
         for prepared in items {
             let time = prepared.time;
+            let content_time = prepared.content_time;
+            let capture_host =
+                prepared.capture_branch == shrimply_video_core::modifier_input::CaptureBranch::Host;
+            let modifier_input = matches!(
+                &self.capture_target,
+                Some(CaptureTarget::ModifierInput { .. })
+            );
             let clip_transition = prepared.clip_transition;
             let paired_morph = prepared.morph_peer.is_some();
             let audio = prepared.audio.as_ref().unwrap_or(audio);
@@ -88,21 +95,22 @@ impl Scene {
                 .is_some();
             let mut vector = vector_source
                 .then(|| {
-                    self.vector(
+                    self.vector(generated::VectorRequest {
                         project,
-                        &address,
+                        address: &address,
                         item,
-                        time,
-                        &prepared.scope_positions,
-                        evaluation.clone(),
-                        project.canvas_size,
-                        transform.composed(),
-                        generated_transition,
-                        match self.media.frame(&prepared.address, media::Plane::Content) {
+                        position: content_time,
+                        scope_positions: &prepared.scope_positions,
+                        require_complete_assets: modifier_input,
+                        evaluation: evaluation.clone(),
+                        native: project.canvas_size,
+                        transform: transform.composed(),
+                        transition: generated_transition,
+                        svg: match self.media.frame(&prepared.address, media::Plane::Content) {
                             Some(media::Frame::Svg(svg)) => Some(svg.clone()),
                             _ => None,
                         },
-                    )
+                    })
                 })
                 .transpose()?;
             let render_canvas = vector
@@ -118,7 +126,8 @@ impl Scene {
             );
             // The existing background renderer generates a canvas-sized texture
             // and bakes the source transform before item effects and transitions.
-            let mut raster_transform = if vector.is_some()
+            let mut raster_transform = if capture_host
+                || vector.is_some()
                 || matches!(
                     item.content,
                     VideoItemContent::Background(_) | VideoItemContent::Gaussian(_)
@@ -261,8 +270,9 @@ impl Scene {
                         &evaluation,
                         &mut self.expressions,
                     );
-                    let local_time = shrimply_project::project::generated_item_time(item, time)
-                        .expect("active generated source time");
+                    let local_time =
+                        shrimply_project::project::generated_item_time(item, content_time)
+                            .expect("active generated source time");
                     let uniforms = shrimply_video_core::background::uniforms(
                         project.canvas_size.width,
                         project.canvas_size.height,
@@ -290,7 +300,7 @@ impl Scene {
                         .manim
                         .get_mut(&item.id)
                         .expect("Manim source was initialized");
-                    let outcome = source.poll(item, project.canvas_size, fps, time);
+                    let outcome = source.poll(item, project.canvas_size, fps, content_time);
                     let identity = source.identity();
                     self.manim_updates.extend(source.take_updates());
                     match outcome {
@@ -373,7 +383,7 @@ impl Scene {
                         .poll(
                             item,
                             project.canvas_size,
-                            time,
+                            content_time,
                             self.requested_accuracy.content_accurate(),
                         )?;
                     let image = match status {
@@ -478,13 +488,15 @@ impl Scene {
                         .get(&item.id)
                         .expect("Gaussian source was initialized")
                         .prepare(
-                            project,
-                            item,
-                            time,
-                            audio,
-                            render_canvas,
-                            prepared.address.sequence_path(),
-                            prepared.address.track_id(),
+                            shrimply_video_core::gaussian::Request {
+                                project,
+                                item,
+                                position: content_time,
+                                audio,
+                                canvas: render_canvas,
+                                sequence_path: prepared.address.sequence_path(),
+                                track_id: prepared.address.track_id(),
+                            },
                             &mut self.expressions,
                         )?;
                     let width = plan.width;
@@ -496,7 +508,7 @@ impl Scene {
                         shrimply_video_core::obj::Request {
                             project,
                             item,
-                            position: time,
+                            position: content_time,
                             audio_analysis: audio,
                             render_canvas,
                             content_accurate: self.requested_accuracy.content_accurate(),
@@ -550,7 +562,7 @@ impl Scene {
                         item,
                         position: time,
                         scope_positions: &prepared.scope_positions,
-                        require_complete_assets: false,
+                        require_complete_assets: modifier_input,
                     },
                     &evaluation,
                     &mut self.expressions,

@@ -5,6 +5,7 @@ edition = "2024"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 shrimply-manim-metal = { path = "../../manim/manim-metal" }
+shrimply-3dgs = { path = "../../3d/3dgs" }
 shrimply-3dgs-metal = { path = "../../3d/3dgs-metal" }
 shrimply-render-3d-metal = { path = "../../3d/render-3d-metal" }
 shrimply-preview-render-core = { path = "../preview-render-core" }
@@ -25,3 +26,6 @@ objc2-vision.workspace = true
 objc2-foundation.workspace = true
 uuid.workspace = true
 tracing.workspace = true
+
+ffmpeg-next.workspace = true
+shrimply-resource-pipeline = { path = "../../resource-pipeline" }

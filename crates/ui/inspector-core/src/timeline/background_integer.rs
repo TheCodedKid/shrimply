@@ -212,24 +212,38 @@ impl InspectorController {
         timeline_id: uuid::Uuid,
         change: AudioModifierKeyframeMove,
     ) -> Result<(), String> {
-        let time = self.canonical_scalar_keyframe_time(target, change.time)?;
-        let next = background_integer(change.displayed_value * change.store_multiplier)?;
-        let (mut value, _) = self.background_integer_timeline(target, path, timeline_id)?;
-        let TimelineBase::Keyframes(keyframes) = &mut value.base else {
-            return Err("background integer keyframes are disabled".to_string());
-        };
-        let Some(index) = keyframes
+        self.move_background_integer_keyframes(
+            target,
+            path,
+            timeline_id,
+            std::slice::from_ref(&change),
+        )
+    }
+
+    pub fn move_background_integer_keyframes(
+        &self,
+        target: &InspectorTarget,
+        path: &str,
+        timeline_id: uuid::Uuid,
+        changes: &[AudioModifierKeyframeMove],
+    ) -> Result<(), String> {
+        if changes.is_empty() {
+            return Ok(());
+        }
+        let changes = changes
             .iter()
-            .position(|keyframe| keyframe.time.approx_eq(change.old_time))
-        else {
-            return Err("background integer keyframe is no longer available".to_string());
-        };
-        let mut keyframe = keyframes.remove(index);
-        keyframes.retain(|other| !other.time.approx_eq(time));
-        keyframe.time = time;
-        keyframe.value = next;
-        keyframes.push(keyframe);
-        keyframes.sort_by_key(|keyframe| keyframe.time);
+            .map(|change| {
+                Ok((
+                    change.old_time,
+                    self.canonical_scalar_keyframe_time(target, change.time)?,
+                    background_integer(change.displayed_value * change.store_multiplier)?,
+                ))
+            })
+            .collect::<Result<Vec<_>, String>>()?;
+        let (mut value, _) = self.background_integer_timeline(target, path, timeline_id)?;
+        if !crate::keyframe_model::update_keyframes(&mut value, &changes) {
+            return Err("integer keyframe move contains stale source keys".into());
+        }
         let (_, keyframe_commit, _) = integer_commits(path)?;
         self.replace_background_integer(
             target,
@@ -251,19 +265,30 @@ impl InspectorController {
         timeline_id: uuid::Uuid,
         time: Time,
     ) -> Result<(), String> {
+        self.delete_background_integer_keyframes(
+            target,
+            path,
+            timeline_id,
+            std::slice::from_ref(&time),
+        )
+    }
+
+    pub fn delete_background_integer_keyframes(
+        &self,
+        target: &InspectorTarget,
+        path: &str,
+        timeline_id: uuid::Uuid,
+        times: &[Time],
+    ) -> Result<(), String> {
         let (mut value, _) = self.background_integer_timeline(target, path, timeline_id)?;
-        let TimelineBase::Keyframes(keyframes) = &mut value.base else {
+        if !crate::keyframe_model::edit_keyframe_selection(&mut value, times, |value, time| {
+            Ok(crate::keyframe_model::delete_discrete_keyframe(
+                value,
+                time,
+                Time::ZERO,
+            ))
+        })? {
             return Ok(());
-        };
-        let Some(index) = keyframes
-            .iter()
-            .position(|keyframe| keyframe.time.approx_eq(time))
-        else {
-            return Ok(());
-        };
-        let removed = keyframes.remove(index);
-        if keyframes.is_empty() {
-            value.base = TimelineBase::Const(removed.value);
         }
         let (_, keyframe_commit, _) = integer_commits(path)?;
         self.replace_background_integer(
