@@ -8,27 +8,18 @@ use shrimply_render_core::LayerCompositeParams;
 
 pub(crate) use shrimply_render_core::{LayerKind, Nv12LayerParams};
 
-const PREVIEW_CUBIN: &[u8] = include_bytes!(concat!(
-    env!("CARGO_MANIFEST_DIR"),
-    "/../../../.slang-artifacts/cuda/sm_86/preview.cubin"
-));
-const EXPORT_CUBIN: &[u8] = include_bytes!(concat!(
-    env!("CARGO_MANIFEST_DIR"),
-    "/../../../.slang-artifacts/cuda/sm_86/export.cubin"
-));
-
 pub(crate) struct PreviewModule(Arc<CudaModule>);
 pub(crate) struct ExportModule(Arc<CudaModule>);
 
 pub(crate) fn load_preview(context: &Arc<CudaContext>) -> Result<PreviewModule, DriverError> {
     context
-        .load_module_from_image(PREVIEW_CUBIN)
+        .load_module_from_image(shrimply_render_cuda::PREVIEW)
         .map(PreviewModule)
 }
 
 pub(crate) fn load_export(context: &Arc<CudaContext>) -> Result<ExportModule, DriverError> {
     context
-        .load_module_from_image(EXPORT_CUBIN)
+        .load_module_from_image(shrimply_render_cuda::EXPORT)
         .map(ExportModule)
 }
 

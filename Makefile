@@ -1,22 +1,30 @@
 RUSTUP ?= rustup
 RUST_TOOLCHAIN ?= nightly-2026-04-03
 CARGO := $(RUSTUP) run $(RUST_TOOLCHAIN) cargo
+CARGO_TARGET_DIR ?= target
 CUDA_HOME ?= /usr/local/cuda
 CUDA_TOOLKIT_PATH ?= $(CUDA_HOME)
 CUDA_TARGET ?= sm_86
+CUDA_IMAGE_FORMAT ?= cubin
+CUDA_PTX_TARGET ?= compute_50
 CUDA_HOST_CXX ?= g++-15
+CUDA_ALLOW_UNSUPPORTED_COMPILER ?=
 SOURCE_LINE_LIMIT ?= 2000
 SLANG_SOURCE_DIR ?= $(CURDIR)/external/slang
 SLANG_BUILD_DIR ?= $(SLANG_SOURCE_DIR)/build
+SLANG_LIBRARY_DIR ?= $(SLANG_BUILD_DIR)/Release/lib
+SLANG_INCLUDE_DIR ?= $(SLANG_SOURCE_DIR)/include
+SLANG_PREBUILT ?=
 OPTIX_ROOT ?= $(CURDIR)/external/optix-dev
 DNF ?= sudo dnf
 INSTALL ?= install
 PKG_CONFIG ?= /usr/bin/pkg-config
 PKG_CONFIG_PATH ?= /usr/lib64/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig
 QT_QMAKE ?= qmake6
-SLANG_LIBRARY_ENV = LD_LIBRARY_PATH="$(SLANG_BUILD_DIR)/Release/lib:$${LD_LIBRARY_PATH}" DYLD_LIBRARY_PATH="$(SLANG_BUILD_DIR)/Release/lib:$${DYLD_LIBRARY_PATH}"
-BUILD_ENV := CUDA_HOME=$(CUDA_HOME) CUDA_TOOLKIT_PATH=$(CUDA_TOOLKIT_PATH) PATH=$(CUDA_HOME)/bin:$(PATH) PKG_CONFIG=$(PKG_CONFIG) PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) SLANG_SOURCE_DIR=$(SLANG_SOURCE_DIR) SLANG_BUILD_DIR=$(SLANG_BUILD_DIR) OPTIX_ROOT=$(OPTIX_ROOT)
+SLANG_LIBRARY_ENV = LD_LIBRARY_PATH="$(SLANG_LIBRARY_DIR):/run/host/usr/local/libclang-deps:$${LD_LIBRARY_PATH}" DYLD_LIBRARY_PATH="$(SLANG_LIBRARY_DIR):$${DYLD_LIBRARY_PATH}"
+BUILD_ENV := CUDA_HOME=$(CUDA_HOME) CUDA_TOOLKIT_PATH=$(CUDA_TOOLKIT_PATH) CUDA_IMAGE_FORMAT=$(CUDA_IMAGE_FORMAT) CUDA_TARGET=$(CUDA_TARGET) CUDA_PTX_TARGET=$(CUDA_PTX_TARGET) CUDA_HOST_CXX=$(CUDA_HOST_CXX) CUDA_ALLOW_UNSUPPORTED_COMPILER=$(CUDA_ALLOW_UNSUPPORTED_COMPILER) PATH=$(CUDA_HOME)/bin:$(PATH) PKG_CONFIG=$(PKG_CONFIG) PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) SLANG_SOURCE_DIR=$(SLANG_SOURCE_DIR) SLANG_BUILD_DIR=$(SLANG_BUILD_DIR) SLANG_LIBRARY_DIR=$(SLANG_LIBRARY_DIR) SLANG_INCLUDE_DIR=$(SLANG_INCLUDE_DIR) SLANG_PREBUILT=$(SLANG_PREBUILT) OPTIX_ROOT=$(OPTIX_ROOT)
 BUILD_ENV += $(SLANG_LIBRARY_ENV)
+BUILD_ENV += BINDGEN_EXTRA_CLANG_ARGS="$(if $(wildcard /run/host/usr/lib/llvm-18/lib/clang/18/include),-isystem /run/host/usr/lib/llvm-18/lib/clang/18/include)"
 RUST_LIBDIR := $(shell $(RUSTUP) run $(RUST_TOOLCHAIN) rustc --print target-libdir)
 DEV_RUSTFLAGS ?= -C prefer-dynamic -C link-arg=-fuse-ld=lld -C link-arg=-Wl,-rpath,$(RUST_LIBDIR)
 DEV_BUILD_ENV := $(BUILD_ENV) RUSTFLAGS="$(DEV_RUSTFLAGS)"
@@ -24,6 +32,7 @@ SLANG_COMPILER_STAMP := $(SLANG_BUILD_DIR)/.shrimply-compiler
 SLANG_CONFIGURE_STAMP := $(SLANG_BUILD_DIR)/.shrimply-configure
 SLANG_GIT_HEAD := $(shell git -C $(SLANG_SOURCE_DIR) rev-parse --git-path HEAD 2>/dev/null)
 SLANG_GIT_REF := $(shell ref=$$(git -C $(SLANG_SOURCE_DIR) symbolic-ref -q HEAD 2>/dev/null); test -z "$$ref" || git -C $(SLANG_SOURCE_DIR) rev-parse --git-path "$$ref")
+SLANG_COMPILER_DEPENDENCY = $(if $(SLANG_PREBUILT),,$(SLANG_COMPILER_STAMP))
 
 APP_NAME := Shrimply
 BIN_NAME := shrimply
@@ -58,6 +67,10 @@ CRASH_CORE ?= target/$(EDITOR_BIN_NAME).core
 CRASH_STACK ?= target/$(EDITOR_BIN_NAME).stack
 CRASH_PROFILE ?= debug
 CRASH_SINCE ?= -1 day
+DOCKER ?= docker
+FLATPAK_GTK_IMAGE ?= shrimply-flatpak-gtk-builder
+FLATPAK_GTK_CACHE ?= $(CURDIR)/target/flatpak-gtk
+FLATPAK_BUNDLE := dist/shrimply-gtk.flatpak
 
 PREFIX ?= $(HOME)/.local
 BINDIR ?= $(PREFIX)/bin
@@ -71,7 +84,7 @@ APPKIT_ICON_SOURCE := assets/icons/dev.shrimply.Shrimply-macos.svg
 APPKIT_ICON := assets/icons/dev.shrimply.Shrimply.png
 APPKIT_ICON_SIZE := 512
 RSVG_CONVERT ?= rsvg-convert
-LIP_SYNC_MODEL := target/release/res/lip-sync/pocketsphinx-ci.model
+LIP_SYNC_MODEL := $(CARGO_TARGET_DIR)/release/res/lip-sync/pocketsphinx-ci.model
 LIP_SYNC_RESOURCE_DIR := $(DATADIR)/shrimply/lip-sync
 LIP_SYNC_LICENSE_DIR := $(DATADIR)/licenses/shrimply
 ICONS_RESOURCE_DIR := $(DATADIR)/shrimply/icons
@@ -103,7 +116,7 @@ FEDORA_PACKAGES := \
 	qt6-qtbase-devel \
 	qt6-qtdeclarative-devel
 
-.PHONY: native-deps qt-native-deps desktop-icon qt-desktop-file cuda-target-check cuda-artifacts dev dev-mac qt-build dev-qt dev-server docs docs-check run run-qt build release check components-check gtk-components-showcase qt-components-showcase server-python-check manim manim-python-check manim-parameter-check cargo-check fmt fmt-check lint test frame-rate-test video-lifecycle-test transparent-fill-frame-range-test transparent-fill-decoder-test transparent-fill-kernel-test transparent-fill-compositor-test transparent-fill-playback-test transparent-fill-e2e-fixture transparent-fill-e2e-test decode-ahead-benchmark paint-interpolation-test crash-report clean-dev clean deps-fedora deps-fedora-qt qt-release install install-qt install-codex-mcp-dev install-agy-mcp-dev uninstall uninstall-qt dist-image dist
+.PHONY: native-deps qt-native-deps desktop-icon qt-desktop-file cuda-target-check cuda-artifacts dev dev-mac qt-build dev-qt dev-server docs docs-check run run-qt build release check components-check gtk-components-showcase qt-components-showcase server-python-check manim manim-python-check manim-parameter-check cargo-check fmt fmt-check lint test frame-rate-test video-lifecycle-test transparent-fill-frame-range-test transparent-fill-decoder-test transparent-fill-kernel-test transparent-fill-compositor-test transparent-fill-playback-test transparent-fill-e2e-fixture transparent-fill-e2e-test decode-ahead-benchmark paint-interpolation-test crash-report clean-dev clean deps-fedora deps-fedora-qt qt-release install install-qt install-codex-mcp-dev install-agy-mcp-dev uninstall uninstall-qt flatpak-gtk
 native-deps:
 	@$(PKG_CONFIG) --exists rubberband || { echo "Missing Rubber Band development files (pkg-config: rubberband)" >&2; exit 1; }
 	@$(PKG_CONFIG) --exists libpipewire-0.3 || { echo "Missing PipeWire development files (pkg-config: libpipewire-0.3)" >&2; exit 1; }
@@ -114,7 +127,8 @@ qt-native-deps:
 	@version="$$($(QT_QMAKE) -query QT_VERSION)"; case "$$version" in 6.*) echo "Using Qt $$version via $(QT_QMAKE)" ;; *) echo "$(QT_QMAKE) selected unsupported Qt $$version; Qt 6 is required" >&2; exit 1 ;; esac
 	@$(PKG_CONFIG) --exists Qt6Core Qt6Gui Qt6Qml Qt6Quick Qt6QuickControls2 Qt6OpenGL || { echo "Missing Qt 6 Quick/OpenGL development files" >&2; exit 1; }
 
-slang-compiler: $(SLANG_COMPILER_STAMP)
+slang-compiler: $(SLANG_COMPILER_DEPENDENCY)
+	@test -z "$(SLANG_PREBUILT)" || test -f "$(SLANG_LIBRARY_DIR)/libslang.so"
 
 $(SLANG_CONFIGURE_STAMP): $(SLANG_SOURCE_DIR)/CMakeLists.txt Makefile
 	cmake -S $(SLANG_SOURCE_DIR) -B $(SLANG_BUILD_DIR) -G "Ninja Multi-Config" -DSLANG_ENABLE_SLANGC=OFF -DSLANG_ENABLE_SLANG_RHI=OFF -DSLANG_ENABLE_GFX=OFF -DSLANG_ENABLE_TESTS=OFF -DSLANG_ENABLE_EXAMPLES=OFF -DSLANG_ENABLE_SLANGD=OFF -DSLANG_ENABLE_SLANGI=OFF -DSLANG_ENABLE_SLANGRT=OFF -DSLANG_ENABLE_SPLIT_DEBUG_INFO=OFF -DSLANG_ENABLE_SLANG_GLSLANG=ON -DSLANG_ENABLE_REPLAYER=OFF -DSLANG_SLANG_LLVM_FLAVOR=DISABLE -DSLANG_ENABLE_DXIL=OFF
@@ -126,10 +140,14 @@ $(SLANG_COMPILER_STAMP): $(SLANG_CONFIGURE_STAMP) $(SLANG_GIT_HEAD) $(SLANG_GIT_
 
 cuda-target-check:
 	@test "$$(uname -s)" = Linux || { echo "CUDA kernels require Linux" >&2; exit 1; }
-	@test "$(CUDA_TARGET)" = sm_86 || { echo "CUDA_TARGET=$(CUDA_TARGET) is unsupported: host binaries embed sm_86 CUDA artifacts" >&2; exit 1; }
+	@case "$(CUDA_IMAGE_FORMAT)" in \
+		(cubin) case "$(CUDA_TARGET)" in sm_*) ;; (*) echo "CUDA_TARGET=$(CUDA_TARGET) must be a physical SM architecture" >&2; exit 1 ;; esac ;; \
+		(ptx) case "$(CUDA_PTX_TARGET)" in compute_*) ;; (*) echo "CUDA_PTX_TARGET=$(CUDA_PTX_TARGET) must be a virtual compute architecture" >&2; exit 1 ;; esac ;; \
+		(*) echo "CUDA_IMAGE_FORMAT=$(CUDA_IMAGE_FORMAT) is unsupported; expected cubin or ptx" >&2; exit 1 ;; \
+	esac
 
 cuda-artifacts: cuda-target-check slang-compiler
-	$(BUILD_ENV) CUDA_TARGET=$(CUDA_TARGET) CUDA_HOST_CXX=$(CUDA_HOST_CXX) $(CARGO) build -p shrimply-render-cuda
+	$(BUILD_ENV) $(CARGO) build -p shrimply-render-cuda
 
 dev: SHELL := /bin/bash
 desktop-icon:
@@ -337,9 +355,9 @@ qt-release: native-deps qt-native-deps cuda-artifacts
 	$(DEV_BUILD_ENV) QMAKE=$(QT_QMAKE) CARGO_TERM_COLOR=always $(CARGO) build --release -p $(QT_EDITOR_PACKAGE) -p $(QT_LAUNCHER_PACKAGE)
 
 install: release desktop-icon
-	$(INSTALL) -Dm755 target/release/$(BIN_NAME) "$(DESTDIR)$(BINDIR)/$(BIN_NAME)"
-	$(INSTALL) -Dm755 target/release/$(EDITOR_BIN_NAME) "$(DESTDIR)$(BINDIR)/$(EDITOR_BIN_NAME)"
-	$(INSTALL) -Dm755 target/release/$(MCP_BIN_NAME) "$(DESTDIR)$(BINDIR)/$(MCP_BIN_NAME)"
+	$(INSTALL) -Dm755 $(CARGO_TARGET_DIR)/release/$(BIN_NAME) "$(DESTDIR)$(BINDIR)/$(BIN_NAME)"
+	$(INSTALL) -Dm755 $(CARGO_TARGET_DIR)/release/$(EDITOR_BIN_NAME) "$(DESTDIR)$(BINDIR)/$(EDITOR_BIN_NAME)"
+	$(INSTALL) -Dm755 $(CARGO_TARGET_DIR)/release/$(MCP_BIN_NAME) "$(DESTDIR)$(BINDIR)/$(MCP_BIN_NAME)"
 	$(INSTALL) -Dm644 $(LIP_SYNC_MODEL) "$(DESTDIR)$(LIP_SYNC_RESOURCE_DIR)/pocketsphinx-ci.model"
 	$(INSTALL) -Dm644 vendor/pocketsphinx/LICENSE "$(DESTDIR)$(LIP_SYNC_LICENSE_DIR)/PocketSphinx-code.txt"
 	$(INSTALL) -Dm644 vendor/pocketsphinx/MODEL-LICENSE "$(DESTDIR)$(LIP_SYNC_LICENSE_DIR)/PocketSphinx-model.txt"
@@ -351,6 +369,18 @@ install: release desktop-icon
 		command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database "$(APPLICATIONSDIR)" >/dev/null || true; \
 	fi
 	@echo "Installed $(APP_NAME) under $(DESTDIR)$(PREFIX)"
+
+flatpak-gtk:
+	@command -v $(DOCKER) >/dev/null 2>&1 || { echo "Missing Docker ($(DOCKER))" >&2; exit 1; }
+	mkdir -p "$(dir $(FLATPAK_BUNDLE))" "$(FLATPAK_GTK_CACHE)"
+	$(DOCKER) build -f Dockerfile.flatpak-gtk -t "$(FLATPAK_GTK_IMAGE)" .
+	$(DOCKER) run --rm --privileged \
+		--env OUTPUT_UID="$$(id -u)" \
+		--env OUTPUT_GID="$$(id -g)" \
+		--volume "$(FLATPAK_GTK_CACHE):/flatpak:Z" \
+		--volume "$(CURDIR)/$(dir $(FLATPAK_BUNDLE)):/output:Z" \
+		"$(FLATPAK_GTK_IMAGE)"
+	@echo "Flatpak bundle: $(FLATPAK_BUNDLE)"
 
 install-qt: qt-release desktop-icon
 	$(INSTALL) -Dm755 target/release/$(QT_BIN_NAME) "$(DESTDIR)$(BINDIR)/$(QT_BIN_NAME)"

@@ -140,16 +140,17 @@ impl ModifierContext<'_> {
             *module = Some(
                 self.cuda_context
                     .load_module_from_image(kind.image())
-                    .map_err(|error| {
-                        format!("load sm_86 CUDA {} cubin: {error:?}", kind.label())
-                    })?,
+                    .map_err(|error| format!("load CUDA {} module: {error:?}", kind.label()))?,
             );
             tracing::debug!(
                 elapsed_us = started.elapsed().as_micros(),
-                "CUDA modifier cubin loaded"
+                "CUDA modifier module loaded"
             );
         }
-        Ok(module.as_ref().expect("CUDA modifier cubin loaded").clone())
+        Ok(module
+            .as_ref()
+            .expect("CUDA modifier module loaded")
+            .clone())
     }
 
     fn allocate<T: DeviceCopy>(
@@ -361,26 +362,11 @@ impl ModifierModules {
 impl ModifierModule {
     pub(crate) fn image(self) -> &'static [u8] {
         match self {
-            Self::General => include_bytes!(concat!(
-                env!("CARGO_MANIFEST_DIR"),
-                "/../../../.slang-artifacts/cuda/sm_86/modifiers.cubin"
-            )),
-            Self::Blur => include_bytes!(concat!(
-                env!("CARGO_MANIFEST_DIR"),
-                "/../../../.slang-artifacts/cuda/sm_86/modifiers_blur.cubin"
-            )),
-            Self::Geometry => include_bytes!(concat!(
-                env!("CARGO_MANIFEST_DIR"),
-                "/../../../.slang-artifacts/cuda/sm_86/modifiers_geometry.cubin"
-            )),
-            Self::Matte => include_bytes!(concat!(
-                env!("CARGO_MANIFEST_DIR"),
-                "/../../../.slang-artifacts/cuda/sm_86/modifiers_matte.cubin"
-            )),
-            Self::Stabilization => include_bytes!(concat!(
-                env!("CARGO_MANIFEST_DIR"),
-                "/../../../.slang-artifacts/cuda/sm_86/stabilization.cubin"
-            )),
+            Self::General => shrimply_render_cuda::MODIFIERS,
+            Self::Blur => shrimply_render_cuda::MODIFIERS_BLUR,
+            Self::Geometry => shrimply_render_cuda::MODIFIERS_GEOMETRY,
+            Self::Matte => shrimply_render_cuda::MODIFIERS_MATTE,
+            Self::Stabilization => shrimply_render_cuda::STABILIZATION,
         }
     }
 

@@ -14,11 +14,6 @@ use types::{AlphaParams, ConvolutionParams, ConvolutionTerm, ImageDescriptor, MA
 const UPSCALE_CNN_X2_M: &[u8] = include_bytes!("../models/upscale_cnn_x2_m.bin");
 const RESTORE_GAN_UUL: &[u8] = include_bytes!("../models/restore_gan_uul.bin");
 const UPSCALE_GAN_X4_UUL: &[u8] = include_bytes!("../models/upscale_gan_x4_uul.bin");
-const ANIME4K_CUBIN: &[u8] = include_bytes!(concat!(
-    env!("CARGO_MANIFEST_DIR"),
-    "/../../../.slang-artifacts/cuda/sm_86/anime4k.cubin"
-));
-
 const EMPTY_IMAGE_DESCRIPTOR: ImageDescriptor = ImageDescriptor {
     pixels: std::ptr::null(),
     width: 0,
@@ -73,7 +68,7 @@ pub struct Workspace {
 impl Workspace {
     pub fn new(context: Arc<CudaContext>) -> Result<Self, String> {
         let module = context
-            .load_module_from_image(ANIME4K_CUBIN)
+            .load_module_from_image(shrimply_render_cuda::ANIME4K)
             .map_err(|error| format!("load Anime4K CUDA module: {error:?}"))?;
         Ok(Self {
             module,

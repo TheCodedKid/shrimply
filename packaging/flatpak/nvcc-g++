@@ -1,0 +1,6 @@
+#!/bin/sh
+export LD_PRELOAD=/run/host/usr/lib/x86_64-linux-gnu/libisl.so.23:/run/host/usr/lib/x86_64-linux-gnu/libmpc.so.3
+exec /run/host/usr/bin/g++ \
+    -isystem /run/host/usr/include/x86_64-linux-gnu \
+    -isystem /run/host/usr/include \
+    "$@"

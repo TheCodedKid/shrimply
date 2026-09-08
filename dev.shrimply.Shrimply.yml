@@ -1,0 +1,145 @@
+app-id: dev.shrimply.Shrimply
+runtime: org.gnome.Platform
+runtime-version: "50"
+sdk: org.gnome.Sdk
+command: shrimply
+
+build-options:
+  no-debuginfo: true
+
+finish-args:
+  - --share=ipc
+  - --share=network
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --socket=pulseaudio
+  - --socket=session-bus
+  - --socket=system-bus
+  - --device=all
+  - --filesystem=host
+  - --filesystem=/run/media
+  - --filesystem=xdg-run/pipewire-0
+
+cleanup:
+  - /include
+  - /lib/cmake
+  - /lib/pkgconfig
+  - /share/man
+  - "*.a"
+  - "*.la"
+
+modules:
+  - name: rubberband
+    buildsystem: meson
+    config-opts:
+      - --libdir=lib
+      - -Ddefault_library=shared
+      - -Dfft=builtin
+      - -Dresampler=builtin
+      - -Djni=disabled
+      - -Dladspa=disabled
+      - -Dlv2=disabled
+      - -Dvamp=disabled
+      - -Dcmdline=disabled
+      - -Dtests=disabled
+    sources:
+      - type: git
+        url: https://github.com/breakfastquay/rubberband.git
+        tag: v4.0.0
+        commit: 1d95888bec3ae0a17c0c4af791810d5a63f6bc35
+
+  - name: poppler
+    buildsystem: cmake-ninja
+    config-opts:
+      - -DCMAKE_BUILD_TYPE=Release
+      - -DCMAKE_INSTALL_LIBDIR=lib
+      - -DENABLE_QT5=OFF
+      - -DENABLE_QT6=OFF
+      - -DENABLE_GLIB=ON
+      - -DENABLE_BOOST=OFF
+      - -DENABLE_UTILS=OFF
+      - -DENABLE_CPP=OFF
+      - -DENABLE_GOBJECT_INTROSPECTION=OFF
+      - -DBUILD_GTK_TESTS=OFF
+      - -DBUILD_CPP_TESTS=OFF
+      - -DBUILD_MANUAL_TESTS=OFF
+    sources:
+      - type: archive
+        url: https://poppler.freedesktop.org/poppler-26.08.0.tar.xz
+        sha256: dc906e68cea698109706ac6aa3d2c9d4512fcfcac42d90b8afcda486d1b9abd0
+
+  - name: opencv
+    buildsystem: cmake-ninja
+    builddir: true
+    config-opts:
+      - -DCMAKE_BUILD_TYPE=Release
+      - -DCMAKE_INSTALL_LIBDIR=lib
+      - -DBUILD_LIST=core,imgproc,video,videoio,calib3d
+      - -DBUILD_SHARED_LIBS=ON
+      - -DBUILD_TESTS=OFF
+      - -DBUILD_PERF_TESTS=OFF
+      - -DBUILD_EXAMPLES=OFF
+      - -DBUILD_opencv_apps=OFF
+      - -DBUILD_opencv_python2=OFF
+      - -DBUILD_opencv_python3=OFF
+      - -DOPENCV_GENERATE_PKGCONFIG=ON
+      - -DWITH_CUDA=OFF
+      - -DWITH_GTK=OFF
+      - -DWITH_QT=OFF
+    sources:
+      - type: git
+        url: https://github.com/opencv/opencv.git
+        tag: 4.14.0
+        commit: 0654a42e19215ef25b1d367d822f3c630447e7c7
+
+  - name: slang
+    buildsystem: simple
+    build-commands:
+      - install -d /app/include /app/lib
+      - cp -a include/. /app/include/
+      - cp -a lib/. /app/lib/
+    sources:
+      - type: archive
+        url: https://github.com/shader-slang/slang/releases/download/v2026.17/slang-2026.17-linux-x86_64-glibc-2.28.tar.gz
+        sha256: a5a48530e7218d79e10b633c216ef04cbe778450b8c0a7579125e630c088ca75
+        strip-components: 0
+
+  - name: shrimply-gtk
+    buildsystem: simple
+    build-options:
+      build-args:
+        - --share=network
+        - --filesystem=host-os:ro
+      env:
+        RUSTUP_HOME: /run/host/usr/local/rustup
+        CARGO_HOME: /run/ccache/cargo-home
+        CARGO_TARGET_DIR: /run/ccache/cargo-target
+        PATH: /run/host/usr/local/cargo/bin:/run/host/usr/local/cuda-12.9/bin:/app/bin:/usr/bin
+        CUDA_HOME: /run/host/usr/local/cuda-12.9
+        CUDA_TOOLKIT_PATH: /run/host/usr/local/cuda-12.9
+        CUDA_IMAGE_FORMAT: ptx
+        CUDA_PTX_TARGET: compute_50
+        CUDA_HOST_CXX: /run/build/shrimply-gtk/packaging/flatpak/nvcc-g++
+        CUDA_ALLOW_UNSUPPORTED_COMPILER: "1"
+        CLANG_PATH: /run/host/usr/bin/clang
+        LIBCLANG_PATH: /run/host/usr/lib/llvm-18/lib
+        LIBRARY_PATH: /run/host/usr/local/cuda-12.9/lib64/stubs
+        SLANG_LIBRARY_DIR: /app/lib
+        SLANG_INCLUDE_DIR: /app/include
+        SLANG_PREBUILT: "1"
+    build-commands:
+      - >-
+        make release
+        RUSTUP=/run/host/usr/local/cargo/bin/rustup
+        CUDA_PTX_TARGET="${CUDA_PTX_TARGET}"
+      - >-
+        make install PREFIX=/app
+        RUSTUP=/run/host/usr/local/cargo/bin/rustup
+        CUDA_PTX_TARGET="${CUDA_PTX_TARGET}"
+      - test ! -e /app/bin/shrimply-qt
+      - test ! -e /app/bin/shrimply-editor-qt
+      - test ! -e /app/share/applications/dev.shrimply.Shrimply.Qt.desktop
+    sources:
+      - type: archive
+        path: /shrimply-source.tar
+        strip-components: 0

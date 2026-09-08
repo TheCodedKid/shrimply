@@ -1,0 +1,57 @@
+FROM nvidia/cuda:12.9.2-cudnn-devel-ubuntu24.04 AS builder
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV RUSTUP_HOME=/opt/rustup
+ENV CARGO_HOME=/opt/cargo
+ENV PATH=/opt/cargo/bin:${PATH}
+ENV CUDA_PTX_TARGET=compute_50
+ENV OUTPUT_UID=0
+ENV OUTPUT_GID=0
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        clang \
+        curl \
+        flatpak \
+        flatpak-builder \
+        git \
+        libclang-dev \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+        | sh -s -- -y --default-toolchain none --profile minimal \
+    && rustup toolchain install nightly-2026-04-03 --profile minimal
+
+RUN flatpak remote-add --user --if-not-exists flathub \
+        https://dl.flathub.org/repo/flathub.flatpakrepo \
+    && flatpak install --user -y flathub org.gnome.Sdk//50 org.gnome.Platform//50
+
+RUN apt-get update && apt-get install -y --no-install-recommends librsvg2-common \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN mv /opt/rustup /usr/local/rustup \
+    && mv /opt/cargo /usr/local/cargo
+
+ENV RUSTUP_HOME=/usr/local/rustup
+ENV CARGO_HOME=/usr/local/cargo
+ENV PATH=/usr/local/cargo/bin:${PATH}
+
+WORKDIR /src
+COPY . .
+RUN tar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner \
+        -cf /shrimply-source.tar .
+
+CMD mkdir -p /usr/local/libclang-deps \
+    && for library in libbsd.so.0 libedit.so.2 libffi.so.8 libicudata.so.74 libicuuc.so.74 liblzma.so.5 libmd.so.0 libtinfo.so.6 libxml2.so.2 libz.so.1 libzstd.so.1; do ln -sf "/run/host/usr/lib/x86_64-linux-gnu/${library}" "/usr/local/libclang-deps/${library}"; done \
+    && git config --global --add safe.directory "*" \
+    && flatpak-builder --user --ccache --disable-rofiles-fuse --force-clean \
+        --state-dir=/flatpak/state \
+        --repo=/flatpak/repo \
+        --install-deps-from=flathub \
+        /flatpak/build dev.shrimply.Shrimply.yml \
+    && flatpak build-bundle \
+        --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo \
+        /flatpak/repo /output/shrimply-gtk.flatpak dev.shrimply.Shrimply \
+    && chown "${OUTPUT_UID}:${OUTPUT_GID}" /output/shrimply-gtk.flatpak

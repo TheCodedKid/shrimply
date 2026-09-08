@@ -1275,17 +1275,17 @@ impl CudaVideoCompositor {
             let started = std::time::Instant::now();
             self.export_module = Some(
                 kernels::load_export(&self.context)
-                    .map_err(|error| format!("load sm_86 CUDA export cubin: {error:?}"))?,
+                    .map_err(|error| format!("load CUDA export module: {error:?}"))?,
             );
             tracing::debug!(
                 elapsed_us = started.elapsed().as_micros(),
-                "CUDA export cubin loaded"
+                "CUDA export module loaded"
             );
         }
         let module = self
             .export_module
             .as_ref()
-            .expect("CUDA export cubin loaded");
+            .expect("CUDA export module loaded");
         if self.export_conversion_events.is_none() {
             let flags = Some(sys::CUevent_flags_enum_CU_EVENT_DEFAULT);
             self.export_conversion_events = Some((

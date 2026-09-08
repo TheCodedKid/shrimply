@@ -5403,6 +5403,7 @@ dependencies = [
  "shrimply-cuda",
  "shrimply-gpu-memory",
  "shrimply-render-core",
+ "shrimply-render-cuda",
 ]
 
 [[package]]
@@ -7357,6 +7358,7 @@ dependencies = [
  "shrimply-project",
  "shrimply-render-3d",
  "shrimply-render-core",
+ "shrimply-render-cuda",
  "shrimply-resource-pipeline",
  "shrimply-scene-3d",
  "shrimply-server-client",

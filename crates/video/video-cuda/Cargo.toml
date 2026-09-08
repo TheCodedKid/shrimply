@@ -51,6 +51,7 @@ shrimply-pdf = { path = "../../pdf" }
 shrimply-preview-skia = { path = "../../preview/preview-skia" }
 shrimply-project = { path = "../../project/project" }
 shrimply-render-core = { path = "../../render-core", features = ["cuda"] }
+shrimply-render-cuda = { path = "../../render-cuda" }
 shrimply-preview-core = { path = "../../preview/preview-core" }
 shrimply-render-3d = { path = "../../3d/render-3d" }
 shrimply-resource-pipeline = { path = "../../resource-pipeline" }

@@ -5,7 +5,9 @@ use std::{env, fs, path::PathBuf, process::Command};
 use shrimply_slang_build::{Compiler, Target};
 
 #[cfg(target_os = "linux")]
-const CUDA_TARGET: &str = "sm_86";
+const DEFAULT_CUBIN_TARGET: &str = "sm_86";
+#[cfg(target_os = "linux")]
+const DEFAULT_PTX_TARGET: &str = "compute_50";
 #[cfg(target_os = "linux")]
 const MODULES: &str = include_str!("../render-core/shaders/kernels.txt");
 
@@ -15,20 +17,42 @@ fn main() {}
 #[cfg(target_os = "linux")]
 fn main() {
     for variable in [
+        "CUDA_IMAGE_FORMAT",
         "CUDA_TARGET",
+        "CUDA_PTX_TARGET",
         "CUDA_HOST_CXX",
+        "CUDA_ALLOW_UNSUPPORTED_COMPILER",
         "CUDA_HOME",
         "CUDA_TOOLKIT_PATH",
     ] {
         println!("cargo:rerun-if-env-changed={variable}");
     }
-    let target = env::var("CUDA_TARGET").unwrap_or_else(|_| CUDA_TARGET.to_owned());
-    assert_eq!(target, CUDA_TARGET, "unsupported CUDA kernel target");
+    let format = env::var("CUDA_IMAGE_FORMAT").unwrap_or_else(|_| "cubin".to_owned());
+    let (target, extension, nvcc_output) = match format.as_str() {
+        "cubin" => {
+            let target =
+                env::var("CUDA_TARGET").unwrap_or_else(|_| DEFAULT_CUBIN_TARGET.to_owned());
+            assert!(
+                target.starts_with("sm_"),
+                "CUDA_TARGET must be a physical SM architecture"
+            );
+            (target, "cubin", "--cubin")
+        }
+        "ptx" => {
+            let target =
+                env::var("CUDA_PTX_TARGET").unwrap_or_else(|_| DEFAULT_PTX_TARGET.to_owned());
+            assert!(
+                target.starts_with("compute_"),
+                "CUDA_PTX_TARGET must be a virtual compute architecture"
+            );
+            (target, "ptx", "--ptx")
+        }
+        _ => panic!("unsupported CUDA_IMAGE_FORMAT {format:?}; expected cubin or ptx"),
+    };
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let shaders = manifest.join("../render-core/shaders");
-    let output = manifest
-        .join("../../.slang-artifacts/cuda")
-        .join(CUDA_TARGET);
+    let out = PathBuf::from(env::var_os("OUT_DIR").expect("CUDA build output"));
+    let output = out.join("cuda").join(&target);
     fs::create_dir_all(&output).expect("create CUDA artifact directory");
     let compiler = Compiler::new(&shaders, &output);
     let toolkit = env::var_os("CUDA_TOOLKIT_PATH")
@@ -40,11 +64,16 @@ fn main() {
     for module in MODULES.lines() {
         let source = shaders.join(format!("{module}.slang"));
         let artifact = compiler.compile(&source, Target::Cuda, &[]);
-        let image = output.join(format!("{module}.cubin"));
-        let status = Command::new(toolkit.join("bin/nvcc"))
+        let image = output.join(format!("{module}.{extension}"));
+        let mut command = Command::new(toolkit.join("bin/nvcc"));
+        command
             .arg(format!("--compiler-bindir={host}"))
-            .args(["--cubin", "-O2", "-w"])
-            .arg(format!("--gpu-architecture={CUDA_TARGET}"))
+            .args([nvcc_output, "-O2", "-w"])
+            .arg(format!("--gpu-architecture={target}"));
+        if env::var_os("CUDA_ALLOW_UNSUPPORTED_COMPILER").is_some_and(|value| !value.is_empty()) {
+            command.arg("--allow-unsupported-compiler");
+        }
+        let status = command
             .arg(output.join(artifact.filename))
             .arg("-o")
             .arg(&image)
@@ -60,6 +89,7 @@ fn main() {
             image
         ));
     }
-    let out = PathBuf::from(env::var_os("OUT_DIR").expect("CUDA build output"));
+    bindings.push_str(&format!("pub const IMAGE_FORMAT: &str = {format:?};\n"));
+    bindings.push_str(&format!("pub const IMAGE_TARGET: &str = {target:?};\n"));
     fs::write(out.join("kernels.rs"), bindings).expect("write CUDA kernel bindings");
 }

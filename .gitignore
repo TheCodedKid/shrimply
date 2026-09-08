@@ -1,4 +1,5 @@
 target/
+/dist/
 /assets/icons/dev.shrimply.Shrimply.png
 .qmlls.ini
 /.slang-artifacts
@@ -45,5 +46,5 @@ latex_cache/
 .gradio/certificate.pem
 TODO.md
 TODO-appkit-components.md
-assets/.DS_Store
+.DS_Store
 話はまだ途中.wav
