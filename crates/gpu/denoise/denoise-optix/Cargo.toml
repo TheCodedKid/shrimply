@@ -1,0 +1,12 @@
+[package]
+name = "shrimply-denoise-optix"
+version = "0.1.0"
+edition = "2024"
+build = "build.rs"
+
+[dependencies]
+shrimply-gpu-cuda.workspace = true
+shrimply-math-color = { workspace = true, features = ["cuda"] }
+
+[build-dependencies]
+cc.workspace = true

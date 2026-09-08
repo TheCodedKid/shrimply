@@ -1,0 +1,13 @@
+[package]
+name = "shrimply-components-skia"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+shrimply-cross-ui-theme = { workspace = true }
+hashbrown.workspace = true
+async-channel.workspace = true
+cached.workspace = true
+shrimply-math-color = { workspace = true, features = ["skia"] }
+shrimply-math-geometry = { workspace = true, features = ["skia"] }
+skia-safe = { workspace = true, features = ["textlayout", "svg"] }

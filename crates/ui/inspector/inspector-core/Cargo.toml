@@ -1,0 +1,48 @@
+[package]
+name = "shrimply-inspector-core"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+default = ["cuda-backend"]
+cuda-backend = ["dep:shrimply-visual-cuda"]
+
+[dependencies]
+async-channel.workspace = true
+ffmpeg-next.workspace = true
+hashbrown.workspace = true
+glam.workspace = true
+reqwest = { workspace = true, features = ["blocking"] }
+rusqlite.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+shrimply-audio-engine = { workspace = true }
+shrimply-audio-modifiers = { workspace = true }
+shrimply-blender-bridge = { workspace = true }
+shrimply-3dgs-core = { workspace = true }
+shrimply-property-model = { workspace = true }
+shrimply-project-evaluation = { workspace = true }
+shrimply-i18n = { workspace = true }
+shrimply-keyframe-graph-skia = { workspace = true }
+shrimply-manim-bridge = { workspace = true }
+shrimply-math-core = { workspace = true }
+shrimply-media-info = { workspace = true }
+shrimply-pdf = { workspace = true }
+shrimply-property-transfer = { workspace = true }
+shrimply-preview-provider-skia = { workspace = true }
+shrimply-project-document = { workspace = true, default-features = true }
+shrimply-compute-client = { workspace = true }
+shrimply-scene-3d = { workspace = true }
+shrimply-shape-3d = { workspace = true }
+shrimply-editor-state = { workspace = true }
+shrimply-text-3d = { workspace = true }
+shrimply-timeline-edit = { workspace = true }
+shrimply-tts = { workspace = true }
+shrimply-visual-cuda = { workspace = true, optional = true }
+shrimply-visual-core = { workspace = true }
+shrimply-visual-modifiers = { workspace = true }
+skia-safe = { workspace = true, features = ["textlayout"] }
+strum.workspace = true
+tempfile.workspace = true
+tracing.workspace = true
+uuid = { workspace = true, features = ["v4"] }

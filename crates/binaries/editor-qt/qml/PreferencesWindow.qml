@@ -1,0 +1,1 @@
+../../../ui/preferences/preferences-qt/qml/PreferencesWindow.qml

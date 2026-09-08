@@ -1,0 +1,21 @@
+[package]
+name = "shrimply-components-demo-appkit"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "shrimply-components-demo-appkit"
+path = "src/main.rs"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2.workspace = true
+objc2-app-kit.workspace = true
+objc2-foundation.workspace = true
+shrimply-profiling = { workspace = true }
+shrimply-components-core = { workspace = true }
+shrimply-components-appkit = { workspace = true }
+shrimply-components-demo-core = { workspace = true }
+shrimply-cross-ui-theme = { workspace = true }
+shrimply-keyframe-graph-skia = { workspace = true }
+shrimply-math-color = { workspace = true }
+shrimply-process-reporting = { workspace = true }

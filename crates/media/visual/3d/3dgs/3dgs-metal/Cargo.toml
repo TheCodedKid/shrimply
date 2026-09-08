@@ -1,0 +1,16 @@
+[package]
+name = "shrimply-3dgs-metal"
+version = "0.1.0"
+edition = "2024"
+build = "build.rs"
+
+[build-dependencies]
+shrimply-slang-build = { workspace = true }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2.workspace = true
+objc2-foundation.workspace = true
+objc2-metal.workspace = true
+shrimply-asset = { workspace = true }
+shrimply-3dgs-core = { workspace = true }
+shrimply-render-metal = { workspace = true }

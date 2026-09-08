@@ -11,7 +11,7 @@ accuracy, security, and licensing, just as with any other contribution.
 ## Translations
 
 Translation contributions are welcome. Interface translations live in
-[`crates/ui/i18n-core/locales`](crates/ui/i18n-core/locales). Preserve placeholders such
+[`crates/i18n/locales`](crates/i18n/locales). Preserve placeholders such
 as `%{count}` when translating strings.
 
 Only contribute to languages you speak. I don't need another person to ask Claude/ChatGPT for me (I can do that myself).

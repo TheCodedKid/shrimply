@@ -1,0 +1,12 @@
+[package]
+name = "shrimply-gpu-cuda-memory"
+version = "0.1.0"
+edition = "2024"
+build = "build.rs"
+
+[dependencies]
+shrimply-gpu-cuda.workspace = true
+hashbrown.workspace = true
+libc.workspace = true
+shrimply-profiling = { workspace = true }
+tracing.workspace = true

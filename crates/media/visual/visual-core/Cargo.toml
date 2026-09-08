@@ -1,0 +1,54 @@
+[package]
+name = "shrimply-visual-core"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+cuda-stabilization = ["dep:shrimply-affine-l1-stabilization"]
+
+[dependencies]
+shrimply-paint-skia = { workspace = true }
+shrimply-math-geometry = { workspace = true }
+shrimply-math-core = { workspace = true }
+shrimply-drawing-skia = { workspace = true }
+shrimply-property-model = { workspace = true }
+shrimply-background = { workspace = true }
+uuid.workspace = true
+shrimply-math-media = { workspace = true }
+shrimply-render-core = { workspace = true }
+shrimply-project-evaluation = { workspace = true }
+shrimply-visual-modifiers = { workspace = true }
+shrimply-math-color = { workspace = true }
+shrimply-asset = { workspace = true }
+shrimply-blender-bridge = { workspace = true }
+shrimply-layered-image-loader = { workspace = true }
+shrimply-affine-l1-stabilization = { workspace = true, optional = true }
+shrimply-mesh-flow-stabilization = { workspace = true }
+cached.workspace = true
+tracing.workspace = true
+cairo = { workspace = true, features = ["freetype"] }
+glam.workspace = true
+glib.workspace = true
+pango = { workspace = true, features = ["v1_57"] }
+pangocairo.workspace = true
+shrimply-project-document = { workspace = true, default-features = true }
+shrimply-compute-client = { workspace = true }
+shrimply-text-3d = { workspace = true }
+shrimply-shape-3d = { workspace = true }
+shrimply-render-3d-core = { workspace = true }
+shrimply-scene-3d = { workspace = true }
+shrimply-transform-3d = { workspace = true }
+shrimply-3dgs-core = { workspace = true }
+skia-safe = { workspace = true, features = ["textlayout", "svg"] }
+serde_json.workspace = true
+serde = { workspace = true, features = ["derive"] }
+shrimply-resource-pipeline = { workspace = true }
+vtracer.workspace = true
+hashbrown.workspace = true
+num-traits.workspace = true
+rusqlite = { workspace = true, features = ["bundled"] }
+png.workspace = true
+tempfile.workspace = true
+
+ffmpeg-next.workspace = true
+libc.workspace = true

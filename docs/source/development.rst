@@ -74,7 +74,7 @@ repository root; do not install their dependencies globally.
 Repository layout
 -----------------
 
-``crates/apps``
+``crates/binaries``
    Launcher and editor applications.
 
 ``crates/timeline`` and ``crates/project``
@@ -89,10 +89,10 @@ Repository layout
 ``crates/3d``, ``crates/paint``, and ``crates/layered-image``
    Specialized content and rendering pipelines.
 
-``crates/math`` and ``crates/core``
+``crates/math`` and ``crates/project/property-model``
    Shared math and core data types.
 
-``crates/mcp`` and ``crates/server-client``
+``crates/integrations/mcp`` and ``crates/integrations/compute-client``
    Live editor automation and compute-server communication.
 
 ``server``

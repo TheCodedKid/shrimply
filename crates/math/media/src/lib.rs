@@ -13,7 +13,7 @@ pub use shrimply_math_geometry::{
     EllipseSegment, Rect, arrow_vertices, cross_vertices, ellipse_segment, fit_vertices,
     regular_polygon_vertices, star_vertices,
 };
-use shrimply_project_core::{AudioClipTransitionCurve, CanvasSize, TransitionSide};
+use shrimply_project_types::{AudioClipTransitionCurve, CanvasSize, TransitionSide};
 pub use shrimply_render_core::math::*;
 
 pub fn background_noise_epoch(position: Time, interval_seconds: f32) -> u32 {
@@ -502,7 +502,8 @@ pub fn coalesce_pool(progress: f32, index: usize) -> (glam::Vec2, f32) {
     ];
     let delay = index.min(seeds.len() - 1) as f32 * 0.07;
     let local = ((progress.clamp(0.0, 1.0) - delay) / (1.0 - delay)).clamp(0.0, 1.0);
-    let growth = shrimply_interpolation::Interpolation::SineInOut.value(f64::from(local)) as f32;
+    let growth =
+        shrimply_math_interpolation::Interpolation::SineInOut.value(f64::from(local)) as f32;
     let center = seeds[index.min(seeds.len() - 1)].lerp(glam::Vec2::splat(0.5), growth * 0.12);
     let wobble = 1.0
         + 0.07 * (progress * std::f32::consts::TAU + index as f32 * 2.1).sin() * (1.0 - progress);
@@ -568,7 +569,13 @@ pub fn origami_mesh_vertices(
 pub fn audio_transition_gain(
     item_start: Time,
     item_end: Time,
-    transitions: impl IntoIterator<Item = (TransitionSide, Time, shrimply_interpolation::Interpolation)>,
+    transitions: impl IntoIterator<
+        Item = (
+            TransitionSide,
+            Time,
+            shrimply_math_interpolation::Interpolation,
+        ),
+    >,
     position: Time,
 ) -> f32 {
     for (side, duration, interpolation) in transitions {

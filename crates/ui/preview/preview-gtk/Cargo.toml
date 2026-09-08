@@ -1,0 +1,35 @@
+[package]
+name = "shrimply-preview-gtk"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+adw.workspace = true
+shrimply-gpu-cuda.workspace = true
+glam.workspace = true
+glow.workspace = true
+gtk.workspace = true
+libc.workspace = true
+shrimply-audio-engine = { workspace = true }
+shrimply-profiling = { workspace = true }
+shrimply-property-model = { workspace = true }
+shrimply-math-core = { workspace = true }
+shrimply-project-evaluation = { workspace = true }
+shrimply-gpu-cuda-memory = { workspace = true }
+shrimply-paint-edit-skia = { workspace = true }
+shrimply-project-document = { workspace = true, default-features = true }
+shrimply-preview-provider-skia = { workspace = true }
+shrimply-preview-interaction-skia = { workspace = true }
+shrimply-preview-runtime-cuda = { workspace = true }
+shrimply-playback-performance = { workspace = true }
+shrimply-render-core = { workspace = true }
+shrimply-components-skia = { workspace = true }
+shrimply-editor-state = { workspace = true }
+shrimply-timeline-edit = { workspace = true }
+shrimply-components-gtk = { workspace = true }
+shrimply-visual-cuda = { workspace = true }
+shrimply-visual-modifiers = { workspace = true }
+shrimply-math-color = { workspace = true, features = ["gdk"] }
+skia-safe = { workspace = true, features = ["textlayout"] }
+tracing.workspace = true
+uuid = { workspace = true, features = ["v4"] }

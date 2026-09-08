@@ -1,0 +1,31 @@
+[package]
+name = "shrimply-manim-wgpu"
+version = "0.1.0"
+edition = "2024"
+build = false
+
+[dependencies]
+hashbrown.workspace = true
+pollster = "1"
+shrimply-asset = { workspace = true }
+shrimply-i18n = { workspace = true }
+shrimply-loading-screen-skia = { workspace = true }
+shrimply-manim-state = { workspace = true }
+shrimply-manim-ir = { workspace = true }
+shrimply-manim-bridge = { workspace = true }
+shrimply-math-color = { workspace = true }
+shrimply-math-core = { workspace = true }
+shrimply-project-document = { workspace = true, default-features = true }
+tracing.workspace = true
+uuid.workspace = true
+wgpu.workspace = true
+
+[dev-dependencies]
+ffmpeg-next.workspace = true
+tempfile.workspace = true
+
+[target.'cfg(target_os = "macos")'.dev-dependencies]
+wgpu = { workspace = true, features = ["metal"] }
+
+[target.'cfg(target_os = "linux")'.dev-dependencies]
+wgpu = { workspace = true, features = ["vulkan"] }

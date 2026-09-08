@@ -1,0 +1,12 @@
+[package]
+name = "shrimply-anime4k-cuda"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+hashbrown.workspace = true
+shrimply-gpu-cuda.workspace = true
+glam.workspace = true
+shrimply-gpu-cuda-memory = { workspace = true }
+shrimply-render-core = { workspace = true, features = ["cuda"] }
+shrimply-render-kernels-cuda = { workspace = true }

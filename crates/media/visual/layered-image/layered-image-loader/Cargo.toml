@@ -1,0 +1,11 @@
+[package]
+name = "shrimply-layered-image-loader"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+hashbrown.workspace = true
+shrimply-asset = { workspace = true }
+kra-parser = { workspace = true }
+psd-parser = { workspace = true }
+shrimply-render-core = { workspace = true }

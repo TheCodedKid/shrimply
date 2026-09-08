@@ -1,0 +1,11 @@
+[package]
+name = "shrimply-3dgs-vulkan"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+ash.workspace = true
+rayon.workspace = true
+shrimply-asset.workspace = true
+shrimply-3dgs-core.workspace = true
+tracing.workspace = true

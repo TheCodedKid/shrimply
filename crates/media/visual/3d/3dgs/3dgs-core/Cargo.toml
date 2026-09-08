@@ -1,0 +1,19 @@
+[package]
+name = "shrimply-3dgs-core"
+version = "0.1.0"
+edition = "2024"
+build = "build.rs"
+
+[dependencies]
+glam.workspace = true
+rayon.workspace = true
+serde = { workspace = true, features = ["derive"] }
+shrimply-asset = { workspace = true }
+shrimply-3d-control-core = { workspace = true }
+shrimply-property-model = { workspace = true }
+shrimply-render-core = { workspace = true }
+shrimply-transform-3d = { workspace = true }
+
+[build-dependencies]
+serde_json.workspace = true
+shrimply-slang-build = { workspace = true }

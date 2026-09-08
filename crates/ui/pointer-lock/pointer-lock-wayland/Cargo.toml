@@ -1,0 +1,9 @@
+[package]
+name = "shrimply-pointer-lock-wayland"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+tracing.workspace = true
+wayland-client = { workspace = true, features = ["system"] }
+wayland-protocols = { workspace = true, features = ["client", "unstable"] }

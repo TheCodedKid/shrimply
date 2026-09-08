@@ -1,0 +1,45 @@
+[package]
+name = "shrimply-editor-appkit"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "shrimply-editor-appkit"
+path = "src/main.rs"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+block2.workspace = true
+tempfile.workspace = true
+objc2-uniform-type-identifiers = "0.3.2"
+shrimply-export-core = { workspace = true, default-features = false }
+shrimply-export-appkit = { workspace = true }
+shrimply-export-metal = { workspace = true }
+shrimply-process-reporting = { workspace = true }
+shrimply-components-skia = { workspace = true }
+shrimply-surface-metal-skia = { workspace = true }
+shrimply-cross-ui-theme = { workspace = true }
+shrimply-components-core = { workspace = true }
+shrimply-inspector-appkit = { workspace = true }
+skia-safe.workspace = true
+objc2.workspace = true
+objc2-app-kit = { workspace = true, features = ["objc2-uniform-type-identifiers"] }
+objc2-foundation.workspace = true
+objc2-core-graphics.workspace = true
+objc2-core-media.workspace = true
+objc2-screen-capture-kit = { workspace = true, features = ["std", "SCContentSharingPicker", "SCRecordingOutput", "SCShareableContent", "SCStream", "block2", "objc2-core-foundation", "objc2-core-media"] }
+shrimply-timeline-skia = { workspace = true }
+shrimply-tts = { workspace = true }
+shrimply-asset = { workspace = true }
+shrimply-cross-ui-core = { workspace = true }
+shrimply-preview-render-metal = { workspace = true }
+shrimply-preview-interaction-skia = { workspace = true }
+shrimply-project-document = { workspace = true, default-features = true }
+shrimply-editor-state = { workspace = true }
+shrimply-math-core = { workspace = true }
+glam.workspace = true
+shrimply-preview-provider-skia = { workspace = true }
+shrimply-playback-performance = { workspace = true }
+shrimply-project-evaluation = { workspace = true }
+shrimply-paint-edit-skia = { workspace = true }
+shrimply-visual-core = { workspace = true }
+uuid = { workspace = true, features = ["v4"] }
