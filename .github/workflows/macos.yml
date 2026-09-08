@@ -23,7 +23,7 @@ env:
 jobs:
   build-and-release:
     if: github.ref == 'refs/heads/main'
-    runs-on: macos-15
+    runs-on: macos-26
 
     steps:
       - uses: actions/checkout@v7
@@ -50,7 +50,7 @@ jobs:
           path: |
             ${{ env.CARGO_HOME }}
             ${{ env.RUSTUP_HOME }}
-          key: rust-macos-15-${{ runner.arch }}-${{ hashFiles('rust-toolchain.toml') }}
+          key: rust-macos-26-${{ runner.arch }}-${{ hashFiles('rust-toolchain.toml') }}
 
       - name: Install Rust toolchain
         run: |
@@ -87,10 +87,10 @@ jobs:
           path: |
             external/slang/build
             target/release
-          key: macos-application-macos-15-${{ runner.arch }}-${{ steps.application-cache-key.outputs.slang }}-${{ hashFiles('Cargo.lock', 'Makefile', 'rust-toolchain.toml') }}-${{ steps.application-cache-key.outputs.week }}
+          key: macos-application-macos-26-${{ runner.arch }}-${{ steps.application-cache-key.outputs.slang }}-${{ hashFiles('Cargo.lock', 'Makefile', 'rust-toolchain.toml') }}-${{ steps.application-cache-key.outputs.week }}
           restore-keys: |
-            macos-application-macos-15-${{ runner.arch }}-${{ steps.application-cache-key.outputs.slang }}-${{ hashFiles('Cargo.lock', 'Makefile', 'rust-toolchain.toml') }}-
-            macos-application-macos-15-${{ runner.arch }}-${{ steps.application-cache-key.outputs.slang }}-
+            macos-application-macos-26-${{ runner.arch }}-${{ steps.application-cache-key.outputs.slang }}-${{ hashFiles('Cargo.lock', 'Makefile', 'rust-toolchain.toml') }}-
+            macos-application-macos-26-${{ runner.arch }}-${{ steps.application-cache-key.outputs.slang }}-
 
       - name: Build AppKit release
         run: make appkit-release
