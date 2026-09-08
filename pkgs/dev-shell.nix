@@ -27,6 +27,7 @@
   qt6,
   rubberband,
   rustToolchain,
+  shrimply-slang,
   uv,
   vte-gtk4,
 }:
@@ -66,6 +67,7 @@ mkShell {
     python3
     qtEnv
     rubberband
+    shrimply-slang
     uv
     vte-gtk4
   ];
@@ -77,17 +79,20 @@ mkShell {
   CUDA_TOOLKIT_PATH = cudaToolkit;
   LIBCLANG_PATH = "${llvmPackages.libclang.lib}/lib";
   NIX_CC_USE_RESPONSE_FILE = "1";
-  NIX_LDFLAGS = "-L${cudaStubs}/lib/stubs";
+  NIX_LDFLAGS = "-L${cudaStubs}/lib/stubs -L${shrimply-slang}/lib";
   PKG_CONFIG = "pkg-config";
   QT_QMAKE = "${qtEnv}/bin/qmake";
+  SLANG_INCLUDE_DIR = "${shrimply-slang}/include";
+  SLANG_LIBRARY_DIR = "${shrimply-slang}/lib";
 
   shellHook = ''
     export NIX_CFLAGS_COMPILE=
-    export NIX_LDFLAGS="-L${cudaStubs}/lib/stubs"
+    export NIX_LDFLAGS="-L${cudaStubs}/lib/stubs -L${shrimply-slang}/lib"
     export LD_LIBRARY_PATH="${
       lib.makeLibraryPath [
         gcc.cc.lib
         opencv
+        shrimply-slang
         qtEnv
       ]
     }:/run/opengl-driver/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"

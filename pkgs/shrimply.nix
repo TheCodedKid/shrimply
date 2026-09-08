@@ -30,7 +30,7 @@
   rhubarbSrc,
   rubberband,
   rustPlatform,
-  slangSrc,
+  shrimply-slang,
   uv,
   vte-gtk4,
   vtracerSrc,
@@ -53,23 +53,19 @@ rustPlatform.buildRustPackage {
 
   postUnpack = ''
     mkdir -p "$sourceRoot/external"
-    for dependency in manim optix-dev slang vtracer; do
+    for dependency in manim optix-dev vtracer; do
       rm -rf "$sourceRoot/external/$dependency"
     done
     cp -r ${manimSrc} "$sourceRoot/external/manim"
     cp -r ${optixSrc} "$sourceRoot/external/optix-dev"
-    cp -r ${slangSrc} "$sourceRoot/external/slang"
     cp -r ${vtracerSrc} "$sourceRoot/external/vtracer"
     chmod -R u+w "$sourceRoot/external"
   '';
 
   postPatch = ''
-    substituteInPlace crates/manim/manim-parser/src/lib.rs \
+    substituteInPlace crates/media/visual/manim/manim-bridge/src/lib.rs \
       --replace-fail 'Path::new(env!("CARGO_MANIFEST_DIR")).join("python")' \
-      'Path::new("'"$out"'/share/shrimply/crates/manim/manim-parser/python")'
-    substituteInPlace crates/ui/gtk-components/src/icons.rs \
-      --replace-fail 'Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../assets/icons")' \
-      'Path::new("'"$out"'/share/icons/hicolor/scalable/apps").to_path_buf()'
+      'Path::new("'"$out"'/share/shrimply/crates/media/visual/manim/manim-bridge/python")'
   '';
 
   nativeBuildInputs = [
@@ -100,6 +96,7 @@ rustPlatform.buildRustPackage {
     pipewire
     poppler_gi
     rubberband
+    shrimply-slang
     vte-gtk4
   ];
 
@@ -109,15 +106,15 @@ rustPlatform.buildRustPackage {
   CUDA_HOST_CXX = "g++";
   CUDA_TOOLKIT_PATH = cudaToolkit;
   LIBCLANG_PATH = "${llvmPackages.libclang.lib}/lib";
-  NIX_LDFLAGS = "-L${cudaStubs}/lib/stubs";
+  NIX_LDFLAGS = "-L${cudaStubs}/lib/stubs -L${shrimply-slang}/lib";
   PKG_CONFIG = "pkg-config";
   SKIA_BINARIES_URL = "file://${skiaBinaries}";
+  SLANG_INCLUDE_DIR = "${shrimply-slang}/include";
+  SLANG_LIBRARY_DIR = "${shrimply-slang}/lib";
 
   buildPhase = ''
     runHook preBuild
     export OPTIX_ROOT="$PWD/external/optix-dev"
-    export SLANG_BUILD_DIR="$PWD/external/slang/build"
-    export SLANG_SOURCE_DIR="$PWD/external/slang"
     export SHRIMPLY_POCKETSPHINX_CACHE="$PWD/.pocketsphinx-cache"
     mkdir "$SHRIMPLY_POCKETSPHINX_CACHE"
     cp ${rhubarbSrc}/rhubarb/lib/cmusphinx-en-us-5.2/{mdef,means,variances,mixture_weights,transition_matrices,feature_transform} \
@@ -146,8 +143,11 @@ rustPlatform.buildRustPackage {
     install -Dm644 vendor/rhubarb-lip-sync/LICENSE \
       "$out/share/licenses/shrimply/Rhubarb-Lip-Sync.txt"
 
-    install -d "$out/share/icons/hicolor/scalable/apps"
-    cp -a assets/icons/. "$out/share/icons/hicolor/scalable/apps/"
+    # components-gtk resolves bundled icons relative to the binary.
+    install -d "$out/share/shrimply/icons"
+    cp -a assets/icons/. "$out/share/shrimply/icons/"
+    install -Dm644 assets/icons/dev.shrimply.Shrimply.svg \
+      "$out/share/icons/hicolor/scalable/apps/dev.shrimply.Shrimply.svg"
     sed -e "s|^Exec=.*|Exec=$out/bin/shrimply %f|" \
       -e "s|^TryExec=.*|TryExec=$out/bin/shrimply|" \
       assets/dev.shrimply.Shrimply.desktop \
@@ -155,9 +155,11 @@ rustPlatform.buildRustPackage {
     install -Dm644 dev.shrimply.Shrimply.desktop \
       "$out/share/applications/dev.shrimply.Shrimply.desktop"
 
-    install -d "$out/share/shrimply/crates/manim/manim-parser" "$out/share/shrimply/external"
-    cp -r crates/manim/manim-parser/python \
-      "$out/share/shrimply/crates/manim/manim-parser/python"
+    # The Manim worker resolves its uv project relative to this layout.
+    install -d "$out/share/shrimply/crates/media/visual/manim/manim-bridge" \
+      "$out/share/shrimply/external"
+    cp -r crates/media/visual/manim/manim-bridge/python \
+      "$out/share/shrimply/crates/media/visual/manim/manim-bridge/python"
     cp -r external/manim "$out/share/shrimply/external/manim"
 
     runHook postInstall

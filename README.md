@@ -52,14 +52,14 @@ Shrimply's main application is written in Rust and uses these technologies:
 
 ### Nix development environment
 
-The checked-in flake provides the pinned Rust nightly, CUDA toolkit, and native
-dependencies for the GTK and Qt applications on `x86_64-linux`. Initialize the
-required source submodules, then enter the shell:
+The checked-in flake provides the pinned Rust nightly, CUDA toolkit, Slang, and
+native dependencies for the GTK and Qt applications on `x86_64-linux`.
+Initialize the required source submodules, then enter the shell:
 
 ```sh
 git submodule update --init --recursive
 nix develop --accept-flake-config
-make check
+make dev
 ```
 
 The flake requests the [NixOS CUDA binary
@@ -78,7 +78,10 @@ A compatible NVIDIA driver is still required at runtime. The package currently
 embeds CUDA kernels for compute capability `sm_86`.
 
 The development shell sets the tool and library paths expected by the existing
-Makefile, so commands such as `make dev` and `make dev-qt` work unchanged.
+Makefile, so commands such as `make dev` and `make dev-qt` work unchanged. It
+also sets `SLANG_LIBRARY_DIR` and `SLANG_INCLUDE_DIR` to the same prebuilt
+Slang release the Cargo build scripts would otherwise download, so builds stay
+offline and reproducible.
 
 ### Finding Things to Work On
 

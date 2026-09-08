@@ -70,7 +70,6 @@
         "optix": "optix",
         "rhubarb": "rhubarb",
         "rust-overlay": "rust-overlay",
-        "slang": "slang",
         "vtracer": "vtracer"
       }
     },
@@ -93,25 +92,6 @@
         "repo": "rust-overlay",
         "rev": "ca7f624be3935a5bc46d2c240515491ab8675503",
         "type": "github"
-      }
-    },
-    "slang": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1788527230,
-        "narHash": "sha256-Fl9Q2UyM7s5uqSRRQEdZlY564F2Pok6URmcYOrxYR+o=",
-        "ref": "refs/heads/master",
-        "rev": "961e4e59ee0181ad645825c5db3a677d5a829a9f",
-        "revCount": 6909,
-        "submodules": true,
-        "type": "git",
-        "url": "https://github.com/shader-slang/slang.git"
-      },
-      "original": {
-        "rev": "961e4e59ee0181ad645825c5db3a677d5a829a9f",
-        "submodules": true,
-        "type": "git",
-        "url": "https://github.com/shader-slang/slang.git"
       }
     },
     "vtracer": {

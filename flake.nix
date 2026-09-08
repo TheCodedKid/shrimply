@@ -26,10 +26,6 @@
       url = "github:oxalica/rust-overlay/ca7f624be3935a5bc46d2c240515491ab8675503";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    slang = {
-      url = "git+https://github.com/shader-slang/slang.git?rev=961e4e59ee0181ad645825c5db3a677d5a829a9f&submodules=1";
-      flake = false;
-    };
     vtracer = {
       url = "github:visioncortex/vtracer/1ddc9ebbf7120af7d2b92518f1b56ddd95430db1";
       flake = false;
@@ -44,7 +40,6 @@
       optix,
       rhubarb,
       rust-overlay,
-      slang,
       vtracer,
       ...
     }:
@@ -62,13 +57,13 @@
           };
         in
         {
+          shrimply-slang = prev.callPackage ./pkgs/slang.nix { };
           shrimply =
-            (prev.callPackage ./pkgs/shrimply.nix {
+            (final.callPackage ./pkgs/shrimply.nix {
               inherit rustPlatform;
               manimSrc = manim;
               optixSrc = optix;
               rhubarbSrc = rhubarb;
-              slangSrc = slang;
               vtracerSrc = vtracer;
             }).overrideAttrs
               {
