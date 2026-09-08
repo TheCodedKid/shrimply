@@ -5816,17 +5816,10 @@ name = "shrimply-export-cuda"
 version = "0.1.0"
 dependencies = [
  "ffmpeg-next",
- "libc",
- "serde",
- "serde_json",
- "shrimply-audio",
  "shrimply-export-core",
- "shrimply-math-color",
  "shrimply-math-core",
- "shrimply-math-media",
  "shrimply-project",
  "shrimply-video-cuda",
- "tracing",
 ]
 
 [[package]]

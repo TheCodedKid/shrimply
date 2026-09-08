@@ -19,12 +19,16 @@ use std::{cell::OnceCell, path::PathBuf};
 
 const WIDTH: f64 = 590.0;
 const HEIGHT: f64 = 555.0;
+const GIF_HEIGHT: f64 = 165.0;
 const ROW_HEIGHT: f64 = 30.0;
 const LABEL_WIDTH: f64 = 185.0;
 const CONTROL_X: f64 = 200.0;
 const CONTROL_WIDTH: f64 = 350.0;
 
 struct DialogIvars {
+    sheet: OnceCell<Retained<NSWindow>>,
+    format_row: OnceCell<Retained<NSView>>,
+    fps_row: OnceCell<Retained<NSView>>,
     profile: OnceCell<Retained<NSPopUpButton>>,
     video_rows: OnceCell<Vec<Retained<NSView>>>,
     rows_below_entropy: OnceCell<Vec<Retained<NSView>>>,
@@ -59,6 +63,17 @@ define_class!(
                 row.setHidden(gif);
             }
             self.ivars().alpha_row.get().expect("alpha row installed").setHidden(!gif);
+            let mut format_frame = self.ivars().format_row.get().expect("format row installed").frame();
+            format_frame.origin.y = if gif { 120.0 } else { 510.0 };
+            self.ivars().format_row.get().expect("format row installed").setFrame(format_frame);
+            let mut fps_frame = self.ivars().fps_row.get().expect("FPS row installed").frame();
+            fps_frame.origin.y = if gif { 90.0 } else { 450.0 };
+            self.ivars().fps_row.get().expect("FPS row installed").setFrame(fps_frame);
+            self.ivars()
+                .sheet
+                .get()
+                .expect("sheet installed")
+                .setContentSize(NSSize::new(WIDTH, if gif { GIF_HEIGHT } else { HEIGHT }));
             let entropy_hidden = gif || codec != 0;
             self.ivars().entropy_row.get().expect("entropy row installed").setHidden(entropy_hidden);
             for (index, row) in self
@@ -91,6 +106,9 @@ define_class!(
 pub fn choose_settings(parent: &NSWindow, project: &Project) -> Option<ExportSettings> {
     let mtm = parent.mtm();
     let dialog = Dialog::alloc(mtm).set_ivars(DialogIvars {
+        sheet: OnceCell::new(),
+        format_row: OnceCell::new(),
+        fps_row: OnceCell::new(),
         profile: OnceCell::new(),
         video_rows: OnceCell::new(),
         rows_below_entropy: OnceCell::new(),
@@ -108,6 +126,11 @@ pub fn choose_settings(parent: &NSWindow, project: &Project) -> Option<ExportSet
         )
     };
     unsafe { sheet.setReleasedWhenClosed(false) };
+    dialog
+        .ivars()
+        .sheet
+        .set(sheet.clone())
+        .expect("sheet installed once");
     sheet.setTitle(ns_string!("Export Video"));
     let content = NSView::initWithFrame(
         NSView::alloc(mtm),
@@ -121,6 +144,11 @@ pub fn choose_settings(parent: &NSWindow, project: &Project) -> Option<ExportSet
         codec.setAction(Some(sel!(formatChanged:)));
     }
     content.addSubview(&codec_row);
+    dialog
+        .ivars()
+        .format_row
+        .set(codec_row.clone())
+        .expect("format row installed once");
     let (container_row, container) = popup_row("Container", &["MP4", "MKV"], 14, mtm);
     content.addSubview(&container_row);
 
@@ -147,6 +175,11 @@ pub fn choose_settings(parent: &NSWindow, project: &Project) -> Option<ExportSet
     let (fps_row, fps) = popup_row("Frame rate", &fps_label_refs, 13, mtm);
     fps.selectItemAtIndex(selected_fps as isize);
     content.addSubview(&fps_row);
+    dialog
+        .ivars()
+        .fps_row
+        .set(fps_row.clone())
+        .expect("FPS row installed once");
 
     let (rate_row, rate) = popup_row(
         "Rate control",

@@ -100,7 +100,7 @@ impl CanvasView {
         let original = project;
         let source_scopes = self.ivars().imports.borrow().retain_scopes();
         let destination_scope = ScopedUrl::new(url);
-        let (sender, receiver) = mpsc::sync_channel(1);
+        let (sender, receiver) = mpsc::channel();
         let state = VideoExport {
             receiver,
             cancelled: cancelled.clone(),
@@ -116,7 +116,7 @@ impl CanvasView {
                 let _destination_scope = destination_scope;
                 let result =
                     metal::export_project(original, settings, cancelled.clone(), |progress| {
-                        let _ = sender.try_send(Event::Progress(progress));
+                        let _ = sender.send(Event::Progress(progress));
                     });
                 let _ = sender.send(Event::Finished(result));
             })
@@ -135,7 +135,23 @@ impl CanvasView {
             let Some(task) = active.as_mut() else {
                 return Ok(());
             };
-            match task.receiver.try_recv() {
+            let mut latest_progress = None;
+            let event = loop {
+                match task.receiver.try_recv() {
+                    Ok(Event::Progress(progress)) => latest_progress = Some(progress),
+                    Ok(finished @ Event::Finished(_)) => break finished,
+                    Err(TryRecvError::Empty) => match latest_progress {
+                        Some(progress) => break Event::Progress(progress),
+                        None => return Ok(()),
+                    },
+                    Err(TryRecvError::Disconnected) => {
+                        break Event::Finished(Err(
+                            "The video export worker stopped unexpectedly.".into(),
+                        ));
+                    }
+                }
+            };
+            match event {
                 Ok(Event::Progress(progress)) => {
                     let (label, current, total) = match progress {
                         ExportProgress::MixingAudio {
@@ -204,10 +220,6 @@ impl CanvasView {
                     return Ok(());
                 }
                 Ok(Event::Finished(result)) => result,
-                Err(TryRecvError::Empty) => return Ok(()),
-                Err(TryRecvError::Disconnected) => {
-                    Err("The video export worker stopped unexpectedly.".into())
-                }
             }
         };
         let task = self
