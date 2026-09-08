@@ -8,7 +8,7 @@ use objc2_app_kit::{
     NSTextField, NSTextView, NSWorkspace,
 };
 use objc2_foundation::{NSPoint, NSString, NSURL, ns_string};
-use shrimply_timeline_core::{ContextMenuEntry, ContextMenuRequest, TIMELINE_CLIPBOARD_MARKER};
+use shrimply_timeline_skia::{ContextMenuEntry, ContextMenuRequest, TIMELINE_CLIPBOARD_MARKER};
 use std::sync::mpsc::{self, TryRecvError};
 
 const MENU_CONTROL_WIDTH: f64 = 232.0;
@@ -31,7 +31,7 @@ pub(super) struct CaptionSpeechProbe {
     receiver: mpsc::Receiver<Result<Vec<shrimply_tts::TtsModel>, String>>,
     alert: Retained<NSAlert>,
     server_url: String,
-    plan: shrimply_timeline_core::caption_speech::Plan,
+    plan: shrimply_timeline_skia::caption_speech::Plan,
 }
 
 impl CanvasView {
@@ -240,7 +240,7 @@ impl CanvasView {
                 }
                 if let Some(path) = super::super::media::clipboard_image_path(&clipboard)? {
                     return self.perform_external_drop(
-                        shrimply_timeline_core::external_content::ExternalDrop::Files(vec![path]),
+                        shrimply_timeline_skia::external_content::ExternalDrop::Files(vec![path]),
                         None,
                     );
                 }
@@ -253,20 +253,20 @@ impl CanvasView {
                         }
                     } else {
                         let content =
-                            match shrimply_timeline_core::external_content::classify_external_text(
+                            match shrimply_timeline_skia::external_content::classify_external_text(
                                 text,
                             ) {
-                                shrimply_timeline_core::external_content::ExternalText::Text(
+                                shrimply_timeline_skia::external_content::ExternalText::Text(
                                     text,
                                 ) => {
-                                    shrimply_timeline_core::external_content::ExternalDrop::Text(
+                                    shrimply_timeline_skia::external_content::ExternalDrop::Text(
                                         text,
                                     )
                                 }
-                                shrimply_timeline_core::external_content::ExternalText::ImageUrl(
+                                shrimply_timeline_skia::external_content::ExternalText::ImageUrl(
                                     url,
                                 ) => {
-                                    shrimply_timeline_core::external_content::ExternalDrop::ImageUrl(
+                                    shrimply_timeline_skia::external_content::ExternalDrop::ImageUrl(
                                         url,
                                     )
                                 }
@@ -342,7 +342,7 @@ impl CanvasView {
         const FIELD_HEIGHT: f64 = 24.0;
         const LABEL_HEIGHT: f64 = 22.0;
         const LABEL_Y_OFFSET: f64 = 4.0;
-        let defaults = shrimply_timeline_core::silence::Config::default();
+        let defaults = shrimply_timeline_skia::silence::Config::default();
         let values = [
             ("Silence threshold (dB)", defaults.threshold_db),
             (
@@ -408,7 +408,9 @@ impl CanvasView {
                     values[index].0
                 ));
             }
-            Ok(shrimply_project::project::Time::from_seconds_f64(value))
+            Ok(shrimply_project_document::project::Time::from_seconds_f64(
+                value,
+            ))
         };
         let threshold = fields[0].doubleValue();
         if !threshold.is_finite() || !(-90.0..=0.0).contains(&threshold) {
@@ -419,7 +421,7 @@ impl CanvasView {
             let Content::Timeline(scene) = &mut *content else {
                 return Err("timeline closed while removing silences".into());
             };
-            scene.remove_silences(shrimply_timeline_core::silence::Config {
+            scene.remove_silences(shrimply_timeline_skia::silence::Config {
                 threshold_db: threshold,
                 min_silence: seconds(1, 10.0)?,
                 gap_tolerance: seconds(2, 5.0)?,
@@ -449,7 +451,8 @@ impl CanvasView {
             Content::Timeline(scene) => scene.caption_speech_plan()?,
             _ => return Err("Timeline closed while preparing speech generation".into()),
         };
-        let preferences = shrimply_state::preferences::snapshot(&self.ivars().session.preferences);
+        let preferences =
+            shrimply_editor_state::preferences::snapshot(&self.ivars().session.preferences);
         let server_url = preferences.compute_server_url;
         if server_url.trim().is_empty() {
             return Err("Set a compute server in Settings before generating speech".into());
@@ -459,7 +462,7 @@ impl CanvasView {
         std::thread::Builder::new()
             .name("caption-speech-models".into())
             .spawn(move || {
-                let _ = sender.send(shrimply_timeline_core::caption_speech::models(&probe_url));
+                let _ = sender.send(shrimply_timeline_skia::caption_speech::models(&probe_url));
             })
             .map_err(|error| format!("Could not start speech model lookup: {error}"))?;
         let spinner = NSProgressIndicator::initWithFrame(
@@ -516,7 +519,7 @@ impl CanvasView {
 
     fn present_caption_speech_dialog(
         &self,
-        plan: shrimply_timeline_core::caption_speech::Plan,
+        plan: shrimply_timeline_skia::caption_speech::Plan,
         server_url: String,
         models: Vec<shrimply_tts::TtsModel>,
     ) -> Result<(), String> {
@@ -524,7 +527,8 @@ impl CanvasView {
             return Err("The server has not provided a text-to-speech model".into());
         }
         let remembered =
-            shrimply_state::preferences::snapshot(&self.ivars().session.preferences).last_tts_model;
+            shrimply_editor_state::preferences::snapshot(&self.ivars().session.preferences)
+                .last_tts_model;
         let model_menu = NSPopUpButton::initWithFrame_pullsDown(
             NSPopUpButton::alloc(self.mtm()),
             NSRect::new(NSPoint::ZERO, NSSize::new(360.0, 26.0)),
@@ -569,7 +573,7 @@ impl CanvasView {
         let handle = match &mut *self.ivars().content.borrow_mut() {
             Content::Timeline(scene) => scene.start_caption_speech(
                 plan,
-                shrimply_timeline_core::caption_speech::Options {
+                shrimply_timeline_skia::caption_speech::Options {
                     server_url,
                     model: model.clone(),
                     settings,
@@ -577,7 +581,7 @@ impl CanvasView {
             )?,
             _ => return Err("Timeline closed while starting speech generation".into()),
         };
-        shrimply_state::preferences::set_last_tts_model(
+        shrimply_editor_state::preferences::set_last_tts_model(
             &self.ivars().session.preferences,
             &model.id,
         );
@@ -890,10 +894,10 @@ impl CanvasView {
 
     pub(super) fn handle_caption_speech_update(
         &self,
-        update: shrimply_timeline_core::caption_speech::Update,
+        update: shrimply_timeline_skia::caption_speech::Update,
     ) -> Result<(), String> {
         match update {
-            shrimply_timeline_core::caption_speech::Update::Progress {
+            shrimply_timeline_skia::caption_speech::Update::Progress {
                 current,
                 total,
                 message,
@@ -906,11 +910,11 @@ impl CanvasView {
                 }
                 return Ok(());
             }
-            shrimply_timeline_core::caption_speech::Update::Failed(error) => {
+            shrimply_timeline_skia::caption_speech::Update::Failed(error) => {
                 self.close_caption_speech_alert();
                 return Err(error);
             }
-            shrimply_timeline_core::caption_speech::Update::Finished(summary) => {
+            shrimply_timeline_skia::caption_speech::Update::Finished(summary) => {
                 self.close_caption_speech_alert();
                 if summary.failed > 0
                     || summary.skipped > 0
@@ -937,8 +941,9 @@ impl CanvasView {
         {
             return Err("A transcription workflow is already open".into());
         }
-        let server_url = shrimply_state::preferences::snapshot(&self.ivars().session.preferences)
-            .compute_server_url;
+        let server_url =
+            shrimply_editor_state::preferences::snapshot(&self.ivars().session.preferences)
+                .compute_server_url;
         if server_url.trim().is_empty() {
             return Err("Set a compute server in Settings before transcribing audio".into());
         }
@@ -947,7 +952,7 @@ impl CanvasView {
         std::thread::Builder::new()
             .name("transcription-models".into())
             .spawn(move || {
-                let _ = sender.send(shrimply_timeline_core::transcription::models(&probe_url));
+                let _ = sender.send(shrimply_timeline_skia::transcription::models(&probe_url));
             })
             .map_err(|error| format!("Could not start transcription model lookup: {error}"))?;
         let spinner = NSProgressIndicator::initWithFrame(
@@ -1012,7 +1017,8 @@ impl CanvasView {
         const CONTROL_HEIGHT: f64 = 26.0;
         const LABEL_Y_OFFSET: f64 = 5.0;
         const ROWS: usize = 5;
-        let preferences = shrimply_state::preferences::snapshot(&self.ivars().session.preferences);
+        let preferences =
+            shrimply_editor_state::preferences::snapshot(&self.ivars().session.preferences);
         let accessory = NSView::initWithFrame(
             NSView::alloc(self.mtm()),
             NSRect::new(NSPoint::ZERO, NSSize::new(WIDTH, ROW_HEIGHT * ROWS as f64)),
@@ -1089,7 +1095,7 @@ impl CanvasView {
             match &*self.ivars().content.borrow() {
                 Content::Timeline(scene) => scene
                     .transcription_chunk_count(
-                        shrimply_timeline_core::transcription::Options::default(),
+                        shrimply_timeline_skia::transcription::Options::default(),
                     )
                     .ok(),
                 _ => None,
@@ -1120,9 +1126,9 @@ impl CanvasView {
             .cloned()
             .ok_or("No speech-to-text model is selected")?;
         let snap_source = match snap.indexOfSelectedItem() {
-            0 => shrimply_timeline_core::transcription::SnapSource::Audio,
-            1 => shrimply_timeline_core::transcription::SnapSource::Video,
-            2 => shrimply_timeline_core::transcription::SnapSource::AudioAndVideo,
+            0 => shrimply_timeline_skia::transcription::SnapSource::Audio,
+            1 => shrimply_timeline_skia::transcription::SnapSource::Video,
+            2 => shrimply_timeline_skia::transcription::SnapSource::AudioAndVideo,
             _ => return Err("Unknown transcription snap source".into()),
         };
         let handle = {
@@ -1131,11 +1137,13 @@ impl CanvasView {
                 return Err("timeline closed while starting transcription".into());
             };
             scene.start_transcription(
-                shrimply_timeline_core::transcription::Options {
+                shrimply_timeline_skia::transcription::Options {
                     chunked: chunks.indexOfSelectedItem() == 0,
                     snap_source,
-                    snap_tolerance: shrimply_project::project::Time::from_seconds_f64(tolerance),
-                    continue_threshold: shrimply_project::project::Time::from_seconds_f64(
+                    snap_tolerance: shrimply_project_document::project::Time::from_seconds_f64(
+                        tolerance,
+                    ),
+                    continue_threshold: shrimply_project_document::project::Time::from_seconds_f64(
                         threshold,
                     ),
                 },
@@ -1143,7 +1151,7 @@ impl CanvasView {
                 model_id.clone(),
             )?
         };
-        shrimply_state::preferences::set_last_stt_model(
+        shrimply_editor_state::preferences::set_last_stt_model(
             &self.ivars().session.preferences,
             &model_id,
         );
@@ -1177,21 +1185,21 @@ impl CanvasView {
 
     pub(super) fn handle_transcription_update(
         &self,
-        update: shrimply_timeline_core::transcription::Update,
+        update: shrimply_timeline_skia::transcription::Update,
     ) -> Result<(), String> {
         match update {
-            shrimply_timeline_core::transcription::Update::Progress(message) => {
+            shrimply_timeline_skia::transcription::Update::Progress(message) => {
                 if let Some(alert) = self.ivars().transcription_alert.borrow().as_ref() {
                     alert.setInformativeText(&NSString::from_str(&message));
                 }
                 return Ok(());
             }
-            shrimply_timeline_core::transcription::Update::Failed(error) => {
+            shrimply_timeline_skia::transcription::Update::Failed(error) => {
                 self.close_transcription_alert();
                 return Err(error);
             }
-            shrimply_timeline_core::transcription::Update::Finished { .. }
-            | shrimply_timeline_core::transcription::Update::Cancelled => {}
+            shrimply_timeline_skia::transcription::Update::Finished { .. }
+            | shrimply_timeline_skia::transcription::Update::Cancelled => {}
         }
         self.close_transcription_alert();
         Ok(())

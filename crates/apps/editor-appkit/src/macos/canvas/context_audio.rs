@@ -8,7 +8,7 @@ use objc2_app_kit::{
 use objc2_foundation::{NSPoint, NSString, ns_string};
 use objc2_uniform_type_identifiers::UTType;
 use shrimply_export_core::audio::{self, ExportProgress, Format};
-use shrimply_timeline_core::{audio_selection::selected_audio_project, selection_state};
+use shrimply_timeline_skia::{audio_selection::selected_audio_project, selection_state};
 use std::{
     path::PathBuf,
     sync::{

@@ -8,7 +8,7 @@ use objc2_app_kit::{
 use objc2_foundation::{
     MainThreadMarker, NSDictionary, NSMutableAttributedString, NSString, NSURL,
 };
-use shrimply_component_core::about;
+use shrimply_components_core::about;
 
 pub fn show(mtm: MainThreadMarker) {
     let app = NSApplication::sharedApplication(mtm);

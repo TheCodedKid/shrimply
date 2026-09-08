@@ -11,15 +11,15 @@ path = "src/main.rs"
 block2.workspace = true
 tempfile.workspace = true
 objc2-uniform-type-identifiers = "0.3.2"
-shrimply-export-core = { path = "../../export/export-core", default-features = false }
-shrimply-export-appkit = { path = "../../export/export-appkit" }
-shrimply-export-metal = { path = "../../export/export-metal" }
-shrimply-support = { path = "../../support" }
-shrimply-skia-adw-core = { path = "../../ui/skia-adw-core" }
-shrimply-skia-metal = { path = "../../ui/skia-metal" }
-shrimply-cross-ui-theme = { path = "../../ui/cross-ui-theme" }
-shrimply-component-core = { path = "../../ui/component-core" }
-shrimply-inspector-appkit = { path = "../../ui/inspector-appkit" }
+shrimply-export-core = { workspace = true, default-features = false }
+shrimply-export-appkit = { workspace = true }
+shrimply-export-metal = { workspace = true }
+shrimply-process-reporting = { workspace = true }
+shrimply-components-skia = { workspace = true }
+shrimply-surface-metal-skia = { workspace = true }
+shrimply-cross-ui-theme = { workspace = true }
+shrimply-components-core = { workspace = true }
+shrimply-inspector-appkit = { workspace = true }
 skia-safe.workspace = true
 objc2.workspace = true
 objc2-app-kit = { workspace = true, features = ["objc2-uniform-type-identifiers"] }
@@ -27,19 +27,19 @@ objc2-foundation.workspace = true
 objc2-core-graphics.workspace = true
 objc2-core-media.workspace = true
 objc2-screen-capture-kit = { workspace = true, features = ["std", "SCContentSharingPicker", "SCRecordingOutput", "SCShareableContent", "SCStream", "block2", "objc2-core-foundation", "objc2-core-media"] }
-shrimply-timeline-core = { path = "../../timeline/timeline-core" }
-shrimply-tts = { path = "../../audio/tts" }
-shrimply-asset = { path = "../../asset" }
-shrimply-cross-ui-core = { path = "../../ui/cross-ui-core" }
-shrimply-preview-metal = { path = "../../preview/preview-metal" }
-shrimply-preview-interaction-core = { path = "../../preview/preview-interaction-core" }
-shrimply-project = { path = "../../project/project" }
-shrimply-state = { path = "../../state" }
-shrimply-math-core = { path = "../../math/core" }
+shrimply-timeline-skia = { workspace = true }
+shrimply-tts = { workspace = true }
+shrimply-asset = { workspace = true }
+shrimply-cross-ui-core = { workspace = true }
+shrimply-preview-render-metal = { workspace = true }
+shrimply-preview-interaction-skia = { workspace = true }
+shrimply-project-document = { workspace = true, default-features = true }
+shrimply-editor-state = { workspace = true }
+shrimply-math-core = { workspace = true }
 glam.workspace = true
-shrimply-preview-core = { path = "../../preview/preview-core" }
-shrimply-playback-performance = { path = "../../preview/playback-performance" }
-shrimply-evaluation = { path = "../../evaluation" }
-shrimply-paint-edit = { path = "../../paint/paint-edit" }
-shrimply-video-core = { path = "../../video/video-core" }
+shrimply-preview-provider-skia = { workspace = true }
+shrimply-playback-performance = { workspace = true }
+shrimply-project-evaluation = { workspace = true }
+shrimply-paint-edit-skia = { workspace = true }
+shrimply-visual-core = { workspace = true }
 uuid = { workspace = true, features = ["v4"] }

@@ -10,7 +10,7 @@ use objc2_screen_capture_kit::{
     SCRecordingOutputConfiguration, SCRecordingOutputDelegate, SCShareableContent, SCStream,
     SCStreamConfiguration,
 };
-use shrimply_timeline_core::recording::{FinishedVideoRecording, VideoRecordingEvent as Event};
+use shrimply_timeline_skia::recording::{FinishedVideoRecording, VideoRecordingEvent as Event};
 use std::cell::{Cell, RefCell};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
@@ -59,7 +59,7 @@ define_class!(
             }
             self.finish(FinishedVideoRecording::new(
                 self.ivars().path.clone(),
-                shrimply_project::project::Time::from_fraction(
+                shrimply_project_document::project::Time::from_fraction(
                     duration.value,
                     i64::from(duration.timescale),
                 ),
@@ -243,7 +243,8 @@ pub struct ScreenRecording {
 
 impl ScreenRecording {
     pub fn start(fps: shrimply_math_core::Fraction, mtm: MainThreadMarker) -> Result<Self, String> {
-        let directory = shrimply_project::project::project_directory().join("media/recordings");
+        let directory =
+            shrimply_project_document::project::project_directory().join("media/recordings");
         std::fs::create_dir_all(&directory).map_err(|error| error.to_string())?;
         let path = directory.join(format!("{}.mp4", uuid::Uuid::new_v4()));
         let (sender, events) = mpsc::channel();
@@ -368,7 +369,7 @@ impl CanvasView {
                 break;
             };
             match command {
-                shrimply_timeline_core::recording::VideoRecordingCommand::Start { fps } => {
+                shrimply_timeline_skia::recording::VideoRecordingCommand::Start { fps } => {
                     if self.ivars().screen_recording.borrow().is_some() {
                         failure
                             .get_or_insert_with(|| "A screen recording is already active".into());
@@ -393,7 +394,7 @@ impl CanvasView {
                         }
                     }
                 }
-                shrimply_timeline_core::recording::VideoRecordingCommand::Stop => {
+                shrimply_timeline_skia::recording::VideoRecordingCommand::Stop => {
                     if let Some(recording) = self.ivars().screen_recording.borrow().as_ref() {
                         recording.stop();
                     }

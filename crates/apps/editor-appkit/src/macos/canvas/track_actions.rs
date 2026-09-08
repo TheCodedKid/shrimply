@@ -2,8 +2,8 @@ use super::*;
 use objc2::sel;
 use objc2_app_kit::{NSImage, NSMenu, NSMenuItem};
 use objc2_foundation::{NSData, NSPoint, NSString, ns_string};
-use shrimply_skia_adw_core::{Color, Rect, icon};
-use shrimply_timeline_core::{
+use shrimply_components_skia::{Color, Rect, icon};
+use shrimply_timeline_skia::{
     TrackAddAction, TrackAddMenuEntry, TrackAddSettings, TrackKey,
     draw_state::{TrackButtonId, TrackLabelAction},
     selection_state,
@@ -91,7 +91,7 @@ impl CanvasView {
         };
         let menu = NSMenu::initWithTitle(NSMenu::alloc(self.mtm()), ns_string!("Add"));
         menu.setAutoenablesItems(false);
-        let entries = shrimply_timeline_core::track_add_menu(key.kind);
+        let entries = shrimply_timeline_skia::track_add_menu(key.kind);
         for (index, entry) in entries.iter().enumerate() {
             let TrackAddMenuEntry::Action(action) = entry else {
                 menu.addItem(&NSMenuItem::separatorItem(self.mtm()));
@@ -146,8 +146,8 @@ impl CanvasView {
                 self.mtm(),
             );
         }
-        let preferences = shrimply_state::preferences::snapshot(&session.preferences);
-        shrimply_timeline_core::activate_track_add_checked(
+        let preferences = shrimply_editor_state::preferences::snapshot(&session.preferences);
+        shrimply_timeline_skia::activate_track_add_checked(
             &session.project,
             &session.player_state,
             &session.selection_state,

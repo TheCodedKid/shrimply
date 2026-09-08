@@ -25,7 +25,7 @@ use objc2_foundation::{
     NSString, ns_string,
 };
 use shrimply_cross_ui_core::editor::EditorSession;
-use shrimply_state::player_state;
+use shrimply_editor_state::player_state;
 use std::cell::{Cell, OnceCell, RefCell};
 use std::path::Path;
 use std::rc::Rc;
@@ -54,7 +54,7 @@ struct EditorIvars {
     settings_server_statuses: RefCell<
         std::collections::BTreeMap<
             String,
-            Result<shrimply_state::preferences::ComputeServerPresentation, String>,
+            Result<shrimply_editor_state::preferences::ComputeServerPresentation, String>,
         >,
     >,
     event_monitor: OnceCell<Retained<objc2::runtime::AnyObject>>,
@@ -76,11 +76,11 @@ define_class!(
             match item.action() {
                 Some(action) if action == sel!(undo:) => {
                     text_undo_manager(self, false).is_some()
-                        || shrimply_project::project::can_undo()
+                        || shrimply_project_document::project::can_undo()
                 }
                 Some(action) if action == sel!(redo:) => {
                     text_undo_manager(self, true).is_some()
-                        || shrimply_project::project::can_redo()
+                        || shrimply_project_document::project::can_redo()
                 }
                 _ => true,
             }
@@ -221,8 +221,8 @@ define_class!(
             let player = player_state::snapshot(&session.player_state);
             self.tick_fullscreen(player.playing);
             layout.progress.setDoubleValue(shrimply_math_core::time_ratio_f64(player.position, player.duration));
-            layout.time.setStringValue(&NSString::from_str(&format!("{} / {}", shrimply_project::time_format::playback_time(player.position), shrimply_project::time_format::playback_time(player.duration))));
-            let speed = shrimply_preview_core::playback::playback_speed_label(player.playback_speed);
+            layout.time.setStringValue(&NSString::from_str(&format!("{} / {}", shrimply_project_document::time_format::playback_time(player.position), shrimply_project_document::time_format::playback_time(player.duration))));
+            let speed = shrimply_preview_provider_skia::playback::playback_speed_label(player.playback_speed);
             layout.speed.setStringValue(&NSString::from_str(&speed));
             layout.speed.setToolTip(Some(&NSString::from_str(&format!("Playback speed {speed}"))));
             layout.play.setToolTip(Some(&NSString::from_str(if player.playing { "Pause" } else { "Play" })));
@@ -278,7 +278,7 @@ define_class!(
             }
             let session = self.ivars().session.get().expect("project loaded");
             shrimply_cross_ui_core::editor::change_history(
-                &session.project, &session.player_state, shrimply_project::project::undo,
+                &session.project, &session.player_state, shrimply_project_document::project::undo,
             );
         }
 
@@ -294,7 +294,7 @@ define_class!(
             }
             let session = self.ivars().session.get().expect("project loaded");
             shrimply_cross_ui_core::editor::change_history(
-                &session.project, &session.player_state, shrimply_project::project::redo,
+                &session.project, &session.player_state, shrimply_project_document::project::redo,
             );
         }
 
@@ -325,10 +325,10 @@ define_class!(
             let Some((id, scale)) = settings::numeric_preference(sender.tag()) else { return };
             let value = (sender.doubleValue() * scale as f64).round() as i64;
             let store = &self.ivars().session.get().expect("project loaded").preferences;
-            if let Err(error) = shrimply_state::preferences::set_value(
+            if let Err(error) = shrimply_editor_state::preferences::set_value(
                 store,
                 id,
-                shrimply_state::preferences::PreferenceValue::Integer(value),
+                shrimply_editor_state::preferences::PreferenceValue::Integer(value),
             ) {
                 self.show_error(error);
             }
@@ -338,11 +338,11 @@ define_class!(
         #[unsafe(method(changeDefaultFont:))]
         fn change_default_font(&self, sender: &NSPopUpButton) {
             let Some(name) = sender.titleOfSelectedItem() else { return };
-            if let Err(error) = shrimply_state::preferences::set_value(
+            if let Err(error) = shrimply_editor_state::preferences::set_value(
                 &self.ivars().session.get().expect("project loaded").preferences,
-                shrimply_state::preferences::PreferenceId::DefaultTextFontFamily,
-                shrimply_state::preferences::PreferenceValue::FontFamily(
-                    shrimply_state::preferences::FontFamily::Local { name: name.to_string() },
+                shrimply_editor_state::preferences::PreferenceId::DefaultTextFontFamily,
+                shrimply_editor_state::preferences::PreferenceValue::FontFamily(
+                    shrimply_editor_state::preferences::FontFamily::Local { name: name.to_string() },
                 ),
             ) {
                 self.show_error(error);
@@ -360,8 +360,8 @@ define_class!(
         #[unsafe(method(changeComputeServer:))]
         fn change_compute_server(&self, sender: &NSTextField) {
             let store = &self.ivars().session.get().expect("project loaded").preferences;
-            let previous = shrimply_state::preferences::snapshot(store).compute_server_url;
-            if let Err(error) = shrimply_state::preferences::edit_compute_server(
+            let previous = shrimply_editor_state::preferences::snapshot(store).compute_server_url;
+            if let Err(error) = shrimply_editor_state::preferences::edit_compute_server(
                 store,
                 &previous,
                 &sender.stringValue().to_string(),
@@ -375,7 +375,7 @@ define_class!(
         fn add_compute_server(&self, _sender: &NSButton) {
             let Some(url) = settings::prompt_compute_server_url(self.mtm()) else { return };
             let store = &self.ivars().session.get().expect("project loaded").preferences;
-            if let Err(error) = shrimply_state::preferences::add_compute_server(store, &url) {
+            if let Err(error) = shrimply_editor_state::preferences::add_compute_server(store, &url) {
                 self.show_error(error);
             }
             self.refresh_compute_servers();
@@ -384,20 +384,20 @@ define_class!(
         #[unsafe(method(removeComputeServer:))]
         fn remove_compute_server(&self, _sender: &NSButton) {
             let store = &self.ivars().session.get().expect("project loaded").preferences;
-            let selected = shrimply_state::preferences::snapshot(store).compute_server_url;
-            shrimply_state::preferences::remove_compute_server(store, &selected);
+            let selected = shrimply_editor_state::preferences::snapshot(store).compute_server_url;
+            shrimply_editor_state::preferences::remove_compute_server(store, &selected);
             self.refresh_compute_servers();
         }
 
         #[unsafe(method(selectComputeServer:))]
         fn select_compute_server(&self, sender: &NSPopUpButton) {
-            let (urls, _) = shrimply_state::preferences::compute_servers(
+            let (urls, _) = shrimply_editor_state::preferences::compute_servers(
                 &self.ivars().session.get().expect("project loaded").preferences,
             );
             let index = sender.indexOfSelectedItem();
             let Some(url) = usize::try_from(index).ok().and_then(|index| urls.get(index)) else { return };
             assert!(
-                shrimply_state::preferences::select_compute_server(
+                shrimply_editor_state::preferences::select_compute_server(
                     &self.ivars().session.get().expect("project loaded").preferences,
                     url,
                 ),
@@ -413,7 +413,7 @@ define_class!(
                 self.sync_compute_server_settings();
                 return;
             }
-            let selected_url = shrimply_state::preferences::snapshot(
+            let selected_url = shrimply_editor_state::preferences::snapshot(
                 &self.ivars().session.get().expect("project loaded").preferences,
             ).compute_server_url;
             let index = sender.indexOfSelectedItem();
@@ -432,8 +432,8 @@ define_class!(
             self.ivars().settings_device_revision.set(revision);
             let (result_sender, receiver) = std::sync::mpsc::channel();
             std::thread::spawn(move || {
-                let result = shrimply_state::preferences::select_compute_device(&selected_url, &device)
-                    .map(|status| shrimply_state::preferences::present_compute_server(&status));
+                let result = shrimply_editor_state::preferences::select_compute_device(&selected_url, &device)
+                    .map(|status| shrimply_editor_state::preferences::present_compute_server(&status));
                 let _ = result_sender.send((selected_url, result));
             });
             self.ivars()
@@ -450,11 +450,11 @@ define_class!(
                 Ok(Some(path)) => {
                     let (sender, receiver) = std::sync::mpsc::channel();
                     std::thread::spawn(move || {
-                        let _ = sender.send(shrimply_state::preferences::validate_blender_binary(&path));
+                        let _ = sender.send(shrimply_editor_state::preferences::validate_blender_binary(&path));
                     });
                     self.ivars().settings_blender_probe.replace(Some(receiver));
                     if let Some(window) = self.ivars().settings_window.borrow().as_ref() {
-                        let current = shrimply_state::preferences::snapshot(
+                        let current = shrimply_editor_state::preferences::snapshot(
                             &self.ivars().session.get().expect("project loaded").preferences,
                         );
                         settings::sync_blender_window(
@@ -473,8 +473,8 @@ define_class!(
         #[unsafe(method(clearBlender:))]
         fn clear_blender(&self, sender: &NSButton) {
             let store = &self.ivars().session.get().expect("project loaded").preferences;
-            shrimply_state::preferences::apply_blender_binary(store, None);
-            let snapshot = shrimply_state::preferences::snapshot(store);
+            shrimply_editor_state::preferences::apply_blender_binary(store, None);
+            let snapshot = shrimply_editor_state::preferences::snapshot(store);
             let window = sender.window().expect("Blender button has a settings window");
             settings::sync_blender_window(
                 &window,
@@ -562,9 +562,9 @@ impl Editor {
             .expect("project loaded")
             .preferences;
         if let Ok(path) = &result {
-            shrimply_state::preferences::apply_blender_binary(store, Some(path.clone()));
+            shrimply_editor_state::preferences::apply_blender_binary(store, Some(path.clone()));
         }
-        let snapshot = shrimply_state::preferences::snapshot(store);
+        let snapshot = shrimply_editor_state::preferences::snapshot(store);
         if let Some(window) = self.ivars().settings_window.borrow().as_ref() {
             settings::sync_blender_window(
                 window,
@@ -586,7 +586,7 @@ impl Editor {
             .get()
             .expect("project loaded")
             .preferences;
-        let (urls, _) = shrimply_state::preferences::compute_servers(store);
+        let (urls, _) = shrimply_editor_state::preferences::compute_servers(store);
         self.ivars()
             .settings_server_statuses
             .borrow_mut()
@@ -595,8 +595,10 @@ impl Editor {
         for url in urls {
             let result_sender = result_sender.clone();
             std::thread::spawn(move || {
-                let result = shrimply_state::preferences::compute_server_status(&url)
-                    .map(|status| shrimply_state::preferences::present_compute_server(&status));
+                let result =
+                    shrimply_editor_state::preferences::compute_server_status(&url).map(|status| {
+                        shrimply_editor_state::preferences::present_compute_server(&status)
+                    });
                 let _ = result_sender.send((url, result));
             });
         }
@@ -644,7 +646,7 @@ impl Editor {
                     pending.take();
                     (revision == self.ivars().settings_device_revision.get()).then(|| {
                         (
-                            shrimply_state::preferences::snapshot(
+                            shrimply_editor_state::preferences::snapshot(
                                 &self
                                     .ivars()
                                     .session
@@ -793,8 +795,10 @@ pub fn run(project: Option<&Path>) -> Result<bool, ()> {
         return Ok(false);
     };
     let session = Rc::new(
-        EditorSession::new(shrimply_project::project::activate_project(prepared))
-            .expect("initialize editor playback"),
+        EditorSession::new(shrimply_project_document::project::activate_project(
+            prepared,
+        ))
+        .expect("initialize editor playback"),
     );
     let title = session.title().text;
     let editor = Editor::alloc(mtm).set_ivars(EditorIvars {
@@ -822,18 +826,20 @@ pub fn run(project: Option<&Path>) -> Result<bool, ()> {
     let editor: Retained<Editor> = unsafe { msg_send![super(editor), init] };
     app.setDelegate(Some(ProtocolObject::from_ref(&*editor)));
     app.run();
-    shrimply_project::project::clear_project_file_locks();
+    shrimply_project_document::project::clear_project_file_locks();
     Ok(true)
 }
 
 fn prepare_project(
     path: &Path,
     mtm: MainThreadMarker,
-) -> Result<Option<shrimply_project::project::PreparedProject>, ()> {
+) -> Result<Option<shrimply_project_document::project::PreparedProject>, ()> {
     loop {
-        match shrimply_project::project::prepare_project(path) {
+        match shrimply_project_document::project::prepare_project(path) {
             Ok(prepared) => return Ok(Some(prepared)),
-            Err(shrimply_project::project::ProjectLoadError::LockedByOtherInstance { pid }) => {
+            Err(shrimply_project_document::project::ProjectLoadError::LockedByOtherInstance {
+                pid,
+            }) => {
                 let alert = NSAlert::new(mtm);
                 alert.setMessageText(ns_string!("Project is in use"));
                 alert.setInformativeText(&NSString::from_str(&format!(
@@ -855,7 +861,7 @@ fn prepare_project(
                     response, NSAlertSecondButtonReturn,
                     "unexpected project-lock alert response"
                 );
-                if !shrimply_project::project::terminate_project_process(pid) {
+                if !shrimply_project_document::project::terminate_project_process(pid) {
                     error_alert::show(
                         mtm,
                         "Could not stop other editor: Shrimply could not signal the other process.",
@@ -863,7 +869,7 @@ fn prepare_project(
                     return Err(());
                 }
             }
-            Err(shrimply_project::project::ProjectLoadError::Other(error)) => {
+            Err(shrimply_project_document::project::ProjectLoadError::Other(error)) => {
                 error_alert::show(mtm, &format!("Could not open project: {error}"));
                 return Err(());
             }

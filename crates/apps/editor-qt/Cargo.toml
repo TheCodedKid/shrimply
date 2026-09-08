@@ -12,19 +12,20 @@ cxx.workspace = true
 cxx-qt.workspace = true
 cxx-qt-lib = { workspace = true, features = ["qt_full"] }
 ffmpeg-next.workspace = true
-shrimply-cross-ui-core = { path = "../../ui/cross-ui-core" }
-shrimply-export-qt = { path = "../../export/export-qt" }
-shrimply-i18n-qt = { path = "../../ui/i18n-qt" }
-shrimply-inspector-qt = { path = "../../ui/inspector-qt" }
-shrimply-math-core = { path = "../../math/core" }
-shrimply-preview-qt = { path = "../../preview/preview-qt" }
-shrimply-preview-runtime = { path = "../../preview/preview-runtime" }
-shrimply-preferences-qt = { path = "../../preferences/preferences-qt" }
-shrimply-project = { path = "../../project/project" }
-shrimply-qt-helpers = { path = "../../ui/qt-helpers" }
-shrimply-qt-components = { path = "../../ui/qt-components" }
-shrimply-state = { path = "../../state" }
-shrimply-support = { path = "../../support" }
+shrimply-cross-ui-core = { workspace = true }
+shrimply-export-qt = { workspace = true }
+shrimply-i18n-qt = { workspace = true }
+shrimply-inspector-qt = { workspace = true }
+shrimply-math-core = { workspace = true }
+shrimply-preview-qt = { workspace = true }
+shrimply-preview-runtime-cuda = { workspace = true }
+shrimply-preferences-qt = { workspace = true }
+shrimply-project-document = { workspace = true, default-features = true }
+shrimply-application-qt = { workspace = true }
+shrimply-components-qt = { workspace = true }
+shrimply-editor-state = { workspace = true }
+shrimply-process-reporting = { workspace = true }
+shrimply-recent-projects = { workspace = true }
 tracing.workspace = true
 
 [build-dependencies]

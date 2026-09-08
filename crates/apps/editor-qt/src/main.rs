@@ -4,10 +4,10 @@ use cxx_qt_lib::{QGuiApplication, QQmlApplicationEngine, QString, QUrl};
 use std::process::ExitCode;
 
 fn main() -> ExitCode {
-    shrimply_support::crash::install();
-    shrimply_support::diagnostics::init();
+    shrimply_process_reporting::crash::install();
+    shrimply_process_reporting::diagnostics::init();
     shrimply_i18n_qt::init_system_locale();
-    shrimply_qt_components::init();
+    shrimply_components_qt::init();
     shrimply_export_qt::init();
     shrimply_inspector_qt::init();
     let mut paths = std::env::args_os().skip(1);
@@ -19,7 +19,7 @@ fn main() -> ExitCode {
     }
     backend::qobject::force_opengl();
     QGuiApplication::set_desktop_file_name(&QString::from("dev.shrimply.Shrimply.Qt"));
-    let mut app = shrimply_qt_helpers::new_widget_application();
+    let mut app = shrimply_application_qt::new_widget_application();
     let Some(mut app) = app.as_mut() else {
         eprintln!("could not create Qt application");
         return ExitCode::FAILURE;
@@ -46,8 +46,8 @@ fn main() -> ExitCode {
     let status = app.exec();
     drop(failed);
 
-    let save_result = shrimply_project::project::shutdown_history();
-    shrimply_project::project::clear_project_file_locks();
+    let save_result = shrimply_project_document::project::shutdown_history();
+    shrimply_project_document::project::clear_project_file_locks();
     if let Err(error) = save_result {
         tracing::error!(%error, "could not save project during shutdown");
         return ExitCode::FAILURE;

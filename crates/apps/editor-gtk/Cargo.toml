@@ -9,6 +9,7 @@ name = "shrimply-editor"
 path = "src/main.rs"
 
 [dependencies]
+glib = { workspace = true, features = ["log"] }
 adw.workspace = true
 async-channel.workspace = true
 ffmpeg-next.workspace = true
@@ -18,34 +19,35 @@ libc.workspace = true
 num-traits.workspace = true
 pango = { workspace = true, features = ["v1_56"] }
 serde_json.workspace = true
-shrimply-audio = { path = "../../audio/audio" }
-shrimply-blender = { path = "../../blender/blender-bridge" }
-shrimply-asset = { path = "../../asset" }
-shrimply-cross-ui-core = { path = "../../ui/cross-ui-core" }
-shrimply-component-core = { path = "../../ui/component-core" }
-shrimply-cross-ui-theme = { path = "../../ui/cross-ui-theme" }
-shrimply-export-gtk = { path = "../../export/export-gtk" }
-shrimply-inspector-gtk = { path = "../../ui/inspector-gtk" }
-shrimply-math-core = { path = "../../math/core" }
-shrimply-manim-parser = { path = "../../manim/manim-parser" }
-shrimply-mcp = { path = "../../mcp", default-features = false }
-shrimply-otio = { path = "../../project/otio" }
-shrimply-kdenlive = { path = "../../project/kdenlive" }
-shrimply-preview-gtk = { path = "../../preview/preview-gtk" }
-shrimply-playback-performance = { path = "../../preview/playback-performance" }
-shrimply-preferences-core = { path = "../../preferences/preferences-core" }
-shrimply-preferences-gtk = { path = "../../preferences/preferences-gtk" }
-shrimply-property-transfer = { path = "../../property-transfer" }
-shrimply-project = { path = "../../project/project" }
-shrimply-server-client = { path = "../../server-client" }
-shrimply-state = { path = "../../state" }
-shrimply-support = { path = "../../support" }
-shrimply-timeline = { path = "../../timeline/timeline" }
-shrimply-timeline-gtk = { path = "../../timeline/timeline-gtk" }
-shrimply-transcription = { path = "../../audio/transcription" }
-shrimply-tts = { path = "../../audio/tts" }
-shrimply-gtk-components = { path = "../../ui/gtk-components" }
-shrimply-video-cuda = { path = "../../video/video-cuda" }
-shrimply-video-modifiers = { path = "../../video/video-modifiers" }
+shrimply-audio-engine = { workspace = true }
+shrimply-blender-bridge = { workspace = true }
+shrimply-asset = { workspace = true }
+shrimply-cross-ui-core = { workspace = true }
+shrimply-components-core = { workspace = true }
+shrimply-cross-ui-theme = { workspace = true }
+shrimply-export-gtk = { workspace = true }
+shrimply-inspector-gtk = { workspace = true }
+shrimply-math-core = { workspace = true }
+shrimply-manim-bridge = { workspace = true }
+shrimply-mcp = { workspace = true, default-features = false }
+shrimply-otio-parser = { workspace = true }
+shrimply-kdenlive-parser = { workspace = true }
+shrimply-preview-gtk = { workspace = true }
+shrimply-playback-performance = { workspace = true }
+shrimply-preferences-core = { workspace = true }
+shrimply-preferences-gtk = { workspace = true }
+shrimply-property-transfer = { workspace = true }
+shrimply-project-document = { workspace = true, default-features = true }
+shrimply-compute-client = { workspace = true }
+shrimply-editor-state = { workspace = true }
+shrimply-process-reporting = { workspace = true }
+shrimply-recent-projects = { workspace = true }
+shrimply-timeline-edit = { workspace = true }
+shrimply-timeline-gtk = { workspace = true }
+shrimply-transcription = { workspace = true }
+shrimply-tts = { workspace = true }
+shrimply-components-gtk = { workspace = true }
+shrimply-visual-cuda = { workspace = true }
+shrimply-visual-modifiers = { workspace = true }
 tracing.workspace = true
 uuid.workspace = true

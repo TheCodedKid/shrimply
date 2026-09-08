@@ -10,12 +10,12 @@ use shrimply_mcp::protocol::{
     GenerateTtsRequest, ImportEntry, InitialClipProperties, InsertTtsRequest, ScopeRef,
     SetClipPropertiesRequest,
 };
-use shrimply_project::project::{
+use shrimply_project_document::project::{
     AudioItem, AudioSource, ItemKind, Project, ProjectItem, SequenceScopeId,
     TrackAddress as ModelTrackAddress,
 };
-use shrimply_timeline::TrackKind;
-use shrimply_timeline::edit as timeline_edit;
+use shrimply_timeline_edit::TrackKind;
+use shrimply_timeline_edit::edit as timeline_edit;
 use uuid::Uuid;
 
 use crate::timeline::import as native;
@@ -367,7 +367,7 @@ fn insert_tts_item(
         }
         let overwritten = collisions
             .iter()
-            .map(shrimply_project::project::ItemAddress::item_id)
+            .map(shrimply_project_document::project::ItemAddress::item_id)
             .collect::<HashSet<_>>();
         if collision == CollisionBehavior::Overwrite {
             timeline_edit::overwrite_interval(project, &track, start, end)?;
@@ -920,7 +920,7 @@ fn apply_initial_properties(
 fn root_item_addresses(
     project: &Project,
     item_ids: &HashSet<Uuid>,
-) -> Vec<shrimply_project::project::ItemAddress> {
+) -> Vec<shrimply_project_document::project::ItemAddress> {
     project
         .caption_tracks
         .iter()

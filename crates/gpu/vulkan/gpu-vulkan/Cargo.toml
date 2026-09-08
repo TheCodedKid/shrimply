@@ -1,0 +1,10 @@
+[package]
+name = "shrimply-gpu-vulkan"
+version = "0.1.0"
+edition = "2024"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+ash-wgpu = { package = "ash", version = "0.38" }
+pollster = "1"
+tracing.workspace = true
+wgpu = { workspace = true, features = ["vulkan"] }

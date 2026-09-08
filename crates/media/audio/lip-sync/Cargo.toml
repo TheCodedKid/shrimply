@@ -1,0 +1,10 @@
+[package]
+name = "shrimply-lip-sync"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+hashbrown.workspace = true
+shrimply-math-media = { workspace = true }
+shrimply-project-document = { workspace = true, default-features = true }
+shrimply-rhubarb-lip-sync.workspace = true

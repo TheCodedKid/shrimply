@@ -10,7 +10,7 @@ use objc2_foundation::{
     MainThreadMarker, NSMutableAttributedString, NSPoint, NSRect, NSSize, NSString, ns_string,
 };
 use shrimply_cross_ui_core::launcher;
-use shrimply_support::recent_projects::RecentProject;
+use shrimply_recent_projects::RecentProject;
 
 const ROW_HEIGHT: f64 = 64.0;
 const ROW_SPACING: f64 = 8.0;

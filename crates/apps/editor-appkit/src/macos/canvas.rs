@@ -7,10 +7,10 @@ use objc2_app_kit::{
 };
 use objc2_foundation::{MainThreadMarker, NSRect, NSSize, NSString, NSURL};
 use objc2_foundation::{NSArray, NSObjectProtocol};
+use shrimply_components_skia::audio_meter::AudioMeter;
 use shrimply_cross_ui_core::editor::EditorSession;
-use shrimply_preview_core::{KeyState, PointerEvent};
-use shrimply_skia_adw_core::audio_meter::AudioMeter;
-use shrimply_skia_metal::Renderer;
+use shrimply_preview_provider_skia::{KeyState, PointerEvent};
+use shrimply_surface_metal_skia::Renderer;
 use std::{
     cell::{Cell, RefCell},
     rc::Rc,
@@ -25,7 +25,7 @@ mod screen_recording;
 mod track_actions;
 
 pub enum Content {
-    Timeline(Box<shrimply_timeline_core::scene::Scene>),
+    Timeline(Box<shrimply_timeline_skia::scene::Scene>),
     Preview(Box<preview::State>),
     Meter(AudioMeter),
 }
@@ -37,7 +37,7 @@ pub struct CanvasState {
     imports: Rc<RefCell<super::media::Imports>>,
     tracking_area: RefCell<Option<Retained<NSTrackingArea>>>,
     menu_choice: Cell<Option<usize>>,
-    context_controls: RefCell<Vec<shrimply_timeline_core::ContextMenuControl>>,
+    context_controls: RefCell<Vec<shrimply_timeline_skia::ContextMenuControl>>,
     context_error: RefCell<Option<String>>,
     suppress_primary: Cell<bool>,
     secondary_preview_active: Cell<bool>,
@@ -177,7 +177,7 @@ define_class!(
             let tool = self.ivars().tools.borrow().iter()
                 .find(|(tool, _)| *tool as isize == sender.tag()).map(|(tool, _)| *tool)
                 .expect("registered timeline tool");
-            tool.activate(&shrimply_timeline_core::TimelineTools::new(self.ivars().session.preferences.clone()));
+            tool.activate(&shrimply_timeline_skia::TimelineTools::new(self.ivars().session.preferences.clone()));
             self.sync_tools();
             self.update_tracking();
             self.window().expect("canvas attached").makeFirstResponder(Some(self));
@@ -190,7 +190,7 @@ define_class!(
                 state.guides_visible = !state.guides_visible;
                 sender.setState(if state.guides_visible { objc2_app_kit::NSControlStateValueOn } else { objc2_app_kit::NSControlStateValueOff });
             }
-            shrimply_state::preferences::set_preview_guides_visible(&self.ivars().session.preferences, sender.state() == objc2_app_kit::NSControlStateValueOn);
+            shrimply_editor_state::preferences::set_preview_guides_visible(&self.ivars().session.preferences, sender.state() == objc2_app_kit::NSControlStateValueOn);
         }
 
         #[unsafe(method(changePaintTool:))]
@@ -201,18 +201,18 @@ define_class!(
                 .expect("registered paint tool");
             let palette_len = {
                 let project = self.ivars().session.project.borrow();
-                shrimply_timeline_core::selection_state::focused_video_address(
+                shrimply_timeline_skia::selection_state::focused_video_address(
                     &self.ivars().session.selection_state,
                     &project,
                 )
                 .and_then(|address| project.video_item(&address))
                 .and_then(|item| match &item.content {
-                    shrimply_project::project::VideoItemContent::Paint(paint) => Some(paint.palette.len()),
+                    shrimply_project_document::project::VideoItemContent::Paint(paint) => Some(paint.palette.len()),
                     _ => None,
                 })
             };
             if let Content::Preview(state) = &mut *self.ivars().content.borrow_mut() {
-                use shrimply_paint_edit::{PAINT_PREVIEW_STATE, PaintPreviewMode, PaintPreviewState};
+                use shrimply_paint_edit_skia::{PAINT_PREVIEW_STATE, PaintPreviewMode, PaintPreviewState};
                 state.controller.update_extension(PAINT_PREVIEW_STATE, |paint: &mut PaintPreviewState| match tool {
                     PaintTool::Pen => { paint.set_mode(PaintPreviewMode::Pen); paint.set_eraser(false); paint.adjusting = false; }
                     PaintTool::Fill => { paint.set_mode(PaintPreviewMode::Fill); paint.set_eraser(false); paint.adjusting = false; }
@@ -225,10 +225,10 @@ define_class!(
                     PaintTool::Smaller | PaintTool::Larger => {
                         let larger = matches!(tool, PaintTool::Larger);
                         if paint.mode == PaintPreviewMode::Fill {
-                            paint.set_fill_tolerance(shrimply_paint_edit::step_fill_tolerance(paint.fill_tolerance, larger));
+                            paint.set_fill_tolerance(shrimply_paint_edit_skia::step_fill_tolerance(paint.fill_tolerance, larger));
                         } else {
                             let eraser = paint.eraser;
-                            paint.set_brush_scale(eraser, shrimply_paint_edit::step_tool_size(paint.brush_scale(eraser), larger));
+                            paint.set_brush_scale(eraser, shrimply_paint_edit_skia::step_tool_size(paint.brush_scale(eraser), larger));
                         }
                     }
                     PaintTool::Palette => {
@@ -248,14 +248,14 @@ define_class!(
         fn right_mouse_down(&self, event: &NSEvent) {
             if matches!(&*self.ivars().content.borrow(), Content::Preview(state)
                 if state.controller.sequence
-                    != shrimply_preview_interaction_core::controller::PointerSequence::Idle)
+                    != shrimply_preview_interaction_skia::controller::PointerSequence::Idle)
             {
                 return;
             }
             self.ivars().secondary_preview_active.set(false);
             self.window().expect("canvas must be attached").makeFirstResponder(Some(self));
             let mut input = self.preview_input(event);
-            input.button = shrimply_preview_core::PointerButton::Secondary;
+            input.button = shrimply_preview_provider_skia::PointerButton::Secondary;
             if self.preview_pointer_event(PointerEvent::Begin(input)) {
                 self.ivars().secondary_preview_active.set(true);
             } else {
@@ -270,7 +270,7 @@ define_class!(
                 return;
             }
             let mut input = self.preview_input(event);
-            input.button = shrimply_preview_core::PointerButton::Secondary;
+            input.button = shrimply_preview_provider_skia::PointerButton::Secondary;
             self.preview_pointer_event(PointerEvent::Samples { input, samples: &[input.sample] });
         }
 
@@ -280,7 +280,7 @@ define_class!(
                 return;
             }
             let mut input = self.preview_input(event);
-            input.button = shrimply_preview_core::PointerButton::Secondary;
+            input.button = shrimply_preview_provider_skia::PointerButton::Secondary;
             self.preview_pointer_event(PointerEvent::Samples { input, samples: &[input.sample] });
             self.preview_pointer_event(PointerEvent::End(input));
         }
@@ -307,7 +307,7 @@ define_class!(
         fn other_mouse_dragged(&self, event: &NSEvent) {
             if event.buttonNumber() == MIDDLE_MOUSE_BUTTON && let Content::Timeline(scene) = &mut *self.ivars().content.borrow_mut() {
                 if self.ivars().relative_pan_active.get() {
-                    scene.event(shrimply_timeline_core::scene::Event::RelativeMotion {
+                    scene.event(shrimply_timeline_skia::scene::Event::RelativeMotion {
                         delta: glam::Vec2::new(event.deltaX() as f32, -event.deltaY() as f32),
                     });
                 } else {
@@ -346,13 +346,13 @@ define_class!(
             if control {
                 if matches!(&*self.ivars().content.borrow(), Content::Preview(state)
                     if state.controller.sequence
-                        != shrimply_preview_interaction_core::controller::PointerSequence::Idle)
+                        != shrimply_preview_interaction_skia::controller::PointerSequence::Idle)
                 {
                     return;
                 }
                 self.ivars().secondary_preview_active.set(false);
                 let mut input = self.preview_input(event);
-                input.button = shrimply_preview_core::PointerButton::Secondary;
+                input.button = shrimply_preview_provider_skia::PointerButton::Secondary;
                 if self.preview_pointer_event(PointerEvent::Begin(input)) {
                     self.ivars().secondary_preview_active.set(true);
                 } else {
@@ -379,7 +379,7 @@ define_class!(
             if self.ivars().suppress_primary.get() {
                 if self.ivars().secondary_preview_active.get() {
                     let mut input = self.preview_input(event);
-                    input.button = shrimply_preview_core::PointerButton::Secondary;
+                    input.button = shrimply_preview_provider_skia::PointerButton::Secondary;
                     self.preview_pointer_event(PointerEvent::Samples { input, samples: &[input.sample] });
                 }
                 return;
@@ -403,7 +403,7 @@ define_class!(
             if self.ivars().suppress_primary.replace(false) {
                 if self.ivars().secondary_preview_active.replace(false) {
                     let mut input = self.preview_input(event);
-                    input.button = shrimply_preview_core::PointerButton::Secondary;
+                    input.button = shrimply_preview_provider_skia::PointerButton::Secondary;
                     self.preview_pointer_event(PointerEvent::Samples { input, samples: &[input.sample] });
                     self.preview_pointer_event(PointerEvent::End(input));
                 }
@@ -442,11 +442,11 @@ define_class!(
         #[unsafe(method(scrollWheel:))]
         fn scroll(&self, event: &NSEvent) {
             if let Content::Timeline(scene) = &mut *self.ivars().content.borrow_mut() {
-                let step = if event.hasPreciseScrollingDeltas() { 1.0 } else { shrimply_timeline_core::metrics::SCROLL_PIXELS_PER_STEP };
+                let step = if event.hasPreciseScrollingDeltas() { 1.0 } else { shrimply_timeline_skia::metrics::SCROLL_PIXELS_PER_STEP };
                 let input = if event.hasPreciseScrollingDeltas() {
-                    shrimply_timeline_core::view::TimelineScrollInput::Surface
+                    shrimply_timeline_skia::view::TimelineScrollInput::Surface
                 } else {
-                    shrimply_timeline_core::view::TimelineScrollInput::Wheel
+                    shrimply_timeline_skia::view::TimelineScrollInput::Wheel
                 };
                 scene.scroll(self.point(event), glam::Vec2::new((event.scrollingDeltaX() * step) as f32, (event.scrollingDeltaY() * step) as f32), event.modifierFlags().contains(NSEventModifierFlags::Control), input);
             }
@@ -467,8 +467,8 @@ define_class!(
         fn flags_changed(&self, event: &NSEvent) {
             if let Content::Timeline(scene) = &mut *self.ivars().content.borrow_mut() {
                 let modifiers = event.modifierFlags();
-                scene.event(shrimply_timeline_core::scene::Event::Modifiers(
-                    shrimply_timeline_core::scene::TimelineModifiers {
+                scene.event(shrimply_timeline_skia::scene::Event::Modifiers(
+                    shrimply_timeline_skia::scene::TimelineModifiers {
                         ctrl: modifiers.contains(NSEventModifierFlags::Command),
                         shift: modifiers.contains(NSEventModifierFlags::Shift),
                     },
@@ -483,11 +483,11 @@ define_class!(
             // GTK's playback shortcuts run in capture before preview providers.
             match key {
                 Some(' ') => {
-                    shrimply_state::player_state::toggle_playing(&self.ivars().session.player_state);
+                    shrimply_editor_state::player_state::toggle_playing(&self.ivars().session.player_state);
                     return;
                 }
                 Some('l' | 'L') => {
-                    shrimply_state::player_state::step_playback_speed_forward(&self.ivars().session.player_state);
+                    shrimply_editor_state::player_state::step_playback_speed_forward(&self.ivars().session.player_state);
                     return;
                 }
                 _ => {}
@@ -496,7 +496,7 @@ define_class!(
 
             let modifiers = event.modifierFlags();
             if !modifiers.intersects(NSEventModifierFlags::Option | NSEventModifierFlags::Control)
-                && let Some(action) = key.and_then(|key| shrimply_timeline_core::scene::KeyAction::from_key(
+                && let Some(action) = key.and_then(|key| shrimply_timeline_skia::scene::KeyAction::from_key(
                     key, modifiers.contains(NSEventModifierFlags::Command), modifiers.contains(NSEventModifierFlags::Shift)))
             {
                 let result = {
@@ -526,10 +526,10 @@ impl CanvasView {
     }
 
     fn sync_paint_tools(&self) {
-        use shrimply_paint_edit::{PAINT_PREVIEW_STATE, PaintPreviewMode, PaintPreviewState};
+        use shrimply_paint_edit_skia::{PAINT_PREVIEW_STATE, PaintPreviewMode, PaintPreviewState};
         let visible = {
             let project = self.ivars().session.project.borrow();
-            shrimply_timeline_core::selection_state::focused_video_address(
+            shrimply_timeline_skia::selection_state::focused_video_address(
                 &self.ivars().session.selection_state,
                 &project,
             )
@@ -537,7 +537,7 @@ impl CanvasView {
             .is_some_and(|item| {
                 matches!(
                     item.content,
-                    shrimply_project::project::VideoItemContent::Paint(_)
+                    shrimply_project_document::project::VideoItemContent::Paint(_)
                 )
             })
         };
@@ -577,7 +577,7 @@ impl CanvasView {
 
     fn sync_tools(&self) {
         let state =
-            shrimply_timeline_core::TimelineTools::new(self.ivars().session.preferences.clone())
+            shrimply_timeline_skia::TimelineTools::new(self.ivars().session.preferences.clone())
                 .state();
         for (tool, button) in self.ivars().tools.borrow().iter() {
             super::layout::set_toggle_selected(
@@ -595,9 +595,9 @@ impl CanvasView {
         self.preview_pointer_move(point);
     }
 
-    fn set_timeline_cursor(cursor: shrimply_timeline_core::view::TimelineCursor) {
+    fn set_timeline_cursor(cursor: shrimply_timeline_skia::view::TimelineCursor) {
         use objc2_app_kit::{NSCursor, NSCursorFrameResizeDirections, NSCursorFrameResizePosition};
-        use shrimply_timeline_core::view::TimelineCursor;
+        use shrimply_timeline_skia::view::TimelineCursor;
         match cursor {
             TimelineCursor::Default => NSCursor::arrowCursor().set(),
             TimelineCursor::ResizeStart => NSCursor::frameResizeCursorFromPosition_inDirections(
@@ -686,13 +686,13 @@ impl CanvasView {
         pasteboard
             .stringForType(unsafe { NSPasteboardTypeString })
             .map(|text| {
-                match shrimply_timeline_core::external_content::classify_external_text(
+                match shrimply_timeline_skia::external_content::classify_external_text(
                     text.to_string(),
                 ) {
-                    shrimply_timeline_core::external_content::ExternalText::Text(text) => {
+                    shrimply_timeline_skia::external_content::ExternalText::Text(text) => {
                         DropPayload::Text(text)
                     }
-                    shrimply_timeline_core::external_content::ExternalText::ImageUrl(url) => {
+                    shrimply_timeline_skia::external_content::ExternalText::ImageUrl(url) => {
                         DropPayload::ImageUrl(url)
                     }
                 }
@@ -781,19 +781,19 @@ impl CanvasView {
                 let content = match payload {
                     DropPayload::Image => super::media::clipboard_image_path(&pasteboard)?
                         .map(|path| {
-                            shrimply_timeline_core::external_content::ExternalDrop::Files(vec![
+                            shrimply_timeline_skia::external_content::ExternalDrop::Files(vec![
                                 path,
                             ])
                         })
                         .ok_or_else(|| "dragged image has no readable image data".to_string()),
                     DropPayload::ImageUrl(url) => {
-                        Ok(shrimply_timeline_core::external_content::ExternalDrop::ImageUrl(url))
+                        Ok(shrimply_timeline_skia::external_content::ExternalDrop::ImageUrl(url))
                     }
                     DropPayload::Text(text) => {
-                        Ok(shrimply_timeline_core::external_content::ExternalDrop::Text(text))
+                        Ok(shrimply_timeline_skia::external_content::ExternalDrop::Text(text))
                     }
                     DropPayload::Mask(mask) => {
-                        Ok(shrimply_timeline_core::external_content::ExternalDrop::Mask(mask))
+                        Ok(shrimply_timeline_skia::external_content::ExternalDrop::Mask(mask))
                     }
                     DropPayload::Files(_) => unreachable!("file payload handled separately"),
                 };
@@ -810,7 +810,7 @@ impl CanvasView {
 
     fn perform_external_drop(
         &self,
-        content: shrimply_timeline_core::external_content::ExternalDrop,
+        content: shrimply_timeline_skia::external_content::ExternalDrop,
         point: Option<glam::Vec2>,
     ) -> Result<(), String> {
         let mut canvas = self.ivars().content.borrow_mut();
@@ -820,9 +820,9 @@ impl CanvasView {
         let action = scene.perform_external_drop(content, point)?;
         drop(canvas);
         match action {
-            shrimply_timeline_core::external_content::ExternalDropAction::Complete => Ok(()),
-            shrimply_timeline_core::external_content::ExternalDropAction::Importing(_) => Ok(()),
-            shrimply_timeline_core::external_content::ExternalDropAction::ConfirmRemux {
+            shrimply_timeline_skia::external_content::ExternalDropAction::Complete => Ok(()),
+            shrimply_timeline_skia::external_content::ExternalDropAction::Importing(_) => Ok(()),
+            shrimply_timeline_skia::external_content::ExternalDropAction::ConfirmRemux {
                 paths,
                 batch,
             } => {
@@ -850,13 +850,13 @@ impl CanvasView {
                 return Err("timeline drop reached a non-timeline canvas".into());
             };
             scene.perform_external_drop(
-                shrimply_timeline_core::external_content::ExternalDrop::Files(paths),
+                shrimply_timeline_skia::external_content::ExternalDrop::Files(paths),
                 point,
             )?
         };
         let batch = match action {
-            shrimply_timeline_core::external_content::ExternalDropAction::Importing(batch) => batch,
-            shrimply_timeline_core::external_content::ExternalDropAction::ConfirmRemux {
+            shrimply_timeline_skia::external_content::ExternalDropAction::Importing(batch) => batch,
+            shrimply_timeline_skia::external_content::ExternalDropAction::ConfirmRemux {
                 paths,
                 batch,
             } => {
@@ -870,7 +870,7 @@ impl CanvasView {
                 scene.begin_external_remux(paths, point, batch)?;
                 batch
             }
-            shrimply_timeline_core::external_content::ExternalDropAction::Complete => {
+            shrimply_timeline_skia::external_content::ExternalDropAction::Complete => {
                 return Err("file import completed without an asynchronous operation".into());
             }
         };
@@ -954,17 +954,19 @@ impl CanvasView {
                     meter.draw(canvas, size.width as f32, size.height as f32);
                 }
                 Content::Preview(preview) => {
-                    let player =
-                        shrimply_state::player_state::snapshot(&self.ivars().session.player_state);
+                    let player = shrimply_editor_state::player_state::snapshot(
+                        &self.ivars().session.player_state,
+                    );
                     preview
                         .renderer
                         .set_interaction(player.playing, player.scrubbing);
                     let project = self.ivars().session.project.borrow();
                     let frame = project.canvas_size;
-                    let prefs =
-                        shrimply_state::preferences::snapshot(&self.ivars().session.preferences);
+                    let prefs = shrimply_editor_state::preferences::snapshot(
+                        &self.ivars().session.preferences,
+                    );
                     preview.sync_guides(&project.preview_guides, prefs.preview_guides_visible);
-                    let viewport = shrimply_preview_interaction_core::guides::viewport(
+                    let viewport = shrimply_preview_interaction_skia::guides::viewport(
                         glam::IVec2::new(size.width as i32, size.height as i32),
                         frame,
                         prefs.preview_padding_px,
@@ -973,9 +975,9 @@ impl CanvasView {
                     );
                     preview.viewport = Some(viewport);
                     let content = viewport.content_rect;
-                    shrimply_preview_core::canvas::draw_background(
+                    shrimply_preview_provider_skia::canvas::draw_background(
                         canvas,
-                        shrimply_preview_core::canvas::Appearance {
+                        shrimply_preview_provider_skia::canvas::Appearance {
                             content_rect: content,
                             background: shrimply_cross_ui_theme::current().view_bg,
                             shadow_size: prefs.preview_shadow_size_px,
@@ -996,14 +998,14 @@ impl CanvasView {
                     result = preview.renderer.draw(
                         canvas,
                         &project,
-                        shrimply_state::player_state::current_time(
+                        shrimply_editor_state::player_state::current_time(
                             &self.ivars().session.player_state,
                         ),
                     );
                     manim_updates.extend(preview.renderer.take_manim_updates());
                     canvas.restore();
                     let focused_caption =
-                        shrimply_timeline_core::selection_state::focused_item_address(
+                        shrimply_timeline_skia::selection_state::focused_item_address(
                             &self.ivars().session.selection_state,
                             &project,
                         )
@@ -1030,7 +1032,7 @@ impl CanvasView {
                         preview.controller.context_invalidated = true;
                     }
                     preview.controller.draw(canvas, &preview.expressions);
-                    preview.sync_loading(shrimply_project::project::scaled_time_delta(
+                    preview.sync_loading(shrimply_project_document::project::scaled_time_delta(
                         project.frame_step(),
                         player.playback_speed,
                     ));
@@ -1079,7 +1081,7 @@ impl CanvasView {
             }
         }
         for update in manim_updates {
-            shrimply_state::manim_status::apply(
+            shrimply_editor_state::manim_status::apply(
                 &self.ivars().session.project,
                 &self.ivars().session.player_state,
                 update,
@@ -1105,7 +1107,7 @@ impl CanvasView {
 
     fn release_relative_pan(
         &self,
-        scene: &mut shrimply_timeline_core::scene::Scene,
+        scene: &mut shrimply_timeline_skia::scene::Scene,
     ) -> Option<glam::Vec2> {
         if !self.ivars().relative_pan_active.replace(false) {
             return None;
@@ -1122,7 +1124,7 @@ impl CanvasView {
     }
 }
 
-fn closed_hand_software_cursor() -> shrimply_skia_adw_core::cursor::SoftwareCursor {
+fn closed_hand_software_cursor() -> shrimply_components_skia::cursor::SoftwareCursor {
     let cursor = objc2_app_kit::NSCursor::closedHandCursor();
     let native = cursor.image();
     let encoded = native
@@ -1134,7 +1136,7 @@ fn closed_hand_software_cursor() -> shrimply_skia_adw_core::cursor::SoftwareCurs
     .expect("macOS closed-hand cursor image must be decodable by Skia");
     let hot_spot = cursor.hotSpot();
     let size = native.size();
-    shrimply_skia_adw_core::cursor::SoftwareCursor::from_image(
+    shrimply_components_skia::cursor::SoftwareCursor::from_image(
         image,
         glam::Vec2::new(hot_spot.x as f32, hot_spot.y as f32),
         glam::Vec2::new(size.width as f32, size.height as f32),

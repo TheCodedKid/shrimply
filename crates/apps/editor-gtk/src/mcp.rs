@@ -14,6 +14,10 @@ use std::time::{Duration, Instant};
 use gtk::{gdk, glib, prelude::*};
 use serde_json::{Value, json};
 use shrimply_asset::Asset;
+use shrimply_editor_state::{
+    player_state::{self, ProjectChange, SharedPlayerState},
+    preferences::{self, SharedPreferences},
+};
 use shrimply_math_core::{Time, fraction_new, time_from_frame};
 use shrimply_mcp::protocol::{
     ActiveScopeSnapshot, AnalyzeTransparentFillRequest, AnalyzeTransparentFillResponse,
@@ -25,18 +29,14 @@ use shrimply_mcp::protocol::{
     TranscribeAudioRequest, TtsInputValue, ViewFrameResponse,
 };
 use shrimply_preview_gtk::video::compositor::{EXPORT_ASSETS_LOADING, VideoExportRenderer};
-use shrimply_project::project::{
+use shrimply_project_document::project::{
     AudioSource, ItemAddress, ManimParameter, ManimParameterControl, ManimParameterValue, Project,
     SequenceScopeId, TrackRef, VideoItemContent, caption_languages, fraction_denominator,
     fraction_numerator,
 };
-use shrimply_state::{
-    player_state::{self, ProjectChange, SharedPlayerState},
-    preferences::{self, SharedPreferences},
-};
-use shrimply_timeline::selection_state::{self, SharedSelectionState};
-use shrimply_video_cuda::transparent_fill_analysis::Status as TransparentFillStatus;
-use shrimply_video_modifiers::{ModifierEffect, RasterModifierEffect};
+use shrimply_timeline_edit::selection_state::{self, SharedSelectionState};
+use shrimply_visual_cuda::transparent_fill_analysis::Status as TransparentFillStatus;
+use shrimply_visual_modifiers::{ModifierEffect, RasterModifierEffect};
 use uuid::Uuid;
 
 mod imports;
@@ -56,12 +56,12 @@ struct Work {
 }
 
 struct EditorSelection {
-    items: Vec<shrimply_project::project::ItemAddress>,
-    focused_item: Option<shrimply_project::project::ItemAddress>,
-    tracks: Vec<shrimply_project::project::TrackAddress>,
-    focused_track: Option<shrimply_project::project::TrackAddress>,
+    items: Vec<shrimply_project_document::project::ItemAddress>,
+    focused_item: Option<shrimply_project_document::project::ItemAddress>,
+    tracks: Vec<shrimply_project_document::project::TrackAddress>,
+    focused_track: Option<shrimply_project_document::project::TrackAddress>,
     gap: Option<selection_state::TrackAddressGap>,
-    active_scope: shrimply_project::project::SequenceScopeId,
+    active_scope: shrimply_project_document::project::SequenceScopeId,
 }
 
 impl EditorSelection {
@@ -88,7 +88,7 @@ impl EditorSelection {
             .filter(|address| self.tracks.contains(address));
         self.gap = self.gap.filter(|gap| project.track(&gap.track).is_some());
         if project.sequence_id_for_scope(&self.active_scope).is_none() {
-            self.active_scope = shrimply_project::project::SequenceScopeId::root();
+            self.active_scope = shrimply_project_document::project::SequenceScopeId::root();
         }
         self
     }
@@ -201,8 +201,8 @@ pub fn start(
 
     glib::spawn_future_local(async move {
         while let Ok(work) = receiver.recv().await {
-            let project_path = shrimply_project::project::normalized_project_path(
-                &shrimply_project::project::active_project_path(),
+            let project_path = shrimply_project_document::project::normalized_project_path(
+                &shrimply_project_document::project::active_project_path(),
             );
             let project_path_text = project_path
                 .to_str()
@@ -494,13 +494,13 @@ async fn get_manim_clip(
             source_revision,
             manim.scene.clone(),
             manim.parameters.clone(),
-            shrimply_state::manim_status::parameters(
+            shrimply_editor_state::manim_status::parameters(
                 item.id,
                 source_revision,
                 &manim.scene,
                 &manim.parameters,
             ),
-            shrimply_state::manim_status::error(
+            shrimply_editor_state::manim_status::error(
                 item.id,
                 source_revision,
                 &manim.scene,
@@ -571,7 +571,7 @@ async fn set_manim_clip(
             item.file.clone(),
             source_revision,
             manim.scene.clone(),
-            shrimply_state::manim_status::parameters(
+            shrimply_editor_state::manim_status::parameters(
                 item.id,
                 source_revision,
                 &manim.scene,
@@ -655,7 +655,7 @@ async fn set_manim_clip(
     }
 
     let item_id = address.item_id();
-    shrimply_project::project::commit_edit_checked(&project, "MCP set Manim clip")?;
+    shrimply_project_document::project::commit_edit_checked(&project, "MCP set Manim clip")?;
     *live.borrow_mut() = project;
     player_state::refresh_project(
         player,
@@ -702,7 +702,7 @@ fn reload_manim_source(
         }
         item.file.clone()
     };
-    shrimply_manim_parser::invalidate_ir_cache(&source)?;
+    shrimply_manim_bridge::invalidate_ir_cache(&source)?;
     source.mark_dirty()?;
     serde_json::to_value(ReloadManimSourceResponse {
         address: request.address,
@@ -722,7 +722,7 @@ async fn discover_manim_scenes(
             let result = if canceled.load(Ordering::Acquire) {
                 Err("MCP client canceled Manim scene discovery".to_string())
             } else {
-                shrimply_manim_parser::discover_scenes(&source)
+                shrimply_manim_bridge::discover_scenes(&source)
             };
             let _ = sender.send_blocking(result);
         })
@@ -781,7 +781,7 @@ fn manim_parameter_value(
         }
         (ManimParameterControl::Color, ProtocolManimParameterValue::Color(value)) => {
             Ok(ManimParameterValue::Color(
-                shrimply_project::project::Color::new(value.r, value.g, value.b, u8::MAX),
+                shrimply_project_document::project::Color::new(value.r, value.g, value.b, u8::MAX),
             ))
         }
         (ManimParameterControl::Option { options }, ProtocolManimParameterValue::Option(value))
@@ -828,7 +828,10 @@ async fn analyze_transparent_fill(
     }
     fill.analysis_generation = fill.analysis_generation.wrapping_add(1).max(1);
     let generation = fill.analysis_generation;
-    shrimply_project::project::commit_edit_checked(&project, "MCP analyze Transparent Fill")?;
+    shrimply_project_document::project::commit_edit_checked(
+        &project,
+        "MCP analyze Transparent Fill",
+    )?;
     *live.borrow_mut() = project.clone();
     player_state::refresh_project(
         player,
@@ -839,14 +842,14 @@ async fn analyze_transparent_fill(
         },
     );
     let run_id =
-        shrimply_video_cuda::transparent_fill_analysis::analyze(project, &address, modifier_id)?;
+        shrimply_visual_cuda::transparent_fill_analysis::analyze(project, &address, modifier_id)?;
 
     loop {
         if canceled.load(Ordering::Acquire) {
-            shrimply_video_cuda::transparent_fill_analysis::cancel(run_id);
+            shrimply_visual_cuda::transparent_fill_analysis::cancel(run_id);
             return Err("MCP client canceled Transparent Fill analysis".to_string());
         }
-        let status = shrimply_video_cuda::transparent_fill_analysis::status_for_run(run_id);
+        let status = shrimply_visual_cuda::transparent_fill_analysis::status_for_run(run_id);
         match status {
             TransparentFillStatus::Running { .. } => {
                 glib::timeout_future(CANCELLATION_POLL_INTERVAL).await;
@@ -859,7 +862,7 @@ async fn analyze_transparent_fill(
                 return Err("Transparent Fill analysis was canceled".to_string());
             }
             TransparentFillStatus::Missing => {
-                shrimply_video_cuda::transparent_fill_analysis::cancel(run_id);
+                shrimply_visual_cuda::transparent_fill_analysis::cancel(run_id);
                 return Err(
                     "Transparent Fill inputs changed while analysis was running; retry analysis"
                         .to_string(),
@@ -985,8 +988,8 @@ fn snapshot(
         })
         .collect();
     Ok(LiveSnapshot {
-        project_path: shrimply_project::project::normalized_project_path(
-            &shrimply_project::project::active_project_path(),
+        project_path: shrimply_project_document::project::normalized_project_path(
+            &shrimply_project_document::project::active_project_path(),
         )
         .to_str()
         .ok_or_else(|| "active project path is not valid UTF-8".to_string())?
@@ -1005,14 +1008,20 @@ fn snapshot(
                 .map(Uuid::to_string)
                 .collect(),
             video_paths: project
-                .sequence_paths_for_scope(shrimply_project::project::ItemKind::Video, &active_scope)
+                .sequence_paths_for_scope(
+                    shrimply_project_document::project::ItemKind::Video,
+                    &active_scope,
+                )
                 .into_iter()
                 .map(|path| ScopeRef {
                     sequence_path: path.iter().map(Uuid::to_string).collect(),
                 })
                 .collect(),
             audio_paths: project
-                .sequence_paths_for_scope(shrimply_project::project::ItemKind::Audio, &active_scope)
+                .sequence_paths_for_scope(
+                    shrimply_project_document::project::ItemKind::Audio,
+                    &active_scope,
+                )
                 .into_iter()
                 .map(|path| ScopeRef {
                     sequence_path: path.iter().map(Uuid::to_string).collect(),
@@ -1078,7 +1087,7 @@ async fn list_stt_models(
 }
 
 fn stt_models(server_url: &str) -> Result<Vec<String>, String> {
-    let mut models = shrimply_server_client::server_status(server_url)?
+    let mut models = shrimply_compute_client::server_status(server_url)?
         .capabilities
         .into_iter()
         .filter_map(|capability| capability.strip_prefix("stt:").map(str::to_string))
@@ -1107,8 +1116,8 @@ async fn transcribe_audio(
     {
         return Err(format!("{language} is not a supported caption language"));
     }
-    let project_path = shrimply_project::project::normalized_project_path(
-        &shrimply_project::project::active_project_path(),
+    let project_path = shrimply_project_document::project::normalized_project_path(
+        &shrimply_project_document::project::active_project_path(),
     );
     let mut project = live.borrow().clone();
     let original = project_content_fingerprint(&project)?;
@@ -1157,8 +1166,8 @@ async fn transcribe_audio(
     if canceled.load(Ordering::Acquire) {
         return Err("MCP client canceled transcription".to_string());
     }
-    let current_path = shrimply_project::project::normalized_project_path(
-        &shrimply_project::project::active_project_path(),
+    let current_path = shrimply_project_document::project::normalized_project_path(
+        &shrimply_project_document::project::active_project_path(),
     );
     if current_path != project_path {
         return Err("project path changed while audio was being transcribed".to_string());
@@ -1231,7 +1240,7 @@ async fn transcribe_audio(
         return Err("MCP client canceled transcription before commit".to_string());
     }
     let editor_selection = EditorSelection::capture(selection, &live.borrow());
-    shrimply_project::project::commit_edit_checked(&project, "MCP transcribe audio")
+    shrimply_project_document::project::commit_edit_checked(&project, "MCP transcribe audio")
         .map_err(|error| format!("MCP transcription edit could not be committed: {error}"))?;
     *live.borrow_mut() = project;
     editor_selection.restore(selection, &live.borrow());
@@ -1261,7 +1270,7 @@ fn run_transcription(
     preferred_model: String,
     requested_model: Option<String>,
     canceled: Arc<AtomicBool>,
-    active_job: Arc<Mutex<Option<shrimply_server_client::CancellationToken>>>,
+    active_job: Arc<Mutex<Option<shrimply_compute_client::CancellationToken>>>,
 ) -> Result<CompletedTranscription, String> {
     let models = stt_models(&server_url)?;
     let model = requested_model
@@ -1282,11 +1291,11 @@ fn run_transcription(
         if canceled.load(Ordering::Acquire) {
             return Err("MCP client canceled transcription".to_string());
         }
-        let cancellation = shrimply_server_client::CancellationToken::new(&server_url)?;
+        let cancellation = shrimply_compute_client::CancellationToken::new(&server_url)?;
         *active_job
             .lock()
             .expect("MCP transcription active job lock was poisoned") = Some(cancellation.clone());
-        let result = shrimply_server_client::transcribe(
+        let result = shrimply_compute_client::transcribe(
             &server_url,
             &cancellation,
             &model,
@@ -1607,8 +1616,8 @@ async fn generate_tts(
     if request.text.trim().is_empty() {
         return Err("text must not be empty".to_string());
     }
-    let project_path = shrimply_project::project::normalized_project_path(
-        &shrimply_project::project::active_project_path(),
+    let project_path = shrimply_project_document::project::normalized_project_path(
+        &shrimply_project_document::project::active_project_path(),
     );
     let mut project = live.borrow().clone();
     let original = project_content_fingerprint(&project)?;
@@ -1616,7 +1625,7 @@ async fn generate_tts(
     let active_scope = selection_state::active_scope(selection);
     let preferences = preferences::snapshot(preferences);
     let cancellation =
-        shrimply_server_client::CancellationToken::new(&preferences.compute_server_url)?;
+        shrimply_compute_client::CancellationToken::new(&preferences.compute_server_url)?;
     let worker_cancellation = cancellation.clone();
     let worker_path = project_path.clone();
     let worker_request = request.clone();
@@ -1653,8 +1662,8 @@ async fn generate_tts(
     if canceled.load(Ordering::Acquire) {
         return Err("MCP client canceled TTS generation".to_string());
     }
-    let current_path = shrimply_project::project::normalized_project_path(
-        &shrimply_project::project::active_project_path(),
+    let current_path = shrimply_project_document::project::normalized_project_path(
+        &shrimply_project_document::project::active_project_path(),
     );
     if current_path != project_path {
         return Err("project path changed while TTS was being generated".to_string());
@@ -1703,7 +1712,8 @@ async fn generate_tts(
         generated.speech.rollback();
         return Err("MCP client canceled TTS generation before commit".to_string());
     }
-    if let Err(error) = shrimply_project::project::commit_edit_checked(&project, "MCP generate TTS")
+    if let Err(error) =
+        shrimply_project_document::project::commit_edit_checked(&project, "MCP generate TTS")
     {
         generated.speech.rollback();
         return Err(format!("MCP TTS edit could not be committed: {error}"));
@@ -1735,7 +1745,7 @@ fn prepare_generated_tts(
     server_url: String,
     preferred_model: String,
     request: GenerateTtsRequest,
-    cancellation: shrimply_server_client::CancellationToken,
+    cancellation: shrimply_compute_client::CancellationToken,
 ) -> Result<GeneratedTts, String> {
     let models = shrimply_tts::models(&server_url)?;
     let model = request
@@ -1809,7 +1819,7 @@ fn prepare_generated_tts(
     let speech_request = shrimply_tts::speech_request(
         &model,
         &settings,
-        shrimply_audio::recording::transcode_to_wav,
+        shrimply_audio_engine::recording::transcode_to_wav,
     )?;
     let speech = shrimply_tts::synthesize(&server_url, &cancellation, &speech_request, |_| {
         !cancellation.is_cancelled()
@@ -1826,7 +1836,7 @@ fn prepare_generated_tts(
     if staging.exists() || final_path.exists() {
         return Err("generated TTS destination already exists".to_string());
     }
-    let duration = shrimply_audio::recording::save_wav_as_opus(&speech.wav, &staging)?;
+    let duration = shrimply_audio_engine::recording::save_wav_as_opus(&speech.wav, &staging)?;
     shrimply_tts::apply_speed_factor(&mut settings, &model, speech.speed_factor);
     Ok(GeneratedTts {
         speech: StagedSpeech {
@@ -1850,8 +1860,8 @@ async fn apply_edit(
     if canceled.load(Ordering::Acquire) {
         return Err("MCP client canceled the edit".to_string());
     }
-    let project_path = shrimply_project::project::normalized_project_path(
-        &shrimply_project::project::active_project_path(),
+    let project_path = shrimply_project_document::project::normalized_project_path(
+        &shrimply_project_document::project::active_project_path(),
     );
     let project = live.borrow().clone();
     let original = project_content_fingerprint(&project)?;
@@ -1889,8 +1899,8 @@ async fn apply_edit(
             }
         }
     };
-    let current_path = shrimply_project::project::normalized_project_path(
-        &shrimply_project::project::active_project_path(),
+    let current_path = shrimply_project_document::project::normalized_project_path(
+        &shrimply_project_document::project::active_project_path(),
     );
     if current_path != project_path {
         return Err("project path changed while the MCP edit was being prepared".to_string());
@@ -1923,7 +1933,7 @@ async fn apply_edit(
         return Err("MCP client canceled the edit before commit".to_string());
     }
     if let Err(error) =
-        shrimply_project::project::commit_edit_checked(&prepared.project, &history_label)
+        shrimply_project_document::project::commit_edit_checked(&prepared.project, &history_label)
     {
         prepared.discard_promoted();
         return Err(format!(

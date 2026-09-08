@@ -43,14 +43,14 @@ LAUNCHER_PACKAGE := shrimply-launcher-gtk
 QT_LAUNCHER_PACKAGE := shrimply-launcher-qt
 APPKIT_LAUNCHER_PACKAGE := shrimply-launcher-appkit
 APPKIT_EDITOR_PACKAGE := shrimply-editor-appkit
-APPKIT_COMPONENT_METAL_PACKAGE := shrimply-component-metal
-FRAMEGRAPH_CORE_PACKAGE := shrimply-framegraph-core
+APPKIT_COMPONENT_METAL_PACKAGE := shrimply-framegraph-appkit
+FRAMEGRAPH_CORE_PACKAGE := shrimply-framegraph-skia
 APPKIT_COMPONENTS_PACKAGE := shrimply-components-appkit
 APPKIT_COMPONENTS_DEMO_PACKAGE := shrimply-components-demo-appkit
-GTK_COMPONENTS_PACKAGE := shrimply-gtk-components
-QT_COMPONENTS_PACKAGE := shrimply-qt-components
-GTK_COMPONENTS_DEMO_PACKAGE := shrimply-gtk-components-demo
-QT_COMPONENTS_DEMO_PACKAGE := shrimply-qt-components-demo
+GTK_COMPONENTS_PACKAGE := shrimply-components-gtk
+QT_COMPONENTS_PACKAGE := shrimply-components-qt
+GTK_COMPONENTS_DEMO_PACKAGE := shrimply-components-demo-gtk
+QT_COMPONENTS_DEMO_PACKAGE := shrimply-components-demo-qt
 QT_BIN_NAME := shrimply-qt
 APPKIT_BIN_NAME := shrimply-appkit
 APPKIT_EDITOR_BIN_NAME := shrimply-editor-appkit
@@ -147,7 +147,7 @@ cuda-target-check:
 	esac
 
 cuda-artifacts: cuda-target-check slang-compiler
-	$(BUILD_ENV) $(CARGO) build -p shrimply-render-cuda
+	$(BUILD_ENV) $(CARGO) build -p shrimply-render-kernels-cuda
 
 dev: SHELL := /bin/bash
 desktop-icon:
@@ -263,16 +263,16 @@ server-python-check:
 	cd server && uv run --locked pyrefly check
 
 manim:
-	cd crates/manim/manim-parser/python && uv run --python 3.14 python -m shrimply_manim $(ARGS)
+	cd crates/media/visual/manim/manim-bridge/python && uv run --python 3.14 python -m shrimply_manim $(ARGS)
 
 manim-python-check:
-	uv run --python 3.14 --project crates/manim/manim-parser/python pyrefly check --python-version 3.14 --search-path external/manim crates/manim/manim-parser/python/shrimply_manim
+	uv run --python 3.14 --project crates/media/visual/manim/manim-bridge/python pyrefly check --python-version 3.14 --search-path external/manim crates/media/visual/manim/manim-bridge/python/shrimply_manim
 
 manim-visual-check: native-deps
 	$(DEV_BUILD_ENV) $(CARGO) test -p shrimply-manim-wgpu --test visual_parity -- --ignored --nocapture
 
 manim-parameter-check: native-deps
-	$(DEV_BUILD_ENV) $(CARGO) test -p shrimply-manim-parser --test two_pass_parameters -- --ignored --nocapture
+	$(DEV_BUILD_ENV) $(CARGO) test -p shrimply-manim-bridge --test two_pass_parameters -- --ignored --nocapture
 
 cargo-check: native-deps qt-native-deps slang-compiler
 	$(DEV_BUILD_ENV) QMAKE=$(QT_QMAKE) $(CARGO) check -p $(EDITOR_PACKAGE) -p $(QT_EDITOR_PACKAGE) -p $(LAUNCHER_PACKAGE) -p $(QT_LAUNCHER_PACKAGE) -p $(MCP_PACKAGE) --bins
@@ -281,31 +281,31 @@ frame-rate-test: native-deps
 	$(DEV_BUILD_ENV) $(CARGO) test -p shrimply-math-core frame_rate_is_the_reciprocal_of_the_latest_render_cost
 
 video-lifecycle-test: native-deps
-	$(DEV_BUILD_ENV) $(CARGO) test -p shrimply-video-cuda continuous_playback_coalesces_until_an_explicit_discontinuity
+	$(DEV_BUILD_ENV) $(CARGO) test -p shrimply-visual-cuda continuous_playback_coalesces_until_an_explicit_discontinuity
 
 transparent-fill-frame-range-test: native-deps
-	$(DEV_BUILD_ENV) $(CARGO) test -p shrimply-video-cuda modifiers::transparent_fill::tests::partial_first_project_frame_uses_the_item_start_mask -- --exact --test-threads=1
+	$(DEV_BUILD_ENV) $(CARGO) test -p shrimply-visual-cuda modifiers::transparent_fill::tests::partial_first_project_frame_uses_the_item_start_mask -- --exact --test-threads=1
 
 transparent-fill-cache-test: native-deps
-	$(DEV_BUILD_ENV) $(CARGO) test -p shrimply-video-cuda modifiers::transparent_fill::tests::cache_round_trips_evicted_project_frame_masks -- --exact --test-threads=1
+	$(DEV_BUILD_ENV) $(CARGO) test -p shrimply-visual-cuda modifiers::transparent_fill::tests::cache_round_trips_evicted_project_frame_masks -- --exact --test-threads=1
 
 transparent-fill-decoder-test: native-deps
 	$(DEV_BUILD_ENV) $(CARGO) test -p shrimply-video-decoder tests::accurate_out_of_order_requests_map_30fps_positions_to_24fps_frames -- --exact --test-threads=1 --nocapture
 
 transparent-fill-kernel-test: native-deps cuda-artifacts
-	$(DEV_BUILD_ENV) $(CARGO) test -p shrimply-video-cuda modifiers::transparent_fill::tests::cached_mask_applies_with_the_cuda_kernel -- --exact --test-threads=1
+	$(DEV_BUILD_ENV) $(CARGO) test -p shrimply-visual-cuda modifiers::transparent_fill::tests::cached_mask_applies_with_the_cuda_kernel -- --exact --test-threads=1
 
 transparent-fill-compositor-test: native-deps cuda-artifacts
-	$(DEV_BUILD_ENV) $(CARGO) test -p shrimply-video-cuda modifiers::transparent_fill::tests::preview_compositor_applies_each_out_of_order_project_frame_mask -- --exact --ignored --test-threads=1
+	$(DEV_BUILD_ENV) $(CARGO) test -p shrimply-visual-cuda modifiers::transparent_fill::tests::preview_compositor_applies_each_out_of_order_project_frame_mask -- --exact --ignored --test-threads=1
 
 transparent-fill-playback-test: native-deps cuda-artifacts
-	$(DEV_BUILD_ENV) $(CARGO) test -p shrimply-video-cuda modifiers::transparent_fill::tests::preview_uses_the_mask_for_each_project_frame -- --exact --ignored --test-threads=1 --nocapture
+	$(DEV_BUILD_ENV) $(CARGO) test -p shrimply-visual-cuda modifiers::transparent_fill::tests::preview_uses_the_mask_for_each_project_frame -- --exact --ignored --test-threads=1 --nocapture
 
 transparent-fill-e2e-fixture: native-deps
-	$(DEV_BUILD_ENV) $(CARGO) test -p shrimply-video-cuda modifiers::transparent_fill::tests::generates_transparent_fill_end_to_end_fixture -- --exact --test-threads=1 --nocapture
+	$(DEV_BUILD_ENV) $(CARGO) test -p shrimply-visual-cuda modifiers::transparent_fill::tests::generates_transparent_fill_end_to_end_fixture -- --exact --test-threads=1 --nocapture
 
 transparent-fill-e2e-test: native-deps cuda-artifacts
-	$(DEV_BUILD_ENV) $(CARGO) test -p shrimply-video-cuda modifiers::transparent_fill::tests::transparent_fill_analyzes_and_renders_a_real_project_end_to_end -- --exact --ignored --test-threads=1 --nocapture
+	$(DEV_BUILD_ENV) $(CARGO) test -p shrimply-visual-cuda modifiers::transparent_fill::tests::transparent_fill_analyzes_and_renders_a_real_project_end_to_end -- --exact --ignored --test-threads=1 --nocapture
 
 fmt:
 	$(BUILD_ENV) $(CARGO) fmt
@@ -321,7 +321,7 @@ test: cuda-artifacts
 
 decode-ahead-benchmark:
 	@test -n "$(VIDEO)" || { echo "usage: make decode-ahead-benchmark VIDEO=/path/to/video.mp4 [FRAMES=300] [LAYERS=2]" >&2; exit 1; }
-	$(DEV_BUILD_ENV) $(CARGO) run -p shrimply-video-cuda --example decode_ahead_benchmark -- "$(VIDEO)" "$(or $(FRAMES),300)" "$(or $(LAYERS),2)"
+	$(DEV_BUILD_ENV) $(CARGO) run -p shrimply-visual-cuda --example decode_ahead_benchmark -- "$(VIDEO)" "$(or $(FRAMES),300)" "$(or $(LAYERS),2)"
 
 paint-interpolation-test:
 	$(DEV_BUILD_ENV) $(CARGO) test -p shrimply-paint-interpolation

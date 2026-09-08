@@ -1,9 +1,9 @@
 use super::*;
-use shrimply_preview_core::{PointerButton, PointerEvent};
-use shrimply_preview_interaction_core::captions::{self, CaptionAppearance};
-use shrimply_project::project::{ItemAddress, Project};
-use shrimply_state::{player_state, preferences};
-use shrimply_timeline_core::selection_state;
+use shrimply_editor_state::{player_state, preferences};
+use shrimply_preview_interaction_skia::captions::{self, CaptionAppearance};
+use shrimply_preview_provider_skia::{PointerButton, PointerEvent};
+use shrimply_project_document::project::{ItemAddress, Project};
+use shrimply_timeline_skia::selection_state;
 
 pub(in crate::macos::canvas) fn appearance(
     size: NSSize,
@@ -11,7 +11,7 @@ pub(in crate::macos::canvas) fn appearance(
     bottom_inset: f32,
 ) -> CaptionAppearance {
     CaptionAppearance {
-        preview_rect: shrimply_skia_adw_core::Rect::from_min_size(
+        preview_rect: shrimply_components_skia::Rect::from_min_size(
             glam::Vec2::ZERO,
             glam::Vec2::new(size.width as f32, size.height as f32),
         ),
@@ -86,13 +86,13 @@ impl CanvasView {
         };
         let right = {
             let mut project = session.project.borrow_mut();
-            let (_, right) = shrimply_timeline_core::edit::split_caption(
+            let (_, right) = shrimply_timeline_skia::edit::split_caption(
                 &mut project,
                 &address,
                 player.position,
                 byte,
             )?;
-            shrimply_project::project::commit_edit(&project, "split-preview-caption");
+            shrimply_project_document::project::commit_edit(&project, "split-preview-caption");
             right
         };
         {
@@ -126,7 +126,7 @@ pub(in crate::macos::canvas) fn draw(
     focused: Option<&ItemAddress>,
 ) {
     captions::draw_captions(
-        &shrimply_skia_adw_core::canvas::TimelinePainter::new(canvas),
+        &shrimply_components_skia::canvas::TimelinePainter::new(canvas),
         project,
         position,
         appearance,

@@ -9,7 +9,7 @@ use objc2_app_kit::{
     NSWindowStyleMask, NSWindowTabbingMode, NSWindowToolbarStyle,
 };
 use objc2_foundation::{MainThreadMarker, NSPoint, NSRect, NSSize, NSString, ns_string};
-use shrimply_state::preferences::{self, PreferenceId, PreferenceValue, SharedPreferences};
+use shrimply_editor_state::preferences::{self, PreferenceId, PreferenceValue, SharedPreferences};
 use std::collections::BTreeMap;
 
 const PANE_WIDTH: f64 = 660.0;
@@ -465,7 +465,7 @@ fn numeric_row(
 fn color_row(
     content: &NSView,
     editor: &Editor,
-    color: shrimply_project::Color<u8>,
+    color: shrimply_project_document::Color<u8>,
     y: &mut f64,
     mtm: MainThreadMarker,
 ) {
@@ -802,7 +802,7 @@ pub(super) fn set_caption_color(store: &SharedPreferences, well: &NSColorWell) {
     preferences::set_value(
         store,
         PreferenceId::CaptionBackgroundColor,
-        PreferenceValue::Color(shrimply_project::Color::new(
+        PreferenceValue::Color(shrimply_project_document::Color::new(
             component(red),
             component(green),
             component(blue),

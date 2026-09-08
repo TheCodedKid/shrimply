@@ -1,1 +1,1 @@
-../../../preferences/preferences-qt/qml/PreferencesWindow.qml
+../../../ui/preferences/preferences-qt/qml/PreferencesWindow.qml

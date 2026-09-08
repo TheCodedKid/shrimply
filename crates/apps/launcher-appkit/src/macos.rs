@@ -18,7 +18,7 @@ use objc2_foundation::{
     NSProcessInfo, NSRect, NSSize, NSString, NSURL, ns_string,
 };
 use shrimply_cross_ui_core::launcher;
-use shrimply_support::recent_projects::{self, RecentProject};
+use shrimply_recent_projects::{self as recent_projects, RecentProject};
 use std::cell::{OnceCell, RefCell};
 use std::path::{Path, PathBuf};
 
@@ -553,7 +553,7 @@ impl Delegate {
 }
 
 pub fn run() {
-    shrimply_support::diagnostics::init();
+    shrimply_process_reporting::diagnostics::init();
     let mtm = MainThreadMarker::new().expect("AppKit must start on the main thread");
     NSProcessInfo::processInfo().setProcessName(ns_string!("Shrimply"));
     NSWindow::setAllowsAutomaticWindowTabbing(false, mtm);

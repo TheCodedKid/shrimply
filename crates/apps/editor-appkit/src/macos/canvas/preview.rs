@@ -1,15 +1,15 @@
 use super::*;
-use shrimply_preview_core::PreviewViewport;
-use shrimply_preview_interaction_core::controller::{Controller, PointerSequence};
-use shrimply_preview_interaction_core::guides::{self, GuideCursor, GuideInput};
-use shrimply_project::project::PreviewGuides;
+use shrimply_preview_interaction_skia::controller::{Controller, PointerSequence};
+use shrimply_preview_interaction_skia::guides::{self, GuideCursor, GuideInput};
+use shrimply_preview_provider_skia::PreviewViewport;
+use shrimply_project_document::project::PreviewGuides;
 
 pub(super) mod captions;
 mod context_menu;
 mod input;
 
 pub struct State {
-    pub renderer: shrimply_preview_metal::Renderer,
+    pub renderer: shrimply_preview_render_metal::Renderer,
     pub viewport: Option<PreviewViewport>,
     pub guides_visible: bool,
     pub fullscreen: bool,
@@ -21,18 +21,18 @@ pub struct State {
     pub loading_done: Option<Retained<objc2_app_kit::NSButton>>,
     pub loading_spinner: Option<Retained<objc2_app_kit::NSProgressIndicator>>,
     pub frame_rate_label: Option<Retained<objc2_app_kit::NSTextField>>,
-    pub loading_indicator: shrimply_preview_core::playback::LoadingIndicator,
+    pub loading_indicator: shrimply_preview_provider_skia::playback::LoadingIndicator,
     pub controller: Controller,
-    pub expressions: RefCell<shrimply_evaluation::TransformExpressionCache>,
+    pub expressions: RefCell<shrimply_project_evaluation::TransformExpressionCache>,
     pub audio_analysis: Option<(
         u64,
         shrimply_math_core::Time,
-        shrimply_evaluation::FrameAudioAnalysis,
+        shrimply_project_evaluation::FrameAudioAnalysis,
     )>,
     pub presented_frame: Option<u32>,
     pub cursor_hidden: bool,
-    pub last_sample: Option<shrimply_preview_core::PointerSample>,
-    pub modifiers: shrimply_preview_core::Modifiers,
+    pub last_sample: Option<shrimply_preview_provider_skia::PointerSample>,
+    pub modifiers: shrimply_preview_provider_skia::Modifiers,
     pub caption_split_hover: Option<glam::Vec2>,
 }
 
@@ -44,11 +44,11 @@ impl State {
         frame_rate_label: Retained<objc2_app_kit::NSTextField>,
         playback_performance: shrimply_playback_performance::SharedCollector,
     ) -> Self {
-        use shrimply_paint_edit::{
+        use shrimply_paint_edit_skia::{
             DEFAULT_PAINT_ERASER_SCALE, PAINT_PREVIEW_STATE, PaintPreviewState,
         };
         let renderer =
-            shrimply_preview_metal::Renderer::new(Some(std::sync::Arc::new(move |event| {
+            shrimply_preview_render_metal::Renderer::new(Some(std::sync::Arc::new(move |event| {
                 shrimply_playback_performance::record_render_event(&playback_performance, event);
             })));
         let mut state = Self {
@@ -71,7 +71,7 @@ impl State {
             presented_frame: None,
             cursor_hidden: false,
             last_sample: None,
-            modifiers: shrimply_preview_core::Modifiers::NONE,
+            modifiers: shrimply_preview_provider_skia::Modifiers::NONE,
             caption_split_hover: None,
         };
         state.controller.extensions.insert(
@@ -88,7 +88,7 @@ impl State {
         if let Some(label) = self
             .renderer
             .render_elapsed()
-            .and_then(shrimply_preview_core::playback::rendered_frame_rate_label)
+            .and_then(shrimply_preview_provider_skia::playback::rendered_frame_rate_label)
         {
             self.frame_rate_label
                 .as_ref()
@@ -240,7 +240,7 @@ impl CanvasView {
         if let Some(guides) = edited {
             let mut project = self.ivars().session.project.borrow().clone();
             project.preview_guides = guides;
-            shrimply_project::project::commit_edit_checked(&project, "preview-guide")?;
+            shrimply_project_document::project::commit_edit_checked(&project, "preview-guide")?;
             *self.ivars().session.project.borrow_mut() = project;
         }
         objc2_app_kit::NSCursor::arrowCursor().set();
@@ -296,7 +296,7 @@ impl CanvasView {
             self.show_error(&error);
         }
         if reset_cursor {
-            self.set_preview_cursor(shrimply_preview_core::CursorUpdate::Clear);
+            self.set_preview_cursor(shrimply_preview_provider_skia::CursorUpdate::Clear);
         }
     }
 
@@ -319,20 +319,20 @@ impl CanvasView {
 pub(super) fn draw_guides(
     canvas: &skia_safe::Canvas,
     state: &State,
-    project: &shrimply_project::project::Project,
+    project: &shrimply_project_document::project::Project,
     size: NSSize,
 ) {
     if state.guides_visible
         && let Some(viewport) = state.viewport
     {
         guides::draw(
-            &shrimply_skia_adw_core::canvas::TimelinePainter::new(canvas),
+            &shrimply_components_skia::canvas::TimelinePainter::new(canvas),
             state
                 .edited_guides
                 .as_deref()
                 .unwrap_or(&project.preview_guides),
             viewport,
-            shrimply_skia_adw_core::Rect::from_min_size(
+            shrimply_components_skia::Rect::from_min_size(
                 glam::Vec2::ZERO,
                 glam::Vec2::new(size.width as f32, size.height as f32),
             ),

@@ -1,18 +1,18 @@
+use shrimply_components_gtk::tr;
+use shrimply_components_gtk::ui::I18nAlertDialogExt;
+use shrimply_components_gtk::ui::I18nFileFilterExt;
 use shrimply_export_gtk as export;
-use shrimply_gtk_components::tr;
-use shrimply_gtk_components::ui::I18nAlertDialogExt;
-use shrimply_gtk_components::ui::I18nFileFilterExt;
-use shrimply_support::crash;
+use shrimply_process_reporting::crash;
 mod header_menu;
 mod mcp;
-use shrimply_gtk_components::project_settings::ProjectSettingsSelector;
+use shrimply_components_gtk::project_settings::ProjectSettingsSelector;
+use shrimply_editor_state::player_state;
 use shrimply_inspector_gtk as inspector;
 use shrimply_preview_gtk as video_player;
-use shrimply_state::player_state;
 use shrimply_timeline_gtk as timeline;
 
-pub use shrimply_audio as audio;
-pub use shrimply_project::project;
+pub use shrimply_audio_engine as audio;
+pub use shrimply_project_document::project;
 
 use adw::prelude::*;
 use ffmpeg_next as ffmpeg;
@@ -46,9 +46,15 @@ enum PanelSide {
 
 fn main() -> glib::ExitCode {
     crash::install();
-    shrimply_support::diagnostics::init();
-    shrimply_gtk_components::i18n::init_system_locale();
-    crash::install_glib_hooks();
+    shrimply_process_reporting::diagnostics::init();
+    shrimply_components_gtk::i18n::init_system_locale();
+    glib::log_set_writer_func(glib::rust_log_writer);
+    glib::set_print_handler(|message| {
+        tracing::info!("glib print: {}", message.trim_end());
+    });
+    glib::set_printerr_handler(|message| {
+        tracing::error!("glib printerr: {}", message.trim_end());
+    });
     let mut args = std::env::args_os().skip(1);
     let Some(project_path) = args.next().map(PathBuf::from) else {
         eprintln!(
@@ -303,7 +309,7 @@ fn connect_panel_toggle(
 }
 
 fn begin_project_load(app: &adw::Application, path: PathBuf) {
-    shrimply_gtk_components::icons::register_bundled();
+    shrimply_components_gtk::icons::register_bundled();
     let flatpak = std::env::var_os("FLATPAK_ID").is_some();
     let window = adw::ApplicationWindow::builder()
         .application(app)
@@ -328,7 +334,7 @@ fn begin_project_load(app: &adw::Application, path: PathBuf) {
 
     let (sender, receiver) = mpsc::channel();
     thread::spawn(move || {
-        let _ = sender.send(shrimply_video_cuda::gpu::preflight());
+        let _ = sender.send(shrimply_visual_cuda::gpu::preflight());
     });
     let app = app.clone();
     let poll_window = window.clone();
@@ -386,7 +392,7 @@ fn handle_load_event(
         LoadEvent::ImportWarnings(warnings) => show_import_warnings(app, window, loader, warnings),
         LoadEvent::LockedByOtherInstance(pid) => show_project_lock_dialog(app, window, loader, pid),
         LoadEvent::Ready { path, project } => {
-            if let Err(error) = shrimply_support::recent_projects::touch(&path, &project.name) {
+            if let Err(error) = shrimply_recent_projects::touch(&path, &project.name) {
                 tracing::warn!(%error, "could not update recent projects");
             }
             ffmpeg::init().expect("FFmpeg should initialize");
@@ -532,7 +538,7 @@ fn choose_project_destination(
         .build();
     let callback_app = app.clone();
     let callback_window = window.clone();
-    shrimply_gtk_components::file_picker::save(
+    shrimply_components_gtk::file_picker::save(
         title,
         &dialog,
         Some(window.upcast_ref::<gtk::Window>()),

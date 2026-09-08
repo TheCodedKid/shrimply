@@ -1,0 +1,23 @@
+[package]
+name = "shrimply-inspector-appkit"
+version = "0.1.0"
+edition = "2024"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2.workspace = true
+objc2-app-kit = { workspace = true, features = ["objc2-uniform-type-identifiers"] }
+objc2-foundation.workspace = true
+objc2-uniform-type-identifiers = "0.3.2"
+block2.workspace = true
+shrimply-components-appkit = { workspace = true }
+shrimply-preview-render-metal = { workspace = true }
+shrimply-inspector-core = { workspace = true, default-features = false }
+shrimply-inspector-document = { workspace = true }
+shrimply-math-color = { workspace = true }
+shrimply-math-core = { workspace = true }
+shrimply-project-document = { workspace = true, default-features = true }
+shrimply-editor-state = { workspace = true }
+shrimply-tts = { workspace = true }
+shrimply-timeline-edit = { workspace = true }
+shrimply-property-transfer = { workspace = true }
+serde_json.workspace = true

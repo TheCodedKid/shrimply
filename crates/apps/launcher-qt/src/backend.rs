@@ -283,7 +283,7 @@ impl qobject::LauncherBackend {
     }
 
     pub fn choose_project(mut self: Pin<&mut Self>) {
-        let selected = shrimply_qt_helpers::open_file_dialog(
+        let selected = shrimply_application_qt::open_file_dialog(
             &QUrl::default(),
             &shrimply_i18n_qt::text("Open Project"),
             &self.project_file_filter(),
@@ -320,7 +320,7 @@ impl qobject::LauncherBackend {
             &directory,
             &name.to_string(),
         ));
-        shrimply_qt_helpers::save_file_dialog(
+        shrimply_application_qt::save_file_dialog(
             &suggested,
             &shrimply_i18n_qt::text("Create Project"),
             &self.project_file_filter(),

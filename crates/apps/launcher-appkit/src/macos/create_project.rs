@@ -11,9 +11,9 @@ use objc2_foundation::{
     MainThreadMarker, NSNotification, NSObject, NSObjectProtocol, NSPoint, NSRect, NSSize,
     NSString, ns_string,
 };
-use shrimply_component_core::project_settings::{CUSTOM_PRESET_INDEX, ProjectSettings};
+use shrimply_components_core::project_settings::{CUSTOM_PRESET_INDEX, ProjectSettings};
 use shrimply_math_core::Fraction;
-use shrimply_project_core::{
+use shrimply_project_types::{
     COMMON_FRAME_RATES, CanvasSize, MAX_CANVAS_DIMENSION, MIN_CANVAS_DIMENSION, PROJECT_PRESETS,
 };
 use std::cell::{Cell, OnceCell};

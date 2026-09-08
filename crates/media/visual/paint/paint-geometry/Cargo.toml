@@ -1,0 +1,13 @@
+[package]
+name = "shrimply-paint-geometry"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+glam.workspace = true
+rayon.workspace = true
+shrimply-paint-model = { workspace = true }
+shrimply-paint-topology = { workspace = true }
+shrimply-perfect-freehand = { workspace = true }
+shrimply-math-geometry = { workspace = true }
+uuid.workspace = true

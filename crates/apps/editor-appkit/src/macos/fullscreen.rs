@@ -3,7 +3,7 @@ use block2::RcBlock;
 use objc2::rc::Weak;
 use objc2_app_kit::{NSEvent, NSEventMask, NSEventType};
 use objc2_foundation::NSMouseInRect;
-use shrimply_preview_interaction_core::fullscreen::{CONTROLS_HIDE_DELAY, ControlsMotion};
+use shrimply_preview_interaction_skia::fullscreen::{CONTROLS_HIDE_DELAY, ControlsMotion};
 use std::time::Instant;
 
 #[derive(Default)]

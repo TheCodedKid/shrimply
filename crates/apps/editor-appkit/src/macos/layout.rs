@@ -340,7 +340,7 @@ pub fn build(editor: &Editor) -> Layout {
         if label == "Play" {
             play_button = Some(control.clone());
         } else {
-            let interval = shrimply_preview_core::playback::STEP_REPEAT_TICK.as_secs_f32();
+            let interval = shrimply_preview_provider_skia::playback::STEP_REPEAT_TICK.as_secs_f32();
             control.setContinuous(true);
             control.setPeriodicDelay_interval(interval, interval);
             control.sendActionOn(

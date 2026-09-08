@@ -7,7 +7,7 @@ use objc2_app_kit::{
 use objc2_foundation::{MainThreadMarker, NSEdgeInsets, NSRect};
 
 // Match the GTK timeline's tool rail, track labels, ruler, and audio-meter widths.
-const AUDIO_METER_WIDTH: f64 = shrimply_skia_adw_core::audio_meter::DEFAULT_WIDTH as f64;
+const AUDIO_METER_WIDTH: f64 = shrimply_components_skia::audio_meter::DEFAULT_WIDTH as f64;
 const DIVIDER_WIDTH: f64 = 1.0;
 const TOOL_GAP: f64 = 4.0;
 const TOOL_GROUP_WIDTH: f64 = BUTTON_SIZE + TOOL_GAP * 2.0;
@@ -25,8 +25,8 @@ pub enum Tool {
 }
 
 impl Tool {
-    pub fn selected(self, state: shrimply_timeline_core::ToolState) -> bool {
-        use shrimply_timeline_core::{CursorTool, DragCollisionMode};
+    pub fn selected(self, state: shrimply_timeline_skia::ToolState) -> bool {
+        use shrimply_timeline_skia::{CursorTool, DragCollisionMode};
         match self {
             Self::Magnet => state.magnet,
             Self::BeatGrid => state.beat_grid,
@@ -38,8 +38,8 @@ impl Tool {
         }
     }
 
-    pub fn activate(self, tools: &shrimply_timeline_core::TimelineTools) {
-        use shrimply_timeline_core::{CursorTool, DragCollisionMode};
+    pub fn activate(self, tools: &shrimply_timeline_skia::TimelineTools) {
+        use shrimply_timeline_skia::{CursorTool, DragCollisionMode};
         match self {
             Self::Magnet => tools.set_magnet(!tools.state().magnet),
             Self::BeatGrid => tools.set_beat_grid(!tools.state().beat_grid),
@@ -61,7 +61,7 @@ pub fn build(
     Retained<super::canvas::CanvasView>,
     Retained<super::canvas::CanvasView>,
 ) {
-    let scene = shrimply_timeline_core::scene::Scene::new(
+    let scene = shrimply_timeline_skia::scene::Scene::new(
         session.project.clone(),
         session.player_state.clone(),
         session.selection_state.clone(),

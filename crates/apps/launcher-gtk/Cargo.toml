@@ -10,8 +10,8 @@ path = "src/main.rs"
 [dependencies]
 adw.workspace = true
 gtk.workspace = true
-shrimply-cross-ui-core = { path = "../../ui/cross-ui-core" }
-shrimply-support = { path = "../../support" }
-shrimply-project = { path = "../../project/project" }
-shrimply-gtk-components = { path = "../../ui/gtk-components" }
+shrimply-cross-ui-core = { workspace = true }
+shrimply-process-reporting = { workspace = true }
+shrimply-project-document = { workspace = true, default-features = true }
+shrimply-components-gtk = { workspace = true }
 tracing.workspace = true

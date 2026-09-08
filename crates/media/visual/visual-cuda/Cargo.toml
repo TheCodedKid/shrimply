@@ -1,0 +1,74 @@
+[package]
+name = "shrimply-visual-cuda"
+version = "0.1.0"
+edition = "2024"
+build = "build.rs"
+
+[dependencies]
+shrimply-3dgs-vulkan.workspace = true
+shrimply-visual-core = { workspace = true, features = ["cuda-stabilization"] }
+hashbrown.workspace = true
+ash.workspace = true
+cached.workspace = true
+cairo = { workspace = true, features = ["freetype"] }
+shrimply-gpu-cuda.workspace = true
+ffmpeg-next.workspace = true
+glam.workspace = true
+glib.workspace = true
+libc.workspace = true
+num-traits.workspace = true
+pango = { workspace = true, features = ["v1_57"] }
+pangocairo.workspace = true
+png.workspace = true
+rayon.workspace = true
+rusqlite = { workspace = true, features = ["bundled"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+shrimply-property-model = { workspace = true }
+shrimply-asset = { workspace = true }
+shrimply-3dgs-core = { workspace = true }
+shrimply-audio-engine = { workspace = true }
+shrimply-anime4k-cuda = { workspace = true }
+shrimply-profiling = { workspace = true }
+shrimply-blender-bridge = { workspace = true }
+shrimply-background = { workspace = true }
+shrimply-project-evaluation = { workspace = true }
+shrimply-gpu-cuda-memory = { workspace = true }
+shrimply-i18n = { workspace = true }
+shrimply-visual-frame = { workspace = true }
+shrimply-layered-image-loader = { workspace = true }
+shrimply-loading-screen-skia = { workspace = true }
+shrimply-math-media = { workspace = true }
+shrimply-math-core = { workspace = true }
+shrimply-math-color = { workspace = true, features = ["cuda", "skia"] }
+shrimply-math-geometry = { workspace = true, features = ["skia"] }
+shrimply-manim-bridge = { workspace = true }
+shrimply-manim-wgpu = { workspace = true }
+shrimply-manim-state = { workspace = true }
+shrimply-manim-cuda = { workspace = true }
+shrimply-nvidia-optical-flow = { workspace = true }
+shrimply-denoise-optix = { workspace = true }
+shrimply-paint-skia = { workspace = true }
+shrimply-pdf = { workspace = true }
+shrimply-drawing-skia = { workspace = true }
+shrimply-project-document = { workspace = true, default-features = true }
+shrimply-render-core = { workspace = true, features = ["cuda"] }
+shrimply-render-kernels-cuda = { workspace = true }
+shrimply-preview-provider-skia = { workspace = true }
+shrimply-render-3d-core = { workspace = true }
+shrimply-resource-pipeline = { workspace = true }
+shrimply-scene-3d = { workspace = true }
+shrimply-shape-3d = { workspace = true }
+shrimply-text-3d = { workspace = true }
+shrimply-visual-modifiers = { workspace = true }
+shrimply-video-decoder = { workspace = true }
+shrimply-compute-client = { workspace = true }
+skia-safe = { workspace = true, features = ["gl", "vulkan", "textlayout", "svg"] }
+tempfile.workspace = true
+tracing.workspace = true
+uuid = { workspace = true, features = ["v4", "serde"] }
+shrimply-transform-3d = { workspace = true }
+
+[build-dependencies]
+serde_json.workspace = true
+shrimply-slang-build = { workspace = true }

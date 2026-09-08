@@ -1,0 +1,8 @@
+[package]
+name = "shrimply-timeline-qt"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+shrimply-timeline-skia = { workspace = true }
+shrimply-timeline-edit = { workspace = true }

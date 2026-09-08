@@ -1,0 +1,14 @@
+[package]
+name = "shrimply-property-model"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+hashbrown.workspace = true
+glam = { workspace = true, features = ["serde"] }
+num-traits.workspace = true
+serde = { workspace = true, features = ["derive"] }
+shrimply-math-color = { workspace = true }
+shrimply-render-core = { workspace = true }
+shrimply-timeline-value = { workspace = true }
+uuid = { workspace = true, features = ["v4", "serde"] }

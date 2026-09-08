@@ -5,7 +5,7 @@ use std::path::Path;
 use std::process::ExitCode;
 
 fn main() -> ExitCode {
-    shrimply_support::diagnostics::init();
+    shrimply_process_reporting::diagnostics::init();
     shrimply_i18n_qt::init_system_locale();
 
     let mut args = std::env::args_os().skip(1);
@@ -36,7 +36,7 @@ fn main() -> ExitCode {
     }
 
     QGuiApplication::set_desktop_file_name(&QString::from("dev.shrimply.Shrimply.Qt"));
-    let mut app = shrimply_qt_helpers::new_widget_application();
+    let mut app = shrimply_application_qt::new_widget_application();
     let Some(mut app) = app.as_mut() else {
         eprintln!("could not create Qt application");
         return ExitCode::FAILURE;

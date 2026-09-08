@@ -1,146 +1,278 @@
 [workspace]
 resolver = "3"
 members = [
+    "crates/gpu/vulkan/gpu-vulkan",
+    "crates/gpu/denoise/denoise-metal",
+    "crates/gpu/metal/gpu-metal",
+    "crates/media/visual/3d/3dgs/3dgs-vulkan",
     "crates/apps/editor-appkit",
-    "crates/cuda/bridge",
+    "crates/gpu/cuda/gpu-cuda",
     "crates/apps/editor-qt",
     "crates/apps/editor-gtk",
     "crates/apps/launcher-gtk",
     "crates/apps/launcher-qt",
     "crates/apps/launcher-appkit",
-    "crates/asset",
-    "crates/audio/audio",
-    "crates/audio/audio-modifiers",
-    "crates/audio/lip-sync",
-    "crates/audio/transcription",
-    "crates/audio/tts",
-    "crates/audio/tts-gtk",
-    "crates/background",
-    "crates/benchmarking",
-    "crates/blender/blender-bridge",
-    "crates/core",
-    "crates/evaluation",
-    "crates/export/export-core",
-    "crates/export/export-cuda",
-    "crates/export/export-metal",
-    "crates/export/export-appkit",
-    "crates/export/export-gtk",
-    "crates/export/export-qt",
+    "crates/media/asset",
+    "crates/media/audio/audio-engine",
+    "crates/media/audio/audio-modifiers",
+    "crates/media/audio/lip-sync",
+    "crates/media/audio/transcription",
+    "crates/media/audio/tts",
+    "crates/ui/tts/tts-gtk",
+    "crates/media/visual/background",
+    "crates/diagnostics/profiling",
+    "crates/media/visual/blender/blender-bridge",
+    "crates/project/property-model",
+    "crates/project/project-evaluation",
+    "crates/render/export/export-core",
+    "crates/render/export/export-cuda",
+    "crates/render/export/export-metal",
+    "crates/ui/export/export-appkit",
+    "crates/ui/export/export-gtk",
+    "crates/ui/export/export-qt",
     "crates/math/color",
     "crates/math/core",
     "crates/math/geometry",
     "crates/math/media",
-    "crates/manim/manim-parser",
-    "crates/manim/manim-ir",
-    "crates/manim/manim-core",
-    "crates/manim/manim-wgpu",
-    "crates/manim/manim-cuda",
-    "crates/manim/manim-metal",
-    "crates/media-info",
-    "crates/mcp",
-    "crates/paint/paint-edit",
-    "crates/paint/paint-geometry",
-    "crates/paint/paint-interpolation",
-    "crates/paint/paint-model",
-    "crates/paint/paint-skia",
-    "crates/paint/paint-topology",
-    "crates/paint/perfect-freehand",
-    "crates/preferences/preferences-core",
-    "crates/preferences/preferences-gtk",
-    "crates/preferences/preferences-qt",
-    "crates/pdf",
-    "crates/interpolation",
-    "crates/project/project",
-    "crates/project/project-core",
-    "crates/project/kdenlive",
-    "crates/project/otio",
-    "crates/property-transfer",
-    "crates/preview/preview-core",
-    "crates/preview/preview-interaction-core",
-    "crates/preview/preview-render-core",
-    "crates/preview/preview-metal",
-    "crates/preview/loading-screen",
-    "crates/preview/preview-skia",
-    "crates/preview/playback-performance",
-    "crates/preview/preview-gtk",
-    "crates/preview/preview-qt",
-    "crates/preview/preview-runtime",
-    "crates/layered-image/layered-image",
-    "crates/layered-image/kra-parser",
-    "crates/layered-image/psd-parser",
-    "crates/render-core",
-    "crates/render-cuda",
-    "crates/render-metal",
+    "crates/media/visual/manim/manim-bridge",
+    "crates/media/visual/manim/manim-ir",
+    "crates/media/visual/manim/manim-state",
+    "crates/media/visual/manim/manim-wgpu",
+    "crates/media/visual/manim/manim-cuda",
+    "crates/media/visual/manim/manim-metal",
+    "crates/media/media-info",
+    "crates/integrations/mcp",
+    "crates/ui/paint/paint-edit-skia",
+    "crates/media/visual/paint/paint-geometry",
+    "crates/media/visual/paint/paint-interpolation",
+    "crates/media/visual/paint/paint-model",
+    "crates/media/visual/paint/paint-skia",
+    "crates/media/visual/paint/paint-topology",
+    "crates/media/visual/paint/perfect-freehand",
+    "crates/application/preferences-core",
+    "crates/ui/preferences/preferences-gtk",
+    "crates/ui/preferences/preferences-qt",
+    "crates/media/visual/pdf",
+    "crates/math/interpolation",
+    "crates/project/project-document",
+    "crates/project/project-types",
+    "crates/project/parser/kdenlive-parser",
+    "crates/project/parser/otio-parser",
+    "crates/project/property-transfer",
+    "crates/ui/preview/preview-provider-skia",
+    "crates/ui/preview/preview-interaction-skia",
+    "crates/render/preview/preview-render-core",
+    "crates/render/preview/preview-render-metal",
+    "crates/render/loading-screen-skia",
+    "crates/render/drawing-skia",
+    "crates/application/playback-performance",
+    "crates/ui/preview/preview-gtk",
+    "crates/ui/preview/preview-qt",
+    "crates/render/preview/preview-runtime-cuda",
+    "crates/media/visual/layered-image/layered-image-loader",
+    "crates/media/visual/layered-image/parser/kra-parser",
+    "crates/media/visual/layered-image/parser/psd-parser",
+    "crates/render/render-core",
+    "crates/render/render-kernels-cuda",
+    "crates/render/render-metal",
     "crates/resource-pipeline",
-    "crates/server-client",
-    "crates/slang-build",
-    "crates/stabilization/affine-l1-stabilization",
-    "crates/stabilization/mesh-flow-stabilization",
-    "crates/stabilization/nvidia-optical-flow",
-    "crates/state",
-    "crates/support",
-    "crates/timeline/timeline",
-    "crates/timeline/timeline-core",
-    "crates/timeline/timeline-gtk",
-    "crates/timeline/timeline-qt",
-    "crates/timeline/timeline-snap",
-    "crates/timeline/timeline-value",
-    "crates/timeline/keyframe-graph-core",
-    "crates/timeline/discrete-keyframe-graph-core",
-    "crates/ui/inspector-core",
-    "crates/ui/inspector-document",
-    "crates/ui/inspector-appkit",
-    "crates/ui/inspector-gtk",
-    "crates/ui/inspector-qt",
-    "crates/ui/component-core",
-    "crates/ui/framegraph-core",
-    "crates/ui/component-metal",
-    "crates/ui/components-demo-core",
-    "crates/ui/components-appkit",
-    "crates/ui/components-demo-appkit",
-    "crates/ui/cross-ui-core",
-    "crates/ui/cross-ui-theme",
-    "crates/ui/i18n-core",
-    "crates/ui/i18n-gtk",
-    "crates/ui/i18n-qt",
-    "crates/ui/qt-helpers",
-    "crates/ui/qt-components",
-    "crates/ui/qt-components-demo",
-    "crates/ui/skia-adw-core",
-    "crates/ui/skia-metal",
-    "crates/ui/skia-gl",
-    "crates/ui/gtk-components",
-    "crates/ui/gtk-components-demo",
-    "crates/ui/wayland-pointer-lock",
-    "crates/video/video-cuda",
-    "crates/video/video-core",
-    "crates/video/video-modifiers",
-    "crates/video/video-recording",
-    "crates/video/video-generation",
-    "crates/video/video-generation-gtk",
-    "crates/video/anime4k",
-    "crates/video/decoder",
-    "crates/video/decoder-pool",
-    "crates/video/gpu-memory",
-    "crates/video/visual-frame",
+    "crates/integrations/compute-client",
+    "crates/gpu/slang/slang-build",
+    "crates/media/visual/stabilization/affine-l1-stabilization",
+    "crates/media/visual/stabilization/mesh-flow-stabilization",
+    "crates/media/visual/stabilization/nvidia-optical-flow",
+    "crates/application/editor-state",
+    "crates/diagnostics/process-reporting",
+    "crates/project/recent-projects",
+    "crates/project/timeline/timeline-edit",
+    "crates/ui/timeline/timeline-skia",
+    "crates/ui/timeline/timeline-gtk",
+    "crates/ui/timeline/timeline-qt",
+    "crates/project/timeline/timeline-snap",
+    "crates/project/timeline/timeline-value",
+    "crates/ui/keyframe-graph/keyframe-graph-skia",
+    "crates/ui/keyframe-graph/discrete-keyframe-graph-skia",
+    "crates/ui/inspector/inspector-core",
+    "crates/ui/inspector/inspector-document",
+    "crates/ui/inspector/inspector-appkit",
+    "crates/ui/inspector/inspector-gtk",
+    "crates/ui/inspector/inspector-qt",
+    "crates/ui/components/components-core",
+    "crates/ui/framegraph/framegraph-skia",
+    "crates/ui/framegraph/framegraph-appkit",
+    "crates/ui/components/components-demo-core",
+    "crates/ui/components/components-appkit",
+    "crates/ui/components/components-demo-appkit",
+    "crates/ui/application/cross-ui-core",
+    "crates/ui/theme/cross-ui-theme",
+    "crates/i18n",
+    "crates/ui/i18n/i18n-qt",
+    "crates/ui/application/application-qt",
+    "crates/ui/components/components-qt",
+    "crates/ui/components/components-demo-qt",
+    "crates/ui/components/components-skia",
+    "crates/ui/surface/surface-metal-skia",
+    "crates/ui/surface/surface-gl-skia",
+    "crates/ui/components/components-gtk",
+    "crates/ui/components/components-demo-gtk",
+    "crates/ui/pointer-lock/pointer-lock-wayland",
+    "crates/media/visual/visual-cuda",
+    "crates/media/visual/visual-core",
+    "crates/media/visual/visual-modifiers",
+    "crates/media/visual/video/video-recording",
+    "crates/media/visual/video/video-generation",
+    "crates/ui/video-generation/video-generation-gtk",
+    "crates/media/visual/anime4k-cuda",
+    "crates/media/visual/video/video-decoder",
+    "crates/media/visual/video/decoder-pool",
+    "crates/gpu/cuda/gpu-cuda-memory",
+    "crates/media/visual/visual-frame",
     "vendor/pocketsphinx",
     "vendor/rhubarb-lip-sync",
-    "crates/3d/3d-control",
-    "crates/3d/3dgs",
-    "crates/3d/3dgs-metal",
-    "crates/3d/optix-denoiser",
-    "crates/3d/render-3d",
-    "crates/3d/render-3d-metal",
-    "crates/3d/scene-3d",
-    "crates/3d/scene-3d-modifiers",
-    "crates/3d/shape-3d",
-    "crates/3d/text-3d",
-    "crates/3d/transform-3d",
+    "crates/ui/3d/3d-control-core",
+    "crates/media/visual/3d/3dgs/3dgs-core",
+    "crates/media/visual/3d/3dgs/3dgs-metal",
+    "crates/gpu/denoise/denoise-optix",
+    "crates/media/visual/3d/render-3d-core",
+    "crates/media/visual/3d/render-3d-metal",
+    "crates/media/visual/3d/scene-3d",
+    "crates/media/visual/3d/scene-3d-modifiers",
+    "crates/media/visual/3d/shape-3d",
+    "crates/media/visual/3d/text-3d",
+    "crates/media/visual/3d/transform-3d",
 ]
 default-members = ["crates/apps/editor-gtk", "crates/apps/launcher-gtk"]
 exclude = ["external/vtracer"]
 
 [workspace.dependencies]
+shrimply-gpu-vulkan = { path = "crates/gpu/vulkan/gpu-vulkan" }
+shrimply-denoise-metal = { path = "crates/gpu/denoise/denoise-metal" }
+shrimply-gpu-metal = { path = "crates/gpu/metal/gpu-metal" }
+shrimply-3dgs-vulkan = { path = "crates/media/visual/3d/3dgs/3dgs-vulkan" }
+kra-parser = { package = "shrimply-kra-parser", path = "crates/media/visual/layered-image/parser/kra-parser" }
+psd-parser = { package = "shrimply-psd-parser", path = "crates/media/visual/layered-image/parser/psd-parser" }
+shrimply-3d-control-core = { path = "crates/ui/3d/3d-control-core" }
+shrimply-3dgs-core = { path = "crates/media/visual/3d/3dgs/3dgs-core" }
+shrimply-3dgs-metal = { path = "crates/media/visual/3d/3dgs/3dgs-metal" }
+shrimply-affine-l1-stabilization = { path = "crates/media/visual/stabilization/affine-l1-stabilization" }
+shrimply-anime4k-cuda = { path = "crates/media/visual/anime4k-cuda" }
+shrimply-application-qt = { path = "crates/ui/application/application-qt" }
+shrimply-asset = { path = "crates/media/asset" }
+shrimply-audio-engine = { path = "crates/media/audio/audio-engine" }
+shrimply-audio-modifiers = { path = "crates/media/audio/audio-modifiers" }
+shrimply-background = { path = "crates/media/visual/background" }
+shrimply-blender-bridge = { path = "crates/media/visual/blender/blender-bridge" }
+shrimply-components-appkit = { path = "crates/ui/components/components-appkit" }
+shrimply-components-core = { path = "crates/ui/components/components-core" }
+shrimply-components-demo-core = { path = "crates/ui/components/components-demo-core" }
+shrimply-components-gtk = { path = "crates/ui/components/components-gtk" }
+shrimply-components-qt = { path = "crates/ui/components/components-qt" }
+shrimply-components-skia = { path = "crates/ui/components/components-skia" }
+shrimply-compute-client = { path = "crates/integrations/compute-client" }
+shrimply-cross-ui-core = { path = "crates/ui/application/cross-ui-core" }
+shrimply-cross-ui-theme = { path = "crates/ui/theme/cross-ui-theme" }
+shrimply-decoder-pool = { path = "crates/media/visual/video/decoder-pool" }
+shrimply-denoise-optix = { path = "crates/gpu/denoise/denoise-optix" }
+shrimply-discrete-keyframe-graph-skia = { path = "crates/ui/keyframe-graph/discrete-keyframe-graph-skia" }
+shrimply-drawing-skia = { path = "crates/render/drawing-skia" }
+shrimply-editor-state = { path = "crates/application/editor-state" }
+shrimply-export-appkit = { path = "crates/ui/export/export-appkit" }
+shrimply-export-core = { path = "crates/render/export/export-core", default-features = false }
+shrimply-export-cuda = { path = "crates/render/export/export-cuda" }
+shrimply-export-gtk = { path = "crates/ui/export/export-gtk" }
+shrimply-export-metal = { path = "crates/render/export/export-metal" }
+shrimply-export-qt = { path = "crates/ui/export/export-qt" }
+shrimply-framegraph-appkit = { path = "crates/ui/framegraph/framegraph-appkit" }
+shrimply-framegraph-skia = { path = "crates/ui/framegraph/framegraph-skia" }
+shrimply-gpu-cuda = { path = "crates/gpu/cuda/gpu-cuda" }
+shrimply-gpu-cuda-memory = { path = "crates/gpu/cuda/gpu-cuda-memory" }
+shrimply-i18n = { path = "crates/i18n" }
+shrimply-i18n-qt = { path = "crates/ui/i18n/i18n-qt" }
+shrimply-inspector-appkit = { path = "crates/ui/inspector/inspector-appkit" }
+shrimply-inspector-core = { path = "crates/ui/inspector/inspector-core", default-features = false }
+shrimply-inspector-document = { path = "crates/ui/inspector/inspector-document" }
+shrimply-inspector-gtk = { path = "crates/ui/inspector/inspector-gtk" }
+shrimply-inspector-qt = { path = "crates/ui/inspector/inspector-qt" }
+shrimply-kdenlive-parser = { path = "crates/project/parser/kdenlive-parser" }
+shrimply-keyframe-graph-skia = { path = "crates/ui/keyframe-graph/keyframe-graph-skia" }
+shrimply-layered-image-loader = { path = "crates/media/visual/layered-image/layered-image-loader" }
+shrimply-lip-sync = { path = "crates/media/audio/lip-sync" }
+shrimply-loading-screen-skia = { path = "crates/render/loading-screen-skia" }
+shrimply-manim-bridge = { path = "crates/media/visual/manim/manim-bridge" }
+shrimply-manim-cuda = { path = "crates/media/visual/manim/manim-cuda" }
+shrimply-manim-ir = { path = "crates/media/visual/manim/manim-ir" }
+shrimply-manim-metal = { path = "crates/media/visual/manim/manim-metal" }
+shrimply-manim-state = { path = "crates/media/visual/manim/manim-state" }
+shrimply-manim-wgpu = { path = "crates/media/visual/manim/manim-wgpu" }
+shrimply-math-color = { path = "crates/math/color" }
+shrimply-math-core = { path = "crates/math/core" }
+shrimply-math-geometry = { path = "crates/math/geometry" }
+shrimply-math-interpolation = { path = "crates/math/interpolation" }
+shrimply-math-media = { path = "crates/math/media" }
+shrimply-mcp = { path = "crates/integrations/mcp", default-features = false }
+shrimply-media-info = { path = "crates/media/media-info" }
+shrimply-mesh-flow-stabilization = { path = "crates/media/visual/stabilization/mesh-flow-stabilization" }
+shrimply-nvidia-optical-flow = { path = "crates/media/visual/stabilization/nvidia-optical-flow" }
+shrimply-otio-parser = { path = "crates/project/parser/otio-parser" }
+shrimply-paint-edit-skia = { path = "crates/ui/paint/paint-edit-skia" }
+shrimply-paint-geometry = { path = "crates/media/visual/paint/paint-geometry" }
+shrimply-paint-interpolation = { path = "crates/media/visual/paint/paint-interpolation" }
+shrimply-paint-model = { path = "crates/media/visual/paint/paint-model" }
+shrimply-paint-skia = { path = "crates/media/visual/paint/paint-skia" }
+shrimply-paint-topology = { path = "crates/media/visual/paint/paint-topology" }
+shrimply-pdf = { path = "crates/media/visual/pdf" }
+shrimply-perfect-freehand = { path = "crates/media/visual/paint/perfect-freehand" }
+shrimply-playback-performance = { path = "crates/application/playback-performance" }
+shrimply-pointer-lock-wayland = { path = "crates/ui/pointer-lock/pointer-lock-wayland" }
+shrimply-preferences-core = { path = "crates/application/preferences-core" }
+shrimply-preferences-gtk = { path = "crates/ui/preferences/preferences-gtk" }
+shrimply-preferences-qt = { path = "crates/ui/preferences/preferences-qt" }
+shrimply-preview-gtk = { path = "crates/ui/preview/preview-gtk" }
+shrimply-preview-interaction-skia = { path = "crates/ui/preview/preview-interaction-skia" }
+shrimply-preview-provider-skia = { path = "crates/ui/preview/preview-provider-skia" }
+shrimply-preview-qt = { path = "crates/ui/preview/preview-qt" }
+shrimply-preview-render-core = { path = "crates/render/preview/preview-render-core" }
+shrimply-preview-render-metal = { path = "crates/render/preview/preview-render-metal" }
+shrimply-preview-runtime-cuda = { path = "crates/render/preview/preview-runtime-cuda" }
+shrimply-process-reporting = { path = "crates/diagnostics/process-reporting" }
+shrimply-recent-projects = { path = "crates/project/recent-projects" }
+shrimply-profiling = { path = "crates/diagnostics/profiling" }
+shrimply-project-document = { path = "crates/project/project-document", default-features = false }
+shrimply-project-evaluation = { path = "crates/project/project-evaluation" }
+shrimply-project-types = { path = "crates/project/project-types" }
+shrimply-property-model = { path = "crates/project/property-model" }
+shrimply-property-transfer = { path = "crates/project/property-transfer" }
+shrimply-render-3d-core = { path = "crates/media/visual/3d/render-3d-core" }
+shrimply-render-3d-metal = { path = "crates/media/visual/3d/render-3d-metal" }
+shrimply-render-core = { path = "crates/render/render-core" }
+shrimply-render-kernels-cuda = { path = "crates/render/render-kernels-cuda" }
+shrimply-render-metal = { path = "crates/render/render-metal" }
+shrimply-resource-pipeline = { path = "crates/resource-pipeline" }
+shrimply-scene-3d = { path = "crates/media/visual/3d/scene-3d" }
+shrimply-scene-3d-modifiers = { path = "crates/media/visual/3d/scene-3d-modifiers" }
+shrimply-shape-3d = { path = "crates/media/visual/3d/shape-3d" }
+shrimply-slang-build = { path = "crates/gpu/slang/slang-build" }
+shrimply-surface-gl-skia = { path = "crates/ui/surface/surface-gl-skia" }
+shrimply-surface-metal-skia = { path = "crates/ui/surface/surface-metal-skia" }
+shrimply-text-3d = { path = "crates/media/visual/3d/text-3d" }
+shrimply-timeline-edit = { path = "crates/project/timeline/timeline-edit" }
+shrimply-timeline-gtk = { path = "crates/ui/timeline/timeline-gtk" }
+shrimply-timeline-qt = { path = "crates/ui/timeline/timeline-qt" }
+shrimply-timeline-skia = { path = "crates/ui/timeline/timeline-skia" }
+shrimply-timeline-snap = { path = "crates/project/timeline/timeline-snap" }
+shrimply-timeline-value = { path = "crates/project/timeline/timeline-value" }
+shrimply-transcription = { path = "crates/media/audio/transcription" }
+shrimply-transform-3d = { path = "crates/media/visual/3d/transform-3d" }
+shrimply-tts = { path = "crates/media/audio/tts" }
+shrimply-tts-gtk = { path = "crates/ui/tts/tts-gtk" }
+shrimply-video-decoder = { path = "crates/media/visual/video/video-decoder" }
+shrimply-video-generation = { path = "crates/media/visual/video/video-generation" }
+shrimply-video-generation-gtk = { path = "crates/ui/video-generation/video-generation-gtk" }
+shrimply-video-recording = { path = "crates/media/visual/video/video-recording" }
+shrimply-visual-core = { path = "crates/media/visual/visual-core" }
+shrimply-visual-cuda = { path = "crates/media/visual/visual-cuda" }
+shrimply-visual-frame = { path = "crates/media/visual/visual-frame" }
+shrimply-visual-modifiers = { path = "crates/media/visual/visual-modifiers" }
 adw = { package = "libadwaita", version = "0.9", features = ["v1_9"] }
 base64 = "0.22"
 ash = "0.38"
@@ -155,7 +287,6 @@ cxx = "1"
 cxx-qt = "0.9.1"
 cxx-qt-build = "0.9.1"
 cxx-qt-lib = "0.9.1"
-shrimply-cuda = { path = "crates/cuda/bridge" }
 shrimply-pocketsphinx = { path = "vendor/pocketsphinx" }
 shrimply-rhubarb-lip-sync = { path = "vendor/rhubarb-lip-sync" }
 cc = "1"

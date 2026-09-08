@@ -1,11 +1,11 @@
 use super::*;
-use shrimply_preview_core::{
+use shrimply_editor_state::{player_state, preferences, preview_focus};
+use shrimply_preview_interaction_skia::controller::Preparation;
+use shrimply_preview_provider_skia::{
     Cursor, CursorUpdate, Key, KeyState, KeyboardEvent, Modifiers, PointerButton, PointerEvent,
     PointerInput, PointerSample, PointerTool, PreviewRefresh, PreviewResponse,
 };
-use shrimply_preview_interaction_core::controller::Preparation;
-use shrimply_state::{player_state, preferences, preview_focus};
-use shrimply_timeline_core::selection_state;
+use shrimply_timeline_skia::selection_state;
 
 impl CanvasView {
     pub(in crate::macos::canvas) fn prepare_preview(&self) -> Result<(), String> {
@@ -79,12 +79,14 @@ impl CanvasView {
                             .guides_visible
                             .then_some(project.preview_guides.as_ref()),
                         camera_sampler: |id, source, time| {
-                            shrimply_video_core::camera_reconstruction::sample(id, source, time)
-                                .map(|camera| shrimply_project::project::TrackedCameraPreview {
-                                    position: camera.position,
-                                    rotation: camera.rotation,
-                                    projection: camera.projection,
-                                    vertical_fov_degrees: camera.vertical_fov_degrees,
+                            shrimply_visual_core::camera_reconstruction::sample(id, source, time)
+                                .map(|camera| {
+                                    shrimply_project_document::project::TrackedCameraPreview {
+                                        position: camera.position,
+                                        rotation: camera.rotation,
+                                        projection: camera.projection,
+                                        vertical_fov_degrees: camera.vertical_fov_degrees,
+                                    }
                                 })
                         },
                     },
@@ -282,7 +284,7 @@ impl CanvasView {
         self.set_preview_cursor(response.cursor);
         let session = &self.ivars().session;
         if response.edit.commits() {
-            shrimply_project::project::commit_edit_checked(
+            shrimply_project_document::project::commit_edit_checked(
                 &session.project.borrow(),
                 "preview-provider",
             )?;

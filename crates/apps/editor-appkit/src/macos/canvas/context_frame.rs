@@ -10,7 +10,7 @@ use objc2_foundation::{
     ns_string,
 };
 use objc2_uniform_type_identifiers::UTTypePNG;
-use shrimply_timeline_core::{VideoFrameSelection, video_selection};
+use shrimply_timeline_skia::{VideoFrameSelection, video_selection};
 use std::{
     io::Write,
     path::PathBuf,
@@ -29,7 +29,7 @@ enum Destination {
 enum Source {
     Presented(skia_safe::Image),
     Selected {
-        project: Box<shrimply_project::project::Project>,
+        project: Box<shrimply_project_document::project::Project>,
         position: shrimply_math_core::Time,
     },
 }
@@ -93,7 +93,7 @@ impl CanvasView {
 
     fn capture_frame(
         &self,
-        original: shrimply_project::project::Project,
+        original: shrimply_project_document::project::Project,
         source: Source,
         save: bool,
     ) -> Result<(), String> {
@@ -114,7 +114,7 @@ impl CanvasView {
                 "frame.png"
             }));
             if preview {
-                let folder = shrimply_state::preferences::preview_image_folder(
+                let folder = shrimply_editor_state::preferences::preview_image_folder(
                     &self.ivars().session.preferences,
                 )
                 .and_then(|path| NSURL::from_file_path(&path))
@@ -149,7 +149,7 @@ impl CanvasView {
                     path.set_extension("png");
                 }
                 if let Some(folder) = path.parent() {
-                    shrimply_state::preferences::set_preview_image_folder(
+                    shrimply_editor_state::preferences::set_preview_image_folder(
                         &self.ivars().session.preferences,
                         folder,
                     );
@@ -195,7 +195,7 @@ impl CanvasView {
                     }
                     let png = match source {
                         Source::Selected { project, position } => {
-                            shrimply_preview_metal::render_png(&project, position)?
+                            shrimply_preview_render_metal::render_png(&project, position)?
                         }
                         Source::Presented(image) => {
                             skia_safe::png_encoder::encode_image(None, &image, &Default::default())

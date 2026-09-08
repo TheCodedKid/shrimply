@@ -1,0 +1,20 @@
+[package]
+name = "shrimply-kdenlive-parser"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+glam.workspace = true
+num-traits.workspace = true
+quick-xml.workspace = true
+serde_json.workspace = true
+shrimply-audio-modifiers = { workspace = true }
+shrimply-property-model = { workspace = true }
+shrimply-math-interpolation = { workspace = true }
+shrimply-math-geometry = { workspace = true }
+shrimply-math-core = { workspace = true }
+shrimply-pdf = { workspace = true }
+shrimply-layered-image-loader = { workspace = true }
+shrimply-project-document = { workspace = true, default-features = false }
+shrimply-visual-modifiers = { workspace = true }
+uuid.workspace = true

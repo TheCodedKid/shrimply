@@ -1,0 +1,13 @@
+[package]
+name = "shrimply-paint-skia"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+glam.workspace = true
+skia-safe.workspace = true
+shrimply-asset = { workspace = true }
+shrimply-paint-geometry = { workspace = true }
+shrimply-paint-model = { workspace = true }
+shrimply-math-color = { workspace = true, features = ["skia"] }
+shrimply-math-geometry = { workspace = true }

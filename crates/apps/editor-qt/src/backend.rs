@@ -2,9 +2,9 @@ use core::pin::Pin;
 use cxx_qt::CxxQtType;
 use cxx_qt_lib::{QString, QUrl};
 use shrimply_cross_ui_core::editor::{EditorSession, LoadEvent, ProjectLoader};
+use shrimply_editor_state::player_state;
 use shrimply_math_core::{Fraction, frame_count, frame_index, time_from_signed_frame};
-use shrimply_project::project::{self, CanvasSize};
-use shrimply_state::player_state;
+use shrimply_project_document::project::{self, CanvasSize};
 use std::path::PathBuf;
 use std::sync::mpsc::{Receiver, TryRecvError};
 
@@ -420,7 +420,7 @@ impl qobject::EditorBackend {
         let path = shrimply_cross_ui_core::editor::suggested_save_as_path();
         let suggested_url = QUrl::from_local_file(&QString::from(path.to_string_lossy().as_ref()));
         tracing::debug!(suggested = %path.display(), "opening Qt Save As dialog");
-        let url = shrimply_qt_helpers::save_file_dialog(
+        let url = shrimply_application_qt::save_file_dialog(
             &suggested_url,
             &shrimply_i18n_qt::text("Save Project As"),
             &shrimply_i18n_qt::text("Shrimply projects (*.shrimp)"),
@@ -439,7 +439,11 @@ impl qobject::EditorBackend {
         title: &QString,
         filter: &QString,
     ) -> QUrl {
-        shrimply_qt_helpers::open_file_dialog(&QUrl::from_local_file(initial_path), title, filter)
+        shrimply_application_qt::open_file_dialog(
+            &QUrl::from_local_file(initial_path),
+            title,
+            filter,
+        )
     }
 
     pub fn show_file_save_dialog(
@@ -449,7 +453,7 @@ impl qobject::EditorBackend {
         filter: &QString,
         default_suffix: &QString,
     ) -> QUrl {
-        shrimply_qt_helpers::save_file_dialog(
+        shrimply_application_qt::save_file_dialog(
             &QUrl::from_local_file(suggested_path),
             title,
             filter,
@@ -579,7 +583,7 @@ impl qobject::EditorBackend {
             .preference_connector()
             .value(&QString::from("blender-binary"));
         let initial_url = QUrl::from_local_file(&current);
-        let url = shrimply_qt_helpers::open_file_dialog(
+        let url = shrimply_application_qt::open_file_dialog(
             &initial_url,
             &shrimply_i18n_qt::text("Choose Blender Binary"),
             &shrimply_i18n_qt::text("All files (*)"),
@@ -813,7 +817,7 @@ impl qobject::EditorBackend {
                 self.as_mut().request_lock(i64::from(pid));
             }
             LoadEvent::Ready { path, project } => {
-                if let Err(error) = shrimply_support::recent_projects::touch(&path, &project.name) {
+                if let Err(error) = shrimply_recent_projects::touch(&path, &project.name) {
                     tracing::warn!(%error, "could not update recent projects");
                 }
                 ffmpeg_next::init().expect("FFmpeg should initialize");
@@ -845,14 +849,14 @@ impl qobject::EditorBackend {
         let duration_frame = frame_count(snapshot.duration, snapshot.frame_rate)
             .and_then(|frame| i64::try_from(frame).ok())
             .unwrap_or(i64::MAX);
-        let time_label = QString::from(shrimply_preview_runtime::playback_time_label(
+        let time_label = QString::from(shrimply_preview_runtime_cuda::playback_time_label(
             snapshot.position,
             snapshot.duration,
         ));
         let frame_rate_label = QString::from(shrimply_preview_qt::preview_frame_rate_label());
-        let playback_speed_label = QString::from(shrimply_preview_runtime::playback_speed_label(
-            snapshot.playback_speed,
-        ));
+        let playback_speed_label = QString::from(
+            shrimply_preview_runtime_cuda::playback_speed_label(snapshot.playback_speed),
+        );
         self.as_mut().set_playing(playing);
         self.as_mut().set_position_frame(position_frame);
         self.as_mut().set_duration_frame(duration_frame);

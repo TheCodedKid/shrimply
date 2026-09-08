@@ -5,8 +5,8 @@ use objc2_app_kit::{
 };
 use objc2_foundation::{MainThreadMarker, NSArray, NSDictionary, NSURL};
 use shrimply_cross_ui_core::editor::EditorSession;
-use shrimply_state::{player_state, preferences};
-use shrimply_timeline_core::{
+use shrimply_editor_state::{player_state, preferences};
+use shrimply_timeline_skia::{
     DragCollisionMode, TrackKey, import,
     import_queue::{ImportQueue, Placement},
     items::NewItemTarget,
@@ -43,7 +43,7 @@ pub struct Imports {
     queue: ImportQueue,
     urls: Vec<ScopedUrl>,
     pending_urls: Vec<(
-        shrimply_timeline_core::import_queue::BatchId,
+        shrimply_timeline_skia::import_queue::BatchId,
         Vec<ScopedUrl>,
     )>,
 }
@@ -88,7 +88,7 @@ impl Imports {
 
     pub(super) fn retain_pending(
         &mut self,
-        batch: shrimply_timeline_core::import_queue::BatchId,
+        batch: shrimply_timeline_skia::import_queue::BatchId,
         scopes: Vec<ScopedUrl>,
     ) {
         self.pending_urls.push((batch, scopes));
@@ -96,7 +96,7 @@ impl Imports {
 
     pub(super) fn finish_external(
         &mut self,
-        event: shrimply_timeline_core::external_content::ExternalImportEvent,
+        event: shrimply_timeline_skia::external_content::ExternalImportEvent,
     ) {
         self.finish_scopes(event.batch, event.retained_paths.as_deref());
     }
@@ -122,7 +122,7 @@ impl Imports {
 
     fn finish_scopes(
         &mut self,
-        batch: shrimply_timeline_core::import_queue::BatchId,
+        batch: shrimply_timeline_skia::import_queue::BatchId,
         retained_paths: Option<&[PathBuf]>,
     ) {
         let Some(index) = self
@@ -191,7 +191,7 @@ pub fn stage_clipboard_file_urls(
                 .ok_or_else(|| "only local clipboard files can be imported".to_string())?;
             let scope = ScopedUrl::new(url.clone());
             let stored =
-                shrimply_timeline_core::external_content::store_clipboard_visual_file(&path)?;
+                shrimply_timeline_skia::external_content::store_clipboard_visual_file(&path)?;
             drop(scope);
             stored.map_or(Ok(url), |path| {
                 NSURL::from_file_path(path)
@@ -208,7 +208,7 @@ pub fn clipboard_image_path(pasteboard: &NSPasteboard) -> Result<Option<PathBuf>
         let Some(tiff) = pasteboard.dataForType(unsafe { NSPasteboardTypeTIFF }) else {
             return Ok(None);
         };
-        shrimply_timeline_core::external_content::validate_clipboard_image_length(tiff.length())?;
+        shrimply_timeline_skia::external_content::validate_clipboard_image_length(tiff.length())?;
         let image = NSBitmapImageRep::imageRepWithData(&tiff)
             .ok_or("clipboard TIFF image cannot be decoded")?;
         unsafe {
@@ -220,7 +220,7 @@ pub fn clipboard_image_path(pasteboard: &NSPasteboard) -> Result<Option<PathBuf>
         .ok_or("clipboard image cannot be encoded as PNG")?
     };
     let bytes = unsafe { data.as_bytes_unchecked() };
-    shrimply_timeline_core::external_content::store_clipboard_image(bytes).map(Some)
+    shrimply_timeline_skia::external_content::store_clipboard_image(bytes).map(Some)
 }
 
 pub fn choose_files(
@@ -234,7 +234,7 @@ pub fn choose_files(
         tracks
             .iter()
             .map(|key| {
-                shrimply_timeline_core::selection_state::track_address(&project, *key)
+                shrimply_timeline_skia::selection_state::track_address(&project, *key)
                     .ok_or("import destination track no longer exists")
             })
             .collect::<Result<Vec<_>, _>>()?
@@ -250,7 +250,7 @@ pub fn choose_files(
         addresses
             .iter()
             .map(|address| {
-                shrimply_timeline_core::selection_state::track_key(&project, address)
+                shrimply_timeline_skia::selection_state::track_key(&project, address)
                     .ok_or("import destination track was removed while choosing files")
             })
             .collect::<Result<Vec<_>, _>>()?

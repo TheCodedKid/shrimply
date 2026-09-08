@@ -1,0 +1,35 @@
+[package]
+name = "shrimply-inspector-qt"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+base64.workspace = true
+cxx.workspace = true
+cxx-qt.workspace = true
+cxx-qt-lib = { workspace = true, features = ["qt_full"] }
+glam.workspace = true
+shrimply-audio-engine = { workspace = true }
+shrimply-audio-modifiers = { workspace = true }
+shrimply-property-model = { workspace = true }
+shrimply-cross-ui-core = { workspace = true }
+shrimply-cross-ui-theme = { workspace = true }
+shrimply-inspector-core = { workspace = true, default-features = true }
+shrimply-i18n-qt = { workspace = true }
+shrimply-math-core = { workspace = true }
+shrimply-media-info = { workspace = true }
+shrimply-preview-provider-skia = { workspace = true }
+shrimply-property-transfer = { workspace = true }
+shrimply-project-document = { workspace = true, default-features = true }
+shrimply-components-qt = { workspace = true }
+shrimply-editor-state = { workspace = true }
+shrimply-compute-client = { workspace = true }
+shrimply-timeline-edit = { workspace = true }
+shrimply-tts = { workspace = true }
+shrimply-visual-modifiers = { workspace = true }
+shrimply-visual-core = { workspace = true }
+serde_json.workspace = true
+uuid.workspace = true
+
+[build-dependencies]
+cxx-qt-build = { workspace = true, features = ["link_qt_object_files"] }
