@@ -5,9 +5,9 @@ mod skia;
 use objc2::{msg_send, rc::Retained, runtime::ProtocolObject};
 use objc2_foundation::NSString;
 use objc2_metal::{
-    MTLBinding, MTLBindingType, MTLCommandEncoder, MTLCommandQueue, MTLComputeCommandEncoder,
-    MTLComputePipelineState, MTLDevice, MTLLibrary, MTLPipelineOption, MTLResource,
-    MTLResourceUsage, MTLSize,
+    MTLBinding, MTLBindingType, MTLBuffer, MTLCommandBuffer, MTLCommandEncoder, MTLCommandQueue,
+    MTLComputeCommandEncoder, MTLComputePipelineState, MTLDevice, MTLLibrary, MTLPipelineOption,
+    MTLResource, MTLResourceUsage, MTLSize,
 };
 use shrimply_render_core::Nv12LayerParams;
 use std::collections::HashMap;
