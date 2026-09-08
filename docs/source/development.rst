@@ -74,7 +74,7 @@ repository root; do not install their dependencies globally.
 Repository layout
 -----------------
 
-``crates/apps``
+``crates/binaries``
    Launcher and editor applications.
 
 ``crates/timeline`` and ``crates/project``

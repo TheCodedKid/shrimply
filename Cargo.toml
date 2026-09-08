@@ -5,13 +5,13 @@ members = [
     "crates/gpu/denoise/denoise-metal",
     "crates/gpu/metal/gpu-metal",
     "crates/media/visual/3d/3dgs/3dgs-vulkan",
-    "crates/apps/editor-appkit",
+    "crates/binaries/editor-appkit",
     "crates/gpu/cuda/gpu-cuda",
-    "crates/apps/editor-qt",
-    "crates/apps/editor-gtk",
-    "crates/apps/launcher-gtk",
-    "crates/apps/launcher-qt",
-    "crates/apps/launcher-appkit",
+    "crates/binaries/editor-qt",
+    "crates/binaries/editor-gtk",
+    "crates/binaries/launcher-gtk",
+    "crates/binaries/launcher-qt",
+    "crates/binaries/launcher-appkit",
     "crates/media/asset",
     "crates/media/audio/audio-engine",
     "crates/media/audio/audio-modifiers",
@@ -141,7 +141,7 @@ members = [
     "crates/media/visual/3d/text-3d",
     "crates/media/visual/3d/transform-3d",
 ]
-default-members = ["crates/apps/editor-gtk", "crates/apps/launcher-gtk"]
+default-members = ["crates/binaries/editor-gtk", "crates/binaries/launcher-gtk"]
 exclude = ["external/vtracer"]
 
 [workspace.dependencies]
