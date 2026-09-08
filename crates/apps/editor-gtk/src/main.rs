@@ -311,11 +311,12 @@ fn begin_project_load(app: &adw::Application, path: PathBuf) {
         .default_width(LOADING_WINDOW_WIDTH)
         .default_height(LOADING_WINDOW_HEIGHT)
         .build();
-    window.set_content(Some(if flatpak {
+    let loading_view = if flatpak {
         project_loading_view_with_subtitle(tr!("Compiling CUDA kernels…").as_ref())
     } else {
         project_loading_view(&path)
-    }));
+    };
+    window.set_content(Some(&loading_view));
     window.present();
 
     if !flatpak {

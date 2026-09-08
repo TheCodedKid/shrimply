@@ -49,6 +49,45 @@ modules:
         tag: v4.0.0
         commit: 1d95888bec3ae0a17c0c4af791810d5a63f6bc35
 
+  - name: fdk-aac
+    buildsystem: cmake-ninja
+    config-opts:
+      - -DCMAKE_BUILD_TYPE=Release
+      - -DCMAKE_INSTALL_LIBDIR=lib
+      - -DBUILD_SHARED_LIBS=ON
+      - -DBUILD_PROGRAMS=OFF
+    sources:
+      - type: archive
+        url: https://github.com/mstorsjo/fdk-aac/archive/refs/tags/v2.0.3.tar.gz
+        sha256: e25671cd96b10bad896aa42ab91a695a9e573395262baed4e4a2ff178d6a3a78
+
+  - name: nv-codec-headers
+    buildsystem: simple
+    build-commands:
+      - make PREFIX=/app install
+    sources:
+      - type: archive
+        url: https://github.com/FFmpeg/nv-codec-headers/archive/refs/tags/n12.2.72.0.tar.gz
+        sha256: dbeaec433d93b850714760282f1d0992b1254fc3b5a6cb7d76fc1340a1e47563
+
+  - name: ffmpeg
+    buildsystem: autotools
+    config-opts:
+      - --disable-static
+      - --enable-shared
+      - --disable-doc
+      - --disable-programs
+      - --enable-libfdk-aac
+      - --enable-nonfree
+      - --enable-libopus
+      - --enable-ffnvcodec
+      - --enable-vulkan
+      - --enable-gnutls
+    sources:
+      - type: archive
+        url: https://ffmpeg.org/releases/ffmpeg-7.1.1.tar.xz
+        sha256: 733984395e0dbbe5c046abda2dc49a5544e7e0e1e2366bba849222ae9e3a03b1
+
   - name: poppler
     buildsystem: cmake-ninja
     config-opts:
