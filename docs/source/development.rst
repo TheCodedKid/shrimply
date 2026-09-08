@@ -4,6 +4,10 @@ Development
 Requirements
 ------------
 
+Building Shrimply from source requires around 70GB or more of free disk space
+and a reasonably modern machine. Due to the complexity of the development
+setup, using a coding agent to help with setup is recommended.
+
 The current development setup targets Fedora and uses the Rust toolchain in
 ``rust-toolchain.toml``. Install the native dependencies with:
 
@@ -11,8 +15,17 @@ The current development setup targets Fedora and uses the Rust toolchain in
 
    $ make deps-fedora
 
-Initialize the Slang submodule before building. Slang compiles the compositor
-shaders to CUDA, and ``nvcc`` packages the current ``sm_86`` cubins.
+The ``shrimply-slang-build`` crate's ``build.rs`` downloads the pinned Slang
+binary release and verifies its SHA-256 checksum. Downloads are locked and
+extracted atomically into a versioned cache under Cargo's build directory
+(``target/``, ignored by Git), shared across crate rebuilds. Slang is never
+compiled from source. The download requires ``curl``, ``tar``, and ``shasum``
+(macOS) or ``sha256sum`` (Linux). To use an existing binary distribution,
+set ``SLANG_LIBRARY_DIR`` and ``SLANG_INCLUDE_DIR`` to its library and header
+directories. Slang's prebuilt library compiles the compositor shaders to CUDA,
+and ``nvcc`` packages the CUDA artifacts. The supported CUDA
+Toolkit version is 12.9. In theory, NVIDIA GeForce GTX 900-series through RTX
+50-series GPUs should work, but this full range has not been verified.
 
 Build and check
 ---------------
@@ -68,7 +81,7 @@ repository root; do not install their dependencies globally.
 Repository layout
 -----------------
 
-``crates/apps``
+``crates/binaries``
    Launcher and editor applications.
 
 ``crates/timeline`` and ``crates/project``
@@ -83,10 +96,10 @@ Repository layout
 ``crates/3d``, ``crates/paint``, and ``crates/layered-image``
    Specialized content and rendering pipelines.
 
-``crates/math`` and ``crates/core``
+``crates/math`` and ``crates/project/property-model``
    Shared math and core data types.
 
-``crates/mcp`` and ``crates/server-client``
+``crates/integrations/mcp`` and ``crates/integrations/compute-client``
    Live editor automation and compute-server communication.
 
 ``server``

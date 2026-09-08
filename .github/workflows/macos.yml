@@ -1,0 +1,229 @@
+name: macOS prerelease
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: macos-prerelease
+  cancel-in-progress: true
+
+env:
+  CARGO_HOME: ${{ github.workspace }}/.ci/cargo
+  MACOS_APP: dist/Shrimply.app
+  MACOS_ARCHIVE: dist/shrimply-macos-arm64.zip
+  MACOSX_DEPLOYMENT_TARGET: "15.0"
+  RUSTUP_HOME: ${{ github.workspace }}/.ci/rustup
+
+jobs:
+  build-and-release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: macos-26
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          submodules: recursive
+
+      - name: Install host build dependencies
+        run: |
+          brew install \
+            dylibbundler \
+            ffmpeg \
+            librsvg \
+            llvm@18 \
+            opencv \
+            pkgconf \
+            poppler \
+            rubberband
+
+      - name: Restore Rust toolchain
+        id: rust-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            ${{ env.CARGO_HOME }}
+            ${{ env.RUSTUP_HOME }}
+          key: rust-macos-26-${{ runner.arch }}-${{ hashFiles('rust-toolchain.toml') }}
+
+      - name: Install Rust toolchain
+        run: |
+          if [[ ! -x "${CARGO_HOME}/bin/rustup" ]]; then
+            rustup_init="${RUNNER_TEMP}/rustup-init"
+            curl --proto '=https' --tlsv1.2 --fail --location --silent --show-error \
+              https://sh.rustup.rs \
+              --output "${rustup_init}"
+            chmod +x "${rustup_init}"
+            "${rustup_init}" --yes --default-toolchain none --profile minimal
+          fi
+          echo "${CARGO_HOME}/bin" >> "${GITHUB_PATH}"
+          "${CARGO_HOME}/bin/rustup" show
+
+      - name: Save Rust toolchain
+        if: steps.rust-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            ${{ env.CARGO_HOME }}
+            ${{ env.RUSTUP_HOME }}
+          key: ${{ steps.rust-cache.outputs.cache-primary-key }}
+
+      - name: Resolve application cache key
+        id: application-cache-key
+        run: echo "week=$(date -u +%G-W%V)" >> "${GITHUB_OUTPUT}"
+
+      - name: Restore macOS application cache
+        id: application-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            target/release
+          key: macos-application-prebuilt-macos-26-${{ runner.arch }}-${{ hashFiles('Cargo.lock', 'Makefile', 'rust-toolchain.toml') }}-${{ steps.application-cache-key.outputs.week }}
+          restore-keys: |
+            macos-application-prebuilt-macos-26-${{ runner.arch }}-${{ hashFiles('Cargo.lock', 'Makefile', 'rust-toolchain.toml') }}-
+            macos-application-prebuilt-macos-26-${{ runner.arch }}-
+
+      - name: Build AppKit release
+        run: make appkit-release
+
+      - name: Save macOS application cache
+        if: ${{ !cancelled() && steps.application-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            target/release
+          key: ${{ steps.application-cache.outputs.cache-primary-key }}
+
+      - name: Assemble application bundle
+        shell: bash
+        run: |
+          contents="${MACOS_APP}/Contents"
+          iconset="${RUNNER_TEMP}/Shrimply.iconset"
+          mkdir -p "${contents}/Frameworks" "${contents}/MacOS" "${contents}/Resources" "${iconset}"
+          install -m 755 target/release/shrimply-appkit "${contents}/MacOS/shrimply-appkit"
+          install -m 755 target/release/shrimply-editor-appkit "${contents}/MacOS/shrimply-editor-appkit"
+          install -m 644 packaging/macos/Info.plist "${contents}/Info.plist"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${GITHUB_RUN_NUMBER}" "${contents}/Info.plist"
+
+          for size in 16 32 128 256 512; do
+            rsvg-convert --width "${size}" --height "${size}" \
+              assets/icons/dev.shrimply.Shrimply-macos.svg \
+              --output "${iconset}/icon_${size}x${size}.png"
+            doubled="$((size * 2))"
+            rsvg-convert --width "${doubled}" --height "${doubled}" \
+              assets/icons/dev.shrimply.Shrimply-macos.svg \
+              --output "${iconset}/icon_${size}x${size}@2x.png"
+          done
+          iconutil --convert icns "${iconset}" --output "${contents}/Resources/Shrimply.icns"
+
+          bundle_log="${RUNNER_TEMP}/dylibbundler.log"
+          if ! dylibbundler \
+            --bundle-deps \
+            --overwrite-dir \
+            --fix-file "${contents}/MacOS/shrimply-appkit" \
+            --fix-file "${contents}/MacOS/shrimply-editor-appkit" \
+            --dest-dir "${contents}/Frameworks" \
+            --install-path '@executable_path/../Frameworks/' \
+            > "${bundle_log}" 2>&1; then
+            tail -n 200 "${bundle_log}"
+            exit 1
+          fi
+
+          find "${contents}/MacOS" "${contents}/Frameworks" -type f -print0 \
+            | while IFS= read -r -d '' binary; do
+                otool -l "${binary}" \
+                  | awk '/cmd LC_RPATH/ { getline; getline; sub(/^[[:space:]]*path /, ""); sub(/ \(offset.*$/, ""); count[$0]++ } END { for (path in count) for (i = 1; i < count[path]; i++) print path }' \
+                  | while IFS= read -r duplicate; do
+                      install_name_tool -delete_rpath "${duplicate}" "${binary}" 2>> "${bundle_log}"
+                    done
+              done
+          xattr -cr "${MACOS_APP}"
+          codesign --force --deep --sign - "${MACOS_APP}"
+
+      - name: Verify application bundle
+        shell: bash
+        run: |
+          contents="${MACOS_APP}/Contents"
+          plutil -lint "${contents}/Info.plist"
+          codesign --verify --deep --strict "${MACOS_APP}"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "${contents}/Info.plist")" = "shrimply-appkit"
+          test "$(lipo -archs "${contents}/MacOS/shrimply-appkit")" = "arm64"
+          test "$(lipo -archs "${contents}/MacOS/shrimply-editor-appkit")" = "arm64"
+
+          dependencies="${RUNNER_TEMP}/macos-dependencies.txt"
+          find "${contents}/MacOS" "${contents}/Frameworks" -type f -print0 \
+            | xargs -0 otool -L > "${dependencies}"
+          external_dependencies="$(awk '$1 ~ /^\// && $1 !~ /^\/System\/Library\// && $1 !~ /^\/usr\/lib\// { print $1 }' "${dependencies}")"
+          if [[ -n "${external_dependencies}" ]]; then
+            echo "Application bundle retains external dependencies:" >&2
+            echo "${external_dependencies}" >&2
+            exit 1
+          fi
+
+          if "${contents}/MacOS/shrimply-appkit" "${RUNNER_TEMP}/missing.shrimp"; then
+            echo "Launcher unexpectedly accepted a missing project" >&2
+            exit 1
+          fi
+          if "${contents}/MacOS/shrimply-editor-appkit" first.shrimp second.shrimp; then
+            echo "Editor unexpectedly accepted multiple projects" >&2
+            exit 1
+          fi
+
+      - name: Create and verify archive
+        run: |
+          archive_name="$(basename "${MACOS_ARCHIVE}")"
+          ditto -c -k --sequesterRsrc --keepParent "${MACOS_APP}" "${MACOS_ARCHIVE}"
+          (
+            cd "$(dirname "${MACOS_ARCHIVE}")"
+            shasum -a 256 "${archive_name}" > "${archive_name}.sha256"
+            shasum -a 256 --check "${archive_name}.sha256"
+          )
+
+          unpacked="${RUNNER_TEMP}/shrimply-macos-verify"
+          mkdir -p "${unpacked}"
+          ditto -x -k "${MACOS_ARCHIVE}" "${unpacked}"
+          codesign --verify --deep --strict "${unpacked}/Shrimply.app"
+          test -s "${MACOS_ARCHIVE}.sha256"
+
+      - name: Publish prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          short_sha="${GITHUB_SHA:0:12}"
+          tag="macos-${GITHUB_SHA}"
+          release_notes="${RUNNER_TEMP}/macos-release.md"
+          {
+            echo "Automated Apple Silicon macOS build of commit [\`${short_sha}\`](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA})."
+            echo
+            echo "Unzip the archive and move \`Shrimply.app\` to Applications. This prerelease is ad-hoc signed, but not Apple-notarized; on first launch, approve it in System Settings > Privacy & Security if macOS blocks it."
+          } > "${release_notes}"
+
+          if gh release view "${tag}" >/dev/null 2>&1; then
+            assets="$(gh release view "${tag}" --json assets --jq '.assets[].name')"
+            grep -qx 'shrimply-macos-arm64.zip' <<< "${assets}"
+            grep -qx 'shrimply-macos-arm64.zip.sha256' <<< "${assets}"
+            echo "Release ${tag} already exists with both assets"
+          else
+            gh release create "${tag}" \
+              "${MACOS_ARCHIVE}#Shrimply for Apple Silicon" \
+              "${MACOS_ARCHIVE}.sha256#SHA-256 checksum" \
+              --target "${GITHUB_SHA}" \
+              --title "Shrimply macOS ${short_sha}" \
+              --notes-file "${release_notes}" \
+              --prerelease \
+              --latest=false
+          fi
+
+          gh release list --limit 100 --json tagName,isPrerelease \
+            --jq '.[] | select(.isPrerelease and (.tagName | startswith("macos-"))) | .tagName' \
+            | while IFS= read -r old_tag; do
+                if [[ "${old_tag}" != "${tag}" ]]; then
+                  gh release delete "${old_tag}" --cleanup-tag --yes
+                fi
+              done

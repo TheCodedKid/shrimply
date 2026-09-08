@@ -1,0 +1,17 @@
+[package]
+name = "shrimply-launcher-gtk"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "shrimply"
+path = "src/main.rs"
+
+[dependencies]
+adw.workspace = true
+gtk.workspace = true
+shrimply-cross-ui-core = { workspace = true }
+shrimply-process-reporting = { workspace = true }
+shrimply-project-document = { workspace = true, default-features = true }
+shrimply-components-gtk = { workspace = true }
+tracing.workspace = true

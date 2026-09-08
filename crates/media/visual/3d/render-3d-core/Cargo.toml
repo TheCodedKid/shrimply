@@ -1,0 +1,19 @@
+[package]
+name = "shrimply-render-3d-core"
+version = "0.1.0"
+edition = "2024"
+build = "build.rs"
+
+[dependencies]
+ffmpeg-next.workspace = true
+glam.workspace = true
+serde = { workspace = true, features = ["derive"] }
+shrimply-asset = { workspace = true }
+shrimply-math-color = { workspace = true }
+shrimply-render-core = { workspace = true }
+shrimply-scene-3d = { workspace = true }
+shrimply-transform-3d = { workspace = true }
+
+[build-dependencies]
+serde_json.workspace = true
+shrimply-slang-build = { workspace = true }

@@ -1,9 +1,0 @@
-[package]
-name = "shrimply-visual-frame"
-version = "0.1.0"
-edition = "2024"
-
-[dependencies]
-shrimply-cuda.workspace = true
-shrimply-gpu-memory = { path = "../gpu-memory" }
-ffmpeg-next.workspace = true

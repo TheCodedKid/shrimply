@@ -1,0 +1,10 @@
+[package]
+name = "shrimply-loading-screen-skia"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+glam.workspace = true
+shrimply-math-color = { workspace = true, features = ["skia"] }
+shrimply-drawing-skia = { workspace = true }
+skia-safe.workspace = true

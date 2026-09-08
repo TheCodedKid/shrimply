@@ -4,11 +4,12 @@ Getting Started
 Run Shrimply
 ------------
 
-Shrimply is currently pre-alpha software. To try it, build it from source.
+Shrimply is currently pre-alpha software. To try the Flatpak, download it from
+the `GitHub releases page <https://github.com/soirihiroka/shrimply/releases>`__.
+The Flatpak is missing some features, including MCP support, and its project
+lockfile support is currently broken.
 
-You should prepare around 200GB of free disk space and a reasonably modern machine.
-
-Due to the complex nature of the development setup. I strongly recommend you to just point some agent at it (they are pretty good at that!).
+To build Shrimply from source, see :doc:`development`.
 
 Create a project
 ----------------

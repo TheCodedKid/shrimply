@@ -1,0 +1,20 @@
+[package]
+name = "shrimply-components-appkit"
+version = "0.1.0"
+edition = "2024"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+block2.workspace = true
+objc2.workspace = true
+objc2-app-kit.workspace = true
+objc2-core-graphics.workspace = true
+objc2-foundation.workspace = true
+shrimply-components-core = { workspace = true }
+shrimply-framegraph-appkit = { workspace = true }
+shrimply-cross-ui-theme = { workspace = true }
+shrimply-framegraph-skia = { workspace = true }
+shrimply-math-interpolation = { workspace = true }
+shrimply-keyframe-graph-skia = { workspace = true }
+shrimply-math-color = { workspace = true }
+shrimply-math-core = { workspace = true }
+uuid.workspace = true

@@ -1,0 +1,24 @@
+[package]
+name = "shrimply-cross-ui-core"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+async-channel.workspace = true
+gio.workspace = true
+glib.workspace = true
+shrimply-asset = { workspace = true }
+shrimply-audio-engine = { workspace = true }
+shrimply-blender-bridge = { workspace = true }
+shrimply-i18n = { workspace = true }
+shrimply-math-core = { workspace = true }
+shrimply-kdenlive-parser = { workspace = true }
+shrimply-otio-parser = { workspace = true }
+shrimply-playback-performance = { workspace = true }
+shrimply-property-transfer = { workspace = true }
+shrimply-project-document = { workspace = true, default-features = true }
+shrimply-project-types = { workspace = true }
+shrimply-editor-state = { workspace = true }
+shrimply-recent-projects = { workspace = true }
+shrimply-timeline-edit = { workspace = true }
+tracing.workspace = true

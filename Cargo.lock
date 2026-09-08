@@ -5341,7 +5341,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
 
 [[package]]
-name = "shrimply-3d-control"
+name = "shrimply-3d-control-core"
 version = "0.1.0"
 dependencies = [
  "glam 0.33.5",
@@ -5350,21 +5350,19 @@ dependencies = [
 ]
 
 [[package]]
-name = "shrimply-3dgs"
+name = "shrimply-3dgs-core"
 version = "0.1.0"
 dependencies = [
- "ash",
  "glam 0.33.5",
  "rayon",
  "serde",
  "serde_json",
- "shrimply-3d-control",
+ "shrimply-3d-control-core",
  "shrimply-asset",
- "shrimply-core",
+ "shrimply-property-model",
  "shrimply-render-core",
  "shrimply-slang-build",
  "shrimply-transform-3d",
- "tracing",
 ]
 
 [[package]]
@@ -5374,10 +5372,21 @@ dependencies = [
  "objc2",
  "objc2-foundation",
  "objc2-metal",
- "shrimply-3dgs",
+ "shrimply-3dgs-core",
  "shrimply-asset",
  "shrimply-render-metal",
  "shrimply-slang-build",
+]
+
+[[package]]
+name = "shrimply-3dgs-vulkan"
+version = "0.1.0"
+dependencies = [
+ "ash",
+ "rayon",
+ "shrimply-3dgs-core",
+ "shrimply-asset",
+ "tracing",
 ]
 
 [[package]]
@@ -5387,23 +5396,33 @@ dependencies = [
  "glam 0.33.5",
  "good_lp",
  "opencv",
- "shrimply-cuda",
- "shrimply-gpu-memory",
+ "shrimply-gpu-cuda",
+ "shrimply-gpu-cuda-memory",
  "shrimply-math-core",
  "shrimply-nvidia-optical-flow",
  "tracing",
 ]
 
 [[package]]
-name = "shrimply-anime4k"
+name = "shrimply-anime4k-cuda"
 version = "0.1.0"
 dependencies = [
  "glam 0.33.5",
  "hashbrown 0.17.1",
- "shrimply-cuda",
- "shrimply-gpu-memory",
+ "shrimply-gpu-cuda",
+ "shrimply-gpu-cuda-memory",
  "shrimply-render-core",
- "shrimply-render-cuda",
+ "shrimply-render-kernels-cuda",
+]
+
+[[package]]
+name = "shrimply-application-qt"
+version = "0.1.0"
+dependencies = [
+ "cxx",
+ "cxx-qt",
+ "cxx-qt-build",
+ "cxx-qt-lib",
 ]
 
 [[package]]
@@ -5418,7 +5437,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "shrimply-audio"
+name = "shrimply-audio-engine"
 version = "0.1.0"
 dependencies = [
  "cached",
@@ -5438,14 +5457,14 @@ dependencies = [
  "serde_json",
  "shrimply-asset",
  "shrimply-audio-modifiers",
- "shrimply-benchmarking",
- "shrimply-core",
+ "shrimply-compute-client",
  "shrimply-lip-sync",
  "shrimply-math-core",
  "shrimply-math-media",
- "shrimply-project",
+ "shrimply-profiling",
+ "shrimply-project-document",
+ "shrimply-property-model",
  "shrimply-resource-pipeline",
- "shrimply-server-client",
  "tempfile",
  "tracing",
  "uuid",
@@ -5457,7 +5476,7 @@ version = "0.1.0"
 dependencies = [
  "hashbrown 0.17.1",
  "serde",
- "shrimply-core",
+ "shrimply-property-model",
  "strum",
  "uuid",
 ]
@@ -5469,22 +5488,13 @@ dependencies = [
  "glam 0.33.5",
  "hashbrown 0.17.1",
  "serde",
- "shrimply-core",
+ "shrimply-property-model",
  "strum",
  "uuid",
 ]
 
 [[package]]
-name = "shrimply-benchmarking"
-version = "0.1.0"
-dependencies = [
- "hashbrown 0.17.1",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "shrimply-blender"
+name = "shrimply-blender-bridge"
 version = "0.1.0"
 dependencies = [
  "blend",
@@ -5496,35 +5506,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "shrimply-component-core"
-version = "0.1.0"
-dependencies = [
- "shrimply-benchmarking",
- "shrimply-i18n-core",
- "shrimply-math-color",
- "shrimply-math-core",
- "shrimply-project-core",
- "typos",
- "typos-dict",
- "unicase",
-]
-
-[[package]]
-name = "shrimply-component-metal"
-version = "0.1.0"
-dependencies = [
- "objc2",
- "objc2-app-kit",
- "objc2-foundation",
- "shrimply-cross-ui-theme",
- "shrimply-framegraph-core",
- "shrimply-keyframe-graph-core",
- "shrimply-math-core",
- "shrimply-skia-adw-core",
- "shrimply-skia-metal",
-]
-
-[[package]]
 name = "shrimply-components-appkit"
 version = "0.1.0"
 dependencies = [
@@ -5533,15 +5514,29 @@ dependencies = [
  "objc2-app-kit",
  "objc2-core-graphics",
  "objc2-foundation",
- "shrimply-component-core",
- "shrimply-component-metal",
+ "shrimply-components-core",
  "shrimply-cross-ui-theme",
- "shrimply-framegraph-core",
- "shrimply-interpolation",
- "shrimply-keyframe-graph-core",
+ "shrimply-framegraph-appkit",
+ "shrimply-framegraph-skia",
+ "shrimply-keyframe-graph-skia",
  "shrimply-math-color",
  "shrimply-math-core",
+ "shrimply-math-interpolation",
  "uuid",
+]
+
+[[package]]
+name = "shrimply-components-core"
+version = "0.1.0"
+dependencies = [
+ "shrimply-i18n",
+ "shrimply-math-color",
+ "shrimply-math-core",
+ "shrimply-profiling",
+ "shrimply-project-types",
+ "typos",
+ "typos-dict",
+ "unicase",
 ]
 
 [[package]]
@@ -5551,14 +5546,14 @@ dependencies = [
  "objc2",
  "objc2-app-kit",
  "objc2-foundation",
- "shrimply-benchmarking",
- "shrimply-component-core",
  "shrimply-components-appkit",
+ "shrimply-components-core",
  "shrimply-components-demo-core",
  "shrimply-cross-ui-theme",
- "shrimply-keyframe-graph-core",
+ "shrimply-keyframe-graph-skia",
  "shrimply-math-color",
- "shrimply-support",
+ "shrimply-process-reporting",
+ "shrimply-profiling",
 ]
 
 [[package]]
@@ -5566,25 +5561,129 @@ name = "shrimply-components-demo-core"
 version = "0.1.0"
 dependencies = [
  "rhai",
- "shrimply-core",
- "shrimply-interpolation",
- "shrimply-keyframe-graph-core",
+ "shrimply-keyframe-graph-skia",
  "shrimply-math-core",
- "shrimply-video-modifiers",
+ "shrimply-math-interpolation",
+ "shrimply-property-model",
+ "shrimply-visual-modifiers",
  "uuid",
 ]
 
 [[package]]
-name = "shrimply-core"
+name = "shrimply-components-demo-gtk"
+version = "0.1.0"
+dependencies = [
+ "gtk4",
+ "libadwaita",
+ "shrimply-components-core",
+ "shrimply-components-demo-core",
+ "shrimply-components-gtk",
+ "shrimply-cross-ui-theme",
+ "shrimply-keyframe-graph-skia",
+ "shrimply-math-color",
+ "shrimply-profiling",
+]
+
+[[package]]
+name = "shrimply-components-demo-qt"
+version = "0.1.0"
+dependencies = [
+ "cxx",
+ "cxx-qt",
+ "cxx-qt-build",
+ "cxx-qt-lib",
+ "shrimply-application-qt",
+ "shrimply-components-demo-core",
+ "shrimply-components-qt",
+ "shrimply-keyframe-graph-skia",
+ "shrimply-math-core",
+ "shrimply-process-reporting",
+ "shrimply-profiling",
+]
+
+[[package]]
+name = "shrimply-components-gtk"
+version = "0.1.0"
+dependencies = [
+ "async-channel",
+ "cached",
+ "glow",
+ "gtk4",
+ "hashbrown 0.17.1",
+ "libadwaita",
+ "num-traits",
+ "shrimply-components-core",
+ "shrimply-components-skia",
+ "shrimply-cross-ui-core",
+ "shrimply-cross-ui-theme",
+ "shrimply-framegraph-skia",
+ "shrimply-i18n",
+ "shrimply-keyframe-graph-skia",
+ "shrimply-math-color",
+ "shrimply-math-core",
+ "shrimply-math-geometry",
+ "shrimply-math-interpolation",
+ "shrimply-pointer-lock-wayland",
+ "shrimply-project-types",
+ "shrimply-resource-pipeline",
+ "shrimply-surface-gl-skia",
+ "skia-safe",
+ "sourceview5",
+ "strum",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "shrimply-components-qt"
+version = "0.1.0"
+dependencies = [
+ "cxx",
+ "cxx-qt",
+ "cxx-qt-build",
+ "cxx-qt-lib",
+ "shrimply-application-qt",
+ "shrimply-components-core",
+ "shrimply-components-skia",
+ "shrimply-cross-ui-core",
+ "shrimply-cross-ui-theme",
+ "shrimply-i18n-qt",
+ "shrimply-keyframe-graph-skia",
+ "shrimply-math-color",
+ "shrimply-math-core",
+ "shrimply-math-interpolation",
+ "shrimply-pointer-lock-wayland",
+ "shrimply-process-reporting",
+ "shrimply-project-types",
+ "shrimply-surface-gl-skia",
+ "uuid",
+]
+
+[[package]]
+name = "shrimply-components-skia"
+version = "0.1.0"
+dependencies = [
+ "async-channel",
+ "cached",
+ "hashbrown 0.17.1",
+ "shrimply-cross-ui-theme",
+ "shrimply-math-color",
+ "shrimply-math-geometry",
+ "skia-safe",
+]
+
+[[package]]
+name = "shrimply-compute-client"
 version = "0.1.0"
 dependencies = [
  "glam 0.33.5",
- "hashbrown 0.17.1",
- "num-traits",
+ "reqwest",
+ "rmp-serde",
  "serde",
- "shrimply-math-color",
- "shrimply-render-core",
- "shrimply-timeline-value",
+ "serde_bytes",
+ "shrimply-math-geometry",
+ "tokio",
+ "tracing",
  "uuid",
 ]
 
@@ -5596,19 +5695,19 @@ dependencies = [
  "gio",
  "glib",
  "shrimply-asset",
- "shrimply-audio",
- "shrimply-blender",
- "shrimply-i18n-core",
- "shrimply-kdenlive",
+ "shrimply-audio-engine",
+ "shrimply-blender-bridge",
+ "shrimply-editor-state",
+ "shrimply-i18n",
+ "shrimply-kdenlive-parser",
  "shrimply-math-core",
- "shrimply-otio",
+ "shrimply-otio-parser",
  "shrimply-playback-performance",
- "shrimply-project",
- "shrimply-project-core",
+ "shrimply-project-document",
+ "shrimply-project-types",
  "shrimply-property-transfer",
- "shrimply-state",
- "shrimply-support",
- "shrimply-timeline",
+ "shrimply-recent-projects",
+ "shrimply-timeline-edit",
  "tracing",
 ]
 
@@ -5620,14 +5719,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "shrimply-cuda"
-version = "0.1.0"
-dependencies = [
- "cc",
- "half",
-]
-
-[[package]]
 name = "shrimply-decoder-pool"
 version = "0.1.0"
 dependencies = [
@@ -5636,12 +5727,40 @@ dependencies = [
 ]
 
 [[package]]
-name = "shrimply-discrete-keyframe-graph-core"
+name = "shrimply-denoise-metal"
 version = "0.1.0"
 dependencies = [
+ "objc2",
+ "objc2-metal",
+ "objc2-metal-performance-shaders",
+]
+
+[[package]]
+name = "shrimply-denoise-optix"
+version = "0.1.0"
+dependencies = [
+ "cc",
+ "shrimply-gpu-cuda",
+ "shrimply-math-color",
+]
+
+[[package]]
+name = "shrimply-discrete-keyframe-graph-skia"
+version = "0.1.0"
+dependencies = [
+ "shrimply-components-skia",
  "shrimply-math-color",
  "shrimply-math-core",
- "shrimply-skia-adw-core",
+]
+
+[[package]]
+name = "shrimply-drawing-skia"
+version = "0.1.0"
+dependencies = [
+ "glam 0.33.5",
+ "shrimply-math-color",
+ "shrimply-math-geometry",
+ "skia-safe",
 ]
 
 [[package]]
@@ -5658,28 +5777,28 @@ dependencies = [
  "objc2-screen-capture-kit",
  "objc2-uniform-type-identifiers",
  "shrimply-asset",
- "shrimply-component-core",
+ "shrimply-components-core",
+ "shrimply-components-skia",
  "shrimply-cross-ui-core",
  "shrimply-cross-ui-theme",
- "shrimply-evaluation",
+ "shrimply-editor-state",
  "shrimply-export-appkit",
  "shrimply-export-core",
  "shrimply-export-metal",
  "shrimply-inspector-appkit",
  "shrimply-math-core",
- "shrimply-paint-edit",
+ "shrimply-paint-edit-skia",
  "shrimply-playback-performance",
- "shrimply-preview-core",
- "shrimply-preview-interaction-core",
- "shrimply-preview-metal",
- "shrimply-project",
- "shrimply-skia-adw-core",
- "shrimply-skia-metal",
- "shrimply-state",
- "shrimply-support",
- "shrimply-timeline-core",
+ "shrimply-preview-interaction-skia",
+ "shrimply-preview-provider-skia",
+ "shrimply-preview-render-metal",
+ "shrimply-process-reporting",
+ "shrimply-project-document",
+ "shrimply-project-evaluation",
+ "shrimply-surface-metal-skia",
+ "shrimply-timeline-skia",
  "shrimply-tts",
- "shrimply-video-core",
+ "shrimply-visual-core",
  "skia-safe",
  "tempfile",
  "uuid",
@@ -5692,6 +5811,7 @@ dependencies = [
  "async-channel",
  "ffmpeg-next",
  "gdk-pixbuf",
+ "glib",
  "gtk4",
  "libadwaita",
  "libc",
@@ -5699,34 +5819,35 @@ dependencies = [
  "pango",
  "serde_json",
  "shrimply-asset",
- "shrimply-audio",
- "shrimply-blender",
- "shrimply-component-core",
+ "shrimply-audio-engine",
+ "shrimply-blender-bridge",
+ "shrimply-components-core",
+ "shrimply-components-gtk",
+ "shrimply-compute-client",
  "shrimply-cross-ui-core",
  "shrimply-cross-ui-theme",
+ "shrimply-editor-state",
  "shrimply-export-gtk",
- "shrimply-gtk-components",
  "shrimply-inspector-gtk",
- "shrimply-kdenlive",
- "shrimply-manim-parser",
+ "shrimply-kdenlive-parser",
+ "shrimply-manim-bridge",
  "shrimply-math-core",
  "shrimply-mcp",
- "shrimply-otio",
+ "shrimply-otio-parser",
  "shrimply-playback-performance",
  "shrimply-preferences-core",
  "shrimply-preferences-gtk",
  "shrimply-preview-gtk",
- "shrimply-project",
+ "shrimply-process-reporting",
+ "shrimply-project-document",
  "shrimply-property-transfer",
- "shrimply-server-client",
- "shrimply-state",
- "shrimply-support",
- "shrimply-timeline",
+ "shrimply-recent-projects",
+ "shrimply-timeline-edit",
  "shrimply-timeline-gtk",
  "shrimply-transcription",
  "shrimply-tts",
- "shrimply-video-cuda",
- "shrimply-video-modifiers",
+ "shrimply-visual-cuda",
+ "shrimply-visual-modifiers",
  "tracing",
  "uuid",
 ]
@@ -5740,41 +5861,35 @@ dependencies = [
  "cxx-qt-build",
  "cxx-qt-lib",
  "ffmpeg-next",
+ "shrimply-application-qt",
+ "shrimply-components-qt",
  "shrimply-cross-ui-core",
+ "shrimply-editor-state",
  "shrimply-export-qt",
  "shrimply-i18n-qt",
  "shrimply-inspector-qt",
  "shrimply-math-core",
  "shrimply-preferences-qt",
  "shrimply-preview-qt",
- "shrimply-preview-runtime",
- "shrimply-project",
- "shrimply-qt-components",
- "shrimply-qt-helpers",
- "shrimply-state",
- "shrimply-support",
+ "shrimply-preview-runtime-cuda",
+ "shrimply-process-reporting",
+ "shrimply-project-document",
+ "shrimply-recent-projects",
  "tracing",
 ]
 
 [[package]]
-name = "shrimply-evaluation"
+name = "shrimply-editor-state"
 version = "0.1.0"
 dependencies = [
- "glam 0.33.5",
  "hashbrown 0.17.1",
- "num-traits",
- "rhai",
- "shrimply-3dgs",
- "shrimply-benchmarking",
- "shrimply-core",
- "shrimply-lip-sync",
- "shrimply-math-color",
+ "shrimply-manim-state",
  "shrimply-math-core",
- "shrimply-math-media",
- "shrimply-paint-geometry",
- "shrimply-project",
- "shrimply-scene-3d",
- "shrimply-video-modifiers",
+ "shrimply-preferences-core",
+ "shrimply-preview-provider-skia",
+ "shrimply-process-reporting",
+ "shrimply-profiling",
+ "shrimply-project-document",
  "tracing",
  "uuid",
 ]
@@ -5788,7 +5903,7 @@ dependencies = [
  "objc2-foundation",
  "shrimply-export-core",
  "shrimply-export-metal",
- "shrimply-project",
+ "shrimply-project-document",
 ]
 
 [[package]]
@@ -5801,12 +5916,12 @@ dependencies = [
  "libc",
  "serde",
  "serde_json",
- "shrimply-audio",
+ "shrimply-audio-engine",
  "shrimply-math-color",
  "shrimply-math-core",
  "shrimply-math-media",
- "shrimply-project",
- "shrimply-video-core",
+ "shrimply-project-document",
+ "shrimply-visual-core",
  "tempfile",
  "tracing",
 ]
@@ -5818,8 +5933,8 @@ dependencies = [
  "ffmpeg-next",
  "shrimply-export-core",
  "shrimply-math-core",
- "shrimply-project",
- "shrimply-video-cuda",
+ "shrimply-project-document",
+ "shrimply-visual-cuda",
 ]
 
 [[package]]
@@ -5829,13 +5944,13 @@ dependencies = [
  "glam 0.33.5",
  "gtk4",
  "libadwaita",
+ "shrimply-components-gtk",
+ "shrimply-editor-state",
  "shrimply-export-core",
  "shrimply-export-cuda",
- "shrimply-gtk-components",
  "shrimply-math-core",
  "shrimply-math-media",
- "shrimply-project",
- "shrimply-state",
+ "shrimply-project-document",
  "tracing",
 ]
 
@@ -5846,8 +5961,8 @@ dependencies = [
  "ffmpeg-next",
  "shrimply-export-core",
  "shrimply-math-core",
- "shrimply-preview-metal",
- "shrimply-project",
+ "shrimply-preview-render-metal",
+ "shrimply-project-document",
  "tracing",
 ]
 
@@ -5859,99 +5974,86 @@ dependencies = [
  "cxx-qt",
  "cxx-qt-build",
  "cxx-qt-lib",
+ "shrimply-application-qt",
+ "shrimply-components-qt",
  "shrimply-cross-ui-core",
+ "shrimply-editor-state",
  "shrimply-export-core",
  "shrimply-export-cuda",
  "shrimply-i18n-qt",
  "shrimply-math-core",
  "shrimply-math-media",
- "shrimply-qt-components",
- "shrimply-qt-helpers",
- "shrimply-state",
 ]
 
 [[package]]
-name = "shrimply-framegraph-core"
+name = "shrimply-framegraph-appkit"
 version = "0.1.0"
 dependencies = [
- "shrimply-interpolation",
- "shrimply-keyframe-graph-core",
+ "objc2",
+ "objc2-app-kit",
+ "objc2-foundation",
+ "shrimply-components-skia",
+ "shrimply-cross-ui-theme",
+ "shrimply-framegraph-skia",
+ "shrimply-keyframe-graph-skia",
  "shrimply-math-core",
- "shrimply-skia-adw-core",
+ "shrimply-surface-metal-skia",
+]
+
+[[package]]
+name = "shrimply-framegraph-skia"
+version = "0.1.0"
+dependencies = [
+ "shrimply-components-skia",
+ "shrimply-keyframe-graph-skia",
+ "shrimply-math-core",
+ "shrimply-math-interpolation",
  "uuid",
 ]
 
 [[package]]
-name = "shrimply-gpu-memory"
+name = "shrimply-gpu-cuda"
+version = "0.1.0"
+dependencies = [
+ "cc",
+ "half",
+ "libc",
+]
+
+[[package]]
+name = "shrimply-gpu-cuda-memory"
 version = "0.1.0"
 dependencies = [
  "hashbrown 0.17.1",
  "libc",
- "shrimply-benchmarking",
- "shrimply-cuda",
+ "shrimply-gpu-cuda",
+ "shrimply-profiling",
  "tracing",
 ]
 
 [[package]]
-name = "shrimply-gtk-components"
+name = "shrimply-gpu-metal"
 version = "0.1.0"
 dependencies = [
- "async-channel",
- "cached",
- "glow",
- "gtk4",
- "hashbrown 0.17.1",
- "libadwaita",
- "num-traits",
- "shrimply-component-core",
- "shrimply-cross-ui-core",
- "shrimply-cross-ui-theme",
- "shrimply-framegraph-core",
- "shrimply-i18n-gtk",
- "shrimply-interpolation",
- "shrimply-keyframe-graph-core",
- "shrimply-math-color",
- "shrimply-math-core",
- "shrimply-math-geometry",
- "shrimply-project-core",
- "shrimply-resource-pipeline",
- "shrimply-skia-adw-core",
- "shrimply-skia-gl",
- "shrimply-wayland-pointer-lock",
- "skia-safe",
- "sourceview5",
- "strum",
+ "objc2",
+ "objc2-metal",
+]
+
+[[package]]
+name = "shrimply-gpu-vulkan"
+version = "0.1.0"
+dependencies = [
+ "ash",
+ "pollster",
  "tracing",
- "uuid",
+ "wgpu",
 ]
 
 [[package]]
-name = "shrimply-gtk-components-demo"
-version = "0.1.0"
-dependencies = [
- "gtk4",
- "libadwaita",
- "shrimply-benchmarking",
- "shrimply-component-core",
- "shrimply-components-demo-core",
- "shrimply-cross-ui-theme",
- "shrimply-gtk-components",
- "shrimply-keyframe-graph-core",
- "shrimply-math-color",
-]
-
-[[package]]
-name = "shrimply-i18n-core"
+name = "shrimply-i18n"
 version = "0.1.0"
 dependencies = [
  "rust-i18n",
-]
-
-[[package]]
-name = "shrimply-i18n-gtk"
-version = "0.1.0"
-dependencies = [
- "shrimply-i18n-core",
 ]
 
 [[package]]
@@ -5959,7 +6061,7 @@ name = "shrimply-i18n-qt"
 version = "0.1.0"
 dependencies = [
  "cxx-qt-lib",
- "shrimply-i18n-core",
+ "shrimply-i18n",
 ]
 
 [[package]]
@@ -5973,15 +6075,15 @@ dependencies = [
  "objc2-uniform-type-identifiers",
  "serde_json",
  "shrimply-components-appkit",
+ "shrimply-editor-state",
  "shrimply-inspector-core",
  "shrimply-inspector-document",
  "shrimply-math-color",
  "shrimply-math-core",
- "shrimply-preview-metal",
- "shrimply-project",
+ "shrimply-preview-render-metal",
+ "shrimply-project-document",
  "shrimply-property-transfer",
- "shrimply-state",
- "shrimply-timeline",
+ "shrimply-timeline-edit",
  "shrimply-tts",
 ]
 
@@ -5997,31 +6099,31 @@ dependencies = [
  "rusqlite",
  "serde",
  "serde_json",
- "shrimply-3dgs",
- "shrimply-audio",
+ "shrimply-3dgs-core",
+ "shrimply-audio-engine",
  "shrimply-audio-modifiers",
- "shrimply-blender",
- "shrimply-core",
- "shrimply-evaluation",
- "shrimply-i18n-core",
- "shrimply-keyframe-graph-core",
- "shrimply-manim-parser",
+ "shrimply-blender-bridge",
+ "shrimply-compute-client",
+ "shrimply-editor-state",
+ "shrimply-i18n",
+ "shrimply-keyframe-graph-skia",
+ "shrimply-manim-bridge",
  "shrimply-math-core",
  "shrimply-media-info",
  "shrimply-pdf",
- "shrimply-preview-core",
- "shrimply-project",
+ "shrimply-preview-provider-skia",
+ "shrimply-project-document",
+ "shrimply-project-evaluation",
+ "shrimply-property-model",
  "shrimply-property-transfer",
  "shrimply-scene-3d",
- "shrimply-server-client",
  "shrimply-shape-3d",
- "shrimply-state",
  "shrimply-text-3d",
- "shrimply-timeline",
+ "shrimply-timeline-edit",
  "shrimply-tts",
- "shrimply-video-core",
- "shrimply-video-cuda",
- "shrimply-video-modifiers",
+ "shrimply-visual-core",
+ "shrimply-visual-cuda",
+ "shrimply-visual-modifiers",
  "skia-safe",
  "strum",
  "tempfile",
@@ -6035,12 +6137,12 @@ version = "0.1.0"
 dependencies = [
  "serde_json",
  "shrimply-audio-modifiers",
- "shrimply-core",
  "shrimply-inspector-core",
  "shrimply-math-core",
- "shrimply-preview-core",
- "shrimply-project",
- "shrimply-video-modifiers",
+ "shrimply-preview-provider-skia",
+ "shrimply-project-document",
+ "shrimply-property-model",
+ "shrimply-visual-modifiers",
  "uuid",
 ]
 
@@ -6057,41 +6159,41 @@ dependencies = [
  "num-traits",
  "pango",
  "serde_json",
- "shrimply-3dgs",
- "shrimply-audio",
+ "shrimply-3dgs-core",
+ "shrimply-audio-engine",
  "shrimply-audio-modifiers",
- "shrimply-benchmarking",
- "shrimply-component-core",
- "shrimply-core",
+ "shrimply-components-core",
+ "shrimply-components-gtk",
+ "shrimply-components-skia",
+ "shrimply-compute-client",
  "shrimply-cross-ui-theme",
- "shrimply-discrete-keyframe-graph-core",
- "shrimply-evaluation",
- "shrimply-gtk-components",
+ "shrimply-discrete-keyframe-graph-skia",
+ "shrimply-editor-state",
  "shrimply-inspector-core",
- "shrimply-interpolation",
  "shrimply-math-color",
  "shrimply-math-core",
  "shrimply-math-geometry",
+ "shrimply-math-interpolation",
  "shrimply-media-info",
- "shrimply-project",
+ "shrimply-process-reporting",
+ "shrimply-profiling",
+ "shrimply-project-document",
+ "shrimply-project-evaluation",
+ "shrimply-property-model",
  "shrimply-property-transfer",
  "shrimply-render-core",
  "shrimply-resource-pipeline",
  "shrimply-scene-3d",
- "shrimply-server-client",
  "shrimply-shape-3d",
- "shrimply-skia-adw-core",
- "shrimply-state",
- "shrimply-support",
  "shrimply-text-3d",
- "shrimply-timeline",
+ "shrimply-timeline-edit",
  "shrimply-tts",
  "shrimply-tts-gtk",
- "shrimply-video-core",
- "shrimply-video-cuda",
  "shrimply-video-generation",
  "shrimply-video-generation-gtk",
- "shrimply-video-modifiers",
+ "shrimply-visual-core",
+ "shrimply-visual-cuda",
+ "shrimply-visual-modifiers",
  "skia-safe",
  "sourceview5",
  "tracing",
@@ -6109,38 +6211,30 @@ dependencies = [
  "cxx-qt-lib",
  "glam 0.33.5",
  "serde_json",
- "shrimply-audio",
+ "shrimply-audio-engine",
  "shrimply-audio-modifiers",
- "shrimply-core",
+ "shrimply-components-qt",
+ "shrimply-compute-client",
  "shrimply-cross-ui-core",
  "shrimply-cross-ui-theme",
+ "shrimply-editor-state",
  "shrimply-i18n-qt",
  "shrimply-inspector-core",
  "shrimply-math-core",
  "shrimply-media-info",
- "shrimply-preview-core",
- "shrimply-project",
+ "shrimply-preview-provider-skia",
+ "shrimply-project-document",
+ "shrimply-property-model",
  "shrimply-property-transfer",
- "shrimply-qt-components",
- "shrimply-server-client",
- "shrimply-state",
- "shrimply-timeline",
+ "shrimply-timeline-edit",
  "shrimply-tts",
- "shrimply-video-core",
- "shrimply-video-modifiers",
+ "shrimply-visual-core",
+ "shrimply-visual-modifiers",
  "uuid",
 ]
 
 [[package]]
-name = "shrimply-interpolation"
-version = "0.1.0"
-dependencies = [
- "schemars",
- "serde",
-]
-
-[[package]]
-name = "shrimply-kdenlive"
+name = "shrimply-kdenlive-parser"
 version = "0.1.0"
 dependencies = [
  "glam 0.33.5",
@@ -6148,29 +6242,29 @@ dependencies = [
  "quick-xml 0.42.0",
  "serde_json",
  "shrimply-audio-modifiers",
- "shrimply-core",
- "shrimply-interpolation",
- "shrimply-layered-image",
+ "shrimply-layered-image-loader",
  "shrimply-math-core",
  "shrimply-math-geometry",
+ "shrimply-math-interpolation",
  "shrimply-pdf",
- "shrimply-project",
- "shrimply-video-modifiers",
+ "shrimply-project-document",
+ "shrimply-property-model",
+ "shrimply-visual-modifiers",
  "uuid",
 ]
 
 [[package]]
-name = "shrimply-keyframe-graph-core"
+name = "shrimply-keyframe-graph-skia"
 version = "0.1.0"
 dependencies = [
  "glam 0.33.5",
+ "shrimply-components-skia",
  "shrimply-cross-ui-theme",
- "shrimply-discrete-keyframe-graph-core",
- "shrimply-interpolation",
+ "shrimply-discrete-keyframe-graph-skia",
  "shrimply-math-color",
  "shrimply-math-core",
  "shrimply-math-geometry",
- "shrimply-skia-adw-core",
+ "shrimply-math-interpolation",
  "skia-safe",
  "uuid",
 ]
@@ -6197,11 +6291,12 @@ dependencies = [
  "objc2",
  "objc2-app-kit",
  "objc2-foundation",
- "shrimply-component-core",
+ "shrimply-components-core",
  "shrimply-cross-ui-core",
  "shrimply-math-core",
- "shrimply-project-core",
- "shrimply-support",
+ "shrimply-process-reporting",
+ "shrimply-project-types",
+ "shrimply-recent-projects",
  "tracing",
 ]
 
@@ -6211,10 +6306,10 @@ version = "0.1.0"
 dependencies = [
  "gtk4",
  "libadwaita",
+ "shrimply-components-gtk",
  "shrimply-cross-ui-core",
- "shrimply-gtk-components",
- "shrimply-project",
- "shrimply-support",
+ "shrimply-process-reporting",
+ "shrimply-project-document",
  "tracing",
 ]
 
@@ -6226,15 +6321,15 @@ dependencies = [
  "cxx-qt",
  "cxx-qt-build",
  "cxx-qt-lib",
+ "shrimply-application-qt",
  "shrimply-cross-ui-core",
  "shrimply-i18n-qt",
- "shrimply-qt-helpers",
- "shrimply-support",
+ "shrimply-process-reporting",
  "tracing",
 ]
 
 [[package]]
-name = "shrimply-layered-image"
+name = "shrimply-layered-image-loader"
 version = "0.1.0"
 dependencies = [
  "hashbrown 0.17.1",
@@ -6250,42 +6345,47 @@ version = "0.1.0"
 dependencies = [
  "hashbrown 0.17.1",
  "shrimply-math-media",
- "shrimply-project",
+ "shrimply-project-document",
  "shrimply-rhubarb-lip-sync",
 ]
 
 [[package]]
-name = "shrimply-loading-screen"
+name = "shrimply-loading-screen-skia"
 version = "0.1.0"
 dependencies = [
  "glam 0.33.5",
+ "shrimply-drawing-skia",
  "shrimply-math-color",
- "shrimply-preview-skia",
  "skia-safe",
 ]
 
 [[package]]
-name = "shrimply-manim-core"
+name = "shrimply-manim-bridge"
 version = "0.1.0"
 dependencies = [
  "hashbrown 0.17.1",
+ "libc",
+ "objc2",
+ "objc2-foundation",
+ "rmp-serde",
+ "serde",
+ "shrimply-asset",
+ "shrimply-manim-ir",
  "shrimply-math-core",
- "shrimply-project",
- "uuid",
+ "shrimply-project-document",
+ "tracing",
 ]
 
 [[package]]
 name = "shrimply-manim-cuda"
 version = "0.1.0"
 dependencies = [
- "ash",
  "hashbrown 0.17.1",
- "libc",
- "pollster",
- "shrimply-benchmarking",
- "shrimply-cuda",
- "shrimply-gpu-memory",
+ "shrimply-gpu-cuda",
+ "shrimply-gpu-cuda-memory",
+ "shrimply-gpu-vulkan",
  "shrimply-manim-wgpu",
+ "shrimply-profiling",
  "shrimply-visual-frame",
  "tracing",
  "wgpu",
@@ -6317,20 +6417,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "shrimply-manim-parser"
+name = "shrimply-manim-state"
 version = "0.1.0"
 dependencies = [
  "hashbrown 0.17.1",
- "libc",
- "objc2",
- "objc2-foundation",
- "rmp-serde",
- "serde",
- "shrimply-asset",
- "shrimply-manim-ir",
  "shrimply-math-core",
- "shrimply-project",
- "tracing",
+ "shrimply-project-document",
+ "uuid",
 ]
 
 [[package]]
@@ -6341,14 +6434,14 @@ dependencies = [
  "hashbrown 0.17.1",
  "pollster",
  "shrimply-asset",
- "shrimply-i18n-core",
- "shrimply-loading-screen",
- "shrimply-manim-core",
+ "shrimply-i18n",
+ "shrimply-loading-screen-skia",
+ "shrimply-manim-bridge",
  "shrimply-manim-ir",
- "shrimply-manim-parser",
+ "shrimply-manim-state",
  "shrimply-math-color",
  "shrimply-math-core",
- "shrimply-project",
+ "shrimply-project-document",
  "tempfile",
  "tracing",
  "uuid",
@@ -6364,7 +6457,7 @@ dependencies = [
  "oklab",
  "rayon",
  "serde",
- "shrimply-cuda",
+ "shrimply-gpu-cuda",
  "skia-safe",
 ]
 
@@ -6389,6 +6482,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "shrimply-math-interpolation"
+version = "0.1.0"
+dependencies = [
+ "schemars",
+ "serde",
+]
+
+[[package]]
 name = "shrimply-math-media"
 version = "0.1.0"
 dependencies = [
@@ -6396,11 +6497,11 @@ dependencies = [
  "hashbrown 0.17.1",
  "num-traits",
  "serde",
- "shrimply-interpolation",
  "shrimply-math-color",
  "shrimply-math-core",
  "shrimply-math-geometry",
- "shrimply-project-core",
+ "shrimply-math-interpolation",
+ "shrimply-project-types",
  "shrimply-render-core",
 ]
 
@@ -6413,12 +6514,12 @@ dependencies = [
  "schemars",
  "serde",
  "serde_json",
- "shrimply-core",
  "shrimply-math-core",
  "shrimply-media-info",
- "shrimply-project",
- "shrimply-timeline",
- "shrimply-video-modifiers",
+ "shrimply-project-document",
+ "shrimply-property-model",
+ "shrimply-timeline-edit",
+ "shrimply-visual-modifiers",
  "tokio",
  "uuid",
 ]
@@ -6451,35 +6552,26 @@ name = "shrimply-nvidia-optical-flow"
 version = "0.1.0"
 dependencies = [
  "cc",
- "shrimply-cuda",
+ "shrimply-gpu-cuda",
 ]
 
 [[package]]
-name = "shrimply-optix-denoiser"
-version = "0.1.0"
-dependencies = [
- "cc",
- "shrimply-cuda",
- "shrimply-math-color",
-]
-
-[[package]]
-name = "shrimply-otio"
+name = "shrimply-otio-parser"
 version = "0.1.0"
 dependencies = [
  "ffmpeg-next",
  "glam 0.33.5",
  "serde",
  "serde_json",
- "shrimply-core",
- "shrimply-layered-image",
+ "shrimply-layered-image-loader",
  "shrimply-math-core",
  "shrimply-pdf",
- "shrimply-project",
+ "shrimply-project-document",
+ "shrimply-property-model",
 ]
 
 [[package]]
-name = "shrimply-paint-edit"
+name = "shrimply-paint-edit-skia"
 version = "0.1.0"
 dependencies = [
  "glam 0.33.5",
@@ -6487,7 +6579,7 @@ dependencies = [
  "shrimply-paint-geometry",
  "shrimply-paint-model",
  "shrimply-paint-skia",
- "shrimply-preview-core",
+ "shrimply-preview-provider-skia",
  "shrimply-timeline-value",
  "skia-safe",
  "uuid",
@@ -6580,8 +6672,8 @@ dependencies = [
  "serde_json",
  "shrimply-math-core",
  "shrimply-math-media",
- "shrimply-preview-core",
- "shrimply-project",
+ "shrimply-preview-provider-skia",
+ "shrimply-project-document",
  "tracing",
  "uuid",
 ]
@@ -6596,17 +6688,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "shrimply-pointer-lock-wayland"
+version = "0.1.0"
+dependencies = [
+ "tracing",
+ "wayland-client",
+ "wayland-protocols",
+]
+
+[[package]]
 name = "shrimply-preferences-core"
 version = "0.1.0"
 dependencies = [
  "libc",
  "rusqlite",
- "shrimply-blender",
- "shrimply-i18n-core",
+ "shrimply-blender-bridge",
+ "shrimply-compute-client",
+ "shrimply-i18n",
  "shrimply-math-color",
  "shrimply-math-core",
- "shrimply-project",
- "shrimply-server-client",
+ "shrimply-project-document",
+ "shrimply-recent-projects",
  "tracing",
 ]
 
@@ -6618,8 +6720,8 @@ dependencies = [
  "gtk4",
  "libadwaita",
  "pango",
- "shrimply-blender",
- "shrimply-gtk-components",
+ "shrimply-blender-bridge",
+ "shrimply-components-gtk",
  "shrimply-inspector-gtk",
  "shrimply-preferences-core",
 ]
@@ -6634,20 +6736,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "shrimply-preview-core"
-version = "0.1.0"
-dependencies = [
- "glam 0.33.5",
- "shrimply-math-color",
- "shrimply-math-core",
- "shrimply-math-geometry",
- "shrimply-preview-skia",
- "shrimply-timeline-value",
- "skia-safe",
- "uuid",
-]
-
-[[package]]
 name = "shrimply-preview-gtk"
 version = "0.1.0"
 dependencies = [
@@ -6656,77 +6744,61 @@ dependencies = [
  "gtk4",
  "libadwaita",
  "libc",
- "shrimply-audio",
- "shrimply-benchmarking",
- "shrimply-core",
- "shrimply-cuda",
- "shrimply-evaluation",
- "shrimply-gpu-memory",
- "shrimply-gtk-components",
+ "shrimply-audio-engine",
+ "shrimply-components-gtk",
+ "shrimply-components-skia",
+ "shrimply-editor-state",
+ "shrimply-gpu-cuda",
+ "shrimply-gpu-cuda-memory",
  "shrimply-math-color",
  "shrimply-math-core",
- "shrimply-paint-edit",
+ "shrimply-paint-edit-skia",
  "shrimply-playback-performance",
- "shrimply-preview-core",
- "shrimply-preview-interaction-core",
- "shrimply-preview-runtime",
- "shrimply-project",
+ "shrimply-preview-interaction-skia",
+ "shrimply-preview-provider-skia",
+ "shrimply-preview-runtime-cuda",
+ "shrimply-profiling",
+ "shrimply-project-document",
+ "shrimply-project-evaluation",
+ "shrimply-property-model",
  "shrimply-render-core",
- "shrimply-skia-adw-core",
- "shrimply-state",
- "shrimply-timeline",
- "shrimply-video-cuda",
- "shrimply-video-modifiers",
+ "shrimply-timeline-edit",
+ "shrimply-visual-cuda",
+ "shrimply-visual-modifiers",
  "skia-safe",
  "tracing",
  "uuid",
 ]
 
 [[package]]
-name = "shrimply-preview-interaction-core"
+name = "shrimply-preview-interaction-skia"
 version = "0.1.0"
 dependencies = [
  "glam 0.33.5",
- "shrimply-3dgs",
- "shrimply-core",
+ "shrimply-3dgs-core",
+ "shrimply-components-skia",
  "shrimply-cross-ui-theme",
- "shrimply-evaluation",
  "shrimply-math-color",
- "shrimply-preview-core",
- "shrimply-project",
- "shrimply-skia-adw-core",
- "shrimply-video-core",
+ "shrimply-preview-provider-skia",
+ "shrimply-project-document",
+ "shrimply-project-evaluation",
+ "shrimply-property-model",
+ "shrimply-visual-core",
  "skia-safe",
  "uuid",
 ]
 
 [[package]]
-name = "shrimply-preview-metal"
+name = "shrimply-preview-provider-skia"
 version = "0.1.0"
 dependencies = [
- "ffmpeg-next",
- "objc2",
- "objc2-core-ml",
- "objc2-core-video",
- "objc2-foundation",
- "objc2-vision",
- "shrimply-3dgs",
- "shrimply-3dgs-metal",
- "shrimply-manim-core",
- "shrimply-manim-metal",
+ "glam 0.33.5",
+ "shrimply-drawing-skia",
+ "shrimply-math-color",
  "shrimply-math-core",
  "shrimply-math-geometry",
- "shrimply-math-media",
- "shrimply-preview-core",
- "shrimply-preview-render-core",
- "shrimply-project",
- "shrimply-render-3d-metal",
- "shrimply-render-core",
- "shrimply-render-metal",
- "shrimply-resource-pipeline",
- "shrimply-video-core",
+ "shrimply-timeline-value",
  "skia-safe",
- "tracing",
  "uuid",
 ]
 
@@ -6735,23 +6807,23 @@ name = "shrimply-preview-qt"
 version = "0.1.0"
 dependencies = [
  "glam 0.33.5",
- "shrimply-audio",
+ "shrimply-audio-engine",
+ "shrimply-components-skia",
  "shrimply-cross-ui-core",
  "shrimply-cross-ui-theme",
- "shrimply-evaluation",
+ "shrimply-editor-state",
  "shrimply-math-color",
- "shrimply-paint-edit",
+ "shrimply-paint-edit-skia",
  "shrimply-playback-performance",
- "shrimply-preview-core",
- "shrimply-preview-runtime",
- "shrimply-project",
- "shrimply-skia-adw-core",
- "shrimply-skia-gl",
- "shrimply-state",
- "shrimply-timeline",
+ "shrimply-preview-provider-skia",
+ "shrimply-preview-runtime-cuda",
+ "shrimply-project-document",
+ "shrimply-project-evaluation",
+ "shrimply-surface-gl-skia",
+ "shrimply-timeline-edit",
  "shrimply-timeline-gtk",
  "shrimply-timeline-qt",
- "shrimply-video-cuda",
+ "shrimply-visual-cuda",
  "skia-safe",
  "tracing",
  "uuid",
@@ -6763,13 +6835,12 @@ version = "0.1.0"
 dependencies = [
  "ffmpeg-next",
  "glam 0.33.5",
- "shrimply-audio",
+ "shrimply-audio-engine",
  "shrimply-background",
- "shrimply-evaluation",
- "shrimply-i18n-core",
- "shrimply-layered-image",
- "shrimply-loading-screen",
- "shrimply-manim-core",
+ "shrimply-i18n",
+ "shrimply-layered-image-loader",
+ "shrimply-loading-screen-skia",
+ "shrimply-manim-state",
  "shrimply-manim-wgpu",
  "shrimply-math-color",
  "shrimply-math-core",
@@ -6777,59 +6848,98 @@ dependencies = [
  "shrimply-math-media",
  "shrimply-paint-skia",
  "shrimply-pdf",
- "shrimply-preview-core",
- "shrimply-project",
+ "shrimply-preview-provider-skia",
+ "shrimply-project-document",
+ "shrimply-project-evaluation",
  "shrimply-render-core",
  "shrimply-scene-3d",
- "shrimply-video-core",
- "shrimply-video-modifiers",
+ "shrimply-visual-core",
+ "shrimply-visual-modifiers",
  "skia-safe",
  "tracing",
  "uuid",
 ]
 
 [[package]]
-name = "shrimply-preview-runtime"
+name = "shrimply-preview-render-metal"
+version = "0.1.0"
+dependencies = [
+ "ffmpeg-next",
+ "objc2",
+ "objc2-core-ml",
+ "objc2-core-video",
+ "objc2-foundation",
+ "objc2-vision",
+ "shrimply-3dgs-core",
+ "shrimply-3dgs-metal",
+ "shrimply-manim-metal",
+ "shrimply-manim-state",
+ "shrimply-math-core",
+ "shrimply-math-geometry",
+ "shrimply-math-media",
+ "shrimply-preview-provider-skia",
+ "shrimply-preview-render-core",
+ "shrimply-project-document",
+ "shrimply-render-3d-metal",
+ "shrimply-render-core",
+ "shrimply-render-metal",
+ "shrimply-resource-pipeline",
+ "shrimply-visual-core",
+ "skia-safe",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "shrimply-preview-runtime-cuda"
 version = "0.1.0"
 dependencies = [
  "glam 0.33.5",
  "glow",
  "libc",
- "shrimply-3dgs",
- "shrimply-audio",
- "shrimply-core",
+ "shrimply-3dgs-core",
+ "shrimply-audio-engine",
+ "shrimply-components-skia",
  "shrimply-cross-ui-theme",
- "shrimply-cuda",
- "shrimply-evaluation",
- "shrimply-gpu-memory",
+ "shrimply-editor-state",
+ "shrimply-gpu-cuda",
+ "shrimply-gpu-cuda-memory",
  "shrimply-math-color",
  "shrimply-math-core",
  "shrimply-playback-performance",
- "shrimply-preview-core",
- "shrimply-preview-interaction-core",
- "shrimply-project",
- "shrimply-skia-adw-core",
- "shrimply-skia-gl",
- "shrimply-state",
- "shrimply-video-core",
- "shrimply-video-cuda",
+ "shrimply-preview-interaction-skia",
+ "shrimply-preview-provider-skia",
+ "shrimply-project-document",
+ "shrimply-project-evaluation",
+ "shrimply-property-model",
+ "shrimply-surface-gl-skia",
+ "shrimply-visual-core",
+ "shrimply-visual-cuda",
  "skia-safe",
  "tracing",
  "uuid",
 ]
 
 [[package]]
-name = "shrimply-preview-skia"
+name = "shrimply-process-reporting"
 version = "0.1.0"
 dependencies = [
- "glam 0.33.5",
- "shrimply-math-color",
- "shrimply-math-geometry",
- "skia-safe",
+ "libc",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
-name = "shrimply-project"
+name = "shrimply-profiling"
+version = "0.1.0"
+dependencies = [
+ "hashbrown 0.17.1",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "shrimply-project-document"
 version = "0.1.0"
 dependencies = [
  "glam 0.33.5",
@@ -6843,32 +6953,55 @@ dependencies = [
  "serde",
  "serde-value",
  "serde_json",
- "shrimply-3d-control",
- "shrimply-3dgs",
+ "shrimply-3d-control-core",
+ "shrimply-3dgs-core",
  "shrimply-asset",
  "shrimply-audio-modifiers",
  "shrimply-background",
- "shrimply-core",
- "shrimply-interpolation",
  "shrimply-math-core",
  "shrimply-math-geometry",
+ "shrimply-math-interpolation",
  "shrimply-math-media",
- "shrimply-paint-edit",
+ "shrimply-paint-edit-skia",
  "shrimply-paint-model",
- "shrimply-preview-core",
- "shrimply-project-core",
+ "shrimply-preview-provider-skia",
+ "shrimply-project-types",
+ "shrimply-property-model",
  "shrimply-scene-3d",
  "shrimply-transform-3d",
  "shrimply-tts",
  "shrimply-video-generation",
- "shrimply-video-modifiers",
+ "shrimply-visual-modifiers",
  "strum",
  "tracing",
  "uuid",
 ]
 
 [[package]]
-name = "shrimply-project-core"
+name = "shrimply-project-evaluation"
+version = "0.1.0"
+dependencies = [
+ "glam 0.33.5",
+ "hashbrown 0.17.1",
+ "num-traits",
+ "rhai",
+ "shrimply-3dgs-core",
+ "shrimply-lip-sync",
+ "shrimply-math-color",
+ "shrimply-math-core",
+ "shrimply-math-media",
+ "shrimply-paint-geometry",
+ "shrimply-profiling",
+ "shrimply-project-document",
+ "shrimply-property-model",
+ "shrimply-scene-3d",
+ "shrimply-visual-modifiers",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "shrimply-project-types"
 version = "0.1.0"
 dependencies = [
  "glam 0.33.5",
@@ -6879,13 +7012,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "shrimply-property-model"
+version = "0.1.0"
+dependencies = [
+ "glam 0.33.5",
+ "hashbrown 0.17.1",
+ "num-traits",
+ "serde",
+ "shrimply-math-color",
+ "shrimply-render-core",
+ "shrimply-timeline-value",
+ "uuid",
+]
+
+[[package]]
 name = "shrimply-property-transfer"
 version = "0.1.0"
 dependencies = [
  "hashbrown 0.17.1",
  "shrimply-audio-modifiers",
- "shrimply-project",
- "shrimply-video-modifiers",
+ "shrimply-project-document",
+ "shrimply-visual-modifiers",
  "uuid",
 ]
 
@@ -6899,59 +7046,18 @@ dependencies = [
 ]
 
 [[package]]
-name = "shrimply-qt-components"
+name = "shrimply-recent-projects"
 version = "0.1.0"
 dependencies = [
- "cxx",
- "cxx-qt",
- "cxx-qt-build",
- "cxx-qt-lib",
- "shrimply-component-core",
- "shrimply-cross-ui-core",
- "shrimply-cross-ui-theme",
- "shrimply-i18n-qt",
- "shrimply-interpolation",
- "shrimply-keyframe-graph-core",
- "shrimply-math-color",
- "shrimply-math-core",
- "shrimply-project-core",
- "shrimply-qt-helpers",
- "shrimply-skia-adw-core",
- "shrimply-skia-gl",
- "shrimply-support",
- "shrimply-wayland-pointer-lock",
- "uuid",
+ "objc2-foundation",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "tracing",
 ]
 
 [[package]]
-name = "shrimply-qt-components-demo"
-version = "0.1.0"
-dependencies = [
- "cxx",
- "cxx-qt",
- "cxx-qt-build",
- "cxx-qt-lib",
- "shrimply-benchmarking",
- "shrimply-components-demo-core",
- "shrimply-keyframe-graph-core",
- "shrimply-math-core",
- "shrimply-qt-components",
- "shrimply-qt-helpers",
- "shrimply-support",
-]
-
-[[package]]
-name = "shrimply-qt-helpers"
-version = "0.1.0"
-dependencies = [
- "cxx",
- "cxx-qt",
- "cxx-qt-build",
- "cxx-qt-lib",
-]
-
-[[package]]
-name = "shrimply-render-3d"
+name = "shrimply-render-3d-core"
 version = "0.1.0"
 dependencies = [
  "ffmpeg-next",
@@ -6973,9 +7079,9 @@ dependencies = [
  "objc2",
  "objc2-foundation",
  "objc2-metal",
- "objc2-metal-performance-shaders",
  "shrimply-asset",
- "shrimply-render-3d",
+ "shrimply-denoise-metal",
+ "shrimply-render-3d-core",
  "shrimply-render-metal",
  "shrimply-scene-3d",
  "shrimply-slang-build",
@@ -6991,14 +7097,14 @@ dependencies = [
  "num-traits",
  "serde",
  "serde_json",
- "shrimply-cuda",
+ "shrimply-gpu-cuda",
  "shrimply-math-color",
  "shrimply-math-geometry",
  "shrimply-slang-build",
 ]
 
 [[package]]
-name = "shrimply-render-cuda"
+name = "shrimply-render-kernels-cuda"
 version = "0.1.0"
 dependencies = [
  "shrimply-slang-build",
@@ -7012,6 +7118,7 @@ dependencies = [
  "objc2-foundation",
  "objc2-metal",
  "serde_json",
+ "shrimply-gpu-metal",
  "shrimply-render-core",
  "shrimply-slang-build",
  "skia-safe",
@@ -7038,10 +7145,10 @@ dependencies = [
  "gltf",
  "rayon",
  "serde",
- "shrimply-3d-control",
+ "shrimply-3d-control-core",
  "shrimply-asset",
- "shrimply-core",
  "shrimply-math-color",
+ "shrimply-property-model",
  "shrimply-transform-3d",
  "strum",
  "uuid",
@@ -7055,25 +7162,10 @@ dependencies = [
  "hashbrown 0.17.1",
  "serde",
  "shrimply-asset",
- "shrimply-core",
+ "shrimply-property-model",
  "shrimply-scene-3d",
  "shrimply-shape-3d",
  "shrimply-text-3d",
- "uuid",
-]
-
-[[package]]
-name = "shrimply-server-client"
-version = "0.1.0"
-dependencies = [
- "glam 0.33.5",
- "reqwest",
- "rmp-serde",
- "serde",
- "serde_bytes",
- "shrimply-math-geometry",
- "tokio",
- "tracing",
  "uuid",
 ]
 
@@ -7085,44 +7177,10 @@ dependencies = [
  "hashbrown 0.17.1",
  "lyon_tessellation",
  "serde",
- "shrimply-core",
  "shrimply-math-geometry",
+ "shrimply-property-model",
  "shrimply-scene-3d",
  "uuid",
-]
-
-[[package]]
-name = "shrimply-skia-adw-core"
-version = "0.1.0"
-dependencies = [
- "async-channel",
- "cached",
- "hashbrown 0.17.1",
- "shrimply-cross-ui-theme",
- "shrimply-math-color",
- "shrimply-math-geometry",
- "skia-safe",
-]
-
-[[package]]
-name = "shrimply-skia-gl"
-version = "0.1.0"
-dependencies = [
- "glow",
- "libc",
- "shrimply-cross-ui-theme",
- "shrimply-skia-adw-core",
- "skia-safe",
-]
-
-[[package]]
-name = "shrimply-skia-metal"
-version = "0.1.0"
-dependencies = [
- "objc2",
- "objc2-metal",
- "objc2-quartz-core",
- "skia-safe",
 ]
 
 [[package]]
@@ -7134,32 +7192,24 @@ dependencies = [
 ]
 
 [[package]]
-name = "shrimply-state"
+name = "shrimply-surface-gl-skia"
 version = "0.1.0"
 dependencies = [
- "hashbrown 0.17.1",
- "shrimply-benchmarking",
- "shrimply-manim-core",
- "shrimply-math-core",
- "shrimply-preferences-core",
- "shrimply-preview-core",
- "shrimply-project",
- "shrimply-support",
- "tracing",
- "uuid",
+ "glow",
+ "libc",
+ "shrimply-components-skia",
+ "shrimply-cross-ui-theme",
+ "skia-safe",
 ]
 
 [[package]]
-name = "shrimply-support"
+name = "shrimply-surface-metal-skia"
 version = "0.1.0"
 dependencies = [
- "glib",
- "libc",
- "rusqlite",
- "serde",
- "serde_json",
- "tracing",
- "tracing-subscriber",
+ "objc2",
+ "objc2-metal",
+ "objc2-quartz-core",
+ "skia-safe",
 ]
 
 [[package]]
@@ -7174,61 +7224,20 @@ dependencies = [
  "pango",
  "pangocairo",
  "serde",
- "shrimply-core",
+ "shrimply-property-model",
  "shrimply-scene-3d",
  "tracing",
  "uuid",
 ]
 
 [[package]]
-name = "shrimply-timeline"
+name = "shrimply-timeline-edit"
 version = "0.1.0"
 dependencies = [
- "shrimply-core",
  "shrimply-math-core",
- "shrimply-project",
- "shrimply-support",
- "uuid",
-]
-
-[[package]]
-name = "shrimply-timeline-core"
-version = "0.1.0"
-dependencies = [
- "async-channel",
- "ffmpeg-next",
- "glam 0.33.5",
- "hashbrown 0.17.1",
- "imagesize",
- "reqwest",
- "serde_json",
- "shrimply-3dgs",
- "shrimply-audio",
- "shrimply-blender",
- "shrimply-core",
- "shrimply-cross-ui-theme",
- "shrimply-i18n-core",
- "shrimply-layered-image",
- "shrimply-math-color",
- "shrimply-math-core",
- "shrimply-math-media",
- "shrimply-pdf",
- "shrimply-playback-performance",
- "shrimply-project",
- "shrimply-property-transfer",
- "shrimply-resource-pipeline",
- "shrimply-scene-3d",
- "shrimply-server-client",
- "shrimply-skia-adw-core",
- "shrimply-state",
- "shrimply-support",
- "shrimply-timeline",
- "shrimply-timeline-snap",
- "shrimply-transcription",
- "shrimply-tts",
- "shrimply-video-modifiers",
- "skia-safe",
- "tracing",
+ "shrimply-process-reporting",
+ "shrimply-project-document",
+ "shrimply-property-model",
  "uuid",
 ]
 
@@ -7242,34 +7251,34 @@ dependencies = [
  "gtk4",
  "hashbrown 0.17.1",
  "libadwaita",
- "shrimply-audio",
- "shrimply-core",
+ "shrimply-audio-engine",
+ "shrimply-components-gtk",
+ "shrimply-components-skia",
+ "shrimply-compute-client",
  "shrimply-cross-ui-theme",
+ "shrimply-editor-state",
  "shrimply-export-core",
- "shrimply-gtk-components",
  "shrimply-inspector-core",
  "shrimply-math-color",
  "shrimply-math-core",
  "shrimply-math-media",
  "shrimply-playback-performance",
- "shrimply-project",
+ "shrimply-pointer-lock-wayland",
+ "shrimply-process-reporting",
+ "shrimply-project-document",
+ "shrimply-property-model",
  "shrimply-property-transfer",
  "shrimply-resource-pipeline",
- "shrimply-server-client",
- "shrimply-skia-adw-core",
- "shrimply-skia-gl",
- "shrimply-state",
- "shrimply-support",
- "shrimply-timeline",
- "shrimply-timeline-core",
+ "shrimply-surface-gl-skia",
+ "shrimply-timeline-edit",
+ "shrimply-timeline-skia",
  "shrimply-timeline-snap",
  "shrimply-transcription",
  "shrimply-tts",
  "shrimply-tts-gtk",
- "shrimply-video-cuda",
- "shrimply-video-modifiers",
  "shrimply-video-recording",
- "shrimply-wayland-pointer-lock",
+ "shrimply-visual-cuda",
+ "shrimply-visual-modifiers",
  "skia-safe",
  "tracing",
  "uuid",
@@ -7279,8 +7288,49 @@ dependencies = [
 name = "shrimply-timeline-qt"
 version = "0.1.0"
 dependencies = [
- "shrimply-timeline",
- "shrimply-timeline-core",
+ "shrimply-timeline-edit",
+ "shrimply-timeline-skia",
+]
+
+[[package]]
+name = "shrimply-timeline-skia"
+version = "0.1.0"
+dependencies = [
+ "async-channel",
+ "ffmpeg-next",
+ "glam 0.33.5",
+ "hashbrown 0.17.1",
+ "imagesize",
+ "reqwest",
+ "serde_json",
+ "shrimply-3dgs-core",
+ "shrimply-audio-engine",
+ "shrimply-blender-bridge",
+ "shrimply-components-skia",
+ "shrimply-compute-client",
+ "shrimply-cross-ui-theme",
+ "shrimply-editor-state",
+ "shrimply-i18n",
+ "shrimply-layered-image-loader",
+ "shrimply-math-color",
+ "shrimply-math-core",
+ "shrimply-math-media",
+ "shrimply-pdf",
+ "shrimply-playback-performance",
+ "shrimply-process-reporting",
+ "shrimply-project-document",
+ "shrimply-property-model",
+ "shrimply-property-transfer",
+ "shrimply-resource-pipeline",
+ "shrimply-scene-3d",
+ "shrimply-timeline-edit",
+ "shrimply-timeline-snap",
+ "shrimply-transcription",
+ "shrimply-tts",
+ "shrimply-visual-modifiers",
+ "skia-safe",
+ "tracing",
+ "uuid",
 ]
 
 [[package]]
@@ -7297,10 +7347,10 @@ dependencies = [
  "glam 0.33.5",
  "num-traits",
  "serde",
- "shrimply-interpolation",
  "shrimply-math-color",
  "shrimply-math-core",
  "shrimply-math-geometry",
+ "shrimply-math-interpolation",
  "shrimply-render-core",
  "shrimply-transform-3d",
  "unicode-segmentation",
@@ -7312,10 +7362,10 @@ name = "shrimply-transcription"
 version = "0.1.0"
 dependencies = [
  "hashbrown 0.17.1",
- "shrimply-audio",
+ "shrimply-audio-engine",
  "shrimply-math-core",
  "shrimply-math-media",
- "shrimply-project",
+ "shrimply-project-document",
 ]
 
 [[package]]
@@ -7337,8 +7387,8 @@ dependencies = [
  "serde",
  "serde_bytes",
  "shrimply-asset",
+ "shrimply-compute-client",
  "shrimply-math-core",
- "shrimply-server-client",
  "tokio",
  "tracing",
 ]
@@ -7349,20 +7399,87 @@ version = "0.1.0"
 dependencies = [
  "async-channel",
  "gtk4",
- "shrimply-audio",
- "shrimply-gtk-components",
+ "shrimply-audio-engine",
+ "shrimply-components-gtk",
+ "shrimply-compute-client",
+ "shrimply-editor-state",
  "shrimply-inspector-core",
  "shrimply-math-core",
- "shrimply-project",
- "shrimply-server-client",
- "shrimply-state",
+ "shrimply-project-document",
  "shrimply-tts",
  "tracing",
  "uuid",
 ]
 
 [[package]]
-name = "shrimply-video-core"
+name = "shrimply-video-decoder"
+version = "0.1.0"
+dependencies = [
+ "ffmpeg-next",
+ "libc",
+ "shrimply-asset",
+ "shrimply-decoder-pool",
+ "shrimply-gpu-cuda",
+ "shrimply-math-core",
+ "shrimply-math-media",
+ "shrimply-profiling",
+ "shrimply-project-document",
+ "shrimply-visual-frame",
+ "tempfile",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "shrimply-video-generation"
+version = "0.1.0"
+dependencies = [
+ "reqwest",
+ "rmp-serde",
+ "serde",
+ "serde_bytes",
+ "shrimply-asset",
+ "shrimply-compute-client",
+ "shrimply-math-core",
+ "tempfile",
+ "tracing",
+]
+
+[[package]]
+name = "shrimply-video-generation-gtk"
+version = "0.1.0"
+dependencies = [
+ "async-channel",
+ "gtk4",
+ "shrimply-components-gtk",
+ "shrimply-compute-client",
+ "shrimply-editor-state",
+ "shrimply-math-core",
+ "shrimply-project-document",
+ "shrimply-video-generation",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "shrimply-video-recording"
+version = "0.1.0"
+dependencies = [
+ "async-channel",
+ "ffmpeg-next",
+ "gio",
+ "glib",
+ "hashbrown 0.17.1",
+ "pipewire",
+ "shrimply-math-core",
+ "shrimply-math-media",
+ "shrimply-project-document",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "shrimply-visual-core"
 version = "0.1.0"
 dependencies = [
  "cached",
@@ -7379,31 +7496,31 @@ dependencies = [
  "rusqlite",
  "serde",
  "serde_json",
- "shrimply-3dgs",
+ "shrimply-3dgs-core",
  "shrimply-affine-l1-stabilization",
  "shrimply-asset",
  "shrimply-background",
- "shrimply-blender",
- "shrimply-core",
- "shrimply-evaluation",
- "shrimply-layered-image",
+ "shrimply-blender-bridge",
+ "shrimply-compute-client",
+ "shrimply-drawing-skia",
+ "shrimply-layered-image-loader",
  "shrimply-math-color",
  "shrimply-math-core",
  "shrimply-math-geometry",
  "shrimply-math-media",
  "shrimply-mesh-flow-stabilization",
  "shrimply-paint-skia",
- "shrimply-preview-skia",
- "shrimply-project",
- "shrimply-render-3d",
+ "shrimply-project-document",
+ "shrimply-project-evaluation",
+ "shrimply-property-model",
+ "shrimply-render-3d-core",
  "shrimply-render-core",
  "shrimply-resource-pipeline",
  "shrimply-scene-3d",
- "shrimply-server-client",
  "shrimply-shape-3d",
  "shrimply-text-3d",
  "shrimply-transform-3d",
- "shrimply-video-modifiers",
+ "shrimply-visual-modifiers",
  "skia-safe",
  "tempfile",
  "tracing",
@@ -7412,7 +7529,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "shrimply-video-cuda"
+name = "shrimply-visual-cuda"
 version = "0.1.0"
 dependencies = [
  "ash",
@@ -7431,133 +7548,52 @@ dependencies = [
  "rusqlite",
  "serde",
  "serde_json",
- "shrimply-3dgs",
- "shrimply-anime4k",
+ "shrimply-3dgs-core",
+ "shrimply-3dgs-vulkan",
+ "shrimply-anime4k-cuda",
  "shrimply-asset",
- "shrimply-audio",
+ "shrimply-audio-engine",
  "shrimply-background",
- "shrimply-benchmarking",
- "shrimply-blender",
- "shrimply-core",
- "shrimply-cuda",
- "shrimply-evaluation",
- "shrimply-gpu-memory",
- "shrimply-i18n-core",
- "shrimply-layered-image",
- "shrimply-loading-screen",
- "shrimply-manim-core",
+ "shrimply-blender-bridge",
+ "shrimply-compute-client",
+ "shrimply-denoise-optix",
+ "shrimply-drawing-skia",
+ "shrimply-gpu-cuda",
+ "shrimply-gpu-cuda-memory",
+ "shrimply-i18n",
+ "shrimply-layered-image-loader",
+ "shrimply-loading-screen-skia",
+ "shrimply-manim-bridge",
  "shrimply-manim-cuda",
- "shrimply-manim-parser",
+ "shrimply-manim-state",
  "shrimply-manim-wgpu",
  "shrimply-math-color",
  "shrimply-math-core",
  "shrimply-math-geometry",
  "shrimply-math-media",
  "shrimply-nvidia-optical-flow",
- "shrimply-optix-denoiser",
  "shrimply-paint-skia",
  "shrimply-pdf",
- "shrimply-preview-core",
- "shrimply-preview-skia",
- "shrimply-project",
- "shrimply-render-3d",
+ "shrimply-preview-provider-skia",
+ "shrimply-profiling",
+ "shrimply-project-document",
+ "shrimply-project-evaluation",
+ "shrimply-property-model",
+ "shrimply-render-3d-core",
  "shrimply-render-core",
- "shrimply-render-cuda",
+ "shrimply-render-kernels-cuda",
  "shrimply-resource-pipeline",
  "shrimply-scene-3d",
- "shrimply-server-client",
  "shrimply-shape-3d",
  "shrimply-slang-build",
  "shrimply-text-3d",
  "shrimply-transform-3d",
- "shrimply-video-core",
  "shrimply-video-decoder",
- "shrimply-video-modifiers",
+ "shrimply-visual-core",
  "shrimply-visual-frame",
+ "shrimply-visual-modifiers",
  "skia-safe",
  "tempfile",
- "tracing",
- "uuid",
-]
-
-[[package]]
-name = "shrimply-video-decoder"
-version = "0.1.0"
-dependencies = [
- "ffmpeg-next",
- "libc",
- "shrimply-asset",
- "shrimply-benchmarking",
- "shrimply-cuda",
- "shrimply-decoder-pool",
- "shrimply-math-core",
- "shrimply-math-media",
- "shrimply-project",
- "shrimply-visual-frame",
- "tempfile",
- "tracing",
- "uuid",
-]
-
-[[package]]
-name = "shrimply-video-generation"
-version = "0.1.0"
-dependencies = [
- "reqwest",
- "rmp-serde",
- "serde",
- "serde_bytes",
- "shrimply-asset",
- "shrimply-math-core",
- "shrimply-server-client",
- "tempfile",
- "tracing",
-]
-
-[[package]]
-name = "shrimply-video-generation-gtk"
-version = "0.1.0"
-dependencies = [
- "async-channel",
- "gtk4",
- "shrimply-gtk-components",
- "shrimply-math-core",
- "shrimply-project",
- "shrimply-server-client",
- "shrimply-state",
- "shrimply-video-generation",
- "tracing",
- "uuid",
-]
-
-[[package]]
-name = "shrimply-video-modifiers"
-version = "0.1.0"
-dependencies = [
- "glam 0.33.5",
- "hashbrown 0.17.1",
- "serde",
- "serde_json",
- "shrimply-core",
- "shrimply-math-geometry",
- "shrimply-preview-core",
- "shrimply-scene-3d-modifiers",
- "strum",
- "uuid",
-]
-
-[[package]]
-name = "shrimply-video-recording"
-version = "0.1.0"
-dependencies = [
- "async-channel",
- "ffmpeg-next",
- "gtk4",
- "hashbrown 0.17.1",
- "pipewire",
- "shrimply-math-core",
- "shrimply-math-media",
- "shrimply-project",
  "tracing",
  "uuid",
 ]
@@ -7567,17 +7603,24 @@ name = "shrimply-visual-frame"
 version = "0.1.0"
 dependencies = [
  "ffmpeg-next",
- "shrimply-cuda",
- "shrimply-gpu-memory",
+ "shrimply-gpu-cuda",
+ "shrimply-gpu-cuda-memory",
 ]
 
 [[package]]
-name = "shrimply-wayland-pointer-lock"
+name = "shrimply-visual-modifiers"
 version = "0.1.0"
 dependencies = [
- "tracing",
- "wayland-client",
- "wayland-protocols",
+ "glam 0.33.5",
+ "hashbrown 0.17.1",
+ "serde",
+ "serde_json",
+ "shrimply-math-geometry",
+ "shrimply-preview-provider-skia",
+ "shrimply-property-model",
+ "shrimply-scene-3d-modifiers",
+ "strum",
+ "uuid",
 ]
 
 [[package]]

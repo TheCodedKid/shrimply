@@ -1,0 +1,21 @@
+[package]
+name = "shrimply-launcher-qt"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "shrimply-qt"
+path = "src/main.rs"
+
+[dependencies]
+cxx.workspace = true
+cxx-qt.workspace = true
+cxx-qt-lib = { workspace = true, features = ["qt_full"] }
+shrimply-cross-ui-core = { workspace = true }
+shrimply-i18n-qt = { workspace = true }
+shrimply-application-qt = { workspace = true }
+shrimply-process-reporting = { workspace = true }
+tracing.workspace = true
+
+[build-dependencies]
+cxx-qt-build = { workspace = true, features = ["link_qt_object_files"] }

@@ -1,0 +1,22 @@
+[package]
+name = "shrimply-export-core"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+ffmpeg-next.workspace = true
+libc.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+shrimply-audio-engine = { workspace = true }
+shrimply-math-color = { workspace = true, features = ["gif"] }
+shrimply-math-core = { workspace = true }
+shrimply-math-media = { workspace = true }
+shrimply-project-document = { workspace = true, default-features = true }
+shrimply-visual-core = { workspace = true }
+tempfile.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+fastrand = "2"
+hound = "3"

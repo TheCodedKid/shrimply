@@ -1,0 +1,19 @@
+[package]
+name = "shrimply-components-demo-gtk"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "shrimply-gtk-components-demo"
+path = "src/main.rs"
+
+[dependencies]
+adw.workspace = true
+gtk.workspace = true
+shrimply-profiling = { workspace = true }
+shrimply-components-core = { workspace = true }
+shrimply-components-demo-core = { workspace = true }
+shrimply-cross-ui-theme = { workspace = true }
+shrimply-components-gtk = { workspace = true }
+shrimply-keyframe-graph-skia = { workspace = true }
+shrimply-math-color = { workspace = true }

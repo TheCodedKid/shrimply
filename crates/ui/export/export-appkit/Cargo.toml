@@ -1,0 +1,12 @@
+[package]
+name = "shrimply-export-appkit"
+version = "0.1.0"
+edition = "2024"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2.workspace = true
+objc2-app-kit.workspace = true
+objc2-foundation.workspace = true
+shrimply-export-core = { workspace = true, default-features = true }
+shrimply-export-metal = { workspace = true }
+shrimply-project-document = { workspace = true, default-features = true }

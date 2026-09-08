@@ -1,0 +1,21 @@
+[package]
+name = "shrimply-export-qt"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+cxx.workspace = true
+cxx-qt.workspace = true
+cxx-qt-lib = { workspace = true, features = ["qt_full"] }
+shrimply-cross-ui-core = { workspace = true }
+shrimply-export-core = { workspace = true, default-features = true }
+shrimply-export-cuda = { workspace = true }
+shrimply-i18n-qt = { workspace = true }
+shrimply-math-core = { workspace = true }
+shrimply-math-media = { workspace = true }
+shrimply-components-qt = { workspace = true }
+shrimply-application-qt = { workspace = true }
+shrimply-editor-state = { workspace = true }
+
+[build-dependencies]
+cxx-qt-build = { workspace = true, features = ["link_qt_object_files"] }

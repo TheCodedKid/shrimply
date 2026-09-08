@@ -1,0 +1,31 @@
+[package]
+name = "shrimply-preview-render-metal"
+version = "0.1.0"
+edition = "2024"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+shrimply-manim-metal = { workspace = true }
+shrimply-manim-state = { workspace = true }
+shrimply-3dgs-core = { workspace = true }
+shrimply-3dgs-metal = { workspace = true }
+shrimply-render-3d-metal = { workspace = true }
+shrimply-preview-render-core = { workspace = true }
+shrimply-preview-provider-skia = { workspace = true }
+shrimply-render-metal = { workspace = true }
+shrimply-render-core = { workspace = true }
+shrimply-visual-core = { workspace = true }
+shrimply-project-document = { workspace = true, default-features = true }
+shrimply-math-core = { workspace = true }
+shrimply-math-geometry = { workspace = true }
+shrimply-math-media = { workspace = true }
+skia-safe.workspace = true
+objc2.workspace = true
+objc2-core-video.workspace = true
+objc2-core-ml.workspace = true
+objc2-vision.workspace = true
+objc2-foundation.workspace = true
+uuid.workspace = true
+tracing.workspace = true
+
+ffmpeg-next.workspace = true
+shrimply-resource-pipeline = { workspace = true }

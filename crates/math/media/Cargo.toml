@@ -8,9 +8,9 @@ hashbrown.workspace = true
 glam = { workspace = true, features = ["serde"] }
 num-traits.workspace = true
 serde = { workspace = true, features = ["derive"] }
-shrimply-interpolation = { path = "../../interpolation" }
-shrimply-math-color = { path = "../color" }
-shrimply-math-core = { path = "../core" }
-shrimply-math-geometry = { path = "../geometry" }
-shrimply-project-core = { path = "../../project/project-core" }
-shrimply-render-core = { path = "../../render-core" }
+shrimply-math-interpolation = { workspace = true }
+shrimply-math-color = { workspace = true }
+shrimply-math-core = { workspace = true }
+shrimply-math-geometry = { workspace = true }
+shrimply-project-types = { workspace = true }
+shrimply-render-core = { workspace = true }

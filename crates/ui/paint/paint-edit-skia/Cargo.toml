@@ -1,0 +1,15 @@
+[package]
+name = "shrimply-paint-edit-skia"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+glam.workspace = true
+shrimply-paint-geometry = { workspace = true }
+shrimply-paint-model = { workspace = true }
+shrimply-paint-skia = { workspace = true }
+shrimply-preview-provider-skia = { workspace = true }
+shrimply-timeline-value = { workspace = true }
+shrimply-math-geometry = { workspace = true, features = ["skia"] }
+uuid.workspace = true
+skia-safe.workspace = true

@@ -1,0 +1,32 @@
+[package]
+name = "shrimply-editor-qt"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "shrimply-editor-qt"
+path = "src/main.rs"
+
+[dependencies]
+cxx.workspace = true
+cxx-qt.workspace = true
+cxx-qt-lib = { workspace = true, features = ["qt_full"] }
+ffmpeg-next.workspace = true
+shrimply-cross-ui-core = { workspace = true }
+shrimply-export-qt = { workspace = true }
+shrimply-i18n-qt = { workspace = true }
+shrimply-inspector-qt = { workspace = true }
+shrimply-math-core = { workspace = true }
+shrimply-preview-qt = { workspace = true }
+shrimply-preview-runtime-cuda = { workspace = true }
+shrimply-preferences-qt = { workspace = true }
+shrimply-project-document = { workspace = true, default-features = true }
+shrimply-application-qt = { workspace = true }
+shrimply-components-qt = { workspace = true }
+shrimply-editor-state = { workspace = true }
+shrimply-process-reporting = { workspace = true }
+shrimply-recent-projects = { workspace = true }
+tracing.workspace = true
+
+[build-dependencies]
+cxx-qt-build = { workspace = true, features = ["link_qt_object_files"] }

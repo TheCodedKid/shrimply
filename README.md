@@ -100,3 +100,7 @@ SDK](https://developer.nvidia.com/video-codec-sdk), as well as separately
 licensed model weights. Those components retain their own license terms; see
 the [license documentation](docs/source/licenses.rst) and
 [third-party notices](THIRDPARTY.md) for details.
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=soirihiroka/shrimply&type=Date)](https://www.star-history.com/#soirihiroka/shrimply&Date)

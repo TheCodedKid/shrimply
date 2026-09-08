@@ -1,0 +1,14 @@
+[package]
+name = "shrimply-components-core"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+shrimply-math-color = { workspace = true }
+shrimply-math-core = { workspace = true }
+shrimply-project-types = { workspace = true }
+shrimply-profiling = { workspace = true }
+shrimply-i18n = { workspace = true }
+typos.workspace = true
+typos-dict.workspace = true
+unicase.workspace = true

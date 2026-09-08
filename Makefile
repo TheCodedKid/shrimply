@@ -11,29 +11,18 @@ CUDA_PTX_TARGET ?= compute_50
 CUDA_HOST_CXX ?= g++-15
 CUDA_ALLOW_UNSUPPORTED_COMPILER ?=
 SOURCE_LINE_LIMIT ?= 2000
-SLANG_SOURCE_DIR ?= $(CURDIR)/external/slang
-SLANG_BUILD_DIR ?= $(SLANG_SOURCE_DIR)/build
-SLANG_LIBRARY_DIR ?= $(SLANG_BUILD_DIR)/Release/lib
-SLANG_INCLUDE_DIR ?= $(SLANG_SOURCE_DIR)/include
-SLANG_PREBUILT ?=
 OPTIX_ROOT ?= $(CURDIR)/external/optix-dev
 DNF ?= sudo dnf
 INSTALL ?= install
 PKG_CONFIG ?= /usr/bin/pkg-config
 PKG_CONFIG_PATH ?= /usr/lib64/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig
 QT_QMAKE ?= qmake6
-SLANG_LIBRARY_ENV = LD_LIBRARY_PATH="$(SLANG_LIBRARY_DIR):/run/host/usr/local/libclang-deps:$${LD_LIBRARY_PATH}" DYLD_LIBRARY_PATH="$(SLANG_LIBRARY_DIR):$${DYLD_LIBRARY_PATH}"
-BUILD_ENV := CUDA_HOME=$(CUDA_HOME) CUDA_TOOLKIT_PATH=$(CUDA_TOOLKIT_PATH) CUDA_IMAGE_FORMAT=$(CUDA_IMAGE_FORMAT) CUDA_TARGET=$(CUDA_TARGET) CUDA_PTX_TARGET=$(CUDA_PTX_TARGET) CUDA_HOST_CXX=$(CUDA_HOST_CXX) CUDA_ALLOW_UNSUPPORTED_COMPILER=$(CUDA_ALLOW_UNSUPPORTED_COMPILER) PATH=$(CUDA_HOME)/bin:$(PATH) PKG_CONFIG=$(PKG_CONFIG) PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) SLANG_SOURCE_DIR=$(SLANG_SOURCE_DIR) SLANG_BUILD_DIR=$(SLANG_BUILD_DIR) SLANG_LIBRARY_DIR=$(SLANG_LIBRARY_DIR) SLANG_INCLUDE_DIR=$(SLANG_INCLUDE_DIR) SLANG_PREBUILT=$(SLANG_PREBUILT) OPTIX_ROOT=$(OPTIX_ROOT)
-BUILD_ENV += $(SLANG_LIBRARY_ENV)
+BUILD_ENV := CUDA_HOME=$(CUDA_HOME) CUDA_TOOLKIT_PATH=$(CUDA_TOOLKIT_PATH) CUDA_IMAGE_FORMAT=$(CUDA_IMAGE_FORMAT) CUDA_TARGET=$(CUDA_TARGET) CUDA_PTX_TARGET=$(CUDA_PTX_TARGET) CUDA_HOST_CXX=$(CUDA_HOST_CXX) CUDA_ALLOW_UNSUPPORTED_COMPILER=$(CUDA_ALLOW_UNSUPPORTED_COMPILER) PATH=$(CUDA_HOME)/bin:$(PATH) PKG_CONFIG=$(PKG_CONFIG) PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) OPTIX_ROOT=$(OPTIX_ROOT)
+BUILD_ENV += LD_LIBRARY_PATH="/run/host/usr/local/libclang-deps:$${LD_LIBRARY_PATH}"
 BUILD_ENV += BINDGEN_EXTRA_CLANG_ARGS="$(if $(wildcard /run/host/usr/lib/llvm-18/lib/clang/18/include),-isystem /run/host/usr/lib/llvm-18/lib/clang/18/include)"
 RUST_LIBDIR := $(shell $(RUSTC) --print target-libdir)
 DEV_RUSTFLAGS ?= -C prefer-dynamic -C link-arg=-fuse-ld=lld -C link-arg=-Wl,-rpath,$(RUST_LIBDIR)
 DEV_BUILD_ENV := $(BUILD_ENV) RUSTFLAGS="$(DEV_RUSTFLAGS)"
-SLANG_COMPILER_STAMP := $(SLANG_BUILD_DIR)/.shrimply-compiler
-SLANG_CONFIGURE_STAMP := $(SLANG_BUILD_DIR)/.shrimply-configure
-SLANG_GIT_HEAD := $(shell git -C $(SLANG_SOURCE_DIR) rev-parse --git-path HEAD 2>/dev/null)
-SLANG_GIT_REF := $(shell ref=$$(git -C $(SLANG_SOURCE_DIR) symbolic-ref -q HEAD 2>/dev/null); test -z "$$ref" || git -C $(SLANG_SOURCE_DIR) rev-parse --git-path "$$ref")
-SLANG_COMPILER_DEPENDENCY = $(if $(SLANG_PREBUILT),,$(SLANG_COMPILER_STAMP))
 
 APP_NAME := Shrimply
 BIN_NAME := shrimply
@@ -44,14 +33,14 @@ LAUNCHER_PACKAGE := shrimply-launcher-gtk
 QT_LAUNCHER_PACKAGE := shrimply-launcher-qt
 APPKIT_LAUNCHER_PACKAGE := shrimply-launcher-appkit
 APPKIT_EDITOR_PACKAGE := shrimply-editor-appkit
-APPKIT_COMPONENT_METAL_PACKAGE := shrimply-component-metal
-FRAMEGRAPH_CORE_PACKAGE := shrimply-framegraph-core
+APPKIT_COMPONENT_METAL_PACKAGE := shrimply-framegraph-appkit
+FRAMEGRAPH_CORE_PACKAGE := shrimply-framegraph-skia
 APPKIT_COMPONENTS_PACKAGE := shrimply-components-appkit
 APPKIT_COMPONENTS_DEMO_PACKAGE := shrimply-components-demo-appkit
-GTK_COMPONENTS_PACKAGE := shrimply-gtk-components
-QT_COMPONENTS_PACKAGE := shrimply-qt-components
-GTK_COMPONENTS_DEMO_PACKAGE := shrimply-gtk-components-demo
-QT_COMPONENTS_DEMO_PACKAGE := shrimply-qt-components-demo
+GTK_COMPONENTS_PACKAGE := shrimply-components-gtk
+QT_COMPONENTS_PACKAGE := shrimply-components-qt
+GTK_COMPONENTS_DEMO_PACKAGE := shrimply-components-demo-gtk
+QT_COMPONENTS_DEMO_PACKAGE := shrimply-components-demo-qt
 QT_BIN_NAME := shrimply-qt
 APPKIT_BIN_NAME := shrimply-appkit
 APPKIT_EDITOR_BIN_NAME := shrimply-editor-appkit
@@ -84,6 +73,7 @@ APP_ICON := assets/icons/dev.shrimply.Shrimply.svg
 APPKIT_ICON_SOURCE := assets/icons/dev.shrimply.Shrimply-macos.svg
 APPKIT_ICON := assets/icons/dev.shrimply.Shrimply.png
 APPKIT_ICON_SIZE := 512
+APPKIT_DEPLOYMENT_TARGET ?= 15.0
 RSVG_CONVERT ?= rsvg-convert
 LIP_SYNC_MODEL := $(CARGO_TARGET_DIR)/release/res/lip-sync/pocketsphinx-ci.model
 LIP_SYNC_RESOURCE_DIR := $(DATADIR)/shrimply/lip-sync
@@ -117,7 +107,7 @@ FEDORA_PACKAGES := \
 	qt6-qtbase-devel \
 	qt6-qtdeclarative-devel
 
-.PHONY: native-deps qt-native-deps desktop-icon qt-desktop-file cuda-target-check cuda-artifacts dev dev-mac qt-build dev-qt dev-server docs docs-check run run-qt build release check components-check gtk-components-showcase qt-components-showcase server-python-check manim manim-python-check manim-parameter-check cargo-check fmt fmt-check lint test frame-rate-test video-lifecycle-test transparent-fill-frame-range-test transparent-fill-decoder-test transparent-fill-kernel-test transparent-fill-compositor-test transparent-fill-playback-test transparent-fill-e2e-fixture transparent-fill-e2e-test decode-ahead-benchmark paint-interpolation-test crash-report clean-dev clean deps-fedora deps-fedora-qt qt-release install install-qt install-codex-mcp-dev install-agy-mcp-dev uninstall uninstall-qt flatpak-gtk
+.PHONY: native-deps qt-native-deps qt-desktop-file desktop-icon cuda-target-check cuda-artifacts dev dev-mac qt-build dev-qt dev-server docs docs-check run run-qt build release check components-check gtk-components-showcase qt-components-showcase server-python-check manim manim-python-check manim-parameter-check cargo-check fmt fmt-check lint test frame-rate-test video-lifecycle-test transparent-fill-frame-range-test transparent-fill-decoder-test transparent-fill-kernel-test transparent-fill-compositor-test transparent-fill-playback-test transparent-fill-e2e-fixture transparent-fill-e2e-test decode-ahead-benchmark paint-interpolation-test crash-report clean-dev clean deps-fedora deps-fedora-qt qt-release install install-qt install-codex-mcp-dev install-agy-mcp-dev uninstall uninstall-qt flatpak-gtk
 native-deps:
 	@$(PKG_CONFIG) --exists rubberband || { echo "Missing Rubber Band development files (pkg-config: rubberband)" >&2; exit 1; }
 	@$(PKG_CONFIG) --exists libpipewire-0.3 || { echo "Missing PipeWire development files (pkg-config: libpipewire-0.3)" >&2; exit 1; }
@@ -128,17 +118,6 @@ qt-native-deps:
 	@version="$$($(QT_QMAKE) -query QT_VERSION)"; case "$$version" in 6.*) echo "Using Qt $$version via $(QT_QMAKE)" ;; *) echo "$(QT_QMAKE) selected unsupported Qt $$version; Qt 6 is required" >&2; exit 1 ;; esac
 	@$(PKG_CONFIG) --exists Qt6Core Qt6Gui Qt6Qml Qt6Quick Qt6QuickControls2 Qt6OpenGL || { echo "Missing Qt 6 Quick/OpenGL development files" >&2; exit 1; }
 
-slang-compiler: $(SLANG_COMPILER_DEPENDENCY)
-	@test -z "$(SLANG_PREBUILT)" || test -f "$(SLANG_LIBRARY_DIR)/libslang.so"
-
-$(SLANG_CONFIGURE_STAMP): $(SLANG_SOURCE_DIR)/CMakeLists.txt Makefile
-	cmake -S $(SLANG_SOURCE_DIR) -B $(SLANG_BUILD_DIR) -G "Ninja Multi-Config" -DSLANG_ENABLE_SLANGC=OFF -DSLANG_ENABLE_SLANG_RHI=OFF -DSLANG_ENABLE_GFX=OFF -DSLANG_ENABLE_TESTS=OFF -DSLANG_ENABLE_EXAMPLES=OFF -DSLANG_ENABLE_SLANGD=OFF -DSLANG_ENABLE_SLANGI=OFF -DSLANG_ENABLE_SLANGRT=OFF -DSLANG_ENABLE_SPLIT_DEBUG_INFO=OFF -DSLANG_ENABLE_SLANG_GLSLANG=ON -DSLANG_ENABLE_REPLAYER=OFF -DSLANG_SLANG_LLVM_FLAVOR=DISABLE -DSLANG_ENABLE_DXIL=OFF
-	@touch $@
-
-$(SLANG_COMPILER_STAMP): $(SLANG_CONFIGURE_STAMP) $(SLANG_GIT_HEAD) $(SLANG_GIT_REF)
-	cmake --build $(SLANG_BUILD_DIR) --config Release --target slang slang-glslang
-	@touch $@
-
 cuda-target-check:
 	@test "$$(uname -s)" = Linux || { echo "CUDA kernels require Linux" >&2; exit 1; }
 	@case "$(CUDA_IMAGE_FORMAT)" in \
@@ -147,8 +126,8 @@ cuda-target-check:
 		(*) echo "CUDA_IMAGE_FORMAT=$(CUDA_IMAGE_FORMAT) is unsupported; expected cubin or ptx" >&2; exit 1 ;; \
 	esac
 
-cuda-artifacts: cuda-target-check slang-compiler
-	$(BUILD_ENV) $(CARGO) build -p shrimply-render-cuda
+cuda-artifacts: cuda-target-check
+	$(BUILD_ENV) $(CARGO) build -p shrimply-render-kernels-cuda
 
 dev: SHELL := /bin/bash
 desktop-icon:
@@ -169,15 +148,19 @@ dev: desktop-icon native-deps cuda-artifacts
 	fi; \
 	exit $$status
 
-APPKIT_BUILD_ENV = $(SLANG_LIBRARY_ENV) RUSTFLAGS="-C prefer-dynamic -C link-arg=-Wl,-rpath,$(RUST_LIBDIR)" LIBRARY_PATH="$$(brew --prefix)/lib" PKG_CONFIG="$$(brew --prefix pkgconf)/bin/pkg-config" CLANG_PATH="$$(brew --prefix llvm@18)/bin/clang" LIBCLANG_PATH="$$(brew --prefix llvm@18)/lib" SLANG_SOURCE_DIR=$(SLANG_SOURCE_DIR) SLANG_BUILD_DIR=$(SLANG_BUILD_DIR)
+APPKIT_BUILD_ENV = RUSTFLAGS="-C prefer-dynamic -C link-arg=-Wl,-rpath,$(RUST_LIBDIR)" LIBRARY_PATH="$$(brew --prefix)/lib" PKG_CONFIG="$$(brew --prefix pkgconf)/bin/pkg-config" CLANG_PATH="$$(brew --prefix llvm@18)/bin/clang" LIBCLANG_PATH="$$(brew --prefix llvm@18)/lib"
 
-.PHONY: appkit-build appkit-check appkit-lint appkit-components-check appkit-components-showcase
+.PHONY: appkit-build appkit-release appkit-check appkit-lint appkit-components-check appkit-components-showcase
 $(APPKIT_ICON): $(APPKIT_ICON_SOURCE)
 	$(RSVG_CONVERT) --width $(APPKIT_ICON_SIZE) --height $(APPKIT_ICON_SIZE) $< --output $@
 
 appkit-build: $(APPKIT_ICON)
 	@test "$$(uname -s)" = Darwin || { echo "dev-mac requires macOS" >&2; exit 1; }
 	$(APPKIT_BUILD_ENV) $(CARGO) build -p $(APPKIT_LAUNCHER_PACKAGE) -p $(APPKIT_EDITOR_PACKAGE) --bins
+
+appkit-release: $(APPKIT_ICON)
+	@test "$$(uname -s)" = Darwin || { echo "AppKit release requires macOS" >&2; exit 1; }
+	$(APPKIT_BUILD_ENV) RUSTFLAGS="" CARGO_TERM_COLOR=always MACOSX_DEPLOYMENT_TARGET=$(APPKIT_DEPLOYMENT_TARGET) $(CARGO) build --release -p $(APPKIT_LAUNCHER_PACKAGE) -p $(APPKIT_EDITOR_PACKAGE) --bins
 
 appkit-check: appkit-build
 	$(APPKIT_BUILD_ENV) $(CARGO) check -p $(APPKIT_EDITOR_PACKAGE) -p $(APPKIT_LAUNCHER_PACKAGE) -p $(FRAMEGRAPH_CORE_PACKAGE) -p $(APPKIT_COMPONENT_METAL_PACKAGE) -p $(APPKIT_COMPONENTS_PACKAGE) -p $(APPKIT_COMPONENTS_DEMO_PACKAGE) --all-targets
@@ -264,49 +247,49 @@ server-python-check:
 	cd server && uv run --locked pyrefly check
 
 manim:
-	cd crates/manim/manim-parser/python && uv run --python 3.14 python -m shrimply_manim $(ARGS)
+	cd crates/media/visual/manim/manim-bridge/python && uv run --python 3.14 python -m shrimply_manim $(ARGS)
 
 manim-python-check:
-	uv run --python 3.14 --project crates/manim/manim-parser/python pyrefly check --python-version 3.14 --search-path external/manim crates/manim/manim-parser/python/shrimply_manim
+	uv run --python 3.14 --project crates/media/visual/manim/manim-bridge/python pyrefly check --python-version 3.14 --search-path external/manim crates/media/visual/manim/manim-bridge/python/shrimply_manim
 
 manim-visual-check: native-deps
 	$(DEV_BUILD_ENV) $(CARGO) test -p shrimply-manim-wgpu --test visual_parity -- --ignored --nocapture
 
 manim-parameter-check: native-deps
-	$(DEV_BUILD_ENV) $(CARGO) test -p shrimply-manim-parser --test two_pass_parameters -- --ignored --nocapture
+	$(DEV_BUILD_ENV) $(CARGO) test -p shrimply-manim-bridge --test two_pass_parameters -- --ignored --nocapture
 
-cargo-check: native-deps qt-native-deps slang-compiler
+cargo-check: native-deps qt-native-deps
 	$(DEV_BUILD_ENV) QMAKE=$(QT_QMAKE) $(CARGO) check -p $(EDITOR_PACKAGE) -p $(QT_EDITOR_PACKAGE) -p $(LAUNCHER_PACKAGE) -p $(QT_LAUNCHER_PACKAGE) -p $(MCP_PACKAGE) --bins
 
 frame-rate-test: native-deps
 	$(DEV_BUILD_ENV) $(CARGO) test -p shrimply-math-core frame_rate_is_the_reciprocal_of_the_latest_render_cost
 
 video-lifecycle-test: native-deps
-	$(DEV_BUILD_ENV) $(CARGO) test -p shrimply-video-cuda continuous_playback_coalesces_until_an_explicit_discontinuity
+	$(DEV_BUILD_ENV) $(CARGO) test -p shrimply-visual-cuda continuous_playback_coalesces_until_an_explicit_discontinuity
 
 transparent-fill-frame-range-test: native-deps
-	$(DEV_BUILD_ENV) $(CARGO) test -p shrimply-video-cuda modifiers::transparent_fill::tests::partial_first_project_frame_uses_the_item_start_mask -- --exact --test-threads=1
+	$(DEV_BUILD_ENV) $(CARGO) test -p shrimply-visual-cuda modifiers::transparent_fill::tests::partial_first_project_frame_uses_the_item_start_mask -- --exact --test-threads=1
 
 transparent-fill-cache-test: native-deps
-	$(DEV_BUILD_ENV) $(CARGO) test -p shrimply-video-cuda modifiers::transparent_fill::tests::cache_round_trips_evicted_project_frame_masks -- --exact --test-threads=1
+	$(DEV_BUILD_ENV) $(CARGO) test -p shrimply-visual-cuda modifiers::transparent_fill::tests::cache_round_trips_evicted_project_frame_masks -- --exact --test-threads=1
 
 transparent-fill-decoder-test: native-deps
 	$(DEV_BUILD_ENV) $(CARGO) test -p shrimply-video-decoder tests::accurate_out_of_order_requests_map_30fps_positions_to_24fps_frames -- --exact --test-threads=1 --nocapture
 
 transparent-fill-kernel-test: native-deps cuda-artifacts
-	$(DEV_BUILD_ENV) $(CARGO) test -p shrimply-video-cuda modifiers::transparent_fill::tests::cached_mask_applies_with_the_cuda_kernel -- --exact --test-threads=1
+	$(DEV_BUILD_ENV) $(CARGO) test -p shrimply-visual-cuda modifiers::transparent_fill::tests::cached_mask_applies_with_the_cuda_kernel -- --exact --test-threads=1
 
 transparent-fill-compositor-test: native-deps cuda-artifacts
-	$(DEV_BUILD_ENV) $(CARGO) test -p shrimply-video-cuda modifiers::transparent_fill::tests::preview_compositor_applies_each_out_of_order_project_frame_mask -- --exact --ignored --test-threads=1
+	$(DEV_BUILD_ENV) $(CARGO) test -p shrimply-visual-cuda modifiers::transparent_fill::tests::preview_compositor_applies_each_out_of_order_project_frame_mask -- --exact --ignored --test-threads=1
 
 transparent-fill-playback-test: native-deps cuda-artifacts
-	$(DEV_BUILD_ENV) $(CARGO) test -p shrimply-video-cuda modifiers::transparent_fill::tests::preview_uses_the_mask_for_each_project_frame -- --exact --ignored --test-threads=1 --nocapture
+	$(DEV_BUILD_ENV) $(CARGO) test -p shrimply-visual-cuda modifiers::transparent_fill::tests::preview_uses_the_mask_for_each_project_frame -- --exact --ignored --test-threads=1 --nocapture
 
 transparent-fill-e2e-fixture: native-deps
-	$(DEV_BUILD_ENV) $(CARGO) test -p shrimply-video-cuda modifiers::transparent_fill::tests::generates_transparent_fill_end_to_end_fixture -- --exact --test-threads=1 --nocapture
+	$(DEV_BUILD_ENV) $(CARGO) test -p shrimply-visual-cuda modifiers::transparent_fill::tests::generates_transparent_fill_end_to_end_fixture -- --exact --test-threads=1 --nocapture
 
 transparent-fill-e2e-test: native-deps cuda-artifacts
-	$(DEV_BUILD_ENV) $(CARGO) test -p shrimply-video-cuda modifiers::transparent_fill::tests::transparent_fill_analyzes_and_renders_a_real_project_end_to_end -- --exact --ignored --test-threads=1 --nocapture
+	$(DEV_BUILD_ENV) $(CARGO) test -p shrimply-visual-cuda modifiers::transparent_fill::tests::transparent_fill_analyzes_and_renders_a_real_project_end_to_end -- --exact --ignored --test-threads=1 --nocapture
 
 fmt:
 	$(BUILD_ENV) $(CARGO) fmt
@@ -322,7 +305,7 @@ test: cuda-artifacts
 
 decode-ahead-benchmark:
 	@test -n "$(VIDEO)" || { echo "usage: make decode-ahead-benchmark VIDEO=/path/to/video.mp4 [FRAMES=300] [LAYERS=2]" >&2; exit 1; }
-	$(DEV_BUILD_ENV) $(CARGO) run -p shrimply-video-cuda --example decode_ahead_benchmark -- "$(VIDEO)" "$(or $(FRAMES),300)" "$(or $(LAYERS),2)"
+	$(DEV_BUILD_ENV) $(CARGO) run -p shrimply-visual-cuda --example decode_ahead_benchmark -- "$(VIDEO)" "$(or $(FRAMES),300)" "$(or $(LAYERS),2)"
 
 paint-interpolation-test:
 	$(DEV_BUILD_ENV) $(CARGO) test -p shrimply-paint-interpolation

@@ -1,0 +1,43 @@
+[package]
+name = "shrimply-project-document"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+default = ["editor"]
+editor = []
+
+[dependencies]
+hashbrown.workspace = true
+icu_locale.workspace = true
+glam = { workspace = true, features = ["serde"] }
+libc.workspace = true
+pest.workspace = true
+pest_derive.workspace = true
+rmp-serde.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+schemars.workspace = true
+serde-value.workspace = true
+strum = { workspace = true, features = ["derive"] }
+shrimply-math-interpolation = { workspace = true }
+shrimply-math-media = { workspace = true }
+shrimply-math-core = { workspace = true }
+shrimply-math-geometry = { workspace = true }
+shrimply-asset = { workspace = true }
+shrimply-paint-model = { workspace = true }
+shrimply-paint-edit-skia = { workspace = true }
+shrimply-project-types = { workspace = true }
+shrimply-preview-provider-skia = { workspace = true }
+shrimply-3dgs-core = { workspace = true }
+shrimply-3d-control-core = { workspace = true }
+shrimply-transform-3d = { workspace = true }
+shrimply-property-model = { workspace = true }
+shrimply-scene-3d = { workspace = true }
+shrimply-audio-modifiers = { workspace = true }
+shrimply-tts = { workspace = true }
+shrimply-background = { workspace = true }
+shrimply-visual-modifiers = { workspace = true }
+shrimply-video-generation = { workspace = true }
+tracing.workspace = true
+uuid = { workspace = true, features = ["v4", "serde"] }

@@ -1,0 +1,9 @@
+[package]
+name = "shrimply-discrete-keyframe-graph-skia"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+shrimply-math-core = { workspace = true }
+shrimply-math-color = { workspace = true }
+shrimply-components-skia = { workspace = true }

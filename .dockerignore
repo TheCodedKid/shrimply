@@ -16,7 +16,6 @@ config/*.sqlite-shm
 config/*.sqlite-wal
 dist
 docs
-external/slang
 server
 target
 
