@@ -85,10 +85,10 @@ jobs:
           path: |
             target/slang-*
             target/release
-          key: macos-application-macos-26-${{ runner.arch }}-${{ hashFiles('Cargo.lock', 'Makefile', 'rust-toolchain.toml') }}-${{ steps.application-cache-key.outputs.week }}
+          key: macos-application-prebuilt-macos-26-${{ runner.arch }}-${{ hashFiles('Cargo.lock', 'Makefile', 'rust-toolchain.toml') }}-${{ steps.application-cache-key.outputs.week }}
           restore-keys: |
-            macos-application-macos-26-${{ runner.arch }}-${{ hashFiles('Cargo.lock', 'Makefile', 'rust-toolchain.toml') }}-
-            macos-application-macos-26-${{ runner.arch }}-
+            macos-application-prebuilt-macos-26-${{ runner.arch }}-${{ hashFiles('Cargo.lock', 'Makefile', 'rust-toolchain.toml') }}-
+            macos-application-prebuilt-macos-26-${{ runner.arch }}-
 
       - name: Build AppKit release
         run: make appkit-release
