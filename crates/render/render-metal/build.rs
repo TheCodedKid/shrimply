@@ -101,20 +101,18 @@ fn cached_artifacts(
     let slang_build =
         std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../gpu/slang/slang-build");
     inputs.push(slang_build.join("compiler.cpp"));
-    if let Some(build) = std::env::var_os("SLANG_BUILD_DIR") {
-        inputs.extend(
-            std::path::PathBuf::from(build)
-                .join("Release/lib")
-                .read_dir()
-                .ok()?
-                .filter_map(|entry| entry.ok().map(|entry| entry.path()))
-                .filter(|path| {
-                    path.file_name()
-                        .and_then(|name| name.to_str())
-                        .is_some_and(|name| name.starts_with("libslang"))
-                }),
-        );
-    }
+    inputs.push(slang_build.join("build.rs"));
+    inputs.extend(
+        std::path::Path::new(shrimply_slang_build::LIBRARY_DIR)
+            .read_dir()
+            .ok()?
+            .filter_map(|entry| entry.ok().map(|entry| entry.path()))
+            .filter(|path| {
+                path.file_name()
+                    .and_then(|name| name.to_str())
+                    .is_some_and(|name| name.starts_with("libslang"))
+            }),
+    );
     let newest_input = inputs
         .into_iter()
         .map(|path| path.metadata().ok()?.modified().ok())

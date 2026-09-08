@@ -15,8 +15,15 @@ The current development setup targets Fedora and uses the Rust toolchain in
 
    $ make deps-fedora
 
-Initialize the Slang submodule before building. Slang compiles the compositor
-shaders to CUDA, and ``nvcc`` packages the CUDA artifacts. The supported CUDA
+The ``shrimply-slang-build`` crate's ``build.rs`` downloads the pinned Slang
+binary release and verifies its SHA-256 checksum. Downloads are locked and
+extracted atomically into a versioned cache under Cargo's build directory
+(``target/``, ignored by Git), shared across crate rebuilds. Slang is never
+compiled from source. The download requires ``curl``, ``tar``, and ``shasum``
+(macOS) or ``sha256sum`` (Linux). To use an existing binary distribution,
+set ``SLANG_LIBRARY_DIR`` and ``SLANG_INCLUDE_DIR`` to its library and header
+directories. Slang's prebuilt library compiles the compositor shaders to CUDA,
+and ``nvcc`` packages the CUDA artifacts. The supported CUDA
 Toolkit version is 12.9. In theory, NVIDIA GeForce GTX 900-series through RTX
 50-series GPUs should work, but this full range has not been verified.
 

@@ -132,18 +132,6 @@ modules:
         tag: 4.14.0
         commit: 0654a42e19215ef25b1d367d822f3c630447e7c7
 
-  - name: slang
-    buildsystem: simple
-    build-commands:
-      - install -d /app/include /app/lib
-      - cp -a include/. /app/include/
-      - cp -a lib/. /app/lib/
-    sources:
-      - type: archive
-        url: https://github.com/shader-slang/slang/releases/download/v2026.17/slang-2026.17-linux-x86_64-glibc-2.28.tar.gz
-        sha256: a5a48530e7218d79e10b633c216ef04cbe778450b8c0a7579125e630c088ca75
-        strip-components: 0
-
   - name: shrimply-gtk
     buildsystem: simple
     build-options:
@@ -164,9 +152,6 @@ modules:
         CLANG_PATH: /run/host/usr/bin/clang
         LIBCLANG_PATH: /run/host/usr/lib/llvm-18/lib
         LIBRARY_PATH: /run/host/usr/local/cuda-12.9/lib64/stubs
-        SLANG_LIBRARY_DIR: /app/lib
-        SLANG_INCLUDE_DIR: /app/include
-        SLANG_PREBUILT: "1"
     build-commands:
       - >-
         make release

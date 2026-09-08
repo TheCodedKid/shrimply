@@ -10,45 +10,18 @@ CUDA_PTX_TARGET ?= compute_50
 CUDA_HOST_CXX ?= g++-15
 CUDA_ALLOW_UNSUPPORTED_COMPILER ?=
 SOURCE_LINE_LIMIT ?= 2000
-SLANG_SOURCE_DIR ?= $(CURDIR)/external/slang
-SLANG_BUILD_DIR ?= $(SLANG_SOURCE_DIR)/build
-SLANG_VERSION ?= 2026.17
-SLANG_PLATFORM_Darwin_arm64 := macos-aarch64
-SLANG_PLATFORM_Darwin_x86_64 := macos-x86_64
-SLANG_PLATFORM_Linux_aarch64 := linux-aarch64-glibc-2.28
-SLANG_PLATFORM_Linux_x86_64 := linux-x86_64-glibc-2.28
-SLANG_PLATFORM ?= $(SLANG_PLATFORM_$(shell uname -s)_$(shell uname -m))
-SLANG_SHA256_linux-aarch64-glibc-2.28 := 1873b032fd9e44fa91cba567287304b8886e3e01a4ebe4f26dd20af5f8050582
-SLANG_SHA256_linux-x86_64-glibc-2.28 := a5a48530e7218d79e10b633c216ef04cbe778450b8c0a7579125e630c088ca75
-SLANG_SHA256_macos-aarch64 := 9c374eccbf268768d68c1374e3519771c4d4a0992a2680e901bee72d5f000dd5
-SLANG_SHA256_macos-x86_64 := ce3d677aefc69aa693cd3a0cf0a2212fdfcf4f7db11a6698d51f4d4f7397bf56
-SLANG_ARCHIVE_SHA256 ?= $(SLANG_SHA256_$(SLANG_PLATFORM))
-SLANG_PREBUILT ?= 1
-SLANG_PREBUILT_DIR ?= $(abspath $(CARGO_TARGET_DIR))/slang-$(SLANG_VERSION)-$(SLANG_PLATFORM)
-SLANG_LIBRARY_DIR ?= $(if $(SLANG_PREBUILT),$(SLANG_PREBUILT_DIR)/lib,$(SLANG_BUILD_DIR)/Release/lib)
-SLANG_INCLUDE_DIR ?= $(if $(SLANG_PREBUILT),$(SLANG_PREBUILT_DIR)/include,$(SLANG_SOURCE_DIR)/include)
-SLANG_LIBRARY_EXTENSION := $(if $(filter Darwin,$(shell uname -s)),dylib,so)
-SLANG_ARCHIVE := $(CARGO_TARGET_DIR)/downloads/slang-$(SLANG_VERSION)-$(SLANG_PLATFORM).tar.gz
-SLANG_PREBUILT_STAMP := $(SLANG_PREBUILT_DIR)/.shrimply-prebuilt
-SLANG_SHA256SUM := $(if $(filter Darwin,$(shell uname -s)),shasum -a 256,sha256sum)
 OPTIX_ROOT ?= $(CURDIR)/external/optix-dev
 DNF ?= sudo dnf
 INSTALL ?= install
 PKG_CONFIG ?= /usr/bin/pkg-config
 PKG_CONFIG_PATH ?= /usr/lib64/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig
 QT_QMAKE ?= qmake6
-SLANG_LIBRARY_ENV = LD_LIBRARY_PATH="$(SLANG_LIBRARY_DIR):/run/host/usr/local/libclang-deps:$${LD_LIBRARY_PATH}" DYLD_LIBRARY_PATH="$(SLANG_LIBRARY_DIR):$${DYLD_LIBRARY_PATH}"
-BUILD_ENV := CUDA_HOME=$(CUDA_HOME) CUDA_TOOLKIT_PATH=$(CUDA_TOOLKIT_PATH) CUDA_IMAGE_FORMAT=$(CUDA_IMAGE_FORMAT) CUDA_TARGET=$(CUDA_TARGET) CUDA_PTX_TARGET=$(CUDA_PTX_TARGET) CUDA_HOST_CXX=$(CUDA_HOST_CXX) CUDA_ALLOW_UNSUPPORTED_COMPILER=$(CUDA_ALLOW_UNSUPPORTED_COMPILER) PATH=$(CUDA_HOME)/bin:$(PATH) PKG_CONFIG=$(PKG_CONFIG) PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) SLANG_SOURCE_DIR=$(SLANG_SOURCE_DIR) SLANG_BUILD_DIR=$(SLANG_BUILD_DIR) SLANG_LIBRARY_DIR=$(SLANG_LIBRARY_DIR) SLANG_INCLUDE_DIR=$(SLANG_INCLUDE_DIR) SLANG_PREBUILT=$(SLANG_PREBUILT) OPTIX_ROOT=$(OPTIX_ROOT)
-BUILD_ENV += $(SLANG_LIBRARY_ENV)
+BUILD_ENV := CUDA_HOME=$(CUDA_HOME) CUDA_TOOLKIT_PATH=$(CUDA_TOOLKIT_PATH) CUDA_IMAGE_FORMAT=$(CUDA_IMAGE_FORMAT) CUDA_TARGET=$(CUDA_TARGET) CUDA_PTX_TARGET=$(CUDA_PTX_TARGET) CUDA_HOST_CXX=$(CUDA_HOST_CXX) CUDA_ALLOW_UNSUPPORTED_COMPILER=$(CUDA_ALLOW_UNSUPPORTED_COMPILER) PATH=$(CUDA_HOME)/bin:$(PATH) PKG_CONFIG=$(PKG_CONFIG) PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) OPTIX_ROOT=$(OPTIX_ROOT)
+BUILD_ENV += LD_LIBRARY_PATH="/run/host/usr/local/libclang-deps:$${LD_LIBRARY_PATH}"
 BUILD_ENV += BINDGEN_EXTRA_CLANG_ARGS="$(if $(wildcard /run/host/usr/lib/llvm-18/lib/clang/18/include),-isystem /run/host/usr/lib/llvm-18/lib/clang/18/include)"
 RUST_LIBDIR := $(shell $(RUSTUP) run $(RUST_TOOLCHAIN) rustc --print target-libdir)
 DEV_RUSTFLAGS ?= -C prefer-dynamic -C link-arg=-fuse-ld=lld -C link-arg=-Wl,-rpath,$(RUST_LIBDIR)
 DEV_BUILD_ENV := $(BUILD_ENV) RUSTFLAGS="$(DEV_RUSTFLAGS)"
-SLANG_COMPILER_STAMP := $(SLANG_BUILD_DIR)/.shrimply-compiler
-SLANG_CONFIGURE_STAMP := $(SLANG_BUILD_DIR)/.shrimply-configure
-SLANG_GIT_HEAD := $(shell git -C $(SLANG_SOURCE_DIR) rev-parse --git-path HEAD 2>/dev/null)
-SLANG_GIT_REF := $(shell ref=$$(git -C $(SLANG_SOURCE_DIR) symbolic-ref -q HEAD 2>/dev/null); test -z "$$ref" || git -C $(SLANG_SOURCE_DIR) rev-parse --git-path "$$ref")
-SLANG_COMPILER_DEPENDENCY = $(if $(SLANG_PREBUILT),$(if $(filter $(SLANG_PREBUILT_DIR)/lib,$(SLANG_LIBRARY_DIR)),$(SLANG_PREBUILT_STAMP)),$(SLANG_COMPILER_STAMP))
 
 APP_NAME := Shrimply
 BIN_NAME := shrimply
@@ -133,7 +106,7 @@ FEDORA_PACKAGES := \
 	qt6-qtbase-devel \
 	qt6-qtdeclarative-devel
 
-.PHONY: native-deps qt-native-deps slang-compiler qt-desktop-file desktop-icon cuda-target-check cuda-artifacts dev dev-mac qt-build dev-qt dev-server docs docs-check run run-qt build release check components-check gtk-components-showcase qt-components-showcase server-python-check manim manim-python-check manim-parameter-check cargo-check fmt fmt-check lint test frame-rate-test video-lifecycle-test transparent-fill-frame-range-test transparent-fill-decoder-test transparent-fill-kernel-test transparent-fill-compositor-test transparent-fill-playback-test transparent-fill-e2e-fixture transparent-fill-e2e-test decode-ahead-benchmark paint-interpolation-test crash-report clean-dev clean deps-fedora deps-fedora-qt qt-release install install-qt install-codex-mcp-dev install-agy-mcp-dev uninstall uninstall-qt flatpak-gtk
+.PHONY: native-deps qt-native-deps qt-desktop-file desktop-icon cuda-target-check cuda-artifacts dev dev-mac qt-build dev-qt dev-server docs docs-check run run-qt build release check components-check gtk-components-showcase qt-components-showcase server-python-check manim manim-python-check manim-parameter-check cargo-check fmt fmt-check lint test frame-rate-test video-lifecycle-test transparent-fill-frame-range-test transparent-fill-decoder-test transparent-fill-kernel-test transparent-fill-compositor-test transparent-fill-playback-test transparent-fill-e2e-fixture transparent-fill-e2e-test decode-ahead-benchmark paint-interpolation-test crash-report clean-dev clean deps-fedora deps-fedora-qt qt-release install install-qt install-codex-mcp-dev install-agy-mcp-dev uninstall uninstall-qt flatpak-gtk
 native-deps:
 	@$(PKG_CONFIG) --exists rubberband || { echo "Missing Rubber Band development files (pkg-config: rubberband)" >&2; exit 1; }
 	@$(PKG_CONFIG) --exists libpipewire-0.3 || { echo "Missing PipeWire development files (pkg-config: libpipewire-0.3)" >&2; exit 1; }
@@ -144,37 +117,6 @@ qt-native-deps:
 	@version="$$($(QT_QMAKE) -query QT_VERSION)"; case "$$version" in 6.*) echo "Using Qt $$version via $(QT_QMAKE)" ;; *) echo "$(QT_QMAKE) selected unsupported Qt $$version; Qt 6 is required" >&2; exit 1 ;; esac
 	@$(PKG_CONFIG) --exists Qt6Core Qt6Gui Qt6Qml Qt6Quick Qt6QuickControls2 Qt6OpenGL || { echo "Missing Qt 6 Quick/OpenGL development files" >&2; exit 1; }
 
-slang-compiler: $(SLANG_COMPILER_DEPENDENCY)
-	@test -z "$(SLANG_PREBUILT)" || test -f "$(SLANG_LIBRARY_DIR)/libslang.$(SLANG_LIBRARY_EXTENSION)"
-	@test -z "$(SLANG_PREBUILT)" || test -f "$(SLANG_INCLUDE_DIR)/slang.h"
-
-$(SLANG_ARCHIVE):
-	@test -n "$(SLANG_PLATFORM)" || { echo "No prebuilt Slang archive for $$(uname -s)/$$(uname -m)" >&2; exit 1; }
-	@test -n "$(SLANG_ARCHIVE_SHA256)" || { echo "Missing Slang checksum for $(SLANG_PLATFORM)" >&2; exit 1; }
-	@mkdir -p "$(@D)"
-	curl --fail --location --silent --show-error "https://github.com/shader-slang/slang/releases/download/v$(SLANG_VERSION)/slang-$(SLANG_VERSION)-$(SLANG_PLATFORM).tar.gz" --output "$@.tmp"
-	echo "$(SLANG_ARCHIVE_SHA256)  $@.tmp" | $(SLANG_SHA256SUM) --check
-	mv "$@.tmp" "$@"
-
-$(SLANG_PREBUILT_STAMP): $(SLANG_ARCHIVE)
-	@staging="$(SLANG_PREBUILT_DIR).tmp"; \
-	rm -rf "$$staging"; \
-	mkdir -p "$$staging"; \
-	tar -xzf "$<" -C "$$staging"; \
-	test -f "$$staging/lib/libslang.$(SLANG_LIBRARY_EXTENSION)"; \
-	test -f "$$staging/include/slang.h"; \
-	rm -rf "$(SLANG_PREBUILT_DIR)"; \
-	mv "$$staging" "$(SLANG_PREBUILT_DIR)"; \
-	touch "$@"
-
-$(SLANG_CONFIGURE_STAMP): $(SLANG_SOURCE_DIR)/CMakeLists.txt Makefile
-	cmake -S $(SLANG_SOURCE_DIR) -B $(SLANG_BUILD_DIR) -G "Ninja Multi-Config" -DSLANG_ENABLE_SLANGC=OFF -DSLANG_ENABLE_SLANG_RHI=OFF -DSLANG_ENABLE_GFX=OFF -DSLANG_ENABLE_TESTS=OFF -DSLANG_ENABLE_EXAMPLES=OFF -DSLANG_ENABLE_SLANGD=OFF -DSLANG_ENABLE_SLANGI=OFF -DSLANG_ENABLE_SLANGRT=OFF -DSLANG_ENABLE_SPLIT_DEBUG_INFO=OFF -DSLANG_ENABLE_SLANG_GLSLANG=ON -DSLANG_ENABLE_REPLAYER=OFF -DSLANG_SLANG_LLVM_FLAVOR=DISABLE -DSLANG_ENABLE_DXIL=OFF
-	@touch $@
-
-$(SLANG_COMPILER_STAMP): $(SLANG_CONFIGURE_STAMP) $(SLANG_GIT_HEAD) $(SLANG_GIT_REF)
-	cmake --build $(SLANG_BUILD_DIR) --config Release --target slang slang-glslang
-	@touch $@
-
 cuda-target-check:
 	@test "$$(uname -s)" = Linux || { echo "CUDA kernels require Linux" >&2; exit 1; }
 	@case "$(CUDA_IMAGE_FORMAT)" in \
@@ -183,7 +125,7 @@ cuda-target-check:
 		(*) echo "CUDA_IMAGE_FORMAT=$(CUDA_IMAGE_FORMAT) is unsupported; expected cubin or ptx" >&2; exit 1 ;; \
 	esac
 
-cuda-artifacts: cuda-target-check slang-compiler
+cuda-artifacts: cuda-target-check
 	$(BUILD_ENV) $(CARGO) build -p shrimply-render-kernels-cuda
 
 dev: SHELL := /bin/bash
@@ -205,17 +147,17 @@ dev: desktop-icon native-deps cuda-artifacts
 	fi; \
 	exit $$status
 
-APPKIT_BUILD_ENV = $(SLANG_LIBRARY_ENV) RUSTFLAGS="-C prefer-dynamic -C link-arg=-Wl,-rpath,$(RUST_LIBDIR)" LIBRARY_PATH="$$(brew --prefix)/lib" PKG_CONFIG="$$(brew --prefix pkgconf)/bin/pkg-config" CLANG_PATH="$$(brew --prefix llvm@18)/bin/clang" LIBCLANG_PATH="$$(brew --prefix llvm@18)/lib" SLANG_SOURCE_DIR=$(SLANG_SOURCE_DIR) SLANG_BUILD_DIR=$(SLANG_BUILD_DIR) SLANG_LIBRARY_DIR=$(SLANG_LIBRARY_DIR) SLANG_INCLUDE_DIR=$(SLANG_INCLUDE_DIR) SLANG_PREBUILT=$(SLANG_PREBUILT)
+APPKIT_BUILD_ENV = RUSTFLAGS="-C prefer-dynamic -C link-arg=-Wl,-rpath,$(RUST_LIBDIR)" LIBRARY_PATH="$$(brew --prefix)/lib" PKG_CONFIG="$$(brew --prefix pkgconf)/bin/pkg-config" CLANG_PATH="$$(brew --prefix llvm@18)/bin/clang" LIBCLANG_PATH="$$(brew --prefix llvm@18)/lib"
 
 .PHONY: appkit-build appkit-release appkit-check appkit-lint appkit-components-check appkit-components-showcase
 $(APPKIT_ICON): $(APPKIT_ICON_SOURCE)
 	$(RSVG_CONVERT) --width $(APPKIT_ICON_SIZE) --height $(APPKIT_ICON_SIZE) $< --output $@
 
-appkit-build: $(APPKIT_ICON) slang-compiler
+appkit-build: $(APPKIT_ICON)
 	@test "$$(uname -s)" = Darwin || { echo "dev-mac requires macOS" >&2; exit 1; }
 	$(APPKIT_BUILD_ENV) $(CARGO) build -p $(APPKIT_LAUNCHER_PACKAGE) -p $(APPKIT_EDITOR_PACKAGE) --bins
 
-appkit-release: $(APPKIT_ICON) slang-compiler
+appkit-release: $(APPKIT_ICON)
 	@test "$$(uname -s)" = Darwin || { echo "AppKit release requires macOS" >&2; exit 1; }
 	$(APPKIT_BUILD_ENV) RUSTFLAGS="" CARGO_TERM_COLOR=always MACOSX_DEPLOYMENT_TARGET=$(APPKIT_DEPLOYMENT_TARGET) $(CARGO) build --release -p $(APPKIT_LAUNCHER_PACKAGE) -p $(APPKIT_EDITOR_PACKAGE) --bins
 
@@ -315,7 +257,7 @@ manim-visual-check: native-deps
 manim-parameter-check: native-deps
 	$(DEV_BUILD_ENV) $(CARGO) test -p shrimply-manim-bridge --test two_pass_parameters -- --ignored --nocapture
 
-cargo-check: native-deps qt-native-deps slang-compiler
+cargo-check: native-deps qt-native-deps
 	$(DEV_BUILD_ENV) QMAKE=$(QT_QMAKE) $(CARGO) check -p $(EDITOR_PACKAGE) -p $(QT_EDITOR_PACKAGE) -p $(LAUNCHER_PACKAGE) -p $(QT_LAUNCHER_PACKAGE) -p $(MCP_PACKAGE) --bins
 
 frame-rate-test: native-deps

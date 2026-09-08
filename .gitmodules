@@ -1,7 +1,3 @@
-[submodule "external/slang"]
-	path = external/slang
-	url = https://github.com/shader-slang/slang.git
-	branch = master
 [submodule "external/optix-dev"]
 	path = external/optix-dev
 	url = https://github.com/NVIDIA/optix-dev.git

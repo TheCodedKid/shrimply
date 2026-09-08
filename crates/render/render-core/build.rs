@@ -6,8 +6,6 @@ fn main() {
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=shaders");
     println!("cargo:rerun-if-changed=../../gpu/slang/slang-build/compiler.cpp");
-    println!("cargo:rerun-if-env-changed=SLANG_SOURCE_DIR");
-    println!("cargo:rerun-if-env-changed=SLANG_BUILD_DIR");
 
     let manifest = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR"));
     let shader_directory = manifest.join("shaders");

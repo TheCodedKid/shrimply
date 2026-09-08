@@ -83,7 +83,6 @@ jobs:
         uses: actions/cache/restore@v6
         with:
           path: |
-            target/slang-*
             target/release
           key: macos-application-prebuilt-macos-26-${{ runner.arch }}-${{ hashFiles('Cargo.lock', 'Makefile', 'rust-toolchain.toml') }}-${{ steps.application-cache-key.outputs.week }}
           restore-keys: |
@@ -98,7 +97,6 @@ jobs:
         uses: actions/cache/save@v6
         with:
           path: |
-            target/slang-*
             target/release
           key: ${{ steps.application-cache.outputs.cache-primary-key }}
 

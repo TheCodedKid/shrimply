@@ -43,6 +43,7 @@ pub struct Compiler {
 impl Compiler {
     pub fn new(directory: &Path, output: &Path) -> Self {
         println!("cargo:rerun-if-changed={}", directory.display());
+        println!("cargo:rerun-if-changed={}", crate::LIBRARY_DIR);
         Self {
             directory: directory.to_owned(),
             output: output.to_owned(),
