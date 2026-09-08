@@ -346,6 +346,7 @@ quick-xml = "0.42"
 rangemap = "1"
 rayon = "1"
 reqwest = "0.13"
+libloading = "0.8.9"
 rmcp = { version = "3.1", default-features = false, features = ["macros", "server", "transport-io"] }
 rhai = "1"
 rmp-serde = "1"

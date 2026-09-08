@@ -25,10 +25,6 @@ struct CompileRequest {
     entry_count: usize,
 }
 
-unsafe extern "C" {
-    fn shrimply_slang_compile(request: *const CompileRequest) -> c_int;
-}
-
 pub struct Artifacts {
     pub filename: String,
     pub reflection: Vec<u8>,
@@ -36,6 +32,7 @@ pub struct Artifacts {
 }
 
 pub struct Compiler {
+    api: libloading::Library,
     directory: PathBuf,
     output: PathBuf,
 }
@@ -44,7 +41,11 @@ impl Compiler {
     pub fn new(directory: &Path, output: &Path) -> Self {
         println!("cargo:rerun-if-changed={}", directory.display());
         println!("cargo:rerun-if-changed={}", crate::LIBRARY_DIR);
+        // Load the bridge built with this crate; it links the pinned Slang C++ API.
+        let api = unsafe { libloading::Library::new(env!("SHRIMPLY_SLANG_API")) }
+            .expect("load Slang C++ API bridge");
         Self {
+            api,
             directory: directory.to_owned(),
             output: output.to_owned(),
         }
@@ -115,7 +116,15 @@ impl Compiler {
             entry_count: entry_pointers.len(),
         };
         // The synchronous C++ API call borrows only the strings owned above.
-        let result = unsafe { shrimply_slang_compile(&request) };
+        let result = unsafe {
+            let compile = self
+                .api
+                .get::<unsafe extern "C" fn(*const CompileRequest) -> c_int>(
+                    b"shrimply_slang_compile\0",
+                )
+                .expect("load Slang compile function");
+            compile(&request)
+        };
         assert_eq!(
             result, 0,
             "compile Slang module {module} for {target:?}; see compiler diagnostics"
