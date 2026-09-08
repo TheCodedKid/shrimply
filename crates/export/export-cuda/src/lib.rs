@@ -14,14 +14,14 @@ use shrimply_export_core::video::{self as core, FrameTiming, RenderedFrame, Vide
 use shrimply_math_core::Fraction;
 use shrimply_project::project::{self, Project, Time};
 use shrimply_video_cuda::compositor::{
-    CompositedVideoFrame, EXPORT_ASSETS_LOADING, RenderResourceConfig, VideoExportRenderer,
+    EXPORT_ASSETS_LOADING, RenderResourceConfig, VideoExportRenderer,
 };
-use shrimply_video_cuda::gpu::ExportPixelFormat;
+use shrimply_video_cuda::gpu::{CompositedVideoFrame, ExportPixelFormat};
 
 const VIDEO_HW_POOL_SIZE: i32 = 32;
 
 pub use shrimply_export_core::video::{
-    ExportAudioEncoder, ExportContainer, ExportProgress, ExportVideoCodec,
+    ExportAudioEncoder, ExportContainer, ExportProgress, ExportVideoCodec, extension_for_container,
 };
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
