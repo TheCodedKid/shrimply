@@ -6708,6 +6708,7 @@ dependencies = [
  "shrimply-math-color",
  "shrimply-math-core",
  "shrimply-project-document",
+ "shrimply-recent-projects",
  "tracing",
 ]
 
@@ -7048,6 +7049,7 @@ dependencies = [
 name = "shrimply-recent-projects"
 version = "0.1.0"
 dependencies = [
+ "objc2-foundation",
  "rusqlite",
  "serde",
  "serde_json",

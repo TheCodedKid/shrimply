@@ -3,6 +3,7 @@ use shrimply_math_color::Color;
 use shrimply_math_core::{Fraction, Time};
 use shrimply_project_document::project::DEFAULT_TEXT_FONT_FAMILY;
 pub use shrimply_project_document::project::FontFamily;
+use shrimply_recent_projects::settings_db_path;
 use std::cell::RefCell;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -12,8 +13,6 @@ use std::str::FromStr;
 mod ui;
 pub use ui::*;
 
-const CONFIG_DIR: &str = "config";
-const SETTINGS_DB: &str = "config/settings.sqlite";
 const KEY_CAPTION_FONT_SIZE: &str = "caption_font_size";
 const KEY_CAPTION_BACKGROUND_COLOR: &str = "caption_background_color";
 const KEY_TIMELINE_MAGNET: &str = "timeline_magnet";
@@ -417,10 +416,14 @@ impl PreferencesStore {
 }
 
 pub fn open() -> SharedPreferences {
-    let conn = match Connection::open(SETTINGS_DB) {
+    let path = settings_db_path();
+    let conn = match Connection::open(&path) {
         Ok(conn) => conn,
         Err(error) => {
-            tracing::warn!("Could not open preferences DB at {SETTINGS_DB}: {error}");
+            tracing::warn!(
+                "Could not open preferences DB at {}: {error}",
+                path.display()
+            );
             return Rc::new(RefCell::new(PreferencesStore::new_with_conn(None)));
         }
     };
@@ -439,8 +442,15 @@ pub fn open() -> SharedPreferences {
 }
 
 pub fn open_with_defaults() -> SharedPreferences {
-    if let Err(error) = fs::create_dir_all(CONFIG_DIR) {
-        tracing::warn!("Could not create preferences dir {CONFIG_DIR}: {error}");
+    let path = settings_db_path();
+    let directory = path
+        .parent()
+        .expect("settings database should have a parent directory");
+    if let Err(error) = fs::create_dir_all(directory) {
+        tracing::warn!(
+            "Could not create preferences dir {}: {error}",
+            directory.display()
+        );
     }
     open()
 }
