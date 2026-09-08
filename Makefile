@@ -83,6 +83,7 @@ APP_ICON := assets/icons/dev.shrimply.Shrimply.svg
 APPKIT_ICON_SOURCE := assets/icons/dev.shrimply.Shrimply-macos.svg
 APPKIT_ICON := assets/icons/dev.shrimply.Shrimply.png
 APPKIT_ICON_SIZE := 512
+APPKIT_DEPLOYMENT_TARGET ?= 15.0
 RSVG_CONVERT ?= rsvg-convert
 LIP_SYNC_MODEL := $(CARGO_TARGET_DIR)/release/res/lip-sync/pocketsphinx-ci.model
 LIP_SYNC_RESOURCE_DIR := $(DATADIR)/shrimply/lip-sync
@@ -170,13 +171,17 @@ dev: desktop-icon native-deps cuda-artifacts
 
 APPKIT_BUILD_ENV = $(SLANG_LIBRARY_ENV) RUSTFLAGS="-C prefer-dynamic -C link-arg=-Wl,-rpath,$(RUST_LIBDIR)" LIBRARY_PATH="$$(brew --prefix)/lib" PKG_CONFIG="$$(brew --prefix pkgconf)/bin/pkg-config" CLANG_PATH="$$(brew --prefix llvm@18)/bin/clang" LIBCLANG_PATH="$$(brew --prefix llvm@18)/lib" SLANG_SOURCE_DIR=$(SLANG_SOURCE_DIR) SLANG_BUILD_DIR=$(SLANG_BUILD_DIR)
 
-.PHONY: appkit-build appkit-check appkit-lint appkit-components-check appkit-components-showcase
+.PHONY: appkit-build appkit-release appkit-check appkit-lint appkit-components-check appkit-components-showcase
 $(APPKIT_ICON): $(APPKIT_ICON_SOURCE)
 	$(RSVG_CONVERT) --width $(APPKIT_ICON_SIZE) --height $(APPKIT_ICON_SIZE) $< --output $@
 
 appkit-build: $(APPKIT_ICON)
 	@test "$$(uname -s)" = Darwin || { echo "dev-mac requires macOS" >&2; exit 1; }
 	$(APPKIT_BUILD_ENV) $(CARGO) build -p $(APPKIT_LAUNCHER_PACKAGE) -p $(APPKIT_EDITOR_PACKAGE) --bins
+
+appkit-release: $(APPKIT_ICON)
+	@test "$$(uname -s)" = Darwin || { echo "AppKit release requires macOS" >&2; exit 1; }
+	$(APPKIT_BUILD_ENV) RUSTFLAGS="" CARGO_TERM_COLOR=always MACOSX_DEPLOYMENT_TARGET=$(APPKIT_DEPLOYMENT_TARGET) $(CARGO) build --release -p $(APPKIT_LAUNCHER_PACKAGE) -p $(APPKIT_EDITOR_PACKAGE) --bins
 
 appkit-check: appkit-build
 	$(APPKIT_BUILD_ENV) $(CARGO) check -p $(APPKIT_EDITOR_PACKAGE) -p $(APPKIT_LAUNCHER_PACKAGE) -p $(FRAMEGRAPH_CORE_PACKAGE) -p $(APPKIT_COMPONENT_METAL_PACKAGE) -p $(APPKIT_COMPONENTS_PACKAGE) -p $(APPKIT_COMPONENTS_DEMO_PACKAGE) --all-targets
