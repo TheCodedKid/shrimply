@@ -32,15 +32,6 @@ COPY . .
 
 RUN rustup show
 
-# Git submodules might be missing or outdated before the build. Happened on Arch, not sure if it happens on Fedora
-RUN test -e external/slang/CMakeLists.txt || { \
-        echo "Git submodules are missing from the build context." >&2; \
-        echo "Run 'git submodule update --init --recursive' before 'docker build'." >&2; \
-        exit 1; \
-    }
-
-RUN cmake -S external/slang -B external/slang/build -G Ninja -DCMAKE_BUILD_TYPE=Release -DSLANG_ENABLE_SLANG_RHI=OFF && \
-    cmake --build external/slang/build --target slangc slang-glslang
 ENV CUDA_HOME=/usr/local/cuda
 ENV CUDA_TOOLKIT_PATH=/usr/local/cuda
 

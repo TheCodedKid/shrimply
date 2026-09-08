@@ -76,21 +76,19 @@ jobs:
 
       - name: Resolve application cache key
         id: application-cache-key
-        run: |
-          echo "slang=$(git rev-parse HEAD:external/slang)" >> "${GITHUB_OUTPUT}"
-          echo "week=$(date -u +%G-W%V)" >> "${GITHUB_OUTPUT}"
+        run: echo "week=$(date -u +%G-W%V)" >> "${GITHUB_OUTPUT}"
 
       - name: Restore macOS application cache
         id: application-cache
         uses: actions/cache/restore@v6
         with:
           path: |
-            external/slang/build
+            target/slang-*
             target/release
-          key: macos-application-macos-26-${{ runner.arch }}-${{ steps.application-cache-key.outputs.slang }}-${{ hashFiles('Cargo.lock', 'Makefile', 'rust-toolchain.toml') }}-${{ steps.application-cache-key.outputs.week }}
+          key: macos-application-macos-26-${{ runner.arch }}-${{ hashFiles('Cargo.lock', 'Makefile', 'rust-toolchain.toml') }}-${{ steps.application-cache-key.outputs.week }}
           restore-keys: |
-            macos-application-macos-26-${{ runner.arch }}-${{ steps.application-cache-key.outputs.slang }}-${{ hashFiles('Cargo.lock', 'Makefile', 'rust-toolchain.toml') }}-
-            macos-application-macos-26-${{ runner.arch }}-${{ steps.application-cache-key.outputs.slang }}-
+            macos-application-macos-26-${{ runner.arch }}-${{ hashFiles('Cargo.lock', 'Makefile', 'rust-toolchain.toml') }}-
+            macos-application-macos-26-${{ runner.arch }}-
 
       - name: Build AppKit release
         run: make appkit-release
@@ -100,7 +98,7 @@ jobs:
         uses: actions/cache/save@v6
         with:
           path: |
-            external/slang/build
+            target/slang-*
             target/release
           key: ${{ steps.application-cache.outputs.cache-primary-key }}
 
