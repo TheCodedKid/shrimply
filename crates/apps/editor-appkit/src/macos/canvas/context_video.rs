@@ -54,9 +54,15 @@ impl CanvasView {
             return Ok(());
         };
         let extension = shrimply_export_core::video::extension_for_container(settings.container);
+        let project_name = project.name.trim();
+        let project_name = if project_name.is_empty() {
+            "Untitled"
+        } else {
+            project_name
+        };
         let panel = NSSavePanel::savePanel(self.mtm());
         panel.setTitle(Some(ns_string!("Export Video")));
-        panel.setNameFieldStringValue(&NSString::from_str(&format!("video.{extension}")));
+        panel.setNameFieldStringValue(&NSString::from_str(&format!("{project_name}.{extension}")));
         panel.setCanCreateDirectories(true);
         if panel.runModal() != NSModalResponseOK {
             return Ok(());
