@@ -134,61 +134,7 @@ jobs:
           flatpak install --user --assumeyes --noninteractive flathub \
             "org.gnome.Sdk//${GNOME_RUNTIME_VERSION}"
 
-      - name: Resolve dependency cache key
-        id: dependency-cache-key
-        run: |
-          sed '/^  - name: shrimply-gtk$/,$d' dev.shrimply.Shrimply.yml \
-            | sha256sum \
-            | cut -d ' ' -f 1 \
-            | sed 's/^/hash=/' >> "${GITHUB_OUTPUT}"
-
-      - name: Restore Flatpak dependency cache
-        id: dependency-cache
-        uses: actions/cache/restore@v6
-        with:
-          path: ${{ env.FLATPAK_STATE_DIR }}
-          key: flatpak-dependencies-ubuntu-24.04-${{ runner.arch }}-cuda-${{ env.CUDA_VERSION }}-${{ steps.dependency-cache-key.outputs.hash }}
-          restore-keys: |
-            flatpak-dependencies-ubuntu-24.04-${{ runner.arch }}-cuda-${{ env.CUDA_VERSION }}-
-
-      - name: Prepare Flatpak dependencies
-        if: steps.dependency-cache.outputs.cache-hit != 'true'
-        run: |
-          mkdir -p "${FLATPAK_BUILD_DIR}" "${FLATPAK_STATE_DIR}"
-          flatpak-builder \
-            --user \
-            --ccache \
-            --disable-rofiles-fuse \
-            --force-clean \
-            --state-dir="${FLATPAK_STATE_DIR}" \
-            --install-deps-from=flathub \
-            --stop-at=shrimply-gtk \
-            "${FLATPAK_BUILD_DIR}" \
-            dev.shrimply.Shrimply.yml
-
-      - name: Save Flatpak dependency cache
-        if: steps.dependency-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v6
-        with:
-          path: ${{ env.FLATPAK_STATE_DIR }}
-          key: ${{ steps.dependency-cache.outputs.cache-primary-key }}
-
-      - name: Resolve application cache key
-        id: application-cache-key
-        run: echo "week=$(date -u +%G-W%V)" >> "${GITHUB_OUTPUT}"
-
-      - name: Restore Flatpak application cache
-        id: application-cache
-        uses: actions/cache/restore@v6
-        with:
-          path: |
-            ${{ env.FLATPAK_STATE_DIR }}/ccache/cargo-home
-            ${{ env.FLATPAK_STATE_DIR }}/ccache/cargo-target
-          key: flatpak-application-ubuntu-24.04-${{ runner.arch }}-cuda-${{ env.CUDA_VERSION }}-${{ hashFiles('Cargo.lock', 'Makefile', 'rust-toolchain.toml', 'dev.shrimply.Shrimply.yml', 'packaging/flatpak/nvcc-g++') }}-${{ steps.application-cache-key.outputs.week }}
-          restore-keys: |
-            flatpak-application-ubuntu-24.04-${{ runner.arch }}-cuda-${{ env.CUDA_VERSION }}-${{ hashFiles('Cargo.lock', 'Makefile', 'rust-toolchain.toml', 'dev.shrimply.Shrimply.yml', 'packaging/flatpak/nvcc-g++') }}-
-            flatpak-application-ubuntu-24.04-${{ runner.arch }}-cuda-${{ env.CUDA_VERSION }}-
-
+      # Both builds must use the same manifest path: --state-dir keys the cache by it.
       - name: Create Flatpak source archive
         id: source
         shell: bash
@@ -217,6 +163,61 @@ jobs:
             exit 1
           fi
           echo "manifest=${manifest}" >> "${GITHUB_OUTPUT}"
+
+      - name: Resolve dependency cache key
+        id: dependency-cache-key
+        run: |
+          sed '/^  - name: shrimply-gtk$/,$d' dev.shrimply.Shrimply.yml \
+            | sha256sum \
+            | cut -d ' ' -f 1 \
+            | sed 's/^/hash=/' >> "${GITHUB_OUTPUT}"
+
+      - name: Restore Flatpak dependency cache
+        id: dependency-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ env.FLATPAK_STATE_DIR }}
+          key: flatpak-dependencies-v2-ubuntu-24.04-${{ runner.arch }}-cuda-${{ env.CUDA_VERSION }}-${{ steps.dependency-cache-key.outputs.hash }}
+          restore-keys: |
+            flatpak-dependencies-v2-ubuntu-24.04-${{ runner.arch }}-cuda-${{ env.CUDA_VERSION }}-
+
+      - name: Prepare Flatpak dependencies
+        if: steps.dependency-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p "${FLATPAK_BUILD_DIR}" "${FLATPAK_STATE_DIR}"
+          flatpak-builder \
+            --user \
+            --ccache \
+            --disable-rofiles-fuse \
+            --force-clean \
+            --state-dir="${FLATPAK_STATE_DIR}" \
+            --install-deps-from=flathub \
+            --stop-at=shrimply-gtk \
+            "${FLATPAK_BUILD_DIR}" \
+            "${{ steps.source.outputs.manifest }}"
+
+      - name: Save Flatpak dependency cache
+        if: steps.dependency-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ env.FLATPAK_STATE_DIR }}
+          key: ${{ steps.dependency-cache.outputs.cache-primary-key }}
+
+      - name: Resolve application cache key
+        id: application-cache-key
+        run: echo "week=$(date -u +%G-W%V)" >> "${GITHUB_OUTPUT}"
+
+      - name: Restore Flatpak application cache
+        id: application-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            ${{ env.FLATPAK_STATE_DIR }}/ccache/cargo-home
+            ${{ env.FLATPAK_STATE_DIR }}/ccache/cargo-target
+          key: flatpak-application-ubuntu-24.04-${{ runner.arch }}-cuda-${{ env.CUDA_VERSION }}-${{ hashFiles('Cargo.lock', 'Makefile', 'rust-toolchain.toml', 'dev.shrimply.Shrimply.yml', 'packaging/flatpak/nvcc-g++') }}-${{ steps.application-cache-key.outputs.week }}
+          restore-keys: |
+            flatpak-application-ubuntu-24.04-${{ runner.arch }}-cuda-${{ env.CUDA_VERSION }}-${{ hashFiles('Cargo.lock', 'Makefile', 'rust-toolchain.toml', 'dev.shrimply.Shrimply.yml', 'packaging/flatpak/nvcc-g++') }}-
+            flatpak-application-ubuntu-24.04-${{ runner.arch }}-cuda-${{ env.CUDA_VERSION }}-
 
       - name: Build Flatpak
         run: |
