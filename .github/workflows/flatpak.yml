@@ -127,42 +127,12 @@ jobs:
             /usr/local/rustup
           key: ${{ steps.rust-cache.outputs.cache-primary-key }}
 
-      - name: Configure Flathub
+      - name: Install GNOME SDK
         run: |
           flatpak remote-add --user --if-not-exists flathub \
             https://dl.flathub.org/repo/flathub.flatpakrepo
-
-      - name: Resolve GNOME runtime revision
-        id: gnome-runtime
-        run: |
-          sdk_commit="$(flatpak remote-info --user --show-commit flathub "org.gnome.Sdk//${GNOME_RUNTIME_VERSION}")"
-          platform_commit="$(flatpak remote-info --user --show-commit flathub "org.gnome.Platform//${GNOME_RUNTIME_VERSION}")"
-          echo "revision=${sdk_commit}-${platform_commit}" >> "${GITHUB_OUTPUT}"
-
-      - name: Restore GNOME runtime
-        id: runtime-cache
-        uses: actions/cache/restore@v6
-        with:
-          path: ~/.local/share/flatpak
-          key: flatpak-runtime-ubuntu-24.04-${{ runner.arch }}-gnome-${{ env.GNOME_RUNTIME_VERSION }}-${{ steps.gnome-runtime.outputs.revision }}
-          restore-keys: |
-            flatpak-runtime-ubuntu-24.04-${{ runner.arch }}-gnome-${{ env.GNOME_RUNTIME_VERSION }}-
-
-      - name: Install GNOME runtime
-        run: |
-          flatpak install --user --noninteractive flathub \
-            "org.gnome.Sdk//${GNOME_RUNTIME_VERSION}" \
-            "org.gnome.Platform//${GNOME_RUNTIME_VERSION}"
-          flatpak update --user --noninteractive \
-            "org.gnome.Sdk//${GNOME_RUNTIME_VERSION}" \
-            "org.gnome.Platform//${GNOME_RUNTIME_VERSION}"
-
-      - name: Save GNOME runtime
-        if: steps.runtime-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v6
-        with:
-          path: ~/.local/share/flatpak
-          key: ${{ steps.runtime-cache.outputs.cache-primary-key }}
+          flatpak install --user --assumeyes --noninteractive flathub \
+            "org.gnome.Sdk//${GNOME_RUNTIME_VERSION}"
 
       - name: Resolve build cache key
         id: build-cache-key
