@@ -152,7 +152,7 @@ impl CanvasView {
                 }
             };
             match event {
-                Ok(Event::Progress(progress)) => {
+                Event::Progress(progress) => {
                     let (label, current, total) = match progress {
                         ExportProgress::MixingAudio {
                             current_frame,
@@ -219,7 +219,7 @@ impl CanvasView {
                     });
                     return Ok(());
                 }
-                Ok(Event::Finished(result)) => result,
+                Event::Finished(result) => result,
             }
         };
         let task = self
