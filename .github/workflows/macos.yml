@@ -14,16 +14,16 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  CARGO_HOME: ${{ runner.temp }}/cargo
+  CARGO_HOME: ${{ github.workspace }}/.ci/cargo
   MACOS_APP: dist/Shrimply.app
   MACOS_ARCHIVE: dist/shrimply-macos-arm64.zip
   MACOSX_DEPLOYMENT_TARGET: "15.0"
-  RUSTUP_HOME: ${{ runner.temp }}/rustup
+  RUSTUP_HOME: ${{ github.workspace }}/.ci/rustup
 
 jobs:
   build-and-release:
     if: github.ref == 'refs/heads/main'
-    runs-on: macos-15-arm64
+    runs-on: macos-15
 
     steps:
       - uses: actions/checkout@v7
