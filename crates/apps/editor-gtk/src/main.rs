@@ -23,6 +23,8 @@ use shrimply_cross_ui_core::editor::{EditorSession, LoadEvent, ProjectLoader};
 use std::cell::{Cell, RefCell};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
+use std::sync::mpsc;
+use std::thread;
 use std::time::SystemTime;
 
 const DEFAULT_WINDOW_WIDTH: i32 = 1800;
@@ -101,15 +103,20 @@ fn build_ui(window: &adw::ApplicationWindow, project: project::Project) {
     let preferences = session.preferences.clone();
     let audio_levels = session.audio_levels.clone();
     let audio_player = session.audio_player.clone();
-    let mcp_server = RefCell::new(Some(
-        mcp::start(
-            project.clone(),
-            player_state.clone(),
-            selection_state.clone(),
-            preferences.clone(),
+    let mcp_server = RefCell::new(if std::env::var_os("FLATPAK_ID").is_some() {
+        tracing::info!("Live MCP bridge disabled in Flatpak");
+        None
+    } else {
+        Some(
+            mcp::start(
+                project.clone(),
+                player_state.clone(),
+                selection_state.clone(),
+                preferences.clone(),
+            )
+            .unwrap_or_else(|error| panic!("could not start live MCP bridge: {error}")),
         )
-        .unwrap_or_else(|error| panic!("could not start live MCP bridge: {error}")),
-    ));
+    });
     window.connect_destroy(move |_| {
         mcp_server.borrow_mut().take();
     });
@@ -303,12 +310,40 @@ fn begin_project_load(app: &adw::Application, path: PathBuf) {
         .default_width(LOADING_WINDOW_WIDTH)
         .default_height(LOADING_WINDOW_HEIGHT)
         .build();
-    window.set_content(Some(&project_loading_view(&path)));
+    window.set_content(Some(&project_loading_view_with_subtitle(
+        tr!("Compiling CUDA kernels…").as_ref(),
+    )));
     window.present();
 
-    let loader = Rc::new(RefCell::new(ProjectLoader::new(path)));
-    let event = loader.borrow_mut().begin();
-    handle_load_event(app, &window, loader, event);
+    let (sender, receiver) = mpsc::channel();
+    thread::spawn(move || {
+        let _ = sender.send(shrimply_video_cuda::gpu::preflight());
+    });
+    let app = app.clone();
+    let poll_window = window.clone();
+    window.add_tick_callback(move |_, _| match receiver.try_recv() {
+        Ok(Ok(())) => {
+            poll_window.set_content(Some(&project_loading_view(&path)));
+            let loader = Rc::new(RefCell::new(ProjectLoader::new(path.clone())));
+            let event = loader.borrow_mut().begin();
+            handle_load_event(&app, &poll_window, loader, event);
+            glib::ControlFlow::Break
+        }
+        Ok(Err(error)) => {
+            show_project_load_error(&app, &poll_window, "Could not initialize CUDA", &error);
+            glib::ControlFlow::Break
+        }
+        Err(mpsc::TryRecvError::Empty) => glib::ControlFlow::Continue,
+        Err(mpsc::TryRecvError::Disconnected) => {
+            show_project_load_error(
+                &app,
+                &poll_window,
+                "Could not initialize CUDA",
+                "CUDA kernel preflight worker stopped unexpectedly",
+            );
+            glib::ControlFlow::Break
+        }
+    });
 }
 
 fn handle_load_event(

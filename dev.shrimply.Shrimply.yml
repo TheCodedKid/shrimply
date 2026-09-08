@@ -136,10 +136,12 @@ modules:
         make install PREFIX=/app
         RUSTUP=/run/host/usr/local/cargo/bin/rustup
         CUDA_PTX_TARGET="${CUDA_PTX_TARGET}"
+      - rm /app/bin/shrimply-mcp
+      - test ! -e /app/bin/shrimply-mcp
       - test ! -e /app/bin/shrimply-qt
       - test ! -e /app/bin/shrimply-editor-qt
       - test ! -e /app/share/applications/dev.shrimply.Shrimply.Qt.desktop
     sources:
       - type: archive
-        path: /shrimply-source.tar
+        path: '@SHRIMPLY_SOURCE@'
         strip-components: 0

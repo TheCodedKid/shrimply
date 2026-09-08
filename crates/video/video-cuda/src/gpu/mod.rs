@@ -30,6 +30,41 @@ pub use frame::{CompositedFrameStorageKey, CompositedVideoFrame};
 const DISPLAY_GPU_MEMORY_RESERVE_DIVISOR: u64 = 16;
 const MIGRATE_ALL_REQUIRED_BYTES: u64 = u64::MAX;
 const RENDER_SUPERSEDED: &str = "video render superseded";
+const KERNEL_MODULES: &[(&str, &[u8])] = &[
+    ("preview", shrimply_render_cuda::PREVIEW),
+    ("export", shrimply_render_cuda::EXPORT),
+    ("background", shrimply_render_cuda::BACKGROUND),
+    ("Anime4K", shrimply_render_cuda::ANIME4K),
+    ("modifiers", shrimply_render_cuda::MODIFIERS),
+    ("blur modifiers", shrimply_render_cuda::MODIFIERS_BLUR),
+    (
+        "geometry modifiers",
+        shrimply_render_cuda::MODIFIERS_GEOMETRY,
+    ),
+    ("matte modifiers", shrimply_render_cuda::MODIFIERS_MATTE),
+    ("stabilization", shrimply_render_cuda::STABILIZATION),
+    ("mesh flow", shrimply_render_cuda::MESH_FLOW),
+];
+
+pub fn preflight() -> Result<(), String> {
+    configure_primary_context_flags()?;
+    let context = CudaContext::new(0).map_err(|error| format!("CUDA context: {error:?}"))?;
+    let mut modules = Vec::with_capacity(KERNEL_MODULES.len());
+    for (name, image) in KERNEL_MODULES {
+        modules.push(
+            context
+                .load_module_from_image(image)
+                .map_err(|error| format!("compile {name} CUDA module: {error:?}"))?,
+        );
+    }
+    tracing::info!(
+        image_format = shrimply_render_cuda::IMAGE_FORMAT,
+        image_target = shrimply_render_cuda::IMAGE_TARGET,
+        module_count = modules.len(),
+        "CUDA kernel preflight complete"
+    );
+    Ok(())
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ExportPixelFormat {
