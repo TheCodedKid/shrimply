@@ -19,6 +19,7 @@ finish-args:
   - --filesystem=host
   - --filesystem=/run/media
   - --filesystem=xdg-run/pipewire-0
+  - --env=CUDA_MODULE_LOADING=EAGER
 
 cleanup:
   - /include

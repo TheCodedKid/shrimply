@@ -304,16 +304,26 @@ fn connect_panel_toggle(
 
 fn begin_project_load(app: &adw::Application, path: PathBuf) {
     shrimply_gtk_components::icons::register_bundled();
+    let flatpak = std::env::var_os("FLATPAK_ID").is_some();
     let window = adw::ApplicationWindow::builder()
         .application(app)
         .title(tr!("Shrimply").as_ref())
         .default_width(LOADING_WINDOW_WIDTH)
         .default_height(LOADING_WINDOW_HEIGHT)
         .build();
-    window.set_content(Some(&project_loading_view_with_subtitle(
-        tr!("Compiling CUDA kernels…").as_ref(),
-    )));
+    window.set_content(Some(if flatpak {
+        project_loading_view_with_subtitle(tr!("Compiling CUDA kernels…").as_ref())
+    } else {
+        project_loading_view(&path)
+    }));
     window.present();
+
+    if !flatpak {
+        let loader = Rc::new(RefCell::new(ProjectLoader::new(path)));
+        let event = loader.borrow_mut().begin();
+        handle_load_event(app, &window, loader, event);
+        return;
+    }
 
     let (sender, receiver) = mpsc::channel();
     thread::spawn(move || {
