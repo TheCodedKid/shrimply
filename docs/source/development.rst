@@ -4,6 +4,10 @@ Development
 Requirements
 ------------
 
+Building Shrimply from source requires around 70GB or more of free disk space
+and a reasonably modern machine. Due to the complexity of the development
+setup, using a coding agent to help with setup is recommended.
+
 The current development setup targets Fedora and uses the Rust toolchain in
 ``rust-toolchain.toml``. Install the native dependencies with:
 
@@ -12,7 +16,9 @@ The current development setup targets Fedora and uses the Rust toolchain in
    $ make deps-fedora
 
 Initialize the Slang submodule before building. Slang compiles the compositor
-shaders to CUDA, and ``nvcc`` packages the current ``sm_86`` cubins.
+shaders to CUDA, and ``nvcc`` packages the CUDA artifacts. The supported CUDA
+Toolkit version is 12.9. In theory, NVIDIA GeForce GTX 900-series through RTX
+50-series GPUs should work, but this full range has not been verified.
 
 Build and check
 ---------------
