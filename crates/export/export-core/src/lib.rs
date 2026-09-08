@@ -1,14 +1,12 @@
 pub mod audio;
 pub mod json;
 pub mod output;
-#[cfg(feature = "video")]
 pub mod video;
 
-#[cfg(feature = "video")]
 use shrimply_math_media as math;
 use shrimply_project::project::{AssetSnapshot, Project};
 
-fn snapshot_assets(project: &Project) -> Result<Vec<AssetSnapshot>, String> {
+pub fn snapshot_assets(project: &Project) -> Result<Vec<AssetSnapshot>, String> {
     project
         .assets()
         .into_iter()
@@ -16,11 +14,11 @@ fn snapshot_assets(project: &Project) -> Result<Vec<AssetSnapshot>, String> {
         .collect()
 }
 
-fn ensure_assets_current(assets: &[AssetSnapshot]) -> Result<(), String> {
+pub fn ensure_assets_current(assets: &[AssetSnapshot]) -> Result<(), String> {
     assets.iter().try_for_each(AssetSnapshot::ensure_current)
 }
 
-fn verify_assets_current(assets: &[AssetSnapshot]) -> Result<(), String> {
+pub fn verify_assets_current(assets: &[AssetSnapshot]) -> Result<(), String> {
     assets.iter().try_for_each(AssetSnapshot::verify_current)
 }
 

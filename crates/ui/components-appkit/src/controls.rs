@@ -127,13 +127,16 @@ pub fn control_row_with_suffix(
         ),
         mtm,
     );
-    let preferred_width = label
+    label
         .widthAnchor()
-        .constraintEqualToConstant(measure.intrinsicContentSize().width);
-    preferred_width.setPriority(objc2_app_kit::NSLayoutPriorityDefaultHigh);
-    preferred_width.setActive(true);
+        .constraintGreaterThanOrEqualToConstant(measure.intrinsicContentSize().width)
+        .setActive(true);
+    label.setContentHuggingPriority_forOrientation(
+        objc2_app_kit::NSLayoutPriorityDefaultHigh,
+        NSLayoutConstraintOrientation::Horizontal,
+    );
     label.setContentCompressionResistancePriority_forOrientation(
-        NSLayoutPriorityDefaultLow,
+        NSLayoutPriorityRequired,
         NSLayoutConstraintOrientation::Horizontal,
     );
     row.addArrangedSubview(&label);

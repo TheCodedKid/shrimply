@@ -37,16 +37,16 @@ fn submenu(parent: &NSMenu, title: &str, mtm: MainThreadMarker) -> Retained<NSMe
     menu
 }
 
-pub fn export_menu(mtm: MainThreadMarker) -> Retained<NSMenu> {
+pub fn export_menu(editor: &Editor) -> Retained<NSMenu> {
+    let mtm = editor.mtm();
     let menu = NSMenu::initWithTitle(NSMenu::alloc(mtm), ns_string!("Export"));
     menu.setAutoenablesItems(false);
-    for (title, key) in [
-        ("Export video", "e"),
-        ("Export captions (YTT)", ""),
-        ("Export JSON", ""),
-    ] {
-        item(&menu, title, key, None, mtm);
+    let video = item(&menu, "Export video", "e", Some(sel!(exportVideo:)), mtm);
+    unsafe {
+        video.setTarget(Some(editor));
     }
+    item(&menu, "Export captions (YTT)", "", None, mtm);
+    item(&menu, "Export JSON", "", None, mtm);
     menu
 }
 
@@ -95,7 +95,7 @@ pub fn install(editor: &Editor) {
         .setKeyEquivalentModifierMask(NSEventModifierFlags::Command | NSEventModifierFlags::Shift);
     file.addItem(&NSMenuItem::separatorItem(mtm));
     let export = item(&file, "Export", "", None, mtm);
-    export.setSubmenu(Some(&export_menu(mtm)));
+    export.setSubmenu(Some(&export_menu(editor)));
     export.setEnabled(true);
     file.addItem(&NSMenuItem::separatorItem(mtm));
     item(&file, "Close Window", "w", Some(sel!(performClose:)), mtm);
@@ -162,7 +162,7 @@ pub fn toolbar_item(editor: &Editor, identifier: &NSString) -> Option<Retained<N
         item.setLabel(ns_string!("Export"));
         item.setToolTip(Some(ns_string!("Export")));
         item.setImage(Some(&layout::symbol("square.and.arrow.up", "Export")));
-        item.setMenu(&export_menu(editor.mtm()));
+        item.setMenu(&export_menu(editor));
         item.setShowsIndicator(true);
         item.setBordered(true);
         return Some(item.into_super());

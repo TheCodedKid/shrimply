@@ -101,6 +101,7 @@ pub(super) struct Compositor {
     sam2_analysis_target: Option<shrimply_video_core::sam2::analysis::AnalysisTarget>,
     sam2_proxy_buffer: Option<shrimply_render_metal::Buffer>,
     sam2_proxy_ready: Option<Vec<u8>>,
+    background_alpha: u8,
 }
 
 impl Compositor {
@@ -137,6 +138,13 @@ impl Compositor {
                 frame.time == time && !frame.loading && frame.accuracy.content_accurate()
             })
             .map(|frame| frame.image))
+    }
+
+    pub fn set_background_alpha(&mut self, background_alpha: u8) {
+        if self.background_alpha != background_alpha {
+            self.background_alpha = background_alpha;
+            self.invalidate();
+        }
     }
 
     pub fn set_exclusion(&mut self, excluded_item_id: Option<uuid::Uuid>) {
@@ -313,7 +321,12 @@ impl Compositor {
             .compute
             .as_mut()
             .expect("initialized Metal compositor")
-            .composite_buffers(&layers, plan.width, plan.height, 0)?;
+            .composite_buffers(
+                &layers,
+                plan.width,
+                plan.height,
+                u32::from(self.background_alpha) << 24,
+            )?;
         self.pending = Some(Pending {
             request_id,
             started,

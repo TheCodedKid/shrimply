@@ -9,6 +9,7 @@ cxx-qt.workspace = true
 cxx-qt-lib = { workspace = true, features = ["qt_full"] }
 shrimply-cross-ui-core = { path = "../../ui/cross-ui-core" }
 shrimply-export-core = { path = "../export-core" }
+shrimply-export-cuda = { path = "../export-cuda" }
 shrimply-i18n-qt = { path = "../../ui/i18n-qt" }
 shrimply-math-core = { path = "../../math/core" }
 shrimply-math-media = { path = "../../math/media" }

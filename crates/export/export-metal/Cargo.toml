@@ -1,0 +1,12 @@
+[package]
+name = "shrimply-export-metal"
+version = "0.1.0"
+edition = "2024"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+ffmpeg-next.workspace = true
+shrimply-export-core = { path = "../export-core" }
+shrimply-math-core = { path = "../../math/core" }
+shrimply-preview-metal = { path = "../../preview/preview-metal" }
+shrimply-project = { path = "../../project/project" }
+tracing.workspace = true

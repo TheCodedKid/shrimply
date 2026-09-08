@@ -187,6 +187,25 @@ define_class!(
     }
 
     impl Editor {
+        #[unsafe(method(exportVideo:))]
+        fn export_video(&self, _sender: Option<&objc2::runtime::AnyObject>) {
+            let result = self
+                .ivars()
+                .layout
+                .get()
+                .ok_or_else(|| "The editor layout is not ready.".to_string())
+                .and_then(|layout| {
+                    layout
+                        .canvases
+                        .first()
+                        .ok_or_else(|| "The editor has no canvas.".to_string())?
+                        .export_video()
+                });
+            if let Err(error) = result {
+                self.show_error(&error);
+            }
+        }
+
         #[unsafe(method(renderFrame:))]
         fn render_frame(&self, _timer: &objc2_foundation::NSTimer) {
             self.poll_blender_probe();

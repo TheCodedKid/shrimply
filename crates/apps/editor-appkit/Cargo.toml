@@ -12,6 +12,8 @@ block2.workspace = true
 tempfile.workspace = true
 objc2-uniform-type-identifiers = "0.3.2"
 shrimply-export-core = { path = "../../export/export-core", default-features = false }
+shrimply-export-appkit = { path = "../../export/export-appkit" }
+shrimply-export-metal = { path = "../../export/export-metal" }
 shrimply-support = { path = "../../support" }
 shrimply-skia-adw-core = { path = "../../ui/skia-adw-core" }
 shrimply-skia-metal = { path = "../../ui/skia-metal" }

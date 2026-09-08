@@ -19,6 +19,7 @@ use std::{
 mod context_audio;
 mod context_frame;
 mod context_menu;
+mod context_video;
 pub(super) mod preview;
 mod screen_recording;
 mod track_actions;
@@ -42,6 +43,7 @@ pub struct CanvasState {
     secondary_preview_active: Cell<bool>,
     relative_pan_active: Cell<bool>,
     audio_export: RefCell<Option<context_audio::AudioExport>>,
+    video_export: RefCell<Option<context_video::VideoExport>>,
     caption_speech_probe: RefCell<Option<context_menu::CaptionSpeechProbe>>,
     caption_speech_alert: RefCell<Option<Retained<objc2_app_kit::NSAlert>>>,
     transcription_probe: RefCell<Option<context_menu::TranscriptionProbe>>,
@@ -899,6 +901,7 @@ impl CanvasView {
         self.sync_tools();
         self.sync_paint_tools();
         self.poll_audio_export()?;
+        self.poll_video_export()?;
         self.poll_frame_capture()?;
         self.poll_caption_speech_probe()?;
         self.poll_transcription_probe()?;
@@ -1155,6 +1158,7 @@ pub fn new(
         secondary_preview_active: Cell::new(false),
         relative_pan_active: Cell::new(false),
         audio_export: RefCell::new(None),
+        video_export: RefCell::new(None),
         caption_speech_probe: RefCell::new(None),
         caption_speech_alert: RefCell::new(None),
         transcription_probe: RefCell::new(None),

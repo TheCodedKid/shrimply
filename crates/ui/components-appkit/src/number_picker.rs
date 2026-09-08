@@ -7,8 +7,8 @@ use objc2_app_kit::NSControlTextEditingDelegate;
 use objc2_app_kit::{
     NSButton, NSButtonType, NSColor, NSControlStateValueOn, NSCursor, NSEvent, NSEventMask,
     NSEventType, NSGraphicsContext, NSImage, NSImageView, NSLayoutConstraintOrientation,
-    NSLayoutPriorityDefaultLow, NSTextAlignment, NSTextField, NSTextFieldDelegate, NSTrackingArea,
-    NSTrackingAreaOptions, NSView,
+    NSLayoutPriorityDefaultHigh, NSLayoutPriorityDefaultLow, NSTextAlignment, NSTextField,
+    NSTextFieldDelegate, NSTrackingArea, NSTrackingAreaOptions, NSView,
 };
 use objc2_core_graphics::{CGAssociateMouseAndMouseCursorPosition, CGError};
 use objc2_foundation::{
@@ -698,9 +698,11 @@ impl NumberPickerBuilder {
         ] {
             constraint.setActive(true);
         }
-        view.widthAnchor()
-            .constraintGreaterThanOrEqualToConstant(NUMBER_MIN_WIDTH)
-            .setActive(true);
+        let minimum_width = view
+            .widthAnchor()
+            .constraintGreaterThanOrEqualToConstant(NUMBER_MIN_WIDTH);
+        minimum_width.setPriority(NSLayoutPriorityDefaultHigh);
+        minimum_width.setActive(true);
         view.setContentHuggingPriority_forOrientation(
             NSLayoutPriorityDefaultLow,
             NSLayoutConstraintOrientation::Horizontal,

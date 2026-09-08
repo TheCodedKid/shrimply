@@ -1,5 +1,6 @@
-pub use shrimply_export_core::{audio, video};
+pub use shrimply_export_core::audio;
 use shrimply_export_core::{json, output};
+pub use shrimply_export_cuda as video;
 use shrimply_gtk_components::tr;
 use shrimply_gtk_components::ui::I18nMenuExt;
 

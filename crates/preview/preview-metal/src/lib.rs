@@ -15,13 +15,47 @@ use shrimply_project::project::Project;
 use skia_safe::{Canvas, Image};
 use std::{
     collections::BTreeMap,
-    sync::{Arc, Condvar, Mutex},
+    sync::{
+        Arc, Condvar, Mutex,
+        atomic::{AtomicBool, Ordering},
+    },
     thread::{self, JoinHandle},
     time::{Duration, Instant},
 };
 
 const FRAME_POLL_INTERVAL: Duration = Duration::from_millis(1);
 const SLOW_FRAME_WARNING: Duration = Duration::from_secs(1);
+
+pub struct ExportRenderer {
+    compositor: compositor::Compositor,
+}
+
+impl ExportRenderer {
+    pub fn new(background_alpha: u8) -> Self {
+        let mut compositor = compositor::Compositor::default();
+        compositor.set_background_alpha(background_alpha);
+        Self { compositor }
+    }
+
+    pub fn render_rgba(
+        &mut self,
+        project: &Project,
+        time: Time,
+        cancelled: &AtomicBool,
+    ) -> Result<Vec<u8>, String> {
+        objc2::rc::autoreleasepool(|_| {
+            loop {
+                if cancelled.load(Ordering::Relaxed) {
+                    return Err("Export cancelled".to_string());
+                }
+                if let Some(image) = self.compositor.poll_accurate_image(project, time)? {
+                    return capture::rgba(&image, project.canvas_size);
+                }
+                thread::sleep(FRAME_POLL_INTERVAL);
+            }
+        })
+    }
+}
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 struct Target {

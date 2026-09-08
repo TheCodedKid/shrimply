@@ -1,22 +1,18 @@
 [package]
-name = "shrimply-export-core"
+name = "shrimply-export-cuda"
 version = "0.1.0"
 edition = "2024"
 
-[dependencies]
+[target.'cfg(not(target_os = "macos"))'.dependencies]
 ffmpeg-next.workspace = true
 libc.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 shrimply-audio = { path = "../../audio/audio" }
+shrimply-export-core = { path = "../export-core" }
 shrimply-math-color = { path = "../../math/color", features = ["gif"] }
 shrimply-math-core = { path = "../../math/core" }
 shrimply-math-media = { path = "../../math/media" }
 shrimply-project = { path = "../../project/project" }
-shrimply-video-core = { path = "../../video/video-core" }
-tempfile.workspace = true
+shrimply-video-cuda = { path = "../../video/video-cuda" }
 tracing.workspace = true
-
-[dev-dependencies]
-fastrand = "2"
-hound = "3"

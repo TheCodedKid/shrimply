@@ -1,3 +1,5 @@
+#![cfg(not(target_os = "macos"))]
+
 use std::collections::VecDeque;
 use std::ffi::CString;
 use std::path::PathBuf;
@@ -25,19 +27,9 @@ const DEFAULT_AUDIO_FRAME_SIZE: usize = 1024;
 const VIDEO_HW_POOL_SIZE: i32 = 32;
 const EXPORT_DEBUG_FRAME_PERIOD: u64 = 300;
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum ExportVideoCodec {
-    H264,
-    H265,
-    Gif,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum ExportContainer {
-    Mp4,
-    Mkv,
-    Gif,
-}
+pub use shrimply_export_core::video::{
+    ExportAudioEncoder, ExportContainer, ExportProgress, ExportVideoCodec,
+};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ExportRateControl {
@@ -80,13 +72,6 @@ pub enum ExportProfile {
     Main10,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum ExportAudioEncoder {
-    FdkAac,
-    Aac,
-    Opus,
-}
-
 #[derive(Clone, Debug)]
 pub struct ExportSettings {
     pub path: PathBuf,
@@ -113,25 +98,6 @@ pub struct ExportSettings {
     pub audio_bitrate_kbps: u32,
     pub maximum_temporal_decoders: usize,
     pub gpu_host_memory_gib: Fraction,
-}
-
-#[derive(Clone, Debug)]
-pub enum ExportProgress {
-    MixingAudio {
-        current_frame: u64,
-        total_frames: u64,
-    },
-    SettingUp(&'static str),
-    EncodingAudio {
-        current_frame: u64,
-        total_frames: u64,
-    },
-    EncodingVideo {
-        current_frame: u64,
-        total_frames: u64,
-        fps_milli: u64,
-    },
-    Finalizing,
 }
 
 #[derive(Serialize)]
@@ -226,11 +192,11 @@ where
     shrimply_video_cuda::validate_sam2_cache(&project)?;
     shrimply_video_cuda::validate_transparent_fill_cache(&project)?;
     validate_settings(&project, &settings)?;
-    crate::ensure_output_is_not_an_asset(&project, &settings.path)?;
-    let assets = crate::snapshot_assets(&project)?;
+    shrimply_export_core::ensure_output_is_not_an_asset(&project, &settings.path)?;
+    let assets = shrimply_export_core::snapshot_assets(&project)?;
     progress(ExportProgress::SettingUp("Stabilizing source video"));
     shrimply_video_cuda::video_stabilization::ensure_project(&project)?;
-    crate::ensure_assets_current(&assets)?;
+    shrimply_export_core::ensure_assets_current(&assets)?;
     check_cancelled(&cancelled)?;
     let _span = tracing::info_span!(
         "video_export",
@@ -252,7 +218,7 @@ where
         &cancelled,
         &mut progress,
     )?;
-    crate::ensure_assets_current(&assets)?;
+    shrimply_export_core::ensure_assets_current(&assets)?;
     let audio_mix_ns = audio_mix_started.elapsed().as_nanos();
     check_cancelled(&cancelled)?;
     let setup_started = Instant::now();
@@ -392,7 +358,7 @@ where
     let mut final_audio_packets = 0_usize;
     while let Some(mut packet) = audio_packets.pop_front() {
         check_cancelled(&cancelled)?;
-        crate::ensure_assets_current(&assets)?;
+        shrimply_export_core::ensure_assets_current(&assets)?;
         let audio_stream_index = audio_stream_index.expect("audio packets require an audio stream");
         let pts = packet.pts();
         let dts = packet.dts();
@@ -407,7 +373,7 @@ where
             })?;
         final_audio_packets += 1;
     }
-    crate::verify_assets_current(&assets)?;
+    shrimply_export_core::verify_assets_current(&assets)?;
     output
         .write_trailer()
         .map_err(|error| format!("Could not write export trailer: {error}"))?;
@@ -788,7 +754,7 @@ fn encode_video_packets(
 
     for frame_index in 0..frame_count {
         check_cancelled(cancelled)?;
-        crate::ensure_assets_current(assets)?;
+        shrimply_export_core::ensure_assets_current(assets)?;
         let frame_started = Instant::now();
         let position = time_from_frame(frame_index, settings.fps)
             .ok_or_else(|| "export frame exceeds the exact range".to_string())?;
@@ -798,7 +764,7 @@ fn encode_video_packets(
                 Ok(frame) => break frame,
                 Err(error) if error == EXPORT_ASSETS_LOADING => {
                     check_cancelled(cancelled)?;
-                    crate::ensure_assets_current(assets)?;
+                    shrimply_export_core::ensure_assets_current(assets)?;
                     std::thread::yield_now();
                 }
                 Err(error) => return Err(error),
@@ -905,7 +871,7 @@ fn encode_video_packets(
         });
     }
 
-    crate::ensure_assets_current(assets)?;
+    shrimply_export_core::ensure_assets_current(assets)?;
     encoder.send_eof().map_err(|error| error.to_string())?;
     let flushed = receive_video_packets(
         encoder,
