@@ -1,7 +1,11 @@
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
-use shrimply_math_core::Fraction;
+use shrimply_math_core::{Fraction, Time};
 use shrimply_math_geometry::Size2D;
+
+pub fn clamp_item_end_to_next_start(end: Time, next_start: Option<Time>) -> Time {
+    next_start.map_or(end, |next_start| end.min(next_start))
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct CanvasSize {
@@ -96,3 +100,29 @@ pub const PROJECT_PRESETS: &[ProjectPreset] = &[
     ProjectPreset::new("4K 30 FPS", 3840, 2160, 30),
     ProjectPreset::new("4K 60 FPS", 3840, 2160, 60),
 ];
+
+#[cfg(test)]
+mod tests {
+    use super::clamp_item_end_to_next_start;
+    use shrimply_math_core::Time;
+
+    #[test]
+    fn item_end_stops_at_next_item() {
+        assert_eq!(
+            clamp_item_end_to_next_start(Time::from_seconds(12), Some(Time::from_seconds(8))),
+            Time::from_seconds(8),
+        );
+    }
+
+    #[test]
+    fn item_end_is_unchanged_when_track_has_room() {
+        assert_eq!(
+            clamp_item_end_to_next_start(Time::from_seconds(8), Some(Time::from_seconds(12))),
+            Time::from_seconds(8),
+        );
+        assert_eq!(
+            clamp_item_end_to_next_start(Time::from_seconds(8), None),
+            Time::from_seconds(8),
+        );
+    }
+}

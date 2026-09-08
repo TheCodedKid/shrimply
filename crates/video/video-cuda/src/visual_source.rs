@@ -113,11 +113,11 @@ pub trait VisualElement {
         Ok(())
     }
 
-    fn take_manim_updates(&mut self) -> Vec<shrimply_state::manim_status::Update> {
+    fn take_manim_updates(&mut self) -> Vec<shrimply_manim_core::Update> {
         Vec::new()
     }
 
-    fn manim_status(&self, _error: Option<String>) -> Option<shrimply_state::manim_status::Update> {
+    fn manim_status(&self, _error: Option<String>) -> Option<shrimply_manim_core::Update> {
         None
     }
 

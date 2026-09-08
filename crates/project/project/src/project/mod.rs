@@ -88,7 +88,7 @@ pub use shrimply_paint_model::{
 pub use shrimply_project_core::{
     AudioClipTransitionCurve, COMMON_FRAME_RATES, CanvasSize, DEFAULT_CANVAS_SIZE,
     DEFAULT_PROJECT_FPS, FrameRate, MAX_CANVAS_DIMENSION, MIN_CANVAS_DIMENSION, PROJECT_PRESETS,
-    ProjectPreset, TransitionSide,
+    ProjectPreset, TransitionSide, clamp_item_end_to_next_start,
 };
 pub use timing::*;
 

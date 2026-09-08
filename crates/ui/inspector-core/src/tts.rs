@@ -465,7 +465,8 @@ impl InspectorController {
         item.track_id = 0;
         item.time_offset = Time::ZERO;
         item.source_duration = generation.duration;
-        item.end = next_start.map_or(generated_end, |next| generated_end.min(next));
+        item.end =
+            shrimply_project::project::clamp_item_end_to_next_start(generated_end, next_start);
         let duration = project.duration();
         shrimply_project::project::commit_edit(&project, "generate-tts");
         drop(project);

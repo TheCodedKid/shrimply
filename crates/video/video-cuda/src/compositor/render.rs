@@ -427,7 +427,7 @@ pub(super) struct FrameItemRenderer<'a> {
     pub(super) sequence_stack: Vec<Uuid>,
     pub(super) sequence_path: Vec<Uuid>,
     scope_positions: Vec<Time>,
-    manim_updates: Vec<shrimply_state::manim_status::Update>,
+    manim_updates: Vec<shrimply_manim_core::Update>,
     pub(super) decode_control: Option<&'a DecodeControl>,
     superseded: bool,
     pub(super) clip_transition: Option<ActiveClipTransition>,
