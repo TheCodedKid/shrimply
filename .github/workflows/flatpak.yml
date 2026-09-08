@@ -89,7 +89,7 @@ jobs:
             libz.so.1 \
             libzstd.so.1
           do
-            sudo ln -sf "/usr/lib/x86_64-linux-gnu/${library}" "/usr/local/libclang-deps/${library}"
+            sudo ln -sf "/run/host/usr/lib/x86_64-linux-gnu/${library}" "/usr/local/libclang-deps/${library}"
           done
 
           test -x "/usr/local/cuda-${CUDA_VERSION}/bin/nvcc"
