@@ -39,12 +39,9 @@ fn main() {
             let name = entry["name"].as_str().expect("kernel name");
             if let Some(library) = &library {
                 let metal_name = if name == "main" { "main_0" } else { name };
-                let function = library
+                library
                     .newFunctionWithName(&NSString::from_str(metal_name))
                     .unwrap_or_else(|| panic!("Metal module {module} omitted kernel {name}"));
-                device
-                    .newComputePipelineStateWithFunction_error(&function)
-                    .unwrap_or_else(|error| panic!("compile Metal compute kernel {name}: {error}"));
             }
             let group = entry["threadGroupSize"]
                 .as_array()
