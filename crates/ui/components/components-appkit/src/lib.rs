@@ -3,8 +3,8 @@
 mod action;
 mod controls;
 pub mod export_dialog;
-mod frame_graph;
 mod font_picker;
+mod frame_graph;
 mod host;
 mod inspector;
 mod number_picker;
@@ -19,8 +19,8 @@ pub use controls::{
     live_performance, modifier_menu, playback_shortcuts, row_stack, show_searchable_popover_at,
     split_button, switch_row,
 };
-pub use frame_graph::{FrameGraph, SharedFrameGraphState};
 pub use font_picker::{FontPicker, FontPickerBuilder, FontPickerItem};
+pub use frame_graph::{FrameGraph, SharedFrameGraphState};
 pub use host::ViewHost;
 pub use inspector::{ExpressionEditor, InspectorCard, InspectorGraphProperty};
 pub use number_picker::{

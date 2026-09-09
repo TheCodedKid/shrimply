@@ -11,6 +11,14 @@ pub const FRACTION_ZERO: Fraction =
 const FRAME_RATE_DECIMAL_SCALE: f64 = 1_000.0;
 const TIME_NANOSECONDS_PER_SECOND: i64 = 1_000_000_000;
 
+/// Convert cumulative gesture scales to the incremental logarithmic zoom input.
+pub fn pinch_magnification(scale: f64, previous_scale: f64) -> Option<f64> {
+    if !scale.is_finite() || scale <= 0.0 || !previous_scale.is_finite() || previous_scale <= 0.0 {
+        return None;
+    }
+    Some(scale.ln() - previous_scale.ln())
+}
+
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub struct Time {
     #[serde(

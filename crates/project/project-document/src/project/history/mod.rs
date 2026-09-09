@@ -174,7 +174,9 @@ pub fn shutdown_history() -> Result<(), String> {
 
 pub fn save_as(path: &Path) -> Result<(), String> {
     if !is_project_path(path) {
-        return Err("projects can only be saved as .shrimp, .sjson, or legacy .json files".to_string());
+        return Err(
+            "projects can only be saved as .shrimp, .sjson, or legacy .json files".to_string(),
+        );
     }
     let current_path = active_project_path();
     let path_changed = current_path != path;

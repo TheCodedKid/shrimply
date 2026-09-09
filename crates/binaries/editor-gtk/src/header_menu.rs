@@ -250,7 +250,12 @@ fn show_save_as_dialog(
     let formats = adw::ComboRow::builder()
         .title(tr!("Format").as_ref())
         .model(&model)
-        .selected(ProjectFormat::ALL.iter().position(|format| *format == current).expect("known project format") as u32)
+        .selected(
+            ProjectFormat::ALL
+                .iter()
+                .position(|format| *format == current)
+                .expect("known project format") as u32,
+        )
         .build();
     let group = adw::PreferencesGroup::new();
     group.add(&formats);
@@ -265,7 +270,12 @@ fn show_save_as_dialog(
     let session = session.clone();
     dialog.choose(Some(window), None::<&gio::Cancellable>, move |response| {
         if response == "choose" {
-            show_save_as_file_dialog(&parent, &toasts, &session, ProjectFormat::ALL[formats.selected() as usize]);
+            show_save_as_file_dialog(
+                &parent,
+                &toasts,
+                &session,
+                ProjectFormat::ALL[formats.selected() as usize],
+            );
         }
     });
 }
@@ -283,7 +293,8 @@ fn show_save_as_file_dialog(
     let filters = gio::ListStore::new::<gtk::FileFilter>();
     filters.append(&filter);
     let suggested = format.normalize_path(shrimply_cross_ui_core::editor::suggested_save_as_path());
-    let initial_name = suggested.file_name()
+    let initial_name = suggested
+        .file_name()
         .and_then(|name| name.to_str())
         .expect("save-as suggestion must have a file name")
         .to_string();
@@ -324,7 +335,8 @@ fn show_save_as_file_dialog(
                     confirm.add_response("replace", tr!("Replace").as_ref());
                     confirm.set_close_response("cancel");
                     confirm.set_default_response(Some("cancel"));
-                    confirm.set_response_appearance("replace", adw::ResponseAppearance::Destructive);
+                    confirm
+                        .set_response_appearance("replace", adw::ResponseAppearance::Destructive);
                     if confirm.choose_future(Some(&window)).await != "replace" {
                         return;
                     }

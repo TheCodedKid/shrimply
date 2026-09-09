@@ -7,7 +7,10 @@ use objc2_app_kit::{
 };
 use objc2_foundation::{NSArray, NSObject, NSObjectProtocol, NSString, NSURL, ns_string};
 use objc2_uniform_type_identifiers::{UTType, UTTypeData};
-use shrimply_cross_ui_core::{editor::{EditorSession, suggested_save_as_path}, project_save::ProjectFormat};
+use shrimply_cross_ui_core::{
+    editor::{EditorSession, suggested_save_as_path},
+    project_save::ProjectFormat,
+};
 use std::path::PathBuf;
 
 struct SaveDialogIvars {
@@ -44,7 +47,10 @@ pub(super) fn show(window: &NSWindow, session: &EditorSession) -> Result<(), Str
     let panel = NSSavePanel::savePanel(mtm);
     panel.setTitle(Some(ns_string!("Save Project As")));
     panel.setNameFieldStringValue(&NSString::from_str(
-        &suggested.file_name().expect("save suggestion has a filename").to_string_lossy(),
+        &suggested
+            .file_name()
+            .expect("save suggestion has a filename")
+            .to_string_lossy(),
     ));
     if let Some(parent) = suggested.parent() {
         panel.setDirectoryURL(NSURL::from_directory_path(parent).as_deref());
@@ -52,17 +58,29 @@ pub(super) fn show(window: &NSWindow, session: &EditorSession) -> Result<(), Str
     panel.setCanCreateDirectories(true);
     panel.setAllowsOtherFileTypes(false);
     let (row, formats) = shrimply_components_appkit::export_dialog::popup_row(
-        "Format", &ProjectFormat::ALL.map(ProjectFormat::label), 0, mtm,
+        "Format",
+        &ProjectFormat::ALL.map(ProjectFormat::label),
+        0,
+        mtm,
     );
-    formats.selectItemAtIndex(ProjectFormat::ALL.iter().position(|value| *value == format).expect("known project format") as isize);
+    formats.selectItemAtIndex(
+        ProjectFormat::ALL
+            .iter()
+            .position(|value| *value == format)
+            .expect("known project format") as isize,
+    );
     panel.setAccessoryView(Some(&row));
-    let dialog = SaveDialog::alloc(mtm).set_ivars(SaveDialogIvars { panel: panel.clone() });
+    let dialog = SaveDialog::alloc(mtm).set_ivars(SaveDialogIvars {
+        panel: panel.clone(),
+    });
     let dialog: Retained<SaveDialog> = unsafe { objc2::msg_send![super(dialog), init] };
     unsafe {
         formats.setTarget(Some(&dialog));
         formats.setAction(Some(sel!(formatChanged:)));
     }
-    unsafe { let _: () = objc2::msg_send![&dialog, formatChanged: &*formats]; }
+    unsafe {
+        let _: () = objc2::msg_send![&dialog, formatChanged: &*formats];
+    }
     let completion = StackBlock::new(move |response| {
         NSApplication::sharedApplication(mtm).stopModalWithCode(response);
     });
@@ -70,8 +88,12 @@ pub(super) fn show(window: &NSWindow, session: &EditorSession) -> Result<(), Str
     if panel.runModal() != NSModalResponseOK {
         return Ok(());
     }
-    let url = panel.URL().ok_or("The save panel returned no destination.")?;
-    let selected = url.to_file_path().ok_or("Projects must be saved to a local file.")?;
+    let url = panel
+        .URL()
+        .ok_or("The save panel returned no destination.")?;
+    let selected = url
+        .to_file_path()
+        .ok_or("Projects must be saved to a local file.")?;
     let _scope = ScopedUrl::new(url);
     let format = ProjectFormat::ALL[formats.indexOfSelectedItem() as usize];
     let path = format.normalize_path(selected.clone());

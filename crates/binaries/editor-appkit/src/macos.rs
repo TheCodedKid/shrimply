@@ -7,8 +7,8 @@ mod layout;
 mod loading;
 mod media;
 mod menus;
-mod settings;
 mod save;
+mod settings;
 mod timeline;
 
 use objc2::rc::Retained;

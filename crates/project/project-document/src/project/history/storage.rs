@@ -52,7 +52,9 @@ pub(super) fn write_project(path: &Path, project: &Project) -> Result<(), String
     } else if has_extension(path, "sjson") || has_extension(path, "json") {
         serialize_project_json(path, project)?
     } else {
-        return Err("projects can only be saved as .shrimp, .sjson, or legacy .json files".to_string());
+        return Err(
+            "projects can only be saved as .shrimp, .sjson, or legacy .json files".to_string(),
+        );
     };
     atomic_write(path, &bytes)
 }
