@@ -296,6 +296,10 @@ impl Session {
             }
         };
         drop(socket_dir);
+        // macOS inherits the listener's nonblocking mode on accepted sockets.
+        socket
+            .set_nonblocking(false)
+            .map_err(|error| format!("configure Blender worker socket: {error}"))?;
         socket
             .set_read_timeout(Some(MESSAGE_TIMEOUT))
             .map_err(|error| format!("configure Blender worker socket: {error}"))?;
