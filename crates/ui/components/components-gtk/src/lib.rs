@@ -14,6 +14,7 @@ pub mod i18n {
 }
 pub mod playback_shortcuts;
 pub mod project_open;
+pub mod project_save;
 pub mod project_settings;
 pub mod resource_pipeline;
 pub mod toast;

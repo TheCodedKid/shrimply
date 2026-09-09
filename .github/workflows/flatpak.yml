@@ -267,7 +267,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           short_sha="${GITHUB_SHA:0:12}"
-          tag="flatpak-${GITHUB_SHA}"
+          timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
+          tag="flatpak-${timestamp}"
           release_notes="${RUNNER_TEMP}/flatpak-release.md"
           {
             echo "Automated GTK Flatpak build of commit [\`${short_sha}\`](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA})."
@@ -287,7 +288,7 @@ jobs:
               "${FLATPAK_BUNDLE}#Shrimply GTK Flatpak" \
               "${FLATPAK_BUNDLE}.sha256#SHA-256 checksum" \
               --target "${GITHUB_SHA}" \
-              --title "Shrimply Flatpak ${short_sha}" \
+              --title "Shrimply Flatpak ${timestamp}" \
               --notes-file "${release_notes}" \
               --prerelease \
               --latest=false
