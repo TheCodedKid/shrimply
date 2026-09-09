@@ -325,7 +325,9 @@ fn show_save_as_file_dialog(
                     confirm.set_close_response("cancel");
                     confirm.set_default_response(Some("cancel"));
                     confirm.set_response_appearance("replace", adw::ResponseAppearance::Destructive);
-                    if confirm.choose_future(&window).await != "replace" { return; }
+                    if confirm.choose_future(Some(&window)).await != "replace" {
+                        return;
+                    }
                 }
                 if let Err(error) = session.save_as(destination) {
                     show_error_dialog(&window, "Could not save project", &error);

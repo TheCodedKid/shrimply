@@ -809,12 +809,3 @@ fn show_export_error(parent: &adw::ApplicationWindow, heading: &str, body: &str)
         |_| {},
     );
 }
-
-pub(crate) fn show_export_finished(
-    toasts: &adw::ToastOverlay,
-    parent: &adw::ApplicationWindow,
-    title: &str,
-    path: &std::path::Path,
-) {
-    shrimply_components_gtk::export_feedback::show_export_finished(toasts, parent, title, path);
-}
