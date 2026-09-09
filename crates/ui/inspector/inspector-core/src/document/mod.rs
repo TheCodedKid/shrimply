@@ -71,6 +71,7 @@ impl InspectorToggleAction {
 
 impl crate::InspectorController {
     pub fn poll_document_dependencies(&self) -> bool {
+        let blender = crate::video::blender::poll_metadata();
         let manim_scenes = crate::manim_parameters::poll_scenes();
         let media = self.media_metadata.borrow_mut().poll();
         let voices = self.voice_models.borrow_mut().poll();
@@ -80,12 +81,47 @@ impl crate::InspectorController {
         let tts = self.poll_tts();
         let fill = self.poll_transparent_fill_analysis();
         let caches = self.poll_visual_caches();
-        manim_scenes || media || voices || cameras || analysis || sam2 || tts || fill || caches
+        blender
+            || manim_scenes
+            || media
+            || voices
+            || cameras
+            || analysis
+            || sam2
+            || tts
+            || fill
+            || caches
     }
 
     pub fn document_snapshot(&self, server_url: &str) -> crate::InspectorSnapshot {
         let camera_models = crate::camera_source::cached_tracking_models(server_url);
-        let snapshot = self.snapshot_with_camera_models(camera_models.as_ref());
+        let mut snapshot = self.snapshot_with_camera_models(camera_models.as_ref());
+        if let Some(source) = snapshot
+            .video
+            .as_ref()
+            .and_then(|video| video.blender.as_ref())
+        {
+            let asset = shrimply_project_document::project::Asset::from(std::path::Path::new(
+                &source.asset,
+            ));
+            let metadata =
+                crate::video::blender::metadata(&asset, shrimply_blender_core::binary().as_deref());
+            if let crate::video::blender::MetadataState::Ready(metadata) = &metadata
+                && self
+                    .sync_blender_metadata(&snapshot.target, metadata)
+                    .unwrap_or_else(|error| {
+                        panic!("could not synchronize Blender metadata: {error}")
+                    })
+            {
+                snapshot = self.snapshot_with_camera_models(camera_models.as_ref());
+            }
+            let video = snapshot.video.as_mut().expect("Blender video is selected");
+            let source = video.blender.as_ref().expect("Blender source is selected");
+            video.visual.insert(
+                0,
+                crate::video::blender::card(&source.item, &source.asset, &metadata),
+            );
+        }
         if snapshot.video.as_ref().is_some_and(|video| {
             video.visual.iter().any(|card| {
                 card.section

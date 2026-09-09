@@ -371,11 +371,12 @@ pub fn inspect(
     if matches!(file_kind, FileKind::Python | FileKind::Blender) {
         let duration = if file_kind == FileKind::Blender {
             Time {
-                seconds: shrimply_blender_bridge::file_duration(path)?,
+                seconds: shrimply_blender_core::file_duration(path)?,
             }
         } else {
             default_visual_duration
         };
+        snapshot.verify_current()?;
         return Ok(MediaInfo {
             source,
             snapshot,

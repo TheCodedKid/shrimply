@@ -383,10 +383,18 @@ impl PreferencesStore {
                 maximum_gpu_host_memory_gib,
             )
         });
-        let blender_binary = conn.as_ref().and_then(|conn| {
-            let path = read_string_or_default(conn, KEY_BLENDER_BINARY, "", |_| true);
-            (!path.is_empty()).then(|| PathBuf::from(path))
-        });
+        let default_blender_binary = if cfg!(target_os = "macos") {
+            "/Applications/Blender.app/Contents/MacOS/Blender"
+        } else {
+            ""
+        };
+        let blender_binary = conn.as_ref().map_or_else(
+            || default_blender_binary.to_string(),
+            |conn| {
+                read_string_or_default(conn, KEY_BLENDER_BINARY, default_blender_binary, |_| true)
+            },
+        );
+        let blender_binary = (!blender_binary.is_empty()).then(|| PathBuf::from(blender_binary));
         Self {
             caption_font_size,
             caption_background_color,
@@ -894,14 +902,14 @@ pub fn normalize_server_url(value: &str) -> Result<String, &'static str> {
 }
 
 pub fn validate_blender_binary(path: &Path) -> Result<PathBuf, String> {
-    let path = shrimply_blender_bridge::canonical_binary(path)?;
-    shrimply_blender_bridge::probe(&path)?;
+    let path = shrimply_blender_core::canonical_binary(path)?;
+    shrimply_blender_core::probe(&path)?;
     Ok(path)
 }
 
 pub fn apply_blender_binary(store: &SharedPreferences, path: Option<PathBuf>) {
     set_blender_binary(store, path.as_deref());
-    shrimply_blender_bridge::set_binary(snapshot(store).blender_binary);
+    shrimply_blender_core::set_binary(snapshot(store).blender_binary);
 }
 
 pub use shrimply_compute_client::ServerStatus;

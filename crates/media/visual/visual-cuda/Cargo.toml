@@ -30,7 +30,7 @@ shrimply-3dgs-core = { workspace = true }
 shrimply-audio-engine = { workspace = true }
 shrimply-anime4k-cuda = { workspace = true }
 shrimply-profiling = { workspace = true }
-shrimply-blender-bridge = { workspace = true }
+shrimply-blender-core = { workspace = true }
 shrimply-background = { workspace = true }
 shrimply-project-evaluation = { workspace = true }
 shrimply-gpu-cuda-memory = { workspace = true }

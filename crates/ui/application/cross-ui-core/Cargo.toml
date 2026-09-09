@@ -9,7 +9,7 @@ gio.workspace = true
 glib.workspace = true
 shrimply-asset = { workspace = true }
 shrimply-audio-engine = { workspace = true }
-shrimply-blender-bridge = { workspace = true }
+shrimply-blender-core = { workspace = true }
 shrimply-i18n = { workspace = true }
 shrimply-math-core = { workspace = true }
 shrimply-kdenlive-parser = { workspace = true }

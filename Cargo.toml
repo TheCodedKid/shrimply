@@ -21,7 +21,7 @@ members = [
     "crates/ui/tts/tts-gtk",
     "crates/media/visual/background",
     "crates/diagnostics/profiling",
-    "crates/media/visual/blender/blender-bridge",
+    "crates/media/visual/blender/blender-core",
     "crates/project/property-model",
     "crates/project/project-evaluation",
     "crates/render/export/export-core",
@@ -161,7 +161,7 @@ shrimply-asset = { path = "crates/media/asset" }
 shrimply-audio-engine = { path = "crates/media/audio/audio-engine" }
 shrimply-audio-modifiers = { path = "crates/media/audio/audio-modifiers" }
 shrimply-background = { path = "crates/media/visual/background" }
-shrimply-blender-bridge = { path = "crates/media/visual/blender/blender-bridge" }
+shrimply-blender-core = { path = "crates/media/visual/blender/blender-core" }
 shrimply-components-appkit = { path = "crates/ui/components/components-appkit" }
 shrimply-components-core = { path = "crates/ui/components/components-core" }
 shrimply-components-demo-core = { path = "crates/ui/components/components-demo-core" }
@@ -278,7 +278,6 @@ base64 = "0.22"
 ash = "0.38"
 async-channel = "2"
 autodiff = "0.7"
-blend = "0.9"
 cached = { version = "3", default-features = false, features = ["ahash"] }
 cairo = { package = "cairo-rs", version = "0.22" }
 cint = "0.3"

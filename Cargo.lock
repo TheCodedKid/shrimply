@@ -317,16 +317,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b588b76d00fde79687d7646a9b5bdf3cc0f655e0bbd080335a95d7e96f3587da"
 
 [[package]]
-name = "blend"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "548147a6451245f701b36abe869ddb491fed68d4c26744749e551cf48e41bf4d"
-dependencies = [
- "linked-hash-map",
- "nom 7.1.3",
-]
-
-[[package]]
 name = "block-buffer"
 version = "0.10.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2951,12 +2941,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "linked-hash-map"
-version = "0.5.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0717cef1bc8b636c6e1c1bbdefc09e6322da8a9321966e8928ef80d20f7f770f"
-
-[[package]]
 name = "linux-raw-sys"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5494,10 +5478,9 @@ dependencies = [
 ]
 
 [[package]]
-name = "shrimply-blender-bridge"
+name = "shrimply-blender-core"
 version = "0.1.0"
 dependencies = [
- "blend",
  "libc",
  "serde",
  "serde_json",
@@ -5696,7 +5679,7 @@ dependencies = [
  "glib",
  "shrimply-asset",
  "shrimply-audio-engine",
- "shrimply-blender-bridge",
+ "shrimply-blender-core",
  "shrimply-editor-state",
  "shrimply-i18n",
  "shrimply-kdenlive-parser",
@@ -5820,7 +5803,7 @@ dependencies = [
  "serde_json",
  "shrimply-asset",
  "shrimply-audio-engine",
- "shrimply-blender-bridge",
+ "shrimply-blender-core",
  "shrimply-components-core",
  "shrimply-components-gtk",
  "shrimply-compute-client",
@@ -6102,7 +6085,7 @@ dependencies = [
  "shrimply-3dgs-core",
  "shrimply-audio-engine",
  "shrimply-audio-modifiers",
- "shrimply-blender-bridge",
+ "shrimply-blender-core",
  "shrimply-compute-client",
  "shrimply-editor-state",
  "shrimply-i18n",
@@ -6702,7 +6685,7 @@ version = "0.1.0"
 dependencies = [
  "libc",
  "rusqlite",
- "shrimply-blender-bridge",
+ "shrimply-blender-core",
  "shrimply-compute-client",
  "shrimply-i18n",
  "shrimply-math-color",
@@ -6720,7 +6703,7 @@ dependencies = [
  "gtk4",
  "libadwaita",
  "pango",
- "shrimply-blender-bridge",
+ "shrimply-blender-core",
  "shrimply-components-gtk",
  "shrimply-inspector-gtk",
  "shrimply-preferences-core",
@@ -7306,7 +7289,7 @@ dependencies = [
  "serde_json",
  "shrimply-3dgs-core",
  "shrimply-audio-engine",
- "shrimply-blender-bridge",
+ "shrimply-blender-core",
  "shrimply-components-skia",
  "shrimply-compute-client",
  "shrimply-cross-ui-theme",
@@ -7501,7 +7484,7 @@ dependencies = [
  "shrimply-affine-l1-stabilization",
  "shrimply-asset",
  "shrimply-background",
- "shrimply-blender-bridge",
+ "shrimply-blender-core",
  "shrimply-compute-client",
  "shrimply-drawing-skia",
  "shrimply-layered-image-loader",
@@ -7555,7 +7538,7 @@ dependencies = [
  "shrimply-asset",
  "shrimply-audio-engine",
  "shrimply-background",
- "shrimply-blender-bridge",
+ "shrimply-blender-core",
  "shrimply-compute-client",
  "shrimply-denoise-optix",
  "shrimply-drawing-skia",

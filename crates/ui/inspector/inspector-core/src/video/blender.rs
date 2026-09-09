@@ -18,7 +18,7 @@ const CAMERA_PATH: &str = "/content/camera";
 #[derive(Clone)]
 pub enum MetadataState {
     Loading,
-    Ready(Arc<shrimply_blender_bridge::Metadata>),
+    Ready(Arc<shrimply_blender_core::Metadata>),
     Failed(String),
 }
 
@@ -32,11 +32,11 @@ struct CacheKey {
 struct LoadedMetadata {
     key: CacheKey,
     snapshot: AssetSnapshot,
-    result: Result<Arc<shrimply_blender_bridge::Metadata>, String>,
+    result: Result<Arc<shrimply_blender_core::Metadata>, String>,
 }
 
 struct MetadataCache {
-    results: HashMap<CacheKey, Result<Arc<shrimply_blender_bridge::Metadata>, String>>,
+    results: HashMap<CacheKey, Result<Arc<shrimply_blender_core::Metadata>, String>>,
     pending: HashSet<CacheKey>,
     sender: mpsc::Sender<LoadedMetadata>,
     receiver: mpsc::Receiver<LoadedMetadata>,
@@ -55,14 +55,14 @@ impl Default for MetadataCache {
 }
 
 struct ResolvedMetadata<'a> {
-    pub scene: &'a shrimply_blender_bridge::SceneMetadata,
+    pub scene: &'a shrimply_blender_core::SceneMetadata,
     pub view_layer: String,
     pub camera: String,
 }
 
 fn resolve_metadata<'a>(
     blender: &BlenderItem,
-    metadata: &'a shrimply_blender_bridge::Metadata,
+    metadata: &'a shrimply_blender_core::Metadata,
 ) -> Option<ResolvedMetadata<'a>> {
     let scene = metadata
         .scenes
@@ -96,7 +96,7 @@ impl crate::InspectorController {
     pub fn sync_blender_metadata(
         &self,
         target: &crate::InspectorTarget,
-        metadata: &shrimply_blender_bridge::Metadata,
+        metadata: &shrimply_blender_core::Metadata,
     ) -> Result<bool, String> {
         let crate::InspectorTarget::Item(address) = target else {
             return Err("Blender metadata target is not an item".to_string());
@@ -165,7 +165,7 @@ pub fn metadata(source: &Asset, binary: Option<&Path>) -> MetadataState {
                 .binary
                 .as_deref()
                 .ok_or_else(|| "Choose a compatible Blender binary in Preferences".to_string())
-                .and_then(|binary| shrimply_blender_bridge::discover(binary, snapshot.path()))
+                .and_then(|binary| shrimply_blender_core::discover(binary, snapshot.path()))
                 .map(Arc::new);
             let _ = sender.send(LoadedMetadata {
                 key,
@@ -332,7 +332,7 @@ fn loading_controls(section: &mut InspectorSection, blender: &BlenderItem) {
 fn ready_controls(
     section: &mut InspectorSection,
     blender: &BlenderItem,
-    metadata: &shrimply_blender_bridge::Metadata,
+    metadata: &shrimply_blender_core::Metadata,
 ) {
     let Some(resolved) = resolve_metadata(blender, metadata) else {
         loading_controls(section, blender);

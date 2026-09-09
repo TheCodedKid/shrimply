@@ -107,7 +107,7 @@ impl EditorSession {
         });
         let preferences = preferences::open_with_defaults();
         let preference = preferences::snapshot(&preferences);
-        shrimply_blender_bridge::set_binary(preference.blender_binary);
+        shrimply_blender_core::set_binary(preference.blender_binary);
         shrimply_audio_engine::pneuma::set_server_url(&preference.compute_server_url);
         let audio_levels = Arc::new(shrimply_audio_engine::AudioLevels::default());
         let audio_player = Rc::new(shrimply_audio_engine::AudioPlayer::new(

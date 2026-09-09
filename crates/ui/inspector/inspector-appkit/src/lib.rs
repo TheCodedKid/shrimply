@@ -122,8 +122,8 @@ impl Inspector {
                 };
                 if *state.server_url.borrow() != preferences.compute_server_url {
                     state.server_url.replace(preferences.compute_server_url);
-                    state.dirty.set(true);
                 }
+                state.dirty.set(true);
             }
         });
         state.dirty.set(false);
