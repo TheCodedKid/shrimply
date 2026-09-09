@@ -413,6 +413,7 @@ fn with_name(family: &ProjectFontFamily, name: String) -> ProjectFontFamily {
 #[derive(Clone)]
 pub enum FamilyEdit {
     Append(ProjectFontFamily),
+    Replace { index: usize, family: ProjectFontFamily },
     Remove(usize),
     Move { index: usize, offset: isize },
 }
@@ -433,6 +434,7 @@ impl crate::InspectorController {
             .map_err(|error| format!("invalid font list: {error}"))?;
         let next = match edit {
             FamilyEdit::Append(family) => append_family(&families, family),
+            FamilyEdit::Replace { index, family } => replace_family(&families, index, family),
             FamilyEdit::Remove(index) => remove_family(&families, index),
             FamilyEdit::Move { index, offset } => move_family(&families, index, offset),
         };

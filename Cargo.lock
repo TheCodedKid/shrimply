@@ -5513,6 +5513,7 @@ dependencies = [
  "shrimply-math-color",
  "shrimply-math-core",
  "shrimply-math-interpolation",
+ "skia-safe",
  "uuid",
 ]
 
@@ -6081,6 +6082,7 @@ dependencies = [
  "shrimply-property-transfer",
  "shrimply-timeline-edit",
  "shrimply-tts",
+ "skia-safe",
 ]
 
 [[package]]

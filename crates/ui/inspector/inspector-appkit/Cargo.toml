@@ -21,3 +21,4 @@ shrimply-tts = { workspace = true }
 shrimply-timeline-edit = { workspace = true }
 shrimply-property-transfer = { workspace = true }
 serde_json.workspace = true
+skia-safe.workspace = true

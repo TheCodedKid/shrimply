@@ -436,9 +436,7 @@ pub fn preview_google_family(family: &GoogleFamily) -> Result<Typeface, String> 
             continue;
         }
         let data = limited_bytes(response)?;
-        if let Some(typeface) = manager.new_from_data(&data, None)
-            && typeface.unichar_to_glyph('A' as i32) != 0
-        {
+        if let Some(typeface) = manager.new_from_data(&data, None) {
             return Ok(typeface);
         }
     }
