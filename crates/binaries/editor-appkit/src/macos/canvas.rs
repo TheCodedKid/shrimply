@@ -897,6 +897,13 @@ impl CanvasView {
         glam::Vec2::new(point.x as f32, point.y as f32)
     }
 
+    pub fn startup_status(&self) -> Result<shrimply_preview_render_metal::StartupStatus, String> {
+        match &*self.ivars().content.borrow() {
+            Content::Preview(preview) => preview.renderer.startup_status(),
+            _ => Ok(shrimply_preview_render_metal::StartupStatus::Ready),
+        }
+    }
+
     pub fn render(&self) -> Result<(), String> {
         self.sync_tools();
         self.sync_paint_tools();
