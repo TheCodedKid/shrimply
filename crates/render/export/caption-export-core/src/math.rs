@@ -5,6 +5,21 @@ pub const DEFAULT_FONT_SIZE: u32 = 32;
 const PERCENT: u32 = 100;
 const SECONDS_PER_MINUTE: u64 = 60;
 const MINUTES_PER_HOUR: u64 = 60;
+pub const MILLIS_PER_CENTISECOND: u64 = 10;
+
+pub fn reveal_intervals(offsets: impl Iterator<Item = u32>, duration: u64) -> Vec<(u64, u64)> {
+    let mut boundaries = offsets
+        .map(|millis| u64::from(millis) / MILLIS_PER_CENTISECOND)
+        .filter(|offset| *offset < duration)
+        .collect::<Vec<_>>();
+    boundaries.sort_unstable();
+    boundaries.dedup();
+    boundaries.push(duration);
+    boundaries
+        .windows(2)
+        .map(|pair| (pair[0], pair[1]))
+        .collect()
+}
 
 pub fn cue_ticks(item: &CaptionItem, scale: u32) -> Result<(u64, u64), String> {
     let start =

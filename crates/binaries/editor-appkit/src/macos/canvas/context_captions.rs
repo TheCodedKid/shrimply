@@ -72,8 +72,12 @@ impl CanvasView {
         alert.addButtonWithTitle(ns_string!("Show in Finder"));
         alert.addButtonWithTitle(ns_string!("Close"));
         if alert.runModal() == NSAlertFirstButtonReturn {
-            let urls = paths.iter().map(|path| NSURL::from_file_path(path)
-                .expect("exported paths are valid file URLs")).collect::<Vec<_>>();
+            let urls = paths
+                .iter()
+                .map(|path| {
+                    NSURL::from_file_path(path).expect("exported paths are valid file URLs")
+                })
+                .collect::<Vec<_>>();
             NSWorkspace::sharedWorkspace()
                 .activateFileViewerSelectingURLs(&NSArray::from_retained_slice(&urls));
         }

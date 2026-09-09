@@ -6,7 +6,9 @@ const CAPTION_OPTIONS_HEIGHT: f64 = 135.0;
 pub fn choose_caption_settings(parent: &NSWindow) -> Option<ExportSettings> {
     let mtm = parent.mtm();
     let sheet = export_dialog::new("Export Captions", CAPTION_OPTIONS_HEIGHT, mtm);
-    let content = sheet.contentView().expect("export dialog content installed");
+    let content = sheet
+        .contentView()
+        .expect("export dialog content installed");
     let labels = CaptionFormat::ALL.map(CaptionFormat::label);
     let (format_row, format) = popup_row("Format", &labels, 1, mtm);
     format.selectItemAtIndex(0);

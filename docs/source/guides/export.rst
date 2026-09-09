@@ -25,8 +25,8 @@ ruby annotations are omitted while their base text is retained.
 
 YTT preserves the existing YouTube styling, placement, ruby, and timed spans.
 ASS preserves emphasis, fonts, size, colors, opacity, placement, rotation, and
-karaoke timing. Edge effects are approximated with outlines and shadows; a
-background box takes precedence over an outline. ASS uses the project canvas
+timed text reveal using successive events. Edge effects are approximated with
+outlines and shadows; a background box takes precedence over an outline. ASS uses the project canvas
 dimensions and a 32-pixel base font scaled by each caption's font scale.
 
 VTT preserves emphasis, ruby, in-cue timestamps, supported CSS styling, and
