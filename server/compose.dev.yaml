@@ -1,0 +1,8 @@
+services:
+  server:
+    image: shrimply-server:dev-cuda${CUDA_VERSION:-12.6}
+    build:
+      context: .
+      args:
+        CUDA_VERSION: ${CUDA_VERSION:-12.6}
+        SHRIMPLY_SERVER_GIT_HASH: ${SHRIMPLY_SERVER_GIT_HASH:-}

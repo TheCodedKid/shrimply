@@ -41,7 +41,11 @@ impl AudioRecording {
         })
     }
 
-    pub fn finish(self, project: &RefCell<Project>, player: &SharedPlayerState) -> Result<(), String> {
+    pub fn finish(
+        self,
+        project: &RefCell<Project>,
+        player: &SharedPlayerState,
+    ) -> Result<(), String> {
         let finished = self.recording.finish()?;
         if finished.duration <= Time::ZERO {
             return Ok(());
