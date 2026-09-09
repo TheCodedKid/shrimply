@@ -413,9 +413,15 @@ fn with_name(family: &ProjectFontFamily, name: String) -> ProjectFontFamily {
 #[derive(Clone)]
 pub enum FamilyEdit {
     Append(ProjectFontFamily),
-    Replace { index: usize, family: ProjectFontFamily },
+    Replace {
+        index: usize,
+        family: ProjectFontFamily,
+    },
     Remove(usize),
-    Move { index: usize, offset: isize },
+    Move {
+        index: usize,
+        offset: isize,
+    },
 }
 
 impl crate::InspectorController {

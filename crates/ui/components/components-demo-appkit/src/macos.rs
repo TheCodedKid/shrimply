@@ -1,3 +1,5 @@
+mod fonts;
+
 use objc2::rc::{Retained, Weak};
 use objc2::runtime::ProtocolObject;
 use objc2::{DefinedClass, MainThreadOnly, define_class, msg_send};
@@ -166,6 +168,7 @@ fn build_showcase(mtm: MainThreadMarker) -> Tabs {
     Tabs::new(
         vec![
             ("General", general_page(log.clone(), mtm)),
+            ("Fonts", fonts::page(log.clone(), mtm)),
             ("Info", info_page(log, mtm)),
             ("Log", text_scroll(events, mtm).into_super()),
         ],

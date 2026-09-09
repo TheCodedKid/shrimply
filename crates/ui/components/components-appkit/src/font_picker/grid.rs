@@ -1,5 +1,11 @@
-use super::{FontPicker, State, preview::{Key, SPECIMEN_EDGE}};
-use objc2::{ClassType, DefinedClass, MainThreadOnly, define_class, msg_send, rc::Retained, runtime::ProtocolObject, sel};
+use super::{
+    FontPicker, State,
+    preview::{Key, SPECIMEN_EDGE},
+};
+use objc2::{
+    ClassType, DefinedClass, MainThreadOnly, define_class, msg_send, rc::Retained,
+    runtime::ProtocolObject, sel,
+};
 use objc2_app_kit::{
     NSAppearanceNameAqua, NSAppearanceNameDarkAqua, NSAutoresizingMaskOptions, NSBox, NSBoxType,
     NSCollectionView, NSCollectionViewDataSource, NSCollectionViewFlowLayout, NSCollectionViewItem,
@@ -7,7 +13,10 @@ use objc2_app_kit::{
     NSIndexPathNSCollectionViewAdditions, NSScrollView, NSSearchField, NSTextAlignment,
     NSTextField, NSTextFieldDelegate, NSView,
 };
-use objc2_foundation::{NSArray, NSData, NSEdgeInsets, NSIndexPath, NSInteger, NSNotification, NSObject, NSObjectProtocol, NSPoint, NSRect, NSSize, NSString, MainThreadMarker};
+use objc2_foundation::{
+    MainThreadMarker, NSArray, NSData, NSEdgeInsets, NSIndexPath, NSInteger, NSNotification,
+    NSObject, NSObjectProtocol, NSPoint, NSRect, NSSize, NSString,
+};
 use std::rc::Weak;
 
 const ITEM_SIZE: NSSize = NSSize::new(200.0, 240.0);
@@ -15,7 +24,9 @@ const CARD_Y: f64 = 54.0;
 const STATUS_TAG: NSInteger = 1;
 const CARD_TAG: NSInteger = 2;
 
-pub(super) struct Ivars { state: Weak<State> }
+pub(super) struct Ivars {
+    state: Weak<State>,
+}
 
 define_class!(
     #[unsafe(super(NSCollectionView))]
@@ -90,27 +101,51 @@ impl Delegate {
         if let Some(state) = self.ivars().state.upgrade() {
             let picker = FontPicker(state);
             if let Some(search) = &picker.0.on_search {
-                search(&picker, picker.0.search.stringValue().to_string(), immediate);
+                search(
+                    &picker,
+                    picker.0.search.stringValue().to_string(),
+                    immediate,
+                );
             }
         }
     }
 }
 
-pub(super) fn new(state: Weak<State>, scroll: &NSScrollView, search: &NSSearchField, mtm: MainThreadMarker) -> (Retained<Collection>, Retained<Delegate>) {
-    let grid = Collection::alloc(mtm).set_ivars(Ivars { state: state.clone() });
-    let grid: Retained<Collection> = unsafe { msg_send![super(grid), initWithFrame: scroll.bounds()] };
+pub(super) fn new(
+    state: Weak<State>,
+    scroll: &NSScrollView,
+    search: &NSSearchField,
+    mtm: MainThreadMarker,
+) -> (Retained<Collection>, Retained<Delegate>) {
+    let grid = Collection::alloc(mtm).set_ivars(Ivars {
+        state: state.clone(),
+    });
+    let grid: Retained<Collection> =
+        unsafe { msg_send![super(grid), initWithFrame: scroll.bounds()] };
     grid.setAutoresizingMask(NSAutoresizingMaskOptions::WidthSizable);
     grid.setSelectable(true);
     grid.setAllowsEmptySelection(true);
     grid.setAllowsMultipleSelection(false);
-    grid.setBackgroundColors(Some(&NSArray::from_slice(&[&*NSColor::controlBackgroundColor()])));
+    grid.setBackgroundColors(Some(&NSArray::from_slice(&[
+        &*NSColor::controlBackgroundColor(),
+    ])));
     let layout = NSCollectionViewFlowLayout::new(mtm);
     layout.setItemSize(ITEM_SIZE);
     layout.setMinimumInteritemSpacing(20.0);
     layout.setMinimumLineSpacing(24.0);
-    layout.setSectionInset(NSEdgeInsets { top: 24.0, left: 24.0, bottom: 24.0, right: 24.0 });
+    layout.setSectionInset(NSEdgeInsets {
+        top: 24.0,
+        left: 24.0,
+        bottom: 24.0,
+        right: 24.0,
+    });
     grid.setCollectionViewLayout(Some(&layout));
-    unsafe { grid.registerClass_forItemWithIdentifier(Some(NSCollectionViewItem::class()), &NSString::from_str("FontSpecimen")); }
+    unsafe {
+        grid.registerClass_forItemWithIdentifier(
+            Some(NSCollectionViewItem::class()),
+            &NSString::from_str("FontSpecimen"),
+        );
+    }
     let delegate = Delegate::alloc(mtm).set_ivars(Ivars { state });
     let delegate: Retained<Delegate> = unsafe { msg_send![super(delegate), init] };
     grid.setDataSource(Some(ProtocolObject::from_ref(&*delegate)));
@@ -125,7 +160,10 @@ pub(super) fn new(state: Weak<State>, scroll: &NSScrollView, search: &NSSearchFi
 
 fn build_card(item: &NSCollectionViewItem, mtm: MainThreadMarker) {
     let root = NSView::initWithFrame(NSView::alloc(mtm), NSRect::new(NSPoint::ZERO, ITEM_SIZE));
-    let card_frame = NSRect::new(NSPoint::new(10.0, CARD_Y), NSSize::new(SPECIMEN_EDGE, SPECIMEN_EDGE));
+    let card_frame = NSRect::new(
+        NSPoint::new(10.0, CARD_Y),
+        NSSize::new(SPECIMEN_EDGE, SPECIMEN_EDGE),
+    );
     let card = NSBox::initWithFrame(NSBox::alloc(mtm), card_frame);
     card.setBoxType(NSBoxType::Custom);
     card.setCornerRadius(20.0);
@@ -141,14 +179,20 @@ fn build_card(item: &NSCollectionViewItem, mtm: MainThreadMarker) {
     let name = NSTextField::wrappingLabelWithString(&NSString::from_str(""), mtm);
     name.setAlignment(NSTextAlignment::Center);
     name.setFont(Some(&NSFont::systemFontOfSize(15.0)));
-    name.setFrame(NSRect::new(NSPoint::ZERO, NSSize::new(ITEM_SIZE.width, 46.0)));
+    name.setFrame(NSRect::new(
+        NSPoint::ZERO,
+        NSSize::new(ITEM_SIZE.width, 46.0),
+    ));
     root.addSubview(&name);
     item.setTextField(Some(&name));
     let status = NSTextField::labelWithString(&NSString::from_str("Loading preview…"), mtm);
     status.setAlignment(NSTextAlignment::Center);
     status.setFont(Some(&NSFont::systemFontOfSize(11.0)));
     status.setTextColor(Some(&NSColor::secondaryLabelColor()));
-    status.setFrame(NSRect::new(NSPoint::new(14.0, CARD_Y + 8.0), NSSize::new(172.0, 18.0)));
+    status.setFrame(NSRect::new(
+        NSPoint::new(14.0, CARD_Y + 8.0),
+        NSSize::new(172.0, 18.0),
+    ));
     status.setTag(STATUS_TAG);
     root.addSubview(&status);
     item.setView(&root);
@@ -159,31 +203,67 @@ pub(super) fn refresh(picker: &FontPicker) {
     let scale = state.window.backingScaleFactor().ceil().max(1.0) as u32;
     let appearance = state.grid.effectiveAppearance();
     let dark = unsafe {
-        appearance.bestMatchFromAppearancesWithNames(&NSArray::from_slice(&[NSAppearanceNameAqua, NSAppearanceNameDarkAqua]))
+        appearance
+            .bestMatchFromAppearancesWithNames(&NSArray::from_slice(&[
+                NSAppearanceNameAqua,
+                NSAppearanceNameDarkAqua,
+            ]))
             .is_some_and(|name| *name == *NSAppearanceNameDarkAqua)
     };
     let changed = state.appearance.replace(Some((scale, dark))) != Some((scale, dark));
     let paths = state.grid.indexPathsForVisibleItems();
     let entries = state.items.borrow();
-    let visible = paths.iter().filter_map(|path| {
-        let entry = entries.get(path.item() as usize)?;
-        Some((path, entry, Key { id: entry.id.clone(), scale, dark }))
-    }).collect::<Vec<_>>();
+    let visible = paths
+        .iter()
+        .filter_map(|path| {
+            let entry = entries.get(path.item() as usize)?;
+            Some((
+                path,
+                entry,
+                Key {
+                    id: entry.id.clone(),
+                    scale,
+                    dark,
+                },
+            ))
+        })
+        .collect::<Vec<_>>();
     let mut previews = state.previews.borrow_mut();
     previews.visible(visible.iter().map(|(_, _, key)| key.clone()).collect());
     for (path, entry, key) in visible {
-        let Some(item) = state.grid.itemAtIndexPath(&path) else { continue; };
-        let card = item.view().viewWithTag(CARD_TAG).expect("font card").downcast::<NSBox>().expect("font card box");
-        card.setBorderColor(&if item.isSelected() { NSColor::controlAccentColor() } else { NSColor::separatorColor() });
+        let Some(item) = state.grid.itemAtIndexPath(&path) else {
+            continue;
+        };
+        let card = item
+            .view()
+            .viewWithTag(CARD_TAG)
+            .expect("font card")
+            .downcast::<NSBox>()
+            .expect("font card box");
+        card.setBorderColor(&if item.isSelected() {
+            NSColor::controlAccentColor()
+        } else {
+            NSColor::separatorColor()
+        });
         card.setBorderWidth(if item.isSelected() { 3.0 } else { 1.0 });
         let image = item.imageView().expect("font image");
-        if changed { image.setImage(None); }
-        if image.image().is_some() { continue; }
-        let status = item.view().viewWithTag(STATUS_TAG).expect("font status").downcast::<NSTextField>().expect("font status label");
+        if changed {
+            image.setImage(None);
+        }
+        if image.image().is_some() {
+            continue;
+        }
+        let status = item
+            .view()
+            .viewWithTag(STATUS_TAG)
+            .expect("font status")
+            .downcast::<NSTextField>()
+            .expect("font status label");
         match previews.get(&key, entry) {
             Some(Ok(bytes)) => {
                 let data = NSData::with_bytes(&bytes);
-                let preview = NSImage::initWithData(NSImage::alloc(), &data).expect("valid encoded font preview");
+                let preview = NSImage::initWithData(NSImage::alloc(), &data)
+                    .expect("valid encoded font preview");
                 preview.setSize(NSSize::new(SPECIMEN_EDGE, SPECIMEN_EDGE));
                 image.setImage(Some(&preview));
                 status.setStringValue(&NSString::from_str(entry.source.as_deref().unwrap_or("")));
@@ -192,7 +272,9 @@ pub(super) fn refresh(picker: &FontPicker) {
                 status.setStringValue(&NSString::from_str("Preview unavailable"));
                 item.view().setToolTip(Some(&NSString::from_str(&error)));
             }
-            None => { status.setStringValue(&NSString::from_str("Loading preview…")); }
+            None => {
+                status.setStringValue(&NSString::from_str("Loading preview…"));
+            }
         }
     }
 }

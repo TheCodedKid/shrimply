@@ -42,7 +42,8 @@ impl Previews {
             let load = load.clone();
             std::thread::spawn(move || {
                 loop {
-                    let Ok((key, item)) = receiver.lock().expect("preview receiver lock").recv() else {
+                    let Ok((key, item)) = receiver.lock().expect("preview receiver lock").recv()
+                    else {
                         break;
                     };
                     let result = if wanted.lock().expect("preview viewport lock").contains(&key) {
@@ -56,7 +57,13 @@ impl Previews {
                 }
             });
         }
-        Self { jobs: Some(jobs), results, wanted, pending: HashSet::new(), failures: HashMap::new() }
+        Self {
+            jobs: Some(jobs),
+            results,
+            wanted,
+            pending: HashSet::new(),
+            failures: HashMap::new(),
+        }
     }
 
     pub fn visible(&mut self, keys: HashSet<Key>) {
@@ -66,19 +73,27 @@ impl Previews {
             self.pending.remove(&key);
             match result {
                 Ok(bytes) => {
-                    let mut cache = CACHE.get_or_init(Mutex::default).lock().expect("preview cache lock");
+                    let mut cache = CACHE
+                        .get_or_init(Mutex::default)
+                        .lock()
+                        .expect("preview cache lock");
                     cache.retain(|(cached, _)| cached != &key);
                     cache.push_front((key, Arc::new(bytes)));
                     cache.truncate(CACHE_ENTRIES);
                 }
-                Err(error) if !error.is_empty() => { self.failures.insert(key, error); }
+                Err(error) if !error.is_empty() => {
+                    self.failures.insert(key, error);
+                }
                 Err(_) => {}
             }
         }
     }
 
     pub fn get(&mut self, key: &Key, item: &FontPickerItem) -> Option<Result<Pixels, String>> {
-        let mut cache = CACHE.get_or_init(Mutex::default).lock().expect("preview cache lock");
+        let mut cache = CACHE
+            .get_or_init(Mutex::default)
+            .lock()
+            .expect("preview cache lock");
         if let Some(index) = cache.iter().position(|(cached, _)| cached == key) {
             let entry = cache.remove(index).expect("cached preview index");
             let bytes = entry.1.clone();
@@ -105,38 +120,62 @@ impl Previews {
 }
 
 impl Drop for Previews {
-    fn drop(&mut self) { self.close(); }
+    fn drop(&mut self) {
+        self.close();
+    }
 }
 
 fn render(face: Typeface, key: &Key) -> Result<Vec<u8>, String> {
     // Check coverage before drawing: Skia must never substitute a different face.
-    let specimen = ["Aa", "漢", "あ", "한", "ع", "א", "क", "অ", "ਕ", "ક", "க", "క", "ಕ", "മ", "සි", "ก", "ກ", "က", "ក", "Ꭰ", "⠿", "😀", "☎", "∑"]
-        .into_iter()
-        .find(|sample| sample.chars().all(|c| face.unichar_to_glyph(c as i32) != 0))
-        .map(str::to_string)
-        .or_else(|| (0x21..=0xffff).filter_map(char::from_u32)
-            .find(|c| !c.is_control() && !c.is_whitespace() && face.unichar_to_glyph(*c as i32) != 0)
-            .map(|c| c.to_string()))
-        .ok_or_else(|| "This font has no displayable specimen".to_string())?;
+    let specimen = [
+        "Aa", "漢", "あ", "한", "ع", "א", "क", "অ", "ਕ", "ક", "க", "క", "ಕ", "മ", "සි", "ก", "ກ",
+        "က", "ក", "Ꭰ", "⠿", "😀", "☎", "∑",
+    ]
+    .into_iter()
+    .find(|sample| sample.chars().all(|c| face.unichar_to_glyph(c as i32) != 0))
+    .map(str::to_string)
+    .or_else(|| {
+        (0x21..=0xffff)
+            .filter_map(char::from_u32)
+            .find(|c| {
+                !c.is_control() && !c.is_whitespace() && face.unichar_to_glyph(*c as i32) != 0
+            })
+            .map(|c| c.to_string())
+    })
+    .ok_or_else(|| "This font has no displayable specimen".to_string())?;
     let scale = key.scale as f32;
     let edge = SPECIMEN_EDGE as f32;
     let pixels = (edge * scale) as i32;
-    let mut surface = surfaces::raster_n32_premul((pixels, pixels))
-        .ok_or("Could not allocate a font preview")?;
+    let mut surface =
+        surfaces::raster_n32_premul((pixels, pixels)).ok_or("Could not allocate a font preview")?;
     let canvas = surface.canvas();
     canvas.clear(Color::TRANSPARENT);
     canvas.scale((scale, scale));
     let mut paint = Paint::default();
     paint.set_anti_alias(true);
-    paint.set_color(if key.dark { Color::from_rgb(235, 235, 235) } else { Color::from_rgb(40, 40, 40) });
+    paint.set_color(if key.dark {
+        Color::from_rgb(235, 235, 235)
+    } else {
+        Color::from_rgb(40, 40, 40)
+    });
     let mut font = Font::new(face, SPECIMEN_SIZE);
     let (_, bounds) = font.measure_str(&specimen, Some(&paint));
     let available = edge - SPECIMEN_INSET * 2.0;
-    let fit = (available / bounds.width().max(1.0)).min(available / bounds.height().max(1.0)).min(1.0);
+    let fit = (available / bounds.width().max(1.0))
+        .min(available / bounds.height().max(1.0))
+        .min(1.0);
     font.set_size(SPECIMEN_SIZE * fit);
     let (_, bounds) = font.measure_str(&specimen, Some(&paint));
-    canvas.draw_str(&specimen, ((edge - bounds.width()) / 2.0 - bounds.left, (edge - bounds.height()) / 2.0 - bounds.top), &font, &paint);
-    skia_safe::png_encoder::encode(None, &surface.image_snapshot(), None)
+    canvas.draw_str(
+        &specimen,
+        (
+            (edge - bounds.width()) / 2.0 - bounds.left,
+            (edge - bounds.height()) / 2.0 - bounds.top,
+        ),
+        &font,
+        &paint,
+    );
+    skia_safe::png_encoder::encode_image(None, &surface.image_snapshot(), &Default::default())
         .map(|data| data.as_bytes().to_vec())
         .ok_or_else(|| "Could not encode a font preview".to_string())
 }

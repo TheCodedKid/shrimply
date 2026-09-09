@@ -19,3 +19,4 @@ shrimply-cross-ui-theme = { workspace = true }
 shrimply-keyframe-graph-skia = { workspace = true }
 shrimply-math-color = { workspace = true }
 shrimply-process-reporting = { workspace = true }
+skia-safe.workspace = true
