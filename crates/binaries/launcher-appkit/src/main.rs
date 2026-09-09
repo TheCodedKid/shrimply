@@ -9,6 +9,10 @@ fn main() -> std::process::ExitCode {
             eprintln!("usage: shrimply-appkit [PROJECT]");
             return std::process::ExitCode::FAILURE;
         }
+        let mtm = objc2_foundation::MainThreadMarker::new()
+            .expect("AppKit must start on the main thread");
+        let app = objc2_app_kit::NSApplication::sharedApplication(mtm);
+        assert!(app.setActivationPolicy(objc2_app_kit::NSApplicationActivationPolicy::Accessory));
         return match shrimply_cross_ui_core::launcher::launch_appkit_editor(std::path::Path::new(
             &path,
         ))
