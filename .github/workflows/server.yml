@@ -11,7 +11,7 @@ permissions:
 
 concurrency:
   group: server-prerelease
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 env:
   SERVER_IMAGE: ghcr.io/soirihiroka/shrimply-server
