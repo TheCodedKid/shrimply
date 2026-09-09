@@ -237,6 +237,15 @@ impl Renderer {
     }
 
     pub fn draw(&mut self, canvas: &Canvas, project: &Project, time: Time) -> Result<(), String> {
+        let result = self.prepare(project, time);
+        if let Some(image) = &self.presented {
+            canvas.draw_image(&image.image, (0.0, 0.0), None);
+        }
+        result
+    }
+
+    /// Request and collect preview frames without attaching an editor view to a window.
+    pub fn prepare(&mut self, project: &Project, time: Time) -> Result<(), String> {
         {
             let slots = self
                 .shared
@@ -312,10 +321,6 @@ impl Renderer {
             self.requested = Some(target);
             self.shared.wake.notify_one();
         }
-        drop(slots);
-        if let Some(image) = &self.presented {
-            canvas.draw_image(&image.image, (0.0, 0.0), None);
-        }
         self.error.clone().map_or(Ok(()), Err)
     }
 
@@ -336,7 +341,8 @@ impl Renderer {
         }
         Ok(if slots.warmup.is_none() {
             StartupStatus::CompilingShaders
-        } else if self.presented.is_some() && !self.loading(Time::ZERO) {
+        } else if self.requested.is_some() && self.presented.is_some() && !self.loading(Time::ZERO)
+        {
             StartupStatus::Ready
         } else {
             StartupStatus::PreparingPreview

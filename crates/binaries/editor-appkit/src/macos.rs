@@ -114,7 +114,6 @@ define_class!(
             window.setDelegate(Some(ProtocolObject::from_ref(self)));
             let loading = loading::View::new(&self.ivars().project_path, mtm);
             window.setContentView(Some(&loading.root));
-            loading.focus(&window);
             self.ivars().loading.replace(Some(loading));
             let toolbar = NSToolbar::initWithIdentifier(NSToolbar::alloc(mtm), ns_string!("Editor"));
             toolbar.setDisplayMode(NSToolbarDisplayMode::IconOnly);
@@ -234,6 +233,10 @@ define_class!(
             let update = session.poll();
             if let Some(error) = update.audio_playback_stopped { self.show_error(&error); }
             if let Some(title) = update.title { self.ivars().window.get().expect("window installed").setTitle(&NSString::from_str(&title.text)); }
+            if self.ivars().loading.borrow().is_some() {
+                self.poll_preview_startup();
+                return;
+            }
             let layout = self.ivars().layout.get().expect("layout installed");
             layout.inspector_controller.poll(self.mtm());
             let player = player_state::snapshot(&session.player_state);
@@ -248,19 +251,12 @@ define_class!(
 (Some(&layout::symbol(if player.playing { "pause.fill" } else { "play.fill" }, if player.playing { "Pause" } else { "Play" })));
             for canvas in &layout.canvases {
                 if let Err(error) = canvas.render() {
-                    if self.ivars().loading.borrow().is_some() {
-                        self.fail_startup(&error);
-                        return;
-                    }
                     player_state::set_playing(&session.player_state, false);
                     if self.ivars().last_error.borrow().as_ref() != Some(&error) {
                         self.ivars().last_error.replace(Some(error.clone()));
                         self.show_error(&error);
                     }
                 }
-            }
-            if self.ivars().loading.borrow().is_some() {
-                self.poll_preview_startup();
             }
         }
 

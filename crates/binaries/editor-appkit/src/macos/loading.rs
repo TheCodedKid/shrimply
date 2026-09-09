@@ -2,7 +2,7 @@ use super::*;
 use objc2_app_kit::{
     NSAutoresizingMaskOptions, NSColor, NSEvent, NSEventModifierFlags, NSEventType, NSFont,
     NSGraphicsContext, NSImage, NSImageInterpolation, NSImageScaling, NSImageView,
-    NSLayoutConstraint, NSStackView, NSUserInterfaceLayoutOrientation, NSView, NSViewController,
+    NSLayoutConstraint, NSStackView, NSUserInterfaceLayoutOrientation, NSView,
 };
 use objc2_foundation::{NSData, NSSize};
 use shrimply_project_document::project::{PreparedProject, ProjectLoadError};
@@ -12,7 +12,7 @@ const SHRIMP_SIZE: NSSize = NSSize::new(160.0, 180.0);
 const CONTENT_SPACING: f64 = 16.0;
 const SUBTITLE_WIDTH: f64 = 480.0;
 
-// AppKit handles GIF playback; only pixel interpolation and keyboard focus differ.
+// AppKit handles GIF playback; disable interpolation to preserve the pixel art.
 define_class!(
     #[unsafe(super(NSImageView))]
     #[thread_kind = MainThreadOnly]
@@ -28,11 +28,6 @@ define_class!(
             unsafe { let _: () = msg_send![super(self), drawRect: rect]; }
         }
 
-        #[unsafe(method(acceptsFirstResponder))]
-        fn accepts_first_responder(&self) -> bool { true }
-
-        #[unsafe(method(keyDown:))]
-        fn key_down(&self, _event: &NSEvent) {}
     }
 );
 
@@ -118,10 +113,6 @@ impl View {
     pub fn set_status(&self, status: &str) {
         self.subtitle.setStringValue(&NSString::from_str(status));
     }
-
-    pub fn focus(&self, window: &NSWindow) {
-        window.makeFirstResponder(Some(&self.image));
-    }
 }
 
 pub(super) type Preparation = Receiver<Result<PreparedProject, ProjectLoadError>>;
@@ -173,32 +164,11 @@ impl Editor {
                     .set(session)
                     .unwrap_or_else(|_| panic!("session already installed"));
                 let layout = layout::build(self);
-                let wrapper = NSViewController::new(self.mtm());
-                let root = NSView::initWithFrame(
-                    NSView::alloc(self.mtm()),
-                    window.contentView().expect("loading content view").bounds(),
-                );
-                wrapper.setView(&root);
-                wrapper.addChildViewController(&layout.root);
-                let editor_view = layout.root.view();
-                editor_view.setFrame(root.bounds());
-                editor_view.setAutoresizingMask(
-                    NSAutoresizingMaskOptions::ViewWidthSizable
-                        | NSAutoresizingMaskOptions::ViewHeightSizable,
-                );
-                root.addSubview(&editor_view);
-                let loading = self.ivars().loading.borrow();
-                let loading = loading.as_ref().expect("loading view installed");
-                loading.root.removeFromSuperview();
-                loading.root.setFrame(root.bounds());
-                root.addSubview(&loading.root);
-                window.setContentViewController(Some(&wrapper));
-                loading.focus(window);
+                // Keep editor controls out of the window until its first frame is ready.
                 self.ivars()
                     .layout
                     .set(layout)
                     .unwrap_or_else(|_| panic!("layout already installed"));
-                self.sync_panels();
             }
             Err(ProjectLoadError::LockedByOtherInstance { pid }) => {
                 let alert = NSAlert::new(self.mtm());
@@ -244,7 +214,7 @@ impl Editor {
             .expect("layout installed")
             .canvases
         {
-            match canvas.startup_status() {
+            match canvas.poll_startup() {
                 Err(error) => {
                     self.fail_startup(&error);
                     return;
@@ -277,8 +247,10 @@ impl Editor {
             .take()
             .expect("loading view installed");
         loading.image.setAnimates(false);
-        loading.root.removeFromSuperview();
         let window = self.ivars().window.get().expect("window installed");
+        let layout = self.ivars().layout.get().expect("layout installed");
+        layout.root.view().setFrame(loading.root.bounds());
+        window.setContentViewController(Some(&layout.root));
         window.makeFirstResponder(None);
         let toolbar = window.toolbar().expect("toolbar installed");
         for (index, identifier) in menus::toolbar_identifiers().iter().enumerate() {
