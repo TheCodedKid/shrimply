@@ -4,9 +4,10 @@ Contributions of code, documentation, translations, and other improvements are w
 
 ## AI-assisted contributions
 
-AI-assisted contributions are welcome. You are responsible for understanding,
-reviewing, and testing everything you submit, and for ensuring its quality,
-accuracy, security, and licensing, just as with any other contribution.
+AI-assisted contributions are welcome. However, you are responsible for understanding,
+reviewing, and testing everything you submit.
+
+Actually read the things you submitted. Have some basic courtesy.
 
 ## Translations
 
