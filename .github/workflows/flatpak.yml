@@ -38,6 +38,12 @@ jobs:
 
       - name: Install host build dependencies
         run: |
+          # Chrome is preinstalled on the runner but is not a build dependency.
+          for source in /etc/apt/sources.list.d/*; do
+            if grep -q 'dl.google.com/linux/chrome' "${source}"; then
+              sudo mv "${source}" "${source}.disabled"
+            fi
+          done
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends \
             ca-certificates \
