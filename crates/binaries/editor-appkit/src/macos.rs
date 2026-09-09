@@ -8,6 +8,7 @@ mod loading;
 mod media;
 mod menus;
 mod settings;
+mod save;
 mod timeline;
 
 use objc2::rc::Retained;
@@ -333,6 +334,15 @@ define_class!(
 
         fn save_project(&self, _sender: &NSObject) {
             if let Err(error) = self.ivars().session.get().expect("project loaded").save() { self.show_error(&error); }
+        }
+
+        #[unsafe(method(saveProjectAs:))]
+        fn save_project_as(&self, _sender: &NSObject) {
+            let window = self.ivars().window.get().expect("window created");
+            if !window.makeFirstResponder(None) { return; }
+            if let Err(error) = save::show(window, self.ivars().session.get().expect("project loaded")) {
+                self.show_error(&error);
+            }
         }
 
         #[unsafe(method(showAbout:))]

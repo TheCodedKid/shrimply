@@ -38,7 +38,7 @@ fn is_project_file(path: &Path) -> bool {
     path.extension()
         .and_then(OsStr::to_str)
         .is_some_and(|extension| {
-            extension.eq_ignore_ascii_case("shrimp") || extension.eq_ignore_ascii_case("json")
+            extension.eq_ignore_ascii_case("shrimp") || extension.eq_ignore_ascii_case("sjson") || extension.eq_ignore_ascii_case("json")
         })
 }
 

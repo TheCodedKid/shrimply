@@ -4,6 +4,7 @@ use gtk::gio;
 use shrimply_components_gtk::tr;
 use shrimply_components_gtk::ui::I18nMenuExt;
 use shrimply_cross_ui_core::editor::change_history;
+use shrimply_cross_ui_core::project_save::ProjectFormat;
 use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -242,12 +243,47 @@ fn show_save_as_dialog(
     toasts: &adw::ToastOverlay,
     session: &Rc<shrimply_cross_ui_core::editor::EditorSession>,
 ) {
+    let dialog = adw::AlertDialog::new(Some(tr!("Save Project As").as_ref()), None);
+    let labels = ProjectFormat::ALL.map(|format| tr!(format.label()).into_owned());
+    let model = gtk::StringList::new(&labels.iter().map(String::as_str).collect::<Vec<_>>());
+    let current = ProjectFormat::from_path(&project::active_project_path());
+    let formats = adw::ComboRow::builder()
+        .title(tr!("Format").as_ref())
+        .model(&model)
+        .selected(ProjectFormat::ALL.iter().position(|format| *format == current).expect("known project format") as u32)
+        .build();
+    let group = adw::PreferencesGroup::new();
+    group.add(&formats);
+    dialog.set_extra_child(Some(&group));
+    dialog.add_response("cancel", tr!("Cancel").as_ref());
+    dialog.add_response("choose", tr!("Choose File").as_ref());
+    dialog.set_close_response("cancel");
+    dialog.set_default_response(Some("choose"));
+    dialog.set_response_appearance("choose", adw::ResponseAppearance::Suggested);
+    let parent = window.clone();
+    let toasts = toasts.clone();
+    let session = session.clone();
+    dialog.choose(Some(window), None::<&gio::Cancellable>, move |response| {
+        if response == "choose" {
+            show_save_as_file_dialog(&parent, &toasts, &session, ProjectFormat::ALL[formats.selected() as usize]);
+        }
+    });
+}
+
+fn show_save_as_file_dialog(
+    window: &adw::ApplicationWindow,
+    toasts: &adw::ToastOverlay,
+    session: &Rc<shrimply_cross_ui_core::editor::EditorSession>,
+    format: ProjectFormat,
+) {
     let label = "Save Project As";
-    let filter = shrimply_components_gtk::project_open::project_file_filter();
+    let filter = gtk::FileFilter::new();
+    filter.set_name(Some(tr!(format.label()).as_ref()));
+    filter.add_pattern(&format!("*.{}", format.extension()));
     let filters = gio::ListStore::new::<gtk::FileFilter>();
     filters.append(&filter);
-    let initial_name = shrimply_cross_ui_core::editor::suggested_save_as_path()
-        .file_name()
+    let suggested = format.normalize_path(shrimply_cross_ui_core::editor::suggested_save_as_path());
+    let initial_name = suggested.file_name()
         .and_then(|name| name.to_str())
         .expect("save-as suggestion must have a file name")
         .to_string();
@@ -277,14 +313,29 @@ fn show_save_as_dialog(
                 );
                 return;
             };
-            if let Err(error) = session.save_as(path) {
-                show_error_dialog(&window, "Could not save project", &error);
-                return;
-            }
-            shrimply_components_gtk::toast::show_confirmation(
-                &toasts,
-                "Project saved to the new location",
-            );
+            gtk::glib::spawn_future_local(async move {
+                let destination = format.normalize_path(path.clone());
+                if destination != path && destination.exists() {
+                    let confirm = adw::AlertDialog::new(
+                        Some(tr!("Replace existing project?").as_ref()),
+                        Some(&destination.to_string_lossy()),
+                    );
+                    confirm.add_response("cancel", tr!("Cancel").as_ref());
+                    confirm.add_response("replace", tr!("Replace").as_ref());
+                    confirm.set_close_response("cancel");
+                    confirm.set_default_response(Some("cancel"));
+                    confirm.set_response_appearance("replace", adw::ResponseAppearance::Destructive);
+                    if confirm.choose_future(&window).await != "replace" { return; }
+                }
+                if let Err(error) = session.save_as(destination) {
+                    show_error_dialog(&window, "Could not save project", &error);
+                    return;
+                }
+                shrimply_components_gtk::toast::show_confirmation(
+                    &toasts,
+                    "Project saved to the new location",
+                );
+            });
         },
     );
 }

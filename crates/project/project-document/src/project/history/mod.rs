@@ -58,7 +58,7 @@ pub fn prepare_project_with_frame_grid_repair(
     acquire_project_lock(path).map_err(project_lock_error)?;
     let started = Instant::now();
     tracing::info!(path = %path.display(), "Loading project");
-    let outcome = if has_extension(path, "json") {
+    let outcome = if has_extension(path, "sjson") || has_extension(path, "json") {
         from_json_file_with_frame_grid_repair(path)
     } else {
         storage::read_project(path).and_then(|project| {
@@ -174,7 +174,7 @@ pub fn shutdown_history() -> Result<(), String> {
 
 pub fn save_as(path: &Path) -> Result<(), String> {
     if !is_project_path(path) {
-        return Err("projects can only be saved as .shrimp or .json files".to_string());
+        return Err("projects can only be saved as .shrimp, .sjson, or legacy .json files".to_string());
     }
     let current_path = active_project_path();
     let path_changed = current_path != path;
@@ -463,7 +463,7 @@ fn write_project(path: &Path, project: &Project) -> Result<(), String> {
 }
 
 fn is_project_path(path: &Path) -> bool {
-    has_extension(path, "shrimp") || has_extension(path, "json")
+    has_extension(path, "shrimp") || has_extension(path, "sjson") || has_extension(path, "json")
 }
 
 fn has_extension(path: &Path, expected: &str) -> bool {

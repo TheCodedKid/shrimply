@@ -1,7 +1,7 @@
 use shrimply_components_gtk::tr;
 use shrimply_components_gtk::ui::I18nMenuExt;
 pub use shrimply_export_core::audio;
-use shrimply_export_core::{json, output};
+use shrimply_export_core::output;
 pub use shrimply_export_cuda as video;
 
 pub use shrimply_components_gtk::desktop_open;
@@ -32,7 +32,6 @@ pub fn build_export_button(
     let menu = gio::Menu::new();
     menu.append_i18n("Export video", "export.video");
     menu.append_i18n("Export Captions…", "export.captions");
-    menu.append_i18n("Export JSON", "export.json");
 
     let actions = gio::SimpleActionGroup::new();
     add_menu_action(&actions, "video", {
@@ -41,12 +40,6 @@ pub fn build_export_button(
         let project = project.clone();
         let preferences = preferences.clone();
         move || open_export_page(&window, &toasts, project.clone(), preferences.clone())
-    });
-    add_menu_action(&actions, "json", {
-        let window = window.clone();
-        let project = project.clone();
-        let toasts = toasts.clone();
-        move || open_project_json_dialog(&window, &toasts, project.clone())
     });
     add_menu_action(&actions, "captions", {
         let window = window.clone();
@@ -803,84 +796,6 @@ fn update_video_export_progress(
             progress.set_text(Some(tr!("Finishing").as_ref()));
         }
     }
-}
-
-fn open_project_json_dialog(
-    parent: &adw::ApplicationWindow,
-    toasts: &adw::ToastOverlay,
-    project: Rc<RefCell<project::Project>>,
-) {
-    let default_name = output::default_filename(&project.borrow(), "json");
-    let label = "Export JSON";
-    let dialog = gtk::FileDialog::builder()
-        .title(tr!(label).as_ref())
-        .initial_name(&default_name)
-        .build();
-    let parent_for_save = parent.clone();
-    let parent_for_error = parent.clone();
-    let toasts = toasts.clone();
-    let project = project.clone();
-    shrimply_components_gtk::file_picker::save(
-        label,
-        &dialog,
-        Some(parent_for_save.upcast_ref::<gtk::Window>()),
-        move |result| {
-            let Some(file) = result.ok() else {
-                return;
-            };
-            let path = match file.path() {
-                Some(path) => path,
-                None => {
-                    show_export_error(
-                        &parent_for_error,
-                        "Could not export JSON",
-                        "Could not resolve the selected file path.",
-                    );
-                    return;
-                }
-            };
-            let path = output::ensure_extension(path, "json");
-
-            let project = project.borrow().clone();
-            let (sender, receiver) = std::sync::mpsc::channel();
-            thread::spawn(move || {
-                let result = json::export(&project, &path);
-                let _ = sender.send((path, result));
-            });
-
-            let parent = parent_for_error.downgrade();
-            let toasts = toasts.downgrade();
-            glib::timeout_add_local(Duration::from_millis(16), move || {
-                let result = match receiver.try_recv() {
-                    Ok(result) => result,
-                    Err(TryRecvError::Empty) => return glib::ControlFlow::Continue,
-                    Err(TryRecvError::Disconnected) => {
-                        let Some(parent) = parent.upgrade() else {
-                            return glib::ControlFlow::Break;
-                        };
-                        show_export_error(
-                            &parent,
-                            "Could not export JSON",
-                            "The JSON export worker stopped before reporting a result.",
-                        );
-                        return glib::ControlFlow::Break;
-                    }
-                };
-                let Some(parent) = parent.upgrade() else {
-                    return glib::ControlFlow::Break;
-                };
-                match result {
-                    (path, Ok(())) => {
-                        if let Some(toasts) = toasts.upgrade() {
-                            show_export_finished(&toasts, &parent, "JSON exported", &path);
-                        }
-                    }
-                    (_, Err(error)) => show_export_error(&parent, "Could not export JSON", &error),
-                }
-                glib::ControlFlow::Break
-            });
-        },
-    );
 }
 
 fn show_export_error(parent: &adw::ApplicationWindow, heading: &str, body: &str) {

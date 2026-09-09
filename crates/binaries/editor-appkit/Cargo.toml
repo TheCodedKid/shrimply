@@ -20,6 +20,7 @@ shrimply-components-skia = { workspace = true }
 shrimply-surface-metal-skia = { workspace = true }
 shrimply-cross-ui-theme = { workspace = true }
 shrimply-components-core = { workspace = true }
+shrimply-components-appkit.workspace = true
 shrimply-inspector-appkit = { workspace = true }
 skia-safe.workspace = true
 objc2.workspace = true
