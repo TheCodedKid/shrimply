@@ -203,7 +203,8 @@ impl FontPickerBuilder {
         ));
         for label in [&title, &count, &status] {
             label.setAutoresizingMask(
-                NSAutoresizingMaskOptions::MinYMargin | NSAutoresizingMaskOptions::WidthSizable,
+                NSAutoresizingMaskOptions::ViewMinYMargin
+                    | NSAutoresizingMaskOptions::ViewWidthSizable,
             );
             root.addSubview(label);
         }
@@ -219,7 +220,7 @@ impl FontPickerBuilder {
         )));
         search.setSendsWholeSearchString(true);
         search.setAutoresizingMask(
-            NSAutoresizingMaskOptions::MinYMargin | NSAutoresizingMaskOptions::WidthSizable,
+            NSAutoresizingMaskOptions::ViewMinYMargin | NSAutoresizingMaskOptions::ViewWidthSizable,
         );
         root.addSubview(&search);
         let scroll = NSScrollView::initWithFrame(
@@ -233,7 +234,8 @@ impl FontPickerBuilder {
             ),
         );
         scroll.setAutoresizingMask(
-            NSAutoresizingMaskOptions::WidthSizable | NSAutoresizingMaskOptions::HeightSizable,
+            NSAutoresizingMaskOptions::ViewWidthSizable
+                | NSAutoresizingMaskOptions::ViewHeightSizable,
         );
         scroll.setHasVerticalScroller(true);
         scroll.setAutohidesScrollers(true);
@@ -280,7 +282,7 @@ impl FontPickerBuilder {
         ));
         cancel
             .view()
-            .setAutoresizingMask(NSAutoresizingMaskOptions::MinXMargin);
+            .setAutoresizingMask(NSAutoresizingMaskOptions::ViewMinXMargin);
         root.addSubview(cancel.view());
         window.setContentView(Some(&root));
         parent.beginSheet_completionHandler(&window, None);

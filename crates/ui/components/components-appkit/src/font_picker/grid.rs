@@ -3,15 +3,16 @@ use super::{
     preview::{Key, SPECIMEN_EDGE},
 };
 use objc2::{
-    ClassType, DefinedClass, MainThreadOnly, define_class, msg_send, rc::Retained,
+    AnyThread, ClassType, DefinedClass, MainThreadOnly, define_class, msg_send, rc::Retained,
     runtime::ProtocolObject, sel,
 };
 use objc2_app_kit::{
-    NSAppearanceNameAqua, NSAppearanceNameDarkAqua, NSAutoresizingMaskOptions, NSBox, NSBoxType,
-    NSCollectionView, NSCollectionViewDataSource, NSCollectionViewFlowLayout, NSCollectionViewItem,
-    NSColor, NSControlTextEditingDelegate, NSEvent, NSFont, NSImage, NSImageScaling, NSImageView,
-    NSIndexPathNSCollectionViewAdditions, NSScrollView, NSSearchField, NSTextAlignment,
-    NSTextField, NSTextFieldDelegate, NSView,
+    NSAppearanceCustomization, NSAppearanceNameAqua, NSAppearanceNameDarkAqua,
+    NSAutoresizingMaskOptions, NSBox, NSBoxType, NSCollectionView, NSCollectionViewDataSource,
+    NSCollectionViewFlowLayout, NSCollectionViewItem, NSColor, NSControlTextEditingDelegate,
+    NSEvent, NSFont, NSImage, NSImageScaling, NSImageView, NSIndexPathNSCollectionViewAdditions,
+    NSScrollView, NSSearchField, NSSearchFieldDelegate, NSTextAlignment, NSTextField,
+    NSTextFieldDelegate, NSView,
 };
 use objc2_foundation::{
     MainThreadMarker, NSArray, NSData, NSEdgeInsets, NSIndexPath, NSInteger, NSNotification,
@@ -22,7 +23,6 @@ use std::rc::Weak;
 const ITEM_SIZE: NSSize = NSSize::new(200.0, 240.0);
 const CARD_Y: f64 = 54.0;
 const STATUS_TAG: NSInteger = 1;
-const CARD_TAG: NSInteger = 2;
 
 pub(super) struct Ivars {
     state: Weak<State>,
@@ -66,6 +66,7 @@ define_class!(
     pub(super) struct Delegate;
     unsafe impl NSObjectProtocol for Delegate {}
     unsafe impl NSTextFieldDelegate for Delegate {}
+    unsafe impl NSSearchFieldDelegate for Delegate {}
     unsafe impl NSControlTextEditingDelegate for Delegate {
         #[unsafe(method(controlTextDidChange:))]
         fn changed(&self, _notification: &NSNotification) { self.search(false); }
@@ -75,7 +76,7 @@ define_class!(
         fn count(&self, _collection: &NSCollectionView, _section: NSInteger) -> NSInteger {
             self.ivars().state.upgrade().map_or(0, |s| s.items.borrow().len() as NSInteger)
         }
-        #[unsafe(method(collectionView:itemForRepresentedObjectAtIndexPath:))]
+        #[unsafe(method_id(collectionView:itemForRepresentedObjectAtIndexPath:))]
         fn item(&self, collection: &NSCollectionView, path: &NSIndexPath) -> Retained<NSCollectionViewItem> {
             let item = collection.makeItemWithIdentifier_forIndexPath(&NSString::from_str("FontSpecimen"), path);
             if !item.isViewLoaded() { build_card(&item, self.mtm()); }
@@ -122,7 +123,7 @@ pub(super) fn new(
     });
     let grid: Retained<Collection> =
         unsafe { msg_send![super(grid), initWithFrame: scroll.bounds()] };
-    grid.setAutoresizingMask(NSAutoresizingMaskOptions::WidthSizable);
+    grid.setAutoresizingMask(NSAutoresizingMaskOptions::ViewWidthSizable);
     grid.setSelectable(true);
     grid.setAllowsEmptySelection(true);
     grid.setAllowsMultipleSelection(false);
@@ -170,7 +171,6 @@ fn build_card(item: &NSCollectionViewItem, mtm: MainThreadMarker) {
     card.setBorderWidth(1.0);
     card.setFillColor(&NSColor::controlBackgroundColor());
     card.setBorderColor(&NSColor::separatorColor());
-    card.setTag(CARD_TAG);
     root.addSubview(&card);
     let image = NSImageView::initWithFrame(NSImageView::alloc(mtm), card_frame);
     image.setImageScaling(NSImageScaling::ScaleProportionallyUpOrDown);
@@ -236,16 +236,20 @@ pub(super) fn refresh(picker: &FontPicker) {
         };
         let card = item
             .view()
-            .viewWithTag(CARD_TAG)
-            .expect("font card")
+            .subviews()
+            .objectAtIndex(0)
             .downcast::<NSBox>()
             .expect("font card box");
-        card.setBorderColor(&if item.isSelected() {
-            NSColor::controlAccentColor()
-        } else {
-            NSColor::separatorColor()
-        });
-        card.setBorderWidth(if item.isSelected() { 3.0 } else { 1.0 });
+        let border_width = if item.isSelected() { 3.0 } else { 1.0 };
+        if changed || card.borderWidth() != border_width {
+            let border_color = if item.isSelected() {
+                NSColor::controlAccentColor()
+            } else {
+                NSColor::separatorColor()
+            };
+            card.setBorderColor(&border_color);
+            card.setBorderWidth(border_width);
+        }
         let image = item.imageView().expect("font image");
         if changed {
             image.setImage(None);
