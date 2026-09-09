@@ -17,42 +17,25 @@ env:
   SERVER_IMAGE: ghcr.io/soirihiroka/shrimply-server
 
 jobs:
-  prepare:
+  build-and-release:
     if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-24.04
-    outputs:
-      timestamp: ${{ steps.release.outputs.timestamp }}
-    steps:
-      - name: Timestamp prerelease
-        id: release
-        run: echo "timestamp=$(date -u +%Y%m%dT%H%M%SZ)" >> "${GITHUB_OUTPUT}"
-
-  build:
-    needs: prepare
     runs-on: ubuntu-24.04
     permissions:
       contents: read
       packages: write
-    strategy:
-      fail-fast: false
-      matrix:
-        cuda: ["12.6", "13.0"]
     env:
-      CUDA_VERSION: ${{ matrix.cuda }}
-      IMAGE_TAG: prerelease-${{ needs.prepare.outputs.timestamp }}-cuda${{ matrix.cuda }}
+      CUDA_VERSION: "12.6"
     steps:
-      - name: Reclaim runner disk space
-        run: |
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
-          df -h /
-
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
 
+      - name: Timestamp prerelease
+        run: echo "IMAGE_TAG=prerelease-$(date -u +%Y%m%dT%H%M%SZ)-cuda12.6" >> "${GITHUB_ENV}"
+
       - uses: docker/setup-buildx-action@v4
 
-      - name: Build CUDA ${{ matrix.cuda }} image
+      - name: Build CUDA 12.6 image
         uses: docker/build-push-action@v7
         with:
           context: server
@@ -60,37 +43,34 @@ jobs:
           load: true
           tags: ${{ env.SERVER_IMAGE }}:${{ env.IMAGE_TAG }}
           build-args: |
-            CUDA_VERSION=${{ matrix.cuda }}
             SHRIMPLY_SERVER_GIT_HASH=${{ github.sha }}
-          cache-from: type=gha,scope=server-cuda${{ matrix.cuda }}
-          cache-to: type=gha,mode=max,scope=server-cuda${{ matrix.cuda }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/soirihiroka/shrimply
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=server-cuda12.6
+          cache-to: type=gha,mode=max,scope=server-cuda12.6
 
-      - name: Verify dependencies and CUDA runtime
-        run: |
-          docker run --rm --network none -e CUDA_VERSION "${SERVER_IMAGE}:${IMAGE_TAG}" \
-            /app/.venv/bin/python -c \
-            'import os, torch, torchvision, torchaudio, pycolmap; assert torch.version.cuda == os.environ["CUDA_VERSION"], torch.version.cuda'
-          git diff --exit-code -- server/pyproject.toml server/uv.lock
-
-      - name: Verify server startup and revision
+      - name: Verify runtime installation and server startup
         run: |
           docker run --detach --name server-smoke "${SERVER_IMAGE}:${IMAGE_TAG}"
           trap 'docker logs server-smoke; docker rm --force server-smoke' EXIT
           timeout 300 bash <<'SH'
-            until [[ "$(docker inspect --format "{{.State.Health.Status}}" server-smoke)" == healthy ]]; do
+            until docker exec server-smoke curl -fso /dev/null http://localhost:8787/; do
               [[ "$(docker inspect --format "{{.State.Status}}" server-smoke)" == running ]] || exit 1
               sleep 2
             done
           SH
           docker exec -e EXPECTED_SHA="${GITHUB_SHA}" -e CUDA_VERSION server-smoke \
             /app/.venv/bin/python -c '
-          import os, urllib.request, msgspec
+          import os, urllib.request, msgspec, torch, torchvision, torchaudio, pycolmap
+          assert torch.version.cuda == os.environ["CUDA_VERSION"], torch.version.cuda
           with urllib.request.urlopen("http://127.0.0.1:8787/", timeout=3) as response:
               status = msgspec.msgpack.decode(response.read())
           assert status["status"] == "ok", status
           assert status["server"]["git_hash"] == os.environ["EXPECTED_SHA"], status
           assert status["torch"]["cuda_runtime"] == os.environ["CUDA_VERSION"], status
           '
+          git diff --exit-code -- server/pyproject.toml server/uv.lock
 
       - uses: docker/login-action@v4
         with:
@@ -98,30 +78,11 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Publish timestamped prerelease
-        run: docker push "${SERVER_IMAGE}:${IMAGE_TAG}"
-
-  promote:
-    needs: [prepare, build]
-    runs-on: ubuntu-24.04
-    permissions:
-      packages: write
-    env:
-      RELEASE_TIMESTAMP: ${{ needs.prepare.outputs.timestamp }}
-    steps:
-      - uses: docker/setup-buildx-action@v4
-
-      - uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Advance rolling prereleases after both variants pass
+      - name: Publish prerelease
         run: |
-          for cuda_version in 12.6 13.0; do
-            timestamped="${SERVER_IMAGE}:prerelease-${RELEASE_TIMESTAMP}-cuda${cuda_version}"
-            rolling="${SERVER_IMAGE}:prerelease-cuda${cuda_version}"
-            docker buildx imagetools create --prefer-index=false --tag "${rolling}" "${timestamped}"
-            echo "- \`${rolling}\` → \`${timestamped}\`" >> "${GITHUB_STEP_SUMMARY}"
-          done
+          timestamped="${SERVER_IMAGE}:${IMAGE_TAG}"
+          rolling="${SERVER_IMAGE}:prerelease-cuda12.6"
+          docker push "${timestamped}"
+          docker tag "${timestamped}" "${rolling}"
+          docker push "${rolling}"
+          echo "Published ${timestamped} and ${rolling}" >> "${GITHUB_STEP_SUMMARY}"

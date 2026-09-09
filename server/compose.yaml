@@ -1,6 +1,6 @@
 services:
   server:
-    image: ghcr.io/soirihiroka/shrimply-server:${SHRIMPLY_SERVER_TAG:-prerelease-cuda${CUDA_VERSION:-12.6}}
+    image: ghcr.io/soirihiroka/shrimply-server:${SHRIMPLY_SERVER_TAG:-prerelease-cuda12.6}
     gpus: all
     network_mode: host
     volumes:
@@ -9,3 +9,9 @@ services:
       - ./.docker/huggingface:/root/.cache/huggingface
       - ./.docker/pneuma/models:/app/models
       - ./.docker/python:/root/.local/share/uv/python
+    healthcheck:
+      test: curl -fso /dev/null http://localhost:8787/
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5m

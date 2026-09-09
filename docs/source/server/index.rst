@@ -54,48 +54,43 @@ users, and stop the process to remove access.
 Containers
 ----------
 
-The Linux amd64 images include Python and server dependencies. The Compose
-configuration enables GPU access and preserves the virtual environment, uv
-cache, managed Python installation, and downloaded models between runs.
-Startup synchronizes the mounted environment against the image's lockfile.
-The host needs an NVIDIA driver compatible with the selected CUDA version and
+The Linux amd64 image installs Python and server dependencies when the container
+starts. The Compose configuration enables GPU access and preserves the virtual
+environment, uv cache, managed Python installation, and downloaded models
+between runs. Startup synchronizes the mounted environment against the image's
+lockfile.
+The host needs an NVIDIA driver compatible with CUDA 12.6 and
 NVIDIA Container Toolkit.
 
-Use the development Compose override to build locally with CUDA 12.6 (the
-default) or CUDA 13.0. It inherits the same persistent mounts:
+Use the development Compose override to build locally with CUDA 12.6.
+It inherits the same persistent mounts:
 
 .. code-block:: console
 
    $ cd server
    $ docker compose -f compose.yaml -f compose.dev.yaml up --build
-   $ CUDA_VERSION=13.0 docker compose -f compose.yaml -f compose.dev.yaml up --build
 
-CI publishes both variants to ``ghcr.io/soirihiroka/shrimply-server`` from
-``main``. The rolling tags are ``prerelease-cuda12.6`` and
-``prerelease-cuda13.0``. Pull and run a published image without building:
+CI publishes the image to ``ghcr.io/soirihiroka/shrimply-server`` from
+``main`` using the rolling tag ``prerelease-cuda12.6``.
+Pull and run a published image without building:
 
 .. code-block:: console
 
    $ docker compose pull
    $ docker compose up --no-build
-   $ CUDA_VERSION=13.0 docker compose pull
-   $ CUDA_VERSION=13.0 docker compose up --no-build
 
 Each CI run also publishes UTC timestamped tags, such as
-``prerelease-20260909T143000Z-cuda13.0``. To select a specific published build,
+``prerelease-20260909T143000Z-cuda12.6``. To select a specific published build,
 set ``SHRIMPLY_SERVER_TAG`` to its tag before pulling and starting:
 
 .. code-block:: console
 
-   $ export SHRIMPLY_SERVER_TAG=prerelease-20260909T143000Z-cuda13.0
+   $ export SHRIMPLY_SERVER_TAG=prerelease-20260909T143000Z-cuda12.6
    $ docker compose pull
    $ docker compose up --no-build
 
-CUDA 13.0 builds change the PyTorch index in the image's ``pyproject.toml`` and
-resolve from the existing lockfile, retaining compatible pins. The repository's
-``pyproject.toml`` and ``uv.lock`` remain on CUDA 12.6. Both images retain
-``pycolmap-cuda12`` for 3D tracking; the image variant identifies the PyTorch
-CUDA runtime. Model weights still download on first use.
+Startup installs dependencies from the committed ``uv.lock``.
+Model weights still download on first use.
 
 Compute features
 ----------------
