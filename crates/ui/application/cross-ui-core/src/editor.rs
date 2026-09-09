@@ -1,3 +1,4 @@
+use crate::project_save::ProjectFormat;
 use shrimply_editor_state::{player_state, preferences, preview_focus};
 use shrimply_math_core::Fraction;
 use shrimply_project_document::project::{self, CanvasSize, Project, ProjectPreparation};
@@ -107,7 +108,7 @@ impl EditorSession {
         });
         let preferences = preferences::open_with_defaults();
         let preference = preferences::snapshot(&preferences);
-        shrimply_blender_bridge::set_binary(preference.blender_binary);
+        shrimply_blender_core::set_binary(preference.blender_binary);
         shrimply_audio_engine::pneuma::set_server_url(&preference.compute_server_url);
         let audio_levels = Arc::new(shrimply_audio_engine::AudioLevels::default());
         let audio_player = Rc::new(shrimply_audio_engine::AudioPlayer::new(
@@ -209,10 +210,8 @@ impl EditorSession {
         project::save()
     }
 
-    pub fn save_as(&self, mut path: PathBuf) -> Result<PathBuf, String> {
-        if !has_extension(&path, "shrimp") {
-            path.set_extension("shrimp");
-        }
+    pub fn save_as(&self, path: PathBuf) -> Result<PathBuf, String> {
+        let path = ProjectFormat::from_path(&path).normalize_path(path);
         project::save_as(&path)?;
         let name = self.project.borrow().name.clone();
         if let Err(error) = shrimply_recent_projects::touch(&path, &name) {
@@ -259,11 +258,12 @@ pub fn change_history(
 
 pub fn suggested_save_as_path() -> PathBuf {
     let current = project::active_project_path();
+    let extension = ProjectFormat::from_path(&current).extension();
     let name = current
         .file_stem()
         .and_then(|name| name.to_str())
-        .map(|name| format!("{name} copy.shrimp"))
-        .unwrap_or_else(|| "project copy.shrimp".to_string());
+        .map(|name| format!("{name} copy.{extension}"))
+        .unwrap_or_else(|| format!("project copy.{extension}"));
     current.with_file_name(name)
 }
 

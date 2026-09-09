@@ -77,7 +77,7 @@ pub fn reload_asset(asset: &str, kind: ReloadKind) -> Result<(), String> {
     let source = shrimply_project_document::project::Asset::from(std::path::Path::new(asset));
     match kind {
         ReloadKind::Blender => {
-            shrimply_blender_bridge::invalidate_metadata(source.path());
+            shrimply_blender_core::invalidate_metadata(source.path());
             source
                 .mark_dirty()
                 .map_err(|error| format!("could not mark Blender source dirty: {error}"))

@@ -178,7 +178,7 @@ impl Scene {
                 .take()
                 .expect("active audio recording exists");
             let same_track = recording.key == key;
-            recording.finish(&mut self.project.borrow_mut(), &self.player)?;
+            recording.finish(&self.project, &self.player)?;
             if same_track {
                 return Ok(());
             }
@@ -311,7 +311,7 @@ impl Scene {
             return;
         };
         player_state::set_playing(&self.player, false);
-        if let Err(error) = recording.finish(&mut self.project.borrow_mut(), &self.player) {
+        if let Err(error) = recording.finish(&self.project, &self.player) {
             self.pending_errors.push_back(error);
         }
     }
@@ -579,8 +579,8 @@ impl Scene {
         self.finish_pointer_frame();
     }
 
-    /// Deltas use native input units and content motion coordinates; wheel direction is
-    /// translated by the host.
+    /// Queue scroll input for the next frame. Deltas use native input units and content
+    /// motion coordinates; wheel direction is translated by the host.
     pub fn scroll(&mut self, point: Vec2, delta: Vec2, zoom: bool, input: TimelineScrollInput) {
         self.pointer_pos = Some(point);
         self.pending_scrolls.push(TimelineScrollEvent {
@@ -589,7 +589,6 @@ impl Scene {
             pointer: Some(point),
             input,
         });
-        self.update_input();
     }
 
     pub fn magnify(&mut self, point: Vec2, magnification: f64) {

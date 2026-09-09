@@ -60,7 +60,7 @@ between runs.
 .. code-block:: console
 
    $ cd server
-   $ docker compose up --build
+   $ docker compose up
 
 Compute features
 ----------------

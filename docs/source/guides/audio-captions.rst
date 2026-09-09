@@ -6,7 +6,9 @@ Captions
 
 Caption tracks store timed text independently from visual and audio tracks.
 The inspector controls text, writing direction, layout, and appearance.
-Shrimply can import and export WebVTT captions.
+AppKit and GTK can export captions as YTT, ASS, SRT, VTT, or plain text (TXT).
+TXT contains caption text without timestamps. See :doc:`export` for formatting
+support and track export options.
 
 Transcription
 -------------

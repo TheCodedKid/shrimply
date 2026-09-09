@@ -106,7 +106,7 @@ struct Part {
     start_millis: u32,
 }
 
-fn document(items: &[&CaptionItem]) -> String {
+pub fn document(items: &[&CaptionItem]) -> String {
     let mut items = items
         .iter()
         .copied()

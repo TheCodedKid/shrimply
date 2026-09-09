@@ -20,7 +20,7 @@ num-traits.workspace = true
 pango = { workspace = true, features = ["v1_56"] }
 serde_json.workspace = true
 shrimply-audio-engine = { workspace = true }
-shrimply-blender-bridge = { workspace = true }
+shrimply-blender-core = { workspace = true }
 shrimply-asset = { workspace = true }
 shrimply-cross-ui-core = { workspace = true }
 shrimply-components-core = { workspace = true }

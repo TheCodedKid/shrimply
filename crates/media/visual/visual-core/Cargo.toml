@@ -20,7 +20,7 @@ shrimply-project-evaluation = { workspace = true }
 shrimply-visual-modifiers = { workspace = true }
 shrimply-math-color = { workspace = true }
 shrimply-asset = { workspace = true }
-shrimply-blender-bridge = { workspace = true }
+shrimply-blender-core = { workspace = true }
 shrimply-layered-image-loader = { workspace = true }
 shrimply-affine-l1-stabilization = { workspace = true, optional = true }
 shrimply-mesh-flow-stabilization = { workspace = true }

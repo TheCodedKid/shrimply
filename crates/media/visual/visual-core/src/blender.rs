@@ -35,13 +35,13 @@ pub struct Source {
     binary: Option<PathBuf>,
     session: SessionState,
     frame: Option<Arc<Frame>>,
-    rendered: Option<(Fraction, shrimply_blender_bridge::RenderMethod, CanvasSize)>,
+    rendered: Option<(Fraction, shrimply_blender_core::RenderMethod, CanvasSize)>,
 }
 
 enum SessionState {
     Idle,
-    Opening(mpsc::Receiver<Result<shrimply_blender_bridge::Session, String>>),
-    Ready(shrimply_blender_bridge::Session),
+    Opening(mpsc::Receiver<Result<shrimply_blender_core::Session, String>>),
+    Ready(shrimply_blender_core::Session),
     Failed(String),
 }
 
@@ -60,7 +60,7 @@ impl Source {
             preview_render_method: blender.preview_render_method,
             preview_downsample: blender.preview_downsample,
             canvas_size,
-            binary: shrimply_blender_bridge::binary(),
+            binary: shrimply_blender_core::binary(),
             session: SessionState::Idle,
             frame: None,
             rendered: None,
@@ -93,7 +93,7 @@ impl Source {
             std::thread::Builder::new()
                 .name("blender-startup".into())
                 .spawn(move || {
-                    let _ = sender.send(shrimply_blender_bridge::Session::open(&binary, &blend));
+                    let _ = sender.send(shrimply_blender_core::Session::open(&binary, &blend));
                 })
                 .map_err(|error| format!("Could not start Blender worker: {error}"))?;
             self.session = SessionState::Opening(receiver);
@@ -152,12 +152,12 @@ impl Source {
         } else {
             blender.preview_render_method
         } {
-            BlenderRenderMethod::Solid => shrimply_blender_bridge::RenderMethod::Solid,
+            BlenderRenderMethod::Solid => shrimply_blender_core::RenderMethod::Solid,
             BlenderRenderMethod::MaterialPreview => {
-                shrimply_blender_bridge::RenderMethod::MaterialPreview
+                shrimply_blender_core::RenderMethod::MaterialPreview
             }
             BlenderRenderMethod::SceneRenderer => {
-                shrimply_blender_bridge::RenderMethod::SceneRenderer
+                shrimply_blender_core::RenderMethod::SceneRenderer
             }
         };
         let downsample = if content_accurate {
@@ -174,7 +174,7 @@ impl Source {
         {
             return Ok(Status::Ready(frame.clone()));
         }
-        let rendered = match session.render(shrimply_blender_bridge::RenderRequest {
+        let rendered = match session.render(shrimply_blender_core::RenderRequest {
             scene: &scene_name,
             view_layer: &view_layer,
             camera: &camera,
@@ -228,6 +228,6 @@ impl Source {
             && self.preview_render_method == blender.preview_render_method
             && self.preview_downsample == blender.preview_downsample
             && self.canvas_size == canvas_size
-            && self.binary == shrimply_blender_bridge::binary()
+            && self.binary == shrimply_blender_core::binary()
     }
 }

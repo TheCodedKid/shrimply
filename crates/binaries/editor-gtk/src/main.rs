@@ -638,7 +638,7 @@ fn project_loading_view(path: &Path) -> adw::ToolbarView {
 }
 
 fn project_loading_view_with_subtitle(subtitle: &str) -> adw::ToolbarView {
-    let bytes = glib::Bytes::from_static(include_bytes!("../assets/loading-shrimp.gif"));
+    let bytes = glib::Bytes::from_static(include_bytes!("../../../../assets/loading-shrimp.gif"));
     let stream = gio::MemoryInputStream::from_bytes(&bytes);
     let animation = gdk_pixbuf::PixbufAnimation::from_stream(&stream, None::<&gio::Cancellable>)
         .expect("bundled loading animation should decode")

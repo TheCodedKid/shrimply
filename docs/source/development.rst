@@ -46,9 +46,12 @@ it does not replace the normal launcher or installation.
 ``make qt-build`` performs that debug build without launching it and writes the
 binary to ``target/debug/shrimply-qt``.
 
-``make check`` verifies native dependencies and CUDA artifacts, formatting,
-source size, the selected Rust binaries, Clippy, the server and Manim Python
-code, and this documentation site. The development launcher writes its log to
+``make check`` selects checks for the host platform. On Linux, it verifies native
+dependencies and CUDA artifacts, formatting, source size, the selected Rust
+binaries, Clippy, the server and Manim Python code, and this documentation site.
+On macOS, it runs the AppKit build, Rust checks, and Clippy, plus formatting and
+source-size checks; it skips Python and documentation checks. Other platforms
+are unsupported. The development launcher writes its log to
 ``target/shrimply-dev.log``.
 
 Build the documentation on its own with:

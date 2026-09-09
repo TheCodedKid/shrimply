@@ -1,7 +1,7 @@
 Shrimply Documentation
 ======================
 
-Shrimply brings your ideas to life.
+A simple yet powerful cross platform video editor.
 
 Shrimply is a free and open-source video editor for creating videos from start
 to finish, whether you are making a quick edit or something fancy.
@@ -10,39 +10,73 @@ Visit the `Shrimply repository on GitHub
 <https://github.com/soirihiroka/shrimply>`__ to browse the source code, report
 issues, and contribute.
 
-.. image:: img/editor-overview.png
-   :alt: Shrimply editor showing the inspector, video preview, and multitrack timeline
-   :width: 100%
-
-Start here
-----------
+Getting started
+---------------
 
 * :doc:`Getting started <getting-started>` explains how to launch Shrimply,
   create a project, edit the timeline, and export it.
 * :doc:`Editor <guides/editor>` describes the main workspaces and shortcuts.
-* :doc:`Importing and creating media <guides/media>` lists accepted sources
-  and the content Shrimply can generate.
-* :doc:`Manim <guides/manim>` explains how to use Python animation scenes and
-  expose their values in the inspector.
-* :doc:`Expressions <guides/expressions>` covers values and functions for
-  procedural and audio-reactive properties.
-* :doc:`Compute server <server/index>` covers optional AI and compute features.
-* :doc:`MCP integration <integrations/mcp>` documents live editor automation.
-* :doc:`Development <development>` contains the supported repository workflow.
 
 .. toctree::
    :maxdepth: 2
    :hidden:
-   :caption: Contents
+   :caption: Getting started
 
    getting-started
    guides/editor
+
+Editing
+-------
+
+* :doc:`Importing and creating media <guides/media>` lists accepted sources
+  and generated content, with guides for Blender, Kdenlive, and Manim.
+* :doc:`Effects and animation <guides/effects>` covers keyframes, visual and
+  audio effects, and 3D scenes.
+* :doc:`Expressions <guides/expressions>` covers values and functions for
+  procedural and audio-reactive properties.
+* :doc:`Audio and captions <guides/audio-captions>` explains caption editing,
+  audio processing, and lip sync.
+* :doc:`Export <guides/export>` describes output formats and encoder options.
+
+.. toctree::
+   :maxdepth: 2
+   :hidden:
+   :caption: Editing
+
    guides/media
    guides/effects
    guides/expressions
    guides/audio-captions
    guides/export
+
+Compute and automation
+----------------------
+
+* :doc:`Compute server <server/index>` covers setup and optional AI features.
+* :doc:`MCP integration <integrations/mcp>` documents live editor automation.
+
+.. toctree::
+   :maxdepth: 2
+   :hidden:
+   :caption: Compute and automation
+
    server/index
    integrations/mcp
+
+Project information
+-------------------
+
+* :doc:`Development <development>` contains the supported repository workflow.
+* :doc:`Licenses <licenses>` explains project and third-party licensing.
+
+.. toctree::
+   :maxdepth: 2
+   :hidden:
+   :caption: Project information
+
    development
    licenses
+
+.. image:: img/editor-overview.png
+   :alt: Shrimply editor showing the inspector, video preview, and multitrack timeline
+   :width: 100%

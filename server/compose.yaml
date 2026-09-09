@@ -1,9 +1,6 @@
 services:
   server:
-    build:
-      context: .
-      args:
-        SHRIMPLY_SERVER_GIT_HASH: ${SHRIMPLY_SERVER_GIT_HASH:-}
+    image: ghcr.io/soirihiroka/shrimply-server:${SHRIMPLY_SERVER_TAG:-prerelease-cuda12.6}
     gpus: all
     network_mode: host
     volumes:

@@ -288,6 +288,10 @@ impl FrameGraph {
             let pointer = pointer.clone();
             let animation_active = animation_active.clone();
             move |controller, dx, dy| {
+                let wheel = controller.unit() == gdk::ScrollUnit::Wheel;
+                if !wheel && dy.abs() >= dx.abs() {
+                    return glib::Propagation::Proceed;
+                }
                 let (x, y) = controller
                     .current_event()
                     .and_then(|event| event.position())
@@ -300,17 +304,18 @@ impl FrameGraph {
                     });
                 let result = state.scroll(
                     dx,
-                    dy,
+                    if wheel { dy } else { 0.0 },
                     FrameGraphPointerPosition {
                         x,
                         y,
                         width: f64::from(area.width().max(1)),
                         height: f64::from(area.height().max(1)),
                     },
-                    controller
-                        .current_event_state()
-                        .contains(gdk::ModifierType::CONTROL_MASK),
-                    if controller.unit() == gdk::ScrollUnit::Wheel {
+                    wheel
+                        && controller
+                            .current_event_state()
+                            .contains(gdk::ModifierType::CONTROL_MASK),
+                    if wheel {
                         FrameGraphScrollInput::Wheel
                     } else {
                         FrameGraphScrollInput::Surface
@@ -329,6 +334,57 @@ impl FrameGraph {
             }
         });
         area.add_controller(scroll);
+
+        let zoom = gtk::GestureZoom::new();
+        let previous_scale = Rc::new(Cell::new(1.0));
+        zoom.connect_begin({
+            let previous_scale = previous_scale.clone();
+            move |_, _| previous_scale.set(1.0)
+        });
+        zoom.connect_end({
+            let previous_scale = previous_scale.clone();
+            move |_, _| previous_scale.set(1.0)
+        });
+        zoom.connect_cancel({
+            let previous_scale = previous_scale.clone();
+            move |_, _| previous_scale.set(1.0)
+        });
+        zoom.connect_scale_changed({
+            let area = area.clone();
+            let state = state.clone();
+            let pointer = pointer.clone();
+            move |gesture, scale| {
+                let Some(magnification) =
+                    shrimply_math_core::pinch_magnification(scale, previous_scale.get())
+                else {
+                    return;
+                };
+                previous_scale.set(scale);
+                let (x, y) = gesture
+                    .bounding_box_center()
+                    .or_else(|| gesture.current_event().and_then(|event| event.position()))
+                    .or(pointer.get())
+                    .unwrap_or_else(|| {
+                        (
+                            f64::from(area.width().max(1)) / 2.0,
+                            f64::from(area.height().max(1)) / 2.0,
+                        )
+                    });
+                let result = state.magnify(
+                    magnification,
+                    FrameGraphPointerPosition {
+                        x,
+                        y,
+                        width: f64::from(area.width().max(1)),
+                        height: f64::from(area.height().max(1)),
+                    },
+                );
+                if result.redraw {
+                    area.queue_render();
+                }
+            }
+        });
+        area.add_controller(zoom);
 
         let keys = gtk::EventControllerKey::new();
         keys.set_propagation_phase(gtk::PropagationPhase::Capture);

@@ -43,17 +43,18 @@ pub(super) fn read_project(path: &Path) -> Result<Project, String> {
 }
 
 pub(super) fn write_project(path: &Path, project: &Project) -> Result<(), String> {
-    let project = project_for_storage(path, project)?;
     let bytes = if has_extension(path, "shrimp") {
+        let project = project_for_storage(path, project)?;
         shrimp_bytes(
             &rmp_serde::to_vec_named(&project)
                 .map_err(|error| format!("could not encode MessagePack project: {error}"))?,
         )
-    } else if has_extension(path, "json") {
-        serde_json::to_vec_pretty(&project)
-            .map_err(|error| format!("could not serialize project JSON: {error}"))?
+    } else if has_extension(path, "sjson") || has_extension(path, "json") {
+        serialize_project_json(path, project)?
     } else {
-        return Err("projects can only be saved as .shrimp or .json files".to_string());
+        return Err(
+            "projects can only be saved as .shrimp, .sjson, or legacy .json files".to_string(),
+        );
     };
     atomic_write(path, &bytes)
 }

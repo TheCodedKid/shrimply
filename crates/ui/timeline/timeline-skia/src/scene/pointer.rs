@@ -44,7 +44,8 @@ pub(crate) fn handle_timeline_input(
     frame_step_seconds: f64,
 ) {
     for scroll in std::mem::take(&mut runtime.pending_scrolls) {
-        if !scroll.ctrl {
+        // Surface input already includes native momentum; only wheel input needs easing.
+        if !scroll.ctrl && scroll.input == TimelineScrollInput::Wheel {
             let scrollbar = horizontal_scrollbar(
                 runtime.view,
                 timeline_width,
@@ -57,15 +58,13 @@ pub(crate) fn handle_timeline_input(
             } else {
                 scroll.delta.y as f64
             };
-            let mut scroll_seconds = runtime.view.scroll_seconds;
             let event = runtime.horizontal_scrollbar.scroll_pages_at(
                 scrollbar,
                 scroll.pointer,
                 crate::math::scrollbar_wheel_pages(scrollbar_delta),
-                |value| scroll_seconds = value,
+                |value| runtime.view.scroll_seconds = value,
             );
             if event.handled {
-                runtime.view.scroll_seconds = scroll_seconds;
                 runtime.vertical_scrollbar.cancel_scroll();
                 runtime.overscroll = None;
                 continue;
@@ -83,21 +82,21 @@ pub(crate) fn handle_timeline_input(
                 } else {
                     scroll.delta.x as f64
                 };
-                let mut scroll_y = runtime.view.scroll_y;
                 let event = runtime.vertical_scrollbar.scroll_units_at(
                     scrollbar,
                     scroll.pointer,
                     scrollbar_delta,
-                    |value| scroll_y = value,
+                    |value| runtime.view.scroll_y = value,
                 );
                 if event.handled {
-                    runtime.view.scroll_y = scroll_y;
                     runtime.horizontal_scrollbar.cancel_scroll();
                     runtime.overscroll = None;
                     continue;
                 }
             }
         }
+        runtime.horizontal_scrollbar.cancel_scroll();
+        runtime.vertical_scrollbar.cancel_scroll();
         let previous_zoom = runtime.view.seconds_per_pixel;
         runtime.overscroll = handle_scroll(
             &mut runtime.view,
@@ -117,12 +116,7 @@ pub(crate) fn handle_timeline_input(
             distance,
         });
         if runtime.view.seconds_per_pixel != previous_zoom {
-            let zoom = Time::from_seconds_f64(runtime.view.seconds_per_pixel);
-            let mut project = project.borrow_mut();
-            if project.timeline_zoom != Some(zoom) {
-                project.timeline_zoom = Some(zoom);
-                crate::project::save_view_state(&project);
-            }
+            runtime.save_zoom();
         }
     }
 

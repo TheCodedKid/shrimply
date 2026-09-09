@@ -1,0 +1,7 @@
+services:
+  server:
+    image: shrimply-server:dev-cuda12.6
+    build:
+      context: .
+      args:
+        SHRIMPLY_SERVER_GIT_HASH: ${SHRIMPLY_SERVER_GIT_HASH:-}

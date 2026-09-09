@@ -89,12 +89,20 @@ struct Slots {
     sam2_errors: Vec<String>,
     schedule_sam2: bool,
     stop: bool,
+    warmup: Option<Result<(), String>>,
 }
 
 struct Shared {
     slots: Mutex<Slots>,
     wake: Condvar,
     playback_observer: Option<PlaybackObserver>,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum StartupStatus {
+    CompilingShaders,
+    PreparingPreview,
+    Ready,
 }
 
 pub type PlaybackObserver = shrimply_preview_provider_skia::performance::RenderObserver;
@@ -229,6 +237,25 @@ impl Renderer {
     }
 
     pub fn draw(&mut self, canvas: &Canvas, project: &Project, time: Time) -> Result<(), String> {
+        let result = self.prepare(project, time);
+        if let Some(image) = &self.presented {
+            canvas.draw_image(&image.image, (0.0, 0.0), None);
+        }
+        result
+    }
+
+    /// Request and collect preview frames without attaching an editor view to a window.
+    pub fn prepare(&mut self, project: &Project, time: Time) -> Result<(), String> {
+        {
+            let slots = self
+                .shared
+                .slots
+                .lock()
+                .expect("Metal preview slots poisoned");
+            if let Some(Err(error)) = &slots.warmup {
+                return Err(error.clone());
+            }
+        }
         if self.worker.is_finished() {
             return Err("Metal preview worker stopped unexpectedly".into());
         }
@@ -294,11 +321,32 @@ impl Renderer {
             self.requested = Some(target);
             self.shared.wake.notify_one();
         }
-        drop(slots);
-        if let Some(image) = &self.presented {
-            canvas.draw_image(&image.image, (0.0, 0.0), None);
-        }
         self.error.clone().map_or(Ok(()), Err)
+    }
+
+    pub fn startup_status(&self) -> Result<StartupStatus, String> {
+        let slots = self
+            .shared
+            .slots
+            .lock()
+            .expect("Metal preview slots poisoned");
+        if let Some(Err(error)) = &slots.warmup {
+            return Err(error.clone());
+        }
+        if self.worker.is_finished() {
+            return Err("Metal preview worker stopped unexpectedly".into());
+        }
+        if let Some(error) = &self.error {
+            return Err(error.clone());
+        }
+        Ok(if slots.warmup.is_none() {
+            StartupStatus::CompilingShaders
+        } else if self.requested.is_some() && self.presented.is_some() && !self.loading(Time::ZERO)
+        {
+            StartupStatus::Ready
+        } else {
+            StartupStatus::PreparingPreview
+        })
     }
 
     pub fn take_manim_updates(&mut self) -> Vec<shrimply_manim_state::Update> {
@@ -343,6 +391,16 @@ fn worker(
     mut sam2_scheduler: shrimply_visual_core::sam2::analysis::Scheduler,
 ) {
     let mut renderer = compositor::Compositor::default();
+    let warmup = objc2::rc::autoreleasepool(|_| renderer.warmup());
+    let failed = warmup.is_err();
+    shared
+        .slots
+        .lock()
+        .expect("Metal preview slots poisoned")
+        .warmup = Some(warmup);
+    if failed {
+        return;
+    }
     let mut current: Option<Request> = None;
     let mut timings = BTreeMap::<u64, RequestTiming>::new();
     let mut active = false;

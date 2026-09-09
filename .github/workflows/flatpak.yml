@@ -31,18 +31,6 @@ jobs:
     runs-on: ubuntu-24.04
 
     steps:
-      - name: Reclaim runner disk space
-        run: |
-          df -h /
-          sudo rm -rf \
-            /usr/share/dotnet \
-            /usr/local/lib/android \
-            /opt/ghc \
-            /opt/hostedtoolcache/CodeQL
-          sudo docker image prune --all --force
-          sudo docker builder prune --all --force
-          df -h /
-
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
@@ -50,6 +38,12 @@ jobs:
 
       - name: Install host build dependencies
         run: |
+          # Chrome is preinstalled on the runner but is not a build dependency.
+          for source in /etc/apt/sources.list.d/*; do
+            if grep -q 'dl.google.com/linux/chrome' "${source}"; then
+              sudo mv "${source}" "${source}.disabled"
+            fi
+          done
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends \
             ca-certificates \
@@ -273,7 +267,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           short_sha="${GITHUB_SHA:0:12}"
-          tag="flatpak-${GITHUB_SHA}"
+          timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
+          tag="flatpak-${timestamp}"
           release_notes="${RUNNER_TEMP}/flatpak-release.md"
           {
             echo "Automated GTK Flatpak build of commit [\`${short_sha}\`](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA})."
@@ -293,7 +288,7 @@ jobs:
               "${FLATPAK_BUNDLE}#Shrimply GTK Flatpak" \
               "${FLATPAK_BUNDLE}.sha256#SHA-256 checksum" \
               --target "${GITHUB_SHA}" \
-              --title "Shrimply Flatpak ${short_sha}" \
+              --title "Shrimply Flatpak ${timestamp}" \
               --notes-file "${release_notes}" \
               --prerelease \
               --latest=false

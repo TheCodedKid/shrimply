@@ -11,6 +11,14 @@ pub const FRACTION_ZERO: Fraction =
 const FRAME_RATE_DECIMAL_SCALE: f64 = 1_000.0;
 const TIME_NANOSECONDS_PER_SECOND: i64 = 1_000_000_000;
 
+/// Convert cumulative gesture scales to the incremental logarithmic zoom input.
+pub fn pinch_magnification(scale: f64, previous_scale: f64) -> Option<f64> {
+    if !scale.is_finite() || scale <= 0.0 || !previous_scale.is_finite() || previous_scale <= 0.0 {
+        return None;
+    }
+    Some(scale.ln() - previous_scale.ln())
+}
+
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub struct Time {
     #[serde(
@@ -305,6 +313,17 @@ pub fn fraction_round_nonnegative_u64(value: Fraction) -> u64 {
 pub fn fraction_floor_i64(value: Fraction) -> Option<i64> {
     let (numerator, denominator) = fraction_ratio_i128(value)?;
     i64::try_from(numerator.div_euclid(denominator)).ok()
+}
+
+/// Truncates a finite, nonnegative time to whole ticks without floating point.
+pub fn time_ticks(time: Time, ticks_per_second: u32) -> Option<u64> {
+    if ticks_per_second == 0 {
+        return None;
+    }
+    let (numerator, denominator) = fraction_ratio_i128(time.seconds)?;
+    let numerator = u128::try_from(numerator).ok()?;
+    let denominator = u128::try_from(denominator).ok()?;
+    u64::try_from(numerator.checked_mul(u128::from(ticks_per_second))? / denominator).ok()
 }
 
 pub fn fraction_ceil_i64(value: Fraction) -> Option<i64> {

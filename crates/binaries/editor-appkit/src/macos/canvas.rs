@@ -17,6 +17,7 @@ use std::{
 };
 
 mod context_audio;
+mod context_captions;
 mod context_frame;
 mod context_menu;
 mod context_video;
@@ -442,13 +443,14 @@ define_class!(
         #[unsafe(method(scrollWheel:))]
         fn scroll(&self, event: &NSEvent) {
             if let Content::Timeline(scene) = &mut *self.ivars().content.borrow_mut() {
-                let step = if event.hasPreciseScrollingDeltas() { 1.0 } else { shrimply_timeline_skia::metrics::SCROLL_PIXELS_PER_STEP };
-                let input = if event.hasPreciseScrollingDeltas() {
-                    shrimply_timeline_skia::view::TimelineScrollInput::Surface
+                use shrimply_timeline_skia::{metrics::SCROLL_PIXELS_PER_STEP, view::TimelineScrollInput};
+                let (input, step) = if event.hasPreciseScrollingDeltas() {
+                    (TimelineScrollInput::Surface, 1.0)
                 } else {
-                    shrimply_timeline_skia::view::TimelineScrollInput::Wheel
+                    (TimelineScrollInput::Wheel, SCROLL_PIXELS_PER_STEP)
                 };
                 scene.scroll(self.point(event), glam::Vec2::new((event.scrollingDeltaX() * step) as f32, (event.scrollingDeltaY() * step) as f32), event.modifierFlags().contains(NSEventModifierFlags::Control), input);
+                return;
             }
             self.preview_pointer_event(PointerEvent::Scroll {
                 input: self.preview_input(event),

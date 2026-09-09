@@ -196,7 +196,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           short_sha="${GITHUB_SHA:0:12}"
-          tag="macos-${GITHUB_SHA}"
+          timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
+          tag="macos-${timestamp}"
           release_notes="${RUNNER_TEMP}/macos-release.md"
           {
             echo "Automated Apple Silicon macOS build of commit [\`${short_sha}\`](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA})."
@@ -214,7 +215,7 @@ jobs:
               "${MACOS_ARCHIVE}#Shrimply for Apple Silicon" \
               "${MACOS_ARCHIVE}.sha256#SHA-256 checksum" \
               --target "${GITHUB_SHA}" \
-              --title "Shrimply macOS ${short_sha}" \
+              --title "Shrimply macOS ${timestamp}" \
               --notes-file "${release_notes}" \
               --prerelease \
               --latest=false

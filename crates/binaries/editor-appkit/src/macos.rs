@@ -4,8 +4,10 @@ mod error_alert;
 mod fullscreen;
 mod inspector_split;
 mod layout;
+mod loading;
 mod media;
 mod menus;
+mod save;
 mod settings;
 mod timeline;
 
@@ -58,7 +60,10 @@ struct EditorIvars {
         >,
     >,
     event_monitor: OnceCell<Retained<objc2::runtime::AnyObject>>,
-    title: String,
+    project_path: std::path::PathBuf,
+    preparation: RefCell<Option<loading::Preparation>>,
+    loading: RefCell<Option<loading::View>>,
+    outcome: Cell<Result<bool, ()>>,
 }
 
 define_class!(
@@ -73,6 +78,7 @@ define_class!(
     unsafe impl NSMenuItemValidation for Editor {
         #[unsafe(method(validateMenuItem:))]
         fn validate_menu_item(&self, item: &NSMenuItem) -> bool {
+            if self.ivars().loading.borrow().is_some() { return false.into(); }
             match item.action() {
                 Some(action) if action == sel!(undo:) => {
                     text_undo_manager(self, false).is_some()
@@ -103,26 +109,22 @@ define_class!(
                 )
             };
             unsafe { window.setReleasedWhenClosed(false) };
-            window.setTitle(&NSString::from_str(&self.ivars().title));
+            window.setTitle(ns_string!("Shrimply"));
             window.setContentMinSize(layout::MINIMUM_WINDOW_SIZE);
             window.setTabbingMode(objc2_app_kit::NSWindowTabbingMode::Disallowed);
             window.setDelegate(Some(ProtocolObject::from_ref(self)));
-            let layout = layout::build(self);
-            window.setContentViewController(Some(&layout.root));
-            self.ivars().layout.set(layout).unwrap_or_else(|_| panic!("layout already installed"));
-
+            let loading = loading::View::new(&self.ivars().project_path, mtm);
+            window.setContentView(Some(&loading.root));
+            self.ivars().loading.replace(Some(loading));
             let toolbar = NSToolbar::initWithIdentifier(NSToolbar::alloc(mtm), ns_string!("Editor"));
             toolbar.setDisplayMode(NSToolbarDisplayMode::IconOnly);
             toolbar.setAllowsUserCustomization(false);
             toolbar.setDelegate(Some(ProtocolObject::from_ref(self)));
             window.setToolbar(Some(&toolbar));
             window.setToolbarStyle(NSWindowToolbarStyle::UnifiedCompact);
-            menus::install(self);
-            self.sync_panels();
             window.center();
             window.makeKeyAndOrderFront(None);
             self.ivars().window.set(window).expect("window already installed");
-            self.install_fullscreen_events();
             app.activate();
             let timer = unsafe {
                 objc2_foundation::NSTimer::scheduledTimerWithTimeInterval_target_selector_userInfo_repeats(
@@ -131,6 +133,7 @@ define_class!(
             };
             unsafe { objc2_foundation::NSRunLoop::mainRunLoop().addTimer_forMode(&timer, objc2_foundation::NSRunLoopCommonModes); }
             self.ivars().timer.set(timer).expect("frame timer already installed");
+            self.begin_project_load();
 
         }
     }
@@ -147,23 +150,30 @@ define_class!(
                     canvas.suspend_timeline();
                 }
             }
-            NSApplication::sharedApplication(self.mtm()).terminate(None);
+            if self.ivars().loading.borrow().is_some() {
+                self.stop_loading(Ok(false));
+            } else {
+                NSApplication::sharedApplication(self.mtm()).terminate(None);
+            }
         }
 
         #[unsafe(method(windowDidExitFullScreen:))]
         fn did_exit_fullscreen(&self, _notification: &NSNotification) {
+            if self.ivars().loading.borrow().is_some() { return; }
             self.ivars().fullscreen_preview.set(false);
             self.sync_panels();
         }
 
         #[unsafe(method(windowDidEnterFullScreen:))]
         fn did_enter_fullscreen(&self, _notification: &NSNotification) {
+            if self.ivars().loading.borrow().is_some() { return; }
             self.ivars().fullscreen_preview.set(true);
             self.sync_panels();
         }
 
         #[unsafe(method(windowDidFailToEnterFullScreen:))]
         fn failed_to_enter_fullscreen(&self, _window: &NSWindow) {
+            if self.ivars().loading.borrow().is_some() { return; }
             self.ivars().fullscreen_preview.set(false);
             self.sync_panels();
         }
@@ -172,7 +182,11 @@ define_class!(
     unsafe impl NSToolbarDelegate for Editor {
         #[unsafe(method_id(toolbarDefaultItemIdentifiers:))]
         fn default_items(&self, _toolbar: &NSToolbar) -> Retained<NSArray<NSString>> {
-            menus::toolbar_identifiers()
+            if self.ivars().loading.borrow().is_some() {
+                NSArray::new()
+            } else {
+                menus::toolbar_identifiers()
+            }
         }
 
         #[unsafe(method_id(toolbarAllowedItemIdentifiers:))]
@@ -187,6 +201,16 @@ define_class!(
     }
 
     impl Editor {
+        #[unsafe(method(exportCaptions:))]
+        fn export_captions(&self, _sender: Option<&objc2::runtime::AnyObject>) {
+            let result = self.ivars().layout.get()
+                .ok_or_else(|| "The editor layout is not ready.".to_string())
+                .and_then(|layout| layout.canvases.first()
+                    .ok_or_else(|| "The editor has no canvas.".to_string())?
+                    .export_captions());
+            if let Err(error) = result { self.show_error(&error); }
+        }
+
         #[unsafe(method(exportVideo:))]
         fn export_video(&self, _sender: Option<&objc2::runtime::AnyObject>) {
             let result = self
@@ -208,6 +232,10 @@ define_class!(
 
         #[unsafe(method(renderFrame:))]
         fn render_frame(&self, _timer: &objc2_foundation::NSTimer) {
+            if self.ivars().session.get().is_none() {
+                self.poll_project_load();
+                return;
+            }
             self.poll_blender_probe();
             self.poll_compute_server_probes();
             let session = self.ivars().session.get().expect("project loaded");
@@ -216,6 +244,10 @@ define_class!(
             let update = session.poll();
             if let Some(error) = update.audio_playback_stopped { self.show_error(&error); }
             if let Some(title) = update.title { self.ivars().window.get().expect("window installed").setTitle(&NSString::from_str(&title.text)); }
+            if self.ivars().loading.borrow().is_some() {
+                self.poll_preview_startup();
+                return;
+            }
             let layout = self.ivars().layout.get().expect("layout installed");
             layout.inspector_controller.poll(self.mtm());
             let player = player_state::snapshot(&session.player_state);
@@ -302,6 +334,15 @@ define_class!(
 
         fn save_project(&self, _sender: &NSObject) {
             if let Err(error) = self.ivars().session.get().expect("project loaded").save() { self.show_error(&error); }
+        }
+
+        #[unsafe(method(saveProjectAs:))]
+        fn save_project_as(&self, _sender: &NSObject) {
+            let window = self.ivars().window.get().expect("window created");
+            if !window.makeFirstResponder(None) { return; }
+            if let Err(error) = save::show(window, self.ivars().session.get().expect("project loaded")) {
+                self.show_error(&error);
+            }
         }
 
         #[unsafe(method(showAbout:))]
@@ -791,18 +832,8 @@ pub fn run(project: Option<&Path>) -> Result<bool, ()> {
             .expect("local project file");
         &chosen
     };
-    let Some(prepared) = prepare_project(path, mtm)? else {
-        return Ok(false);
-    };
-    let session = Rc::new(
-        EditorSession::new(shrimply_project_document::project::activate_project(
-            prepared,
-        ))
-        .expect("initialize editor playback"),
-    );
-    let title = session.title().text;
     let editor = Editor::alloc(mtm).set_ivars(EditorIvars {
-        session: OnceCell::from(session),
+        session: OnceCell::new(),
         imports: Rc::new(RefCell::new(media::Imports::default())),
         timer: OnceCell::new(),
         last_error: RefCell::new(None),
@@ -821,58 +852,14 @@ pub fn run(project: Option<&Path>) -> Result<bool, ()> {
         settings_device_error: RefCell::new(None),
         settings_server_statuses: RefCell::new(std::collections::BTreeMap::new()),
         event_monitor: OnceCell::new(),
-        title,
+        project_path: path.to_path_buf(),
+        preparation: RefCell::new(None),
+        loading: RefCell::new(None),
+        outcome: Cell::new(Ok(false)),
     });
     let editor: Retained<Editor> = unsafe { msg_send![super(editor), init] };
     app.setDelegate(Some(ProtocolObject::from_ref(&*editor)));
     app.run();
     shrimply_project_document::project::clear_project_file_locks();
-    Ok(true)
-}
-
-fn prepare_project(
-    path: &Path,
-    mtm: MainThreadMarker,
-) -> Result<Option<shrimply_project_document::project::PreparedProject>, ()> {
-    loop {
-        match shrimply_project_document::project::prepare_project(path) {
-            Ok(prepared) => return Ok(Some(prepared)),
-            Err(shrimply_project_document::project::ProjectLoadError::LockedByOtherInstance {
-                pid,
-            }) => {
-                let alert = NSAlert::new(mtm);
-                alert.setMessageText(ns_string!("Project is in use"));
-                alert.setInformativeText(&NSString::from_str(&format!(
-                    "The project lock is held by another editor process (PID {pid})."
-                )));
-                alert.addButtonWithTitle(ns_string!("Retry"));
-                let stop = alert.addButtonWithTitle(ns_string!("Stop Other Editor"));
-                stop.setHasDestructiveAction(true);
-                let close = alert.addButtonWithTitle(ns_string!("Close"));
-                close.setKeyEquivalent(&NSString::from_str("\u{1b}"));
-                let response = alert.runModal();
-                if response == NSAlertFirstButtonReturn {
-                    continue;
-                }
-                if response == NSAlertThirdButtonReturn {
-                    return Ok(None);
-                }
-                assert_eq!(
-                    response, NSAlertSecondButtonReturn,
-                    "unexpected project-lock alert response"
-                );
-                if !shrimply_project_document::project::terminate_project_process(pid) {
-                    error_alert::show(
-                        mtm,
-                        "Could not stop other editor: Shrimply could not signal the other process.",
-                    );
-                    return Err(());
-                }
-            }
-            Err(shrimply_project_document::project::ProjectLoadError::Other(error)) => {
-                error_alert::show(mtm, &format!("Could not open project: {error}"));
-                return Err(());
-            }
-        }
-    }
+    editor.ivars().outcome.get()
 }

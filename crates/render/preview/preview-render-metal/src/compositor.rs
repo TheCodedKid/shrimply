@@ -105,6 +105,17 @@ pub(super) struct Compositor {
 }
 
 impl Compositor {
+    pub fn warmup(&mut self) -> Result<(), String> {
+        let mut compute = shrimply_render_metal::Renderer::new()?;
+        compute.warmup()?;
+        self.gaussian = Some(shrimply_3dgs_metal::Renderer::new(&compute)?);
+        if compute.supports_ray_tracing() {
+            self.obj = Some(shrimply_render_3d_metal::Renderer::new(&compute)?);
+        }
+        self.compute = Some(compute);
+        Ok(())
+    }
+
     pub fn set_capture_target(&mut self, target: shrimply_preview_render_core::CaptureTarget) {
         if self.scene.set_capture_target(Some(target)) {
             self.invalidate();

@@ -1,14 +1,16 @@
 #![cfg(target_os = "macos")]
 
+mod audio;
+pub use audio::choose_audio_format;
+mod captions;
+pub use captions::choose_caption_settings;
+
 use objc2::rc::Retained;
 use objc2::{DefinedClass, MainThreadOnly, define_class, sel};
-use objc2_app_kit::{
-    NSApplication, NSBackingStoreType, NSBezelStyle, NSButton, NSControlSize,
-    NSModalResponseCancel, NSModalResponseOK, NSPopUpButton, NSTextAlignment, NSTextField, NSView,
-    NSWindow, NSWindowStyleMask,
-};
-use objc2_foundation::{
-    MainThreadMarker, NSObject, NSObjectProtocol, NSPoint, NSRect, NSSize, NSString, ns_string,
+use objc2_app_kit::{NSPopUpButton, NSTextField, NSView, NSWindow};
+use objc2_foundation::{NSObject, NSObjectProtocol, NSSize};
+use shrimply_components_appkit::export_dialog::{
+    self, ROW_HEIGHT, WIDTH, add_choices, popup_row, text_row,
 };
 use shrimply_export_core::video::{ExportAudioEncoder, ExportContainer, ExportVideoCodec};
 use shrimply_export_metal::{
@@ -17,13 +19,8 @@ use shrimply_export_metal::{
 use shrimply_project_document::project::{self, Project};
 use std::{cell::OnceCell, path::PathBuf};
 
-const WIDTH: f64 = 590.0;
 const HEIGHT: f64 = 555.0;
 const GIF_HEIGHT: f64 = 165.0;
-const ROW_HEIGHT: f64 = 30.0;
-const LABEL_WIDTH: f64 = 185.0;
-const CONTROL_X: f64 = 200.0;
-const CONTROL_WIDTH: f64 = 350.0;
 
 struct DialogIvars {
     sheet: OnceCell<Retained<NSWindow>>,
@@ -45,16 +42,6 @@ define_class!(
     unsafe impl NSObjectProtocol for Dialog {}
 
     impl Dialog {
-        #[unsafe(method(exportVideo:))]
-        fn export_video(&self, _sender: &NSButton) {
-            NSApplication::sharedApplication(self.mtm()).stopModalWithCode(NSModalResponseOK);
-        }
-
-        #[unsafe(method(cancel:))]
-        fn cancel(&self, _sender: &NSButton) {
-            NSApplication::sharedApplication(self.mtm()).stopModalWithCode(NSModalResponseCancel);
-        }
-
         #[unsafe(method(formatChanged:))]
         fn format_changed(&self, sender: &NSPopUpButton) {
             let codec = sender.indexOfSelectedItem();
@@ -116,26 +103,15 @@ pub fn choose_settings(parent: &NSWindow, project: &Project) -> Option<ExportSet
         entropy_row: OnceCell::new(),
     });
     let dialog: Retained<Dialog> = unsafe { objc2::msg_send![super(dialog), init] };
-    let sheet = unsafe {
-        NSWindow::initWithContentRect_styleMask_backing_defer(
-            NSWindow::alloc(mtm),
-            NSRect::new(NSPoint::ZERO, NSSize::new(WIDTH, HEIGHT)),
-            NSWindowStyleMask::Titled,
-            NSBackingStoreType::Buffered,
-            false,
-        )
-    };
-    unsafe { sheet.setReleasedWhenClosed(false) };
+    let sheet = export_dialog::new("Export Video", HEIGHT, mtm);
     dialog
         .ivars()
         .sheet
         .set(sheet.clone())
         .expect("sheet installed once");
-    sheet.setTitle(ns_string!("Export Video"));
-    let content = NSView::initWithFrame(
-        NSView::alloc(mtm),
-        NSRect::new(NSPoint::ZERO, NSSize::new(WIDTH, HEIGHT)),
-    );
+    let content = sheet
+        .contentView()
+        .expect("export dialog content installed");
 
     let (codec_row, codec) = popup_row("Format", &["H.264", "H.265 / HEVC", "GIF"], 15, mtm);
     codec.selectItemAtIndex(1);
@@ -276,43 +252,7 @@ pub fn choose_settings(parent: &NSWindow, project: &Project) -> Option<ExportSet
         .expect("lower rows installed once");
     dialog.format_changed(sel!(formatChanged:), &codec);
 
-    let export = unsafe {
-        NSButton::buttonWithTitle_target_action(
-            ns_string!("Choose File"),
-            Some(&*dialog),
-            Some(sel!(exportVideo:)),
-            mtm,
-        )
-    };
-    export.setFrame(NSRect::new(
-        NSPoint::new(WIDTH - 170.0, 16.0),
-        NSSize::new(140.0, 32.0),
-    ));
-    export.setBezelStyle(NSBezelStyle::Push);
-    export.setControlSize(NSControlSize::Large);
-    export.setKeyEquivalent(ns_string!("\r"));
-    content.addSubview(&export);
-    let cancel = unsafe {
-        NSButton::buttonWithTitle_target_action(
-            ns_string!("Cancel"),
-            Some(&*dialog),
-            Some(sel!(cancel:)),
-            mtm,
-        )
-    };
-    cancel.setFrame(NSRect::new(
-        NSPoint::new(WIDTH - 320.0, 16.0),
-        NSSize::new(140.0, 32.0),
-    ));
-    cancel.setBezelStyle(NSBezelStyle::Push);
-    cancel.setControlSize(NSControlSize::Large);
-    cancel.setKeyEquivalent(ns_string!("\u{1b}"));
-    content.addSubview(&cancel);
-    sheet.setContentView(Some(&content));
-    parent.beginSheet_completionHandler(&sheet, None);
-    let response = NSApplication::sharedApplication(mtm).runModalForWindow(&sheet);
-    parent.endSheet(&sheet);
-    if response != NSModalResponseOK {
+    if !export_dialog::run(parent, &sheet) {
         return None;
     }
 
@@ -380,73 +320,6 @@ pub fn choose_settings(parent: &NSWindow, project: &Project) -> Option<ExportSet
         },
         audio_bitrate_kbps: parse_u32(&audio_bitrate)?,
     })
-}
-
-fn popup_row(
-    title: &str,
-    choices: &[&str],
-    row: usize,
-    mtm: MainThreadMarker,
-) -> (Retained<NSView>, Retained<NSPopUpButton>) {
-    let row_view = row_view(row, mtm);
-    row_view.addSubview(&label(title, mtm));
-    let control = NSPopUpButton::initWithFrame_pullsDown(
-        NSPopUpButton::alloc(mtm),
-        NSRect::new(
-            NSPoint::new(CONTROL_X, 0.0),
-            NSSize::new(CONTROL_WIDTH, ROW_HEIGHT),
-        ),
-        false,
-    );
-    add_choices(&control, choices);
-    row_view.addSubview(&control);
-    (row_view, control)
-}
-
-fn text_row(
-    title: &str,
-    value: &str,
-    row: usize,
-    mtm: MainThreadMarker,
-) -> (Retained<NSView>, Retained<NSTextField>) {
-    let row_view = row_view(row, mtm);
-    row_view.addSubview(&label(title, mtm));
-    let control = NSTextField::initWithFrame(
-        NSTextField::alloc(mtm),
-        NSRect::new(
-            NSPoint::new(CONTROL_X, 2.0),
-            NSSize::new(CONTROL_WIDTH, ROW_HEIGHT - 4.0),
-        ),
-    );
-    control.setStringValue(&NSString::from_str(value));
-    row_view.addSubview(&control);
-    (row_view, control)
-}
-
-fn row_view(row: usize, mtm: MainThreadMarker) -> Retained<NSView> {
-    NSView::initWithFrame(
-        NSView::alloc(mtm),
-        NSRect::new(
-            NSPoint::new(20.0, 60.0 + row as f64 * ROW_HEIGHT),
-            NSSize::new(WIDTH - 40.0, ROW_HEIGHT),
-        ),
-    )
-}
-
-fn label(title: &str, mtm: MainThreadMarker) -> Retained<NSTextField> {
-    let label = NSTextField::labelWithString(&NSString::from_str(title), mtm);
-    label.setAlignment(NSTextAlignment::Right);
-    label.setFrame(NSRect::new(
-        NSPoint::new(0.0, 5.0),
-        NSSize::new(LABEL_WIDTH, 20.0),
-    ));
-    label
-}
-
-fn add_choices(control: &NSPopUpButton, choices: &[&str]) {
-    for choice in choices {
-        control.addItemWithTitle(&NSString::from_str(choice));
-    }
 }
 
 fn parse_u32(field: &NSTextField) -> Option<u32> {

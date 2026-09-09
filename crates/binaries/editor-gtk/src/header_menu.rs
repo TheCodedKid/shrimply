@@ -242,51 +242,47 @@ fn show_save_as_dialog(
     toasts: &adw::ToastOverlay,
     session: &Rc<shrimply_cross_ui_core::editor::EditorSession>,
 ) {
-    let label = "Save Project As";
-    let filter = shrimply_components_gtk::project_open::project_file_filter();
-    let filters = gio::ListStore::new::<gtk::FileFilter>();
-    filters.append(&filter);
-    let initial_name = shrimply_cross_ui_core::editor::suggested_save_as_path()
-        .file_name()
-        .and_then(|name| name.to_str())
-        .expect("save-as suggestion must have a file name")
-        .to_string();
-    let dialog = gtk::FileDialog::builder()
-        .title(tr!(label).as_ref())
-        .initial_name(initial_name)
-        .filters(&filters)
-        .default_filter(&filter)
-        .build();
     let window = window.clone();
-    let parent = window.clone();
     let toasts = toasts.clone();
     let session = session.clone();
-    shrimply_components_gtk::file_picker::save(
-        label,
-        &dialog,
-        Some(parent.upcast_ref::<gtk::Window>()),
-        move |result| {
-            let Ok(file) = result else {
-                return;
-            };
-            let Some(path) = file.path() else {
-                show_error_dialog(
-                    &window,
-                    "Could not save project",
-                    "The selected location does not have a local path.",
-                );
-                return;
-            };
-            if let Err(error) = session.save_as(path) {
+    gtk::glib::spawn_future_local(async move {
+        let selected = shrimply_components_gtk::project_save::save_as(
+            window.upcast_ref::<gtk::Window>(),
+            shrimply_cross_ui_core::editor::suggested_save_as_path(),
+        )
+        .await;
+        let (path, format) = match selected {
+            Ok(Some(selected)) => selected,
+            Ok(None) => return,
+            Err(error) => {
                 show_error_dialog(&window, "Could not save project", &error);
                 return;
             }
-            shrimply_components_gtk::toast::show_confirmation(
-                &toasts,
-                "Project saved to the new location",
+        };
+        let destination = format.normalize_path(path.clone());
+        if destination != path && destination.exists() {
+            let confirm = adw::AlertDialog::new(
+                Some(tr!("Replace existing project?").as_ref()),
+                Some(&destination.to_string_lossy()),
             );
-        },
-    );
+            confirm.add_response("cancel", tr!("Cancel").as_ref());
+            confirm.add_response("replace", tr!("Replace").as_ref());
+            confirm.set_close_response("cancel");
+            confirm.set_default_response(Some("cancel"));
+            confirm.set_response_appearance("replace", adw::ResponseAppearance::Destructive);
+            if confirm.choose_future(Some(&window)).await != "replace" {
+                return;
+            }
+        }
+        if let Err(error) = session.save_as(destination) {
+            show_error_dialog(&window, "Could not save project", &error);
+            return;
+        }
+        shrimply_components_gtk::toast::show_confirmation(
+            &toasts,
+            "Project saved to the new location",
+        );
+    });
 }
 
 fn launch_sibling(name: &str, argument: Option<&Path>) -> Result<(), String> {

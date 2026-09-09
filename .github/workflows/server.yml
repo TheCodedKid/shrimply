@@ -1,0 +1,88 @@
+name: Compute server prerelease
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: server-prerelease
+  cancel-in-progress: true
+
+env:
+  SERVER_IMAGE: ghcr.io/soirihiroka/shrimply-server
+
+jobs:
+  build-and-release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    env:
+      CUDA_VERSION: "12.6"
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Timestamp prerelease
+        run: echo "IMAGE_TAG=prerelease-$(date -u +%Y%m%dT%H%M%SZ)-cuda12.6" >> "${GITHUB_ENV}"
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Build CUDA 12.6 image
+        uses: docker/build-push-action@v7
+        with:
+          context: server
+          platforms: linux/amd64
+          load: true
+          tags: ${{ env.SERVER_IMAGE }}:${{ env.IMAGE_TAG }}
+          build-args: |
+            SHRIMPLY_SERVER_GIT_HASH=${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/soirihiroka/shrimply
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=server-cuda12.6
+          cache-to: type=gha,mode=max,scope=server-cuda12.6
+
+      - name: Verify runtime installation and server startup
+        run: |
+          docker run --detach --name server-smoke "${SERVER_IMAGE}:${IMAGE_TAG}"
+          trap 'docker logs server-smoke; docker rm --force server-smoke' EXIT
+          timeout 300 bash <<'SH'
+            until docker exec server-smoke curl -fso /dev/null http://localhost:8787/; do
+              [[ "$(docker inspect --format "{{.State.Status}}" server-smoke)" == running ]] || exit 1
+              sleep 2
+            done
+          SH
+          docker exec -e EXPECTED_SHA="${GITHUB_SHA}" -e CUDA_VERSION server-smoke \
+            /app/.venv/bin/python -c '
+          import os, urllib.request, msgspec, torch, torchvision, torchaudio, pycolmap
+          assert torch.version.cuda == os.environ["CUDA_VERSION"], torch.version.cuda
+          with urllib.request.urlopen("http://127.0.0.1:8787/", timeout=3) as response:
+              status = msgspec.msgpack.decode(response.read())
+          assert status["status"] == "ok", status
+          assert status["server"]["git_hash"] == os.environ["EXPECTED_SHA"], status
+          assert status["torch"]["cuda_runtime"] == os.environ["CUDA_VERSION"], status
+          '
+          git diff --exit-code -- server/pyproject.toml server/uv.lock
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish prerelease
+        run: |
+          timestamped="${SERVER_IMAGE}:${IMAGE_TAG}"
+          rolling="${SERVER_IMAGE}:prerelease-cuda12.6"
+          docker push "${timestamped}"
+          docker tag "${timestamped}" "${rolling}"
+          docker push "${rolling}"
+          echo "Published ${timestamped} and ${rolling}" >> "${GITHUB_STEP_SUMMARY}"

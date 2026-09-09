@@ -463,7 +463,10 @@ impl Delegate {
             .get()
             .expect("launcher window must exist")
             .orderOut(None);
-        NSApplication::sharedApplication(self.mtm()).hide(None);
+        let app = NSApplication::sharedApplication(self.mtm());
+        app.hide(None);
+        // Keep the launcher available for cancellation without a second Dock icon.
+        assert!(app.setActivationPolicy(NSApplicationActivationPolicy::Accessory));
         std::thread::spawn(move || {
             let result = child.wait();
             let completed = block2::RcBlock::new(move || match &result {
@@ -476,6 +479,7 @@ impl Delegate {
                     let mtm =
                         MainThreadMarker::new().expect("completion must run on the main thread");
                     let app = NSApplication::sharedApplication(mtm);
+                    assert!(app.setActivationPolicy(NSApplicationActivationPolicy::Regular));
                     app.unhide(None);
                     app.windowWithWindowNumber(window_number)
                         .expect("launcher window must still exist")

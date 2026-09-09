@@ -170,29 +170,7 @@ impl Renderer {
             uniform_bytes.extend(value.to_ne_bytes());
         }
         let uniforms = self.upload(&uniform_bytes)?;
-        let module = MODULES
-            .iter()
-            .find(|module| module.name == "mesh_flow")
-            .ok_or("Shared MeshFlow Metal module is missing")?;
-        if !self.libraries.contains_key(module.name) {
-            let library = self
-                .context
-                .device
-                .newLibraryWithSource_options_error(&NSString::from_str(module.source), None)
-                .map_err(|error| format!("Compile Metal module mesh_flow: {error}"))?;
-            self.libraries.insert(module.name, library);
-        }
-        if !self.direct_kernels.contains_key("mesh_flow") {
-            let function = self.libraries[module.name]
-                .newFunctionWithName(&NSString::from_str("main_0"))
-                .ok_or("Shared MeshFlow Metal module has no compute entry")?;
-            let pipeline = self
-                .context
-                .device
-                .newComputePipelineStateWithFunction_error(&function)
-                .map_err(|error| format!("Create Metal MeshFlow kernel: {error}"))?;
-            self.direct_kernels.insert("mesh_flow", pipeline);
-        }
+        self.mesh_flow_pipeline()?;
         let command = self
             .context
             .queue
@@ -230,6 +208,47 @@ impl Renderer {
         command.commit();
         let submission = Submission::new(command, resources);
         Ok((output, submission))
+    }
+
+    /// Compile the complete built-in pipeline set on the renderer's owning worker.
+    pub fn warmup(&mut self) -> Result<(), String> {
+        for module in MODULES {
+            if module.name == "mesh_flow" {
+                self.mesh_flow_pipeline()?;
+            } else {
+                for kernel in module.kernels {
+                    self.kernel(kernel.name)?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn mesh_flow_pipeline(&mut self) -> Result<(), String> {
+        let module = MODULES
+            .iter()
+            .find(|module| module.name == "mesh_flow")
+            .ok_or("Shared MeshFlow Metal module is missing")?;
+        if !self.libraries.contains_key(module.name) {
+            let library = self
+                .context
+                .device
+                .newLibraryWithSource_options_error(&NSString::from_str(module.source), None)
+                .map_err(|error| format!("Compile Metal module mesh_flow: {error}"))?;
+            self.libraries.insert(module.name, library);
+        }
+        if !self.direct_kernels.contains_key("mesh_flow") {
+            let function = self.libraries[module.name]
+                .newFunctionWithName(&NSString::from_str("main_0"))
+                .ok_or("Shared MeshFlow Metal module has no compute entry")?;
+            let pipeline = self
+                .context
+                .device
+                .newComputePipelineStateWithFunction_error(&function)
+                .map_err(|error| format!("Create Metal MeshFlow kernel: {error}"))?;
+            self.direct_kernels.insert("mesh_flow", pipeline);
+        }
+        Ok(())
     }
 
     pub fn background(

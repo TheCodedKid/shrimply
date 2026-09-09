@@ -119,31 +119,43 @@ fn main() {
         "missing prebuilt Slang headers: {}",
         include_dir.display()
     );
-    // Cargo retains native library search paths under OUT_DIR when running
-    // dependent build scripts, including when this crate is already cached.
     let output = PathBuf::from(env::var_os("OUT_DIR").expect("Slang build output"));
-    let link = output.join("slang-lib");
     let library_dir = library_dir
         .canonicalize()
         .expect("resolve Slang library directory");
-    if fs::read_link(&link).ok().as_ref() != Some(&library_dir) {
-        if link.symlink_metadata().is_ok() {
-            fs::remove_file(&link).expect("remove previous Slang library link");
-        }
-        std::os::unix::fs::symlink(&library_dir, &link).expect("link cached Slang libraries");
-    }
     println!("cargo:rerun-if-changed={}", library_dir.display());
     println!("cargo:rerun-if-changed={}", include_dir.display());
     println!(
         "cargo:rustc-env=SHRIMPLY_SLANG_LIBRARY_DIR={}",
         library_dir.display()
     );
-    cc::Build::new()
+    let bridge = output.join(format!(
+        "libshrimply_slang_api.{}",
+        env::consts::DLL_EXTENSION
+    ));
+    let status = cc::Build::new()
         .cpp(true)
         .std("c++17")
-        .file("compiler.cpp")
-        .include(include_dir)
-        .compile("shrimply_slang_api");
-    println!("cargo:rustc-link-search=native={}", link.display());
-    println!("cargo:rustc-link-lib=dylib=slang");
+        .pic(true)
+        .cargo_metadata(false)
+        .get_compiler()
+        .to_command()
+        .arg(if cfg!(target_os = "macos") {
+            "-dynamiclib"
+        } else {
+            "-shared"
+        })
+        .arg("compiler.cpp")
+        .arg("-I")
+        .arg(include_dir)
+        .arg("-L")
+        .arg(&library_dir)
+        .arg(format!("-Wl,-rpath,{}", library_dir.display()))
+        .arg("-lslang")
+        .arg("-o")
+        .arg(&bridge)
+        .status()
+        .expect("build Slang C++ API bridge");
+    assert!(status.success(), "build Slang C++ API bridge: {status}");
+    println!("cargo:rustc-env=SHRIMPLY_SLANG_API={}", bridge.display());
 }

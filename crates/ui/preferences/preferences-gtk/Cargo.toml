@@ -8,7 +8,7 @@ adw.workspace = true
 async-channel.workspace = true
 gtk.workspace = true
 pango.workspace = true
-shrimply-blender-bridge = { workspace = true }
+shrimply-blender-core = { workspace = true }
 shrimply-inspector-gtk = { workspace = true }
 shrimply-preferences-core = { workspace = true }
 shrimply-components-gtk = { workspace = true }

@@ -2,12 +2,12 @@ use super::super::media::ScopedUrl;
 use super::*;
 use block2::RcBlock;
 use objc2_app_kit::{
-    NSAlert, NSAlertFirstButtonReturn, NSModalResponseOK, NSModalResponseStop, NSPopUpButton,
-    NSProgressIndicator, NSSavePanel,
+    NSAlert, NSAlertFirstButtonReturn, NSModalResponseOK, NSModalResponseStop, NSProgressIndicator,
+    NSSavePanel,
 };
 use objc2_foundation::{NSPoint, NSString, ns_string};
 use objc2_uniform_type_identifiers::UTType;
-use shrimply_export_core::audio::{self, ExportProgress, Format};
+use shrimply_export_core::audio::{self, ExportProgress};
 use shrimply_timeline_skia::{audio_selection::selected_audio_project, selection_state};
 use std::{
     path::PathBuf,
@@ -19,15 +19,7 @@ use std::{
 };
 
 const ACCESSORY_WIDTH: f64 = 320.0;
-const FORMAT_HEIGHT: f64 = 32.0;
 const PROGRESS_HEIGHT: f64 = 20.0;
-const FORMATS: [(&str, Format); 5] = [
-    ("WAV", Format::Wav),
-    ("FLAC", Format::Flac),
-    ("MP3", Format::Mp3),
-    ("OGG Vorbis", Format::Ogg),
-    ("Opus", Format::Opus),
-];
 
 enum Event {
     Progress(ExportProgress),
@@ -67,28 +59,11 @@ impl CanvasView {
             }
         }
 
-        let format_control = NSPopUpButton::initWithFrame_pullsDown(
-            NSPopUpButton::alloc(self.mtm()),
-            NSRect::new(NSPoint::ZERO, NSSize::new(ACCESSORY_WIDTH, FORMAT_HEIGHT)),
-            false,
-        );
-        for (label, _) in FORMATS {
-            format_control.addItemWithTitle(&NSString::from_str(label));
-        }
-        let format_alert = NSAlert::new(self.mtm());
-        format_alert.setMessageText(ns_string!("Export Selected Audio"));
-        format_alert.setInformativeText(ns_string!(
-            "The selected items will be mixed into one audio file."
-        ));
-        format_alert.setAccessoryView(Some(&format_control));
-        format_alert.addButtonWithTitle(ns_string!("Choose File"));
-        format_alert.addButtonWithTitle(ns_string!("Cancel"));
-        if format_alert.runModal() != NSAlertFirstButtonReturn {
+        let Some(format) = shrimply_export_appkit::choose_audio_format(
+            &self.window().expect("canvas must be attached"),
+        ) else {
             return Ok(());
-        }
-        let index = usize::try_from(format_control.indexOfSelectedItem())
-            .map_err(|_| "No audio format is selected.")?;
-        let (_, format) = *FORMATS.get(index).ok_or("Unknown audio export format.")?;
+        };
         let content_type =
             UTType::typeWithFilenameExtension(&NSString::from_str(format.extension()))
                 .ok_or("macOS does not recognize the selected audio format.")?;

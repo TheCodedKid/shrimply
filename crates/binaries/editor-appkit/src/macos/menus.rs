@@ -45,8 +45,16 @@ pub fn export_menu(editor: &Editor) -> Retained<NSMenu> {
     unsafe {
         video.setTarget(Some(editor));
     }
-    item(&menu, "Export captions (YTT)", "", None, mtm);
-    item(&menu, "Export JSON", "", None, mtm);
+    let captions = item(
+        &menu,
+        "Export Captions…",
+        "",
+        Some(sel!(exportCaptions:)),
+        mtm,
+    );
+    unsafe {
+        captions.setTarget(Some(editor));
+    }
     menu
 }
 
@@ -90,7 +98,8 @@ pub fn install(editor: &Editor) {
     unsafe {
         save.setTarget(Some(editor));
     }
-    let save_as = item(&file, "Save As…", "s", None, mtm);
+    let save_as = item(&file, "Save As…", "s", Some(sel!(saveProjectAs:)), mtm);
+    unsafe { save_as.setTarget(Some(editor)) };
     save_as
         .setKeyEquivalentModifierMask(NSEventModifierFlags::Command | NSEventModifierFlags::Shift);
     file.addItem(&NSMenuItem::separatorItem(mtm));

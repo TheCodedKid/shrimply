@@ -340,3 +340,41 @@ pub(super) fn draw_guides(
         );
     }
 }
+
+impl CanvasView {
+    pub fn poll_startup(&self) -> Result<shrimply_preview_render_metal::StartupStatus, String> {
+        use shrimply_editor_state::player_state;
+        use shrimply_preview_render_metal::StartupStatus;
+
+        let session = &self.ivars().session;
+        let player = player_state::snapshot(&session.player_state);
+        let (result, updates) = {
+            let mut content = self.ivars().content.borrow_mut();
+            let Content::Preview(preview) = &mut *content else {
+                return Ok(StartupStatus::Ready);
+            };
+            preview.renderer.set_project_revision(player.revision);
+            let result = preview
+                .renderer
+                .prepare(&session.project.borrow(), player.position);
+            (result, preview.renderer.take_manim_updates())
+        };
+        for update in updates {
+            shrimply_editor_state::manim_status::apply(
+                &session.project,
+                &session.player_state,
+                update,
+            );
+        }
+        result?;
+        let mut content = self.ivars().content.borrow_mut();
+        let Content::Preview(preview) = &mut *content else {
+            unreachable!()
+        };
+        // Manim preparation can revise the project; wait for the matching frame.
+        preview
+            .renderer
+            .set_project_revision(player_state::snapshot(&session.player_state).revision);
+        preview.renderer.startup_status()
+    }
+}

@@ -202,7 +202,7 @@ pub fn show_preferences_dialog(
 
     let blender_row = adw::ActionRow::builder()
         .title(tr!("Blender Binary").as_ref())
-        .subtitle(shrimply_blender_bridge::binary_label(
+        .subtitle(shrimply_blender_core::binary_label(
             snapshot.blender_binary.as_deref(),
         ))
         .build();

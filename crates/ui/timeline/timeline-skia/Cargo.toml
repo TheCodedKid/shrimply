@@ -13,7 +13,7 @@ hashbrown.workspace = true
 imagesize.workspace = true
 reqwest = { workspace = true, features = ["blocking"] }
 shrimply-3dgs-core = { workspace = true }
-shrimply-blender-bridge = { workspace = true }
+shrimply-blender-core = { workspace = true }
 shrimply-property-model = { workspace = true }
 shrimply-math-core = { workspace = true }
 shrimply-pdf = { workspace = true }

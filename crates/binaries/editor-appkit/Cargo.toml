@@ -8,6 +8,7 @@ name = "shrimply-editor-appkit"
 path = "src/main.rs"
 
 [target.'cfg(target_os = "macos")'.dependencies]
+shrimply-caption-export-core.workspace = true
 block2.workspace = true
 tempfile.workspace = true
 objc2-uniform-type-identifiers = "0.3.2"
@@ -19,6 +20,7 @@ shrimply-components-skia = { workspace = true }
 shrimply-surface-metal-skia = { workspace = true }
 shrimply-cross-ui-theme = { workspace = true }
 shrimply-components-core = { workspace = true }
+shrimply-components-appkit.workspace = true
 shrimply-inspector-appkit = { workspace = true }
 skia-safe.workspace = true
 objc2.workspace = true

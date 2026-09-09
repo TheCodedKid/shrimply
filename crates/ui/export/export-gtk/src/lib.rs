@@ -1,7 +1,7 @@
 use shrimply_components_gtk::tr;
 use shrimply_components_gtk::ui::I18nMenuExt;
 pub use shrimply_export_core::audio;
-use shrimply_export_core::{json, output};
+use shrimply_export_core::output;
 pub use shrimply_export_cuda as video;
 
 pub use shrimply_components_gtk::desktop_open;
@@ -9,7 +9,7 @@ pub use shrimply_export_core::{caption, project, time_format};
 
 use shrimply_math_media as math;
 
-use crate::caption::ytt;
+mod captions;
 use adw::prelude::*;
 use gtk::{gio, glib};
 use shrimply_editor_state::preferences;
@@ -31,8 +31,7 @@ pub fn build_export_button(
 ) -> gtk::MenuButton {
     let menu = gio::Menu::new();
     menu.append_i18n("Export video", "export.video");
-    menu.append_i18n("Export captions (YTT)", "export.ytt");
-    menu.append_i18n("Export JSON", "export.json");
+    menu.append_i18n("Export Captions…", "export.captions");
 
     let actions = gio::SimpleActionGroup::new();
     add_menu_action(&actions, "video", {
@@ -42,17 +41,11 @@ pub fn build_export_button(
         let preferences = preferences.clone();
         move || open_export_page(&window, &toasts, project.clone(), preferences.clone())
     });
-    add_menu_action(&actions, "json", {
-        let window = window.clone();
-        let project = project.clone();
-        let toasts = toasts.clone();
-        move || open_project_json_dialog(&window, &toasts, project.clone())
-    });
-    add_menu_action(&actions, "ytt", {
+    add_menu_action(&actions, "captions", {
         let window = window.clone();
         let toasts = toasts.clone();
         let project = project.clone();
-        move || open_ytt_dialog(&window, &toasts, project.clone())
+        move || captions::open_dialog(&window, &toasts, project.clone())
     });
 
     let popover = gtk::PopoverMenu::from_model(Some(&menu));
@@ -66,121 +59,6 @@ pub fn build_export_button(
         .build();
     button.add_css_class("flat");
     button
-}
-
-fn open_ytt_dialog(
-    parent: &adw::ApplicationWindow,
-    toasts: &adw::ToastOverlay,
-    project: Rc<RefCell<project::Project>>,
-) {
-    let merge = gtk::CheckButton::new();
-    merge.set_active(true);
-    let merge_row = adw::ActionRow::builder()
-        .title(tr!("Merge into one file").as_ref())
-        .activatable(true)
-        .build();
-    merge_row.add_prefix(&merge);
-    merge_row.set_activatable_widget(Some(&merge));
-
-    let separate = gtk::CheckButton::new();
-    separate.set_group(Some(&merge));
-    let separate_row = adw::ActionRow::builder()
-        .title(tr!("Export each track separately").as_ref())
-        .activatable(true)
-        .build();
-    separate_row.add_prefix(&separate);
-    separate_row.set_activatable_widget(Some(&separate));
-
-    let modes = gtk::ListBox::new();
-    modes.add_css_class("boxed-list");
-    modes.set_selection_mode(gtk::SelectionMode::None);
-    modes.append(&merge_row);
-    modes.append(&separate_row);
-
-    let content = gtk::Box::new(gtk::Orientation::Vertical, 18);
-    content.set_margin_top(18);
-    content.set_margin_bottom(18);
-    content.set_margin_start(18);
-    content.set_margin_end(18);
-    content.append(&modes);
-
-    let export = gtk::Button::with_label(tr!("Export YTT").as_ref());
-    export.add_css_class("suggested-action");
-    export.add_css_class("pill");
-    export.set_halign(gtk::Align::End);
-    content.append(&export);
-
-    let dialog = adw::Dialog::builder()
-        .title(tr!("Export Captions").as_ref())
-        .content_width(400)
-        .build();
-    let toolbar = adw::ToolbarView::new();
-    toolbar.add_top_bar(&adw::HeaderBar::new());
-    toolbar.set_content(Some(&content));
-    dialog.set_child(Some(&toolbar));
-
-    let export_parent = parent.clone();
-    let toasts = toasts.clone();
-    let close = dialog.clone();
-    export.connect_clicked(move |_| {
-        let export_mode = if merge.is_active() {
-            ytt::ExportMode::Merge
-        } else {
-            ytt::ExportMode::Separate
-        };
-        let label = "Export YouTube Captions";
-        let file_dialog = gtk::FileDialog::builder()
-            .title(tr!(label).as_ref())
-            .initial_name(output::default_filename(&project.borrow(), "ytt"))
-            .build();
-        let parent_for_result = export_parent.clone();
-        let toasts = toasts.clone();
-        let project = project.clone();
-        shrimply_components_gtk::file_picker::save(
-            label,
-            &file_dialog,
-            Some(export_parent.upcast_ref::<gtk::Window>()),
-            move |result| {
-                let Some(file) = result.ok() else {
-                    return;
-                };
-                let Some(path) = file.path() else {
-                    show_export_error(
-                        &parent_for_result,
-                        "Could not export captions",
-                        "Could not resolve the selected file path.",
-                    );
-                    return;
-                };
-                let path = output::ensure_extension(path, "ytt");
-                match ytt::export(&project.borrow(), &path, export_mode) {
-                    Ok(paths) => {
-                        if let Some(path) = paths.first() {
-                            let title = if paths.len() == 1 {
-                                tr!("Captions exported").into_owned()
-                            } else {
-                                shrimply_components_gtk::i18n::text_args(
-                                    "%{count} caption files exported",
-                                    &[("count", paths.len().to_string())],
-                                )
-                            };
-                            shrimply_components_gtk::export_feedback::show_export_finished_text(
-                                &toasts,
-                                &parent_for_result,
-                                &title,
-                                path,
-                            );
-                        }
-                    }
-                    Err(error) => {
-                        show_export_error(&parent_for_result, "Could not export captions", &error)
-                    }
-                }
-            },
-        );
-        close.close();
-    });
-    dialog.present(Some(parent.upcast_ref::<gtk::Widget>()));
 }
 
 fn add_menu_action<F>(group: &gio::SimpleActionGroup, name: &str, activate: F)
@@ -920,84 +798,6 @@ fn update_video_export_progress(
     }
 }
 
-fn open_project_json_dialog(
-    parent: &adw::ApplicationWindow,
-    toasts: &adw::ToastOverlay,
-    project: Rc<RefCell<project::Project>>,
-) {
-    let default_name = output::default_filename(&project.borrow(), "json");
-    let label = "Export JSON";
-    let dialog = gtk::FileDialog::builder()
-        .title(tr!(label).as_ref())
-        .initial_name(&default_name)
-        .build();
-    let parent_for_save = parent.clone();
-    let parent_for_error = parent.clone();
-    let toasts = toasts.clone();
-    let project = project.clone();
-    shrimply_components_gtk::file_picker::save(
-        label,
-        &dialog,
-        Some(parent_for_save.upcast_ref::<gtk::Window>()),
-        move |result| {
-            let Some(file) = result.ok() else {
-                return;
-            };
-            let path = match file.path() {
-                Some(path) => path,
-                None => {
-                    show_export_error(
-                        &parent_for_error,
-                        "Could not export JSON",
-                        "Could not resolve the selected file path.",
-                    );
-                    return;
-                }
-            };
-            let path = output::ensure_extension(path, "json");
-
-            let project = project.borrow().clone();
-            let (sender, receiver) = std::sync::mpsc::channel();
-            thread::spawn(move || {
-                let result = json::export(&project, &path);
-                let _ = sender.send((path, result));
-            });
-
-            let parent = parent_for_error.downgrade();
-            let toasts = toasts.downgrade();
-            glib::timeout_add_local(Duration::from_millis(16), move || {
-                let result = match receiver.try_recv() {
-                    Ok(result) => result,
-                    Err(TryRecvError::Empty) => return glib::ControlFlow::Continue,
-                    Err(TryRecvError::Disconnected) => {
-                        let Some(parent) = parent.upgrade() else {
-                            return glib::ControlFlow::Break;
-                        };
-                        show_export_error(
-                            &parent,
-                            "Could not export JSON",
-                            "The JSON export worker stopped before reporting a result.",
-                        );
-                        return glib::ControlFlow::Break;
-                    }
-                };
-                let Some(parent) = parent.upgrade() else {
-                    return glib::ControlFlow::Break;
-                };
-                match result {
-                    (path, Ok(())) => {
-                        if let Some(toasts) = toasts.upgrade() {
-                            show_export_finished(&toasts, &parent, "JSON exported", &path);
-                        }
-                    }
-                    (_, Err(error)) => show_export_error(&parent, "Could not export JSON", &error),
-                }
-                glib::ControlFlow::Break
-            });
-        },
-    );
-}
-
 fn show_export_error(parent: &adw::ApplicationWindow, heading: &str, body: &str) {
     let dialog = adw::AlertDialog::new(Some(heading), Some(body));
     dialog.add_response("close", tr!("Close").as_ref());
@@ -1008,13 +808,4 @@ fn show_export_error(parent: &adw::ApplicationWindow, heading: &str, body: &str)
         None::<&gio::Cancellable>,
         |_| {},
     );
-}
-
-pub(crate) fn show_export_finished(
-    toasts: &adw::ToastOverlay,
-    parent: &adw::ApplicationWindow,
-    title: &str,
-    path: &std::path::Path,
-) {
-    shrimply_components_gtk::export_feedback::show_export_finished(toasts, parent, title, path);
 }

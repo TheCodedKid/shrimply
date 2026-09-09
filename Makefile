@@ -1,5 +1,6 @@
 RUSTUP ?= rustup
 RUST_TOOLCHAIN ?= nightly-2026-04-03
+HOST_OS := $(shell uname -s)
 CARGO ?= $(RUSTUP) run $(RUST_TOOLCHAIN) cargo
 RUSTC ?= $(RUSTUP) run $(RUST_TOOLCHAIN) rustc
 CARGO_TARGET_DIR ?= target
@@ -221,7 +222,15 @@ build: native-deps cuda-artifacts
 release: native-deps cuda-artifacts
 	$(BUILD_ENV) $(CARGO) build --release -p $(EDITOR_PACKAGE) -p $(LAUNCHER_PACKAGE) -p $(MCP_PACKAGE) --bins
 
+ifeq ($(HOST_OS),Linux)
 check: native-deps qt-native-deps cuda-artifacts fmt source-size-check cargo-check lint server-python-check manim-python-check docs-check
+else ifeq ($(HOST_OS),Darwin)
+check: appkit-check fmt source-size-check
+else
+check:
+	@echo "make check supports Linux and macOS; unsupported platform: $(HOST_OS)" >&2
+	@exit 1
+endif
 
 components-check: native-deps qt-native-deps
 	$(DEV_BUILD_ENV) QMAKE=$(QT_QMAKE) $(CARGO) check -p $(FRAMEGRAPH_CORE_PACKAGE) -p $(GTK_COMPONENTS_PACKAGE) -p $(QT_COMPONENTS_PACKAGE) -p $(GTK_COMPONENTS_DEMO_PACKAGE) -p $(QT_COMPONENTS_DEMO_PACKAGE) --all-targets
