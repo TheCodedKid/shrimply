@@ -11,7 +11,7 @@ use crate::{
 };
 use shrimply_editor_state::player_state::{self, ProjectChange, SharedPlayerState};
 use shrimply_property_model::timeline_value::{TimelineBool, TimelineValue};
-use std::path::PathBuf;
+use std::{cell::RefCell, path::PathBuf};
 
 pub struct AudioRecording {
     pub key: TrackKey,
@@ -41,11 +41,12 @@ impl AudioRecording {
         })
     }
 
-    pub fn finish(self, project: &mut Project, player: &SharedPlayerState) -> Result<(), String> {
+    pub fn finish(self, project: &RefCell<Project>, player: &SharedPlayerState) -> Result<(), String> {
         let finished = self.recording.finish()?;
         if finished.duration <= Time::ZERO {
             return Ok(());
         }
+        let mut project = project.borrow_mut();
         let end = self
             .start
             .saturating_add(finished.duration)
@@ -64,11 +65,13 @@ impl AudioRecording {
             .build();
         items::overwrite_items(&mut track.items, self.start, end);
         items::insert_sorted(&mut track.items, item);
-        crate::project::commit_edit(project, "record-audio");
+        crate::project::commit_edit(&project, "record-audio");
+        let duration = project.duration();
+        drop(project);
         player_state::refresh_project(
             player,
             ProjectChange {
-                duration: Some(project.duration()),
+                duration: Some(duration),
                 audio: true,
                 audio_waveforms: true,
                 inspector: true,

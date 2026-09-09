@@ -362,7 +362,7 @@ impl Drop for Scene {
                 .active_audio_recording
                 .take()
                 .expect("active audio recording exists");
-            if let Err(error) = recording.finish(&mut self.project.borrow_mut(), &self.player) {
+            if let Err(error) = recording.finish(&self.project, &self.player) {
                 tracing::error!(%error, "Could not finish active timeline audio recording");
             }
         }

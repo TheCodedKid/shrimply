@@ -178,7 +178,7 @@ impl Scene {
                 .take()
                 .expect("active audio recording exists");
             let same_track = recording.key == key;
-            recording.finish(&mut self.project.borrow_mut(), &self.player)?;
+            recording.finish(&self.project, &self.player)?;
             if same_track {
                 return Ok(());
             }
@@ -311,7 +311,7 @@ impl Scene {
             return;
         };
         player_state::set_playing(&self.player, false);
-        if let Err(error) = recording.finish(&mut self.project.borrow_mut(), &self.player) {
+        if let Err(error) = recording.finish(&self.project, &self.player) {
             self.pending_errors.push_back(error);
         }
     }
