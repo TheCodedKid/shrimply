@@ -450,6 +450,7 @@ define_class!(
                     shrimply_timeline_skia::view::TimelineScrollInput::Wheel
                 };
                 scene.scroll(self.point(event), glam::Vec2::new((event.scrollingDeltaX() * step) as f32, (event.scrollingDeltaY() * step) as f32), event.modifierFlags().contains(NSEventModifierFlags::Control), input);
+                return;
             }
             self.preview_pointer_event(PointerEvent::Scroll {
                 input: self.preview_input(event),

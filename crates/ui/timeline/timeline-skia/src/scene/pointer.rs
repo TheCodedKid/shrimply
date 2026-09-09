@@ -44,7 +44,8 @@ pub(crate) fn handle_timeline_input(
     frame_step_seconds: f64,
 ) {
     for scroll in std::mem::take(&mut runtime.pending_scrolls) {
-        if !scroll.ctrl {
+        // Surface input already includes native momentum; only wheel input needs easing.
+        if !scroll.ctrl && scroll.input == TimelineScrollInput::Wheel {
             let scrollbar = horizontal_scrollbar(
                 runtime.view,
                 timeline_width,
@@ -98,6 +99,8 @@ pub(crate) fn handle_timeline_input(
                 }
             }
         }
+        runtime.horizontal_scrollbar.cancel_scroll();
+        runtime.vertical_scrollbar.cancel_scroll();
         let previous_zoom = runtime.view.seconds_per_pixel;
         runtime.overscroll = handle_scroll(
             &mut runtime.view,
