@@ -54,43 +54,13 @@ users, and stop the process to remove access.
 Containers
 ----------
 
-The Linux amd64 image installs Python and server dependencies when the container
-starts. The Compose configuration enables GPU access and preserves the virtual
-environment, uv cache, managed Python installation, and downloaded models
-between runs. Startup synchronizes the mounted environment against the image's
-lockfile.
-The host needs an NVIDIA driver compatible with CUDA 12.6 and
-NVIDIA Container Toolkit.
-
-Use the development Compose override to build locally with CUDA 12.6.
-It inherits the same persistent mounts:
+The Compose configuration enables GPU access and preserves downloaded models
+between runs.
 
 .. code-block:: console
 
    $ cd server
-   $ docker compose -f compose.yaml -f compose.dev.yaml up --build
-
-CI publishes the image to ``ghcr.io/soirihiroka/shrimply-server`` from
-``main`` using the rolling tag ``prerelease-cuda12.6``.
-Pull and run a published image without building:
-
-.. code-block:: console
-
-   $ docker compose pull
-   $ docker compose up --no-build
-
-Each CI run also publishes UTC timestamped tags, such as
-``prerelease-20260909T143000Z-cuda12.6``. To select a specific published build,
-set ``SHRIMPLY_SERVER_TAG`` to its tag before pulling and starting:
-
-.. code-block:: console
-
-   $ export SHRIMPLY_SERVER_TAG=prerelease-20260909T143000Z-cuda12.6
-   $ docker compose pull
-   $ docker compose up --no-build
-
-Startup installs dependencies from the committed ``uv.lock``.
-Model weights still download on first use.
+   $ docker compose up
 
 Compute features
 ----------------
