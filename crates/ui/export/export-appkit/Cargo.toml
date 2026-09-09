@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [target.'cfg(target_os = "macos")'.dependencies]
+shrimply-caption-export-core.workspace = true
+shrimply-components-appkit.workspace = true
 objc2.workspace = true
 objc2-app-kit.workspace = true
 objc2-foundation.workspace = true

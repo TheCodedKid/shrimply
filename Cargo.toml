@@ -25,6 +25,7 @@ members = [
     "crates/project/property-model",
     "crates/project/project-evaluation",
     "crates/render/export/export-core",
+    "crates/render/export/caption-export-core",
     "crates/render/export/export-cuda",
     "crates/render/export/export-metal",
     "crates/ui/export/export-appkit",
@@ -145,6 +146,7 @@ default-members = ["crates/binaries/editor-gtk", "crates/binaries/launcher-gtk"]
 exclude = ["external/vtracer"]
 
 [workspace.dependencies]
+shrimply-caption-export-core = { path = "crates/render/export/caption-export-core" }
 shrimply-gpu-vulkan = { path = "crates/gpu/vulkan/gpu-vulkan" }
 shrimply-denoise-metal = { path = "crates/gpu/denoise/denoise-metal" }
 shrimply-gpu-metal = { path = "crates/gpu/metal/gpu-metal" }

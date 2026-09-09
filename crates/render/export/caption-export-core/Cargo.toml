@@ -1,0 +1,8 @@
+[package]
+name = "shrimply-caption-export-core"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+shrimply-project-document = { workspace = true, default-features = false }
+shrimply-math-core.workspace = true

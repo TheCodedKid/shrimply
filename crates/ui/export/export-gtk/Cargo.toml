@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+shrimply-caption-export-core.workspace = true
 adw.workspace = true
 glam.workspace = true
 gtk.workspace = true

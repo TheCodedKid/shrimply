@@ -5489,6 +5489,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "shrimply-caption-export-core"
+version = "0.1.0"
+dependencies = [
+ "shrimply-math-core",
+ "shrimply-project-document",
+]
+
+[[package]]
 name = "shrimply-components-appkit"
 version = "0.1.0"
 dependencies = [
@@ -5760,6 +5768,7 @@ dependencies = [
  "objc2-screen-capture-kit",
  "objc2-uniform-type-identifiers",
  "shrimply-asset",
+ "shrimply-caption-export-core",
  "shrimply-components-core",
  "shrimply-components-skia",
  "shrimply-cross-ui-core",
@@ -5884,6 +5893,8 @@ dependencies = [
  "objc2",
  "objc2-app-kit",
  "objc2-foundation",
+ "shrimply-caption-export-core",
+ "shrimply-components-appkit",
  "shrimply-export-core",
  "shrimply-export-metal",
  "shrimply-project-document",
@@ -5927,6 +5938,7 @@ dependencies = [
  "glam 0.33.5",
  "gtk4",
  "libadwaita",
+ "shrimply-caption-export-core",
  "shrimply-components-gtk",
  "shrimply-editor-state",
  "shrimply-export-core",
