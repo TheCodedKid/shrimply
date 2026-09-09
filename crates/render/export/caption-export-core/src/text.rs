@@ -23,8 +23,9 @@ pub fn document(items: &[&CaptionItem], webvtt: bool) -> Result<String, String> 
     } else {
         String::new()
     };
-    if webvtt && items.iter().any(|item| item.styling_enabled) {
+    if webvtt {
         output.push_str("STYLE\n");
+        output.push_str("::cue(.timed:future) { visibility: hidden; }\n");
         for (index, item) in items
             .iter()
             .enumerate()
@@ -60,9 +61,6 @@ pub fn document(items: &[&CaptionItem], webvtt: bool) -> Result<String, String> 
         )
         .unwrap();
         let mut payload = String::new();
-        if webvtt && item.styling_enabled {
-            write!(payload, "<c.cue{index}>").unwrap();
-        }
         let mut previous_offset = 0;
         for span in markup::parse(&item.text) {
             if webvtt {
@@ -83,6 +81,11 @@ pub fn document(items: &[&CaptionItem], webvtt: bool) -> Result<String, String> 
                         math::timestamp(timestamp, MILLIS_PER_SECOND, '.')
                     )
                     .unwrap();
+                }
+                if item.styling_enabled {
+                    write!(payload, "<c.cue{index}.timed>").unwrap();
+                } else {
+                    payload.push_str("<c.timed>");
                 }
             }
             for (enabled, tag) in [(span.bold, "b"), (span.italic, "i"), (span.underline, "u")] {
@@ -116,9 +119,9 @@ pub fn document(items: &[&CaptionItem], webvtt: bool) -> Result<String, String> 
                     write!(payload, "</{tag}>").unwrap();
                 }
             }
-        }
-        if webvtt && item.styling_enabled {
-            payload.push_str("</c>");
+            if webvtt {
+                payload.push_str("</c>");
+            }
         }
         // Empty physical lines terminate cues in both formats. A zero-width space
         // preserves an intentional blank display line without ending the cue.
@@ -151,16 +154,33 @@ fn settings(item: &CaptionItem) -> String {
     if !item.layout_enabled {
         return String::new();
     }
-    let (align, anchor) = match item.h_align {
+    let (mut align, mut anchor) = match item.h_align {
         HorizontalAlign::Left => ("left", "line-left"),
         HorizontalAlign::Center => ("center", "center"),
         HorizontalAlign::Right => ("right", "line-right"),
     };
-    let line_anchor = match item.v_align {
+    let mut line_anchor = match item.v_align {
         VerticalAlign::Top => "start",
         VerticalAlign::Middle => "center",
         VerticalAlign::Bottom => "end",
     };
+    if matches!(
+        item.writing_direction,
+        CaptionWritingDirection::VerticalRightToLeft | CaptionWritingDirection::VerticalLeftToRight
+    ) {
+        (align, anchor) = match item.v_align {
+            VerticalAlign::Top => ("start", "line-left"),
+            VerticalAlign::Middle => ("center", "center"),
+            VerticalAlign::Bottom => ("end", "line-right"),
+        };
+        // Percentage line settings use the left edge for both vertical
+        // directions in WebVTT's rendering algorithm (snap-to-lines is false).
+        line_anchor = match item.h_align {
+            HorizontalAlign::Left => "start",
+            HorizontalAlign::Center => "center",
+            HorizontalAlign::Right => "end",
+        };
+    }
     let (direction, line, position) = match item.writing_direction {
         CaptionWritingDirection::VerticalRightToLeft => {
             (" vertical:rl", item.position_x, item.position_y)

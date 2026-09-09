@@ -8,7 +8,6 @@ use std::fmt::Write;
 const DEFAULT_MARGIN: u32 = 10;
 const EDGE_WIDTH: u8 = 1;
 const BACKGROUND_PADDING: u8 = 2;
-const MILLIS_PER_CENTISECOND: u64 = 10;
 
 pub fn document(items: &[&CaptionItem], canvas: CanvasSize) -> Result<String, String> {
     if canvas.width == 0 || canvas.height == 0 {
@@ -65,89 +64,78 @@ pub fn document(items: &[&CaptionItem], canvas: CanvasSize) -> Result<String, St
         };
         writeln!(output,
             "Style: Cue{index},{font},{size},{},{},{},{},0,0,0,0,100,100,0,0,{border},{outline},{shadow},{alignment},{DEFAULT_MARGIN},{DEFAULT_MARGIN},{DEFAULT_MARGIN},1",
-            color(foreground), color(Color { a: 0, ..foreground }), color(outline_color), color(edge),
+            color(foreground), color(foreground), color(outline_color), color(edge),
         ).unwrap();
     }
     output.push_str("\n[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n");
     for (index, item) in items.iter().enumerate() {
         let (start, end) = math::cue_ticks(item, CENTIS_PER_SECOND)?;
-        write!(
-            output,
-            "Dialogue: 0,{},{},Cue{index},,0,0,0,,",
-            math::timestamp(start, CENTIS_PER_SECOND, '.'),
-            math::timestamp(end, CENTIS_PER_SECOND, '.'),
-        )
-        .unwrap();
-        if item.layout_enabled {
-            write!(
-                output,
-                "{{\\an{}\\pos({},{})}}",
-                math::ass_alignment(item),
-                math::coordinate(item.position_x, canvas.width),
-                math::coordinate(item.position_y, canvas.height),
-            )
-            .unwrap();
-            match item.writing_direction {
-                CaptionWritingDirection::RotatedLeftToRight => output.push_str("{\\frz270}"),
-                CaptionWritingDirection::RotatedRightToLeft => output.push_str("{\\frz90}"),
-                _ => {}
-            }
-        }
-        if item.styling_enabled && item.edge_style == CaptionEdgeStyle::SoftShadow {
-            output.push_str("{\\blur1}");
-        }
         let spans = markup::parse(&item.text);
-        let timed = spans.iter().any(|span| span.start_millis > 0);
-        let mut previous_millis = 0;
-        let mut karaoke_end = 0;
-        for (span_index, span) in spans.iter().enumerate() {
-            if span.start_millis < previous_millis {
-                return Err(format!("Caption {} has out-of-order timed spans.", item.id));
-            }
-            previous_millis = span.start_millis;
-            let offset = u64::from(span.start_millis) / MILLIS_PER_CENTISECOND;
-            if offset >= end - start {
-                break;
-            }
-            if timed {
-                if offset > karaoke_end {
-                    write!(output, "{{\\k{}}}\u{200b}", offset - karaoke_end).unwrap();
-                }
-                // Adjacent markup spans at the same offset light up together.
-                let next_offset = spans
-                    .get(span_index + 1)
-                    .map(|next| u64::from(next.start_millis) / MILLIS_PER_CENTISECOND)
-                    .unwrap_or(end - start)
-                    .min(end - start);
-                let duration = next_offset.saturating_sub(offset);
-                write!(output, "{{\\k{duration}}}").unwrap();
-                karaoke_end = offset + duration;
-            }
+        let intervals =
+            math::reveal_intervals(spans.iter().map(|span| span.start_millis), end - start);
+        if intervals.is_empty() {
+            return Err(format!(
+                "Caption {} has no timed text within its time range.",
+                item.id
+            ));
+        }
+        // Emit only text that has appeared in each interval. Unlike karaoke fill
+        // alpha, this also prevents future backgrounds, outlines and shadows.
+        for (visible_at, visible_until) in intervals {
             write!(
                 output,
-                "{{\\b{}\\i{}\\u{}}}",
-                u8::from(span.bold),
-                u8::from(span.italic),
-                u8::from(span.underline)
+                "Dialogue: 0,{},{},Cue{index},,0,0,0,,",
+                math::timestamp(start + visible_at, CENTIS_PER_SECOND, '.'),
+                math::timestamp(start + visible_until, CENTIS_PER_SECOND, '.'),
             )
             .unwrap();
-            let visible = span.ruby.as_ref().map_or_else(
-                || span.text.clone(),
-                |ruby| format!("{} ({})", ruby.base, ruby.annotation),
-            );
-            // ASS has no portable escape for a literal backslash immediately
-            // before N/n/h. A zero-width separator keeps it literal in libass.
-            output.push_str(
-                &visible
-                    .replace("\r\n", "\n")
-                    .replace('\r', "\n")
-                    .replace('\\', "\\\u{200b}")
-                    .replace('{', "\\{")
-                    .replace('}', "\\}")
-                    .replace('\n', "\\N"),
-            );
+            if item.layout_enabled {
+                write!(
+                    output,
+                    "{{\\an{}\\pos({},{})}}",
+                    math::ass_alignment(item),
+                    math::coordinate(item.position_x, canvas.width),
+                    math::coordinate(item.position_y, canvas.height),
+                )
+                .unwrap();
+                match item.writing_direction {
+                    CaptionWritingDirection::RotatedLeftToRight => output.push_str("{\\frz270}"),
+                    CaptionWritingDirection::RotatedRightToLeft => output.push_str("{\\frz90}"),
+                    _ => {}
+                }
+            }
+            if item.styling_enabled && item.edge_style == CaptionEdgeStyle::SoftShadow {
+                output.push_str("{\\blur1}");
+            }
+            for span in spans.iter().filter(|span| {
+                u64::from(span.start_millis) / math::MILLIS_PER_CENTISECOND <= visible_at
+            }) {
+                write!(
+                    output,
+                    "{{\\b{}\\i{}\\u{}}}",
+                    u8::from(span.bold),
+                    u8::from(span.italic),
+                    u8::from(span.underline)
+                )
+                .unwrap();
+                let visible = span.ruby.as_ref().map_or_else(
+                    || span.text.clone(),
+                    |ruby| format!("{} ({})", ruby.base, ruby.annotation),
+                );
+                // ASS has no portable escape for a literal backslash immediately
+                // before N/n/h. A zero-width separator keeps it literal in libass.
+                output.push_str(
+                    &visible
+                        .replace("\r\n", "\n")
+                        .replace('\r', "\n")
+                        .replace('\\', "\\\u{200b}")
+                        .replace('{', "\\{")
+                        .replace('}', "\\}")
+                        .replace('\n', "\\N"),
+                );
+            }
+            output.push('\n');
         }
-        output.push('\n');
     }
     Ok(output)
 }
