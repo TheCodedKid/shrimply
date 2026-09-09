@@ -60,7 +60,7 @@ ApplicationWindow {
                     }
                     Label {
                         Layout.fillWidth: true
-                        text: backend.translate("A simple video editor")
+                        text: backend.translate("A simple yet powerful cross platform video editor.")
                         wrapMode: Text.Wrap
                     }
                     Label {
@@ -94,13 +94,8 @@ ApplicationWindow {
 
                     Label {
                         Layout.fillWidth: true
-                        text: backend.translate("A simple video editor")
+                        text: backend.translate("A simple yet powerful cross platform video editor.")
                         font.pointSize: 14
-                        wrapMode: Text.Wrap
-                    }
-                    Label {
-                        Layout.fillWidth: true
-                        text: "Shrimply brings your ideas to life."
                         wrapMode: Text.Wrap
                     }
                     RowLayout {
