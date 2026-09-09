@@ -307,6 +307,17 @@ pub fn fraction_floor_i64(value: Fraction) -> Option<i64> {
     i64::try_from(numerator.div_euclid(denominator)).ok()
 }
 
+/// Truncates a finite, nonnegative time to whole ticks without floating point.
+pub fn time_ticks(time: Time, ticks_per_second: u32) -> Option<u64> {
+    if ticks_per_second == 0 {
+        return None;
+    }
+    let (numerator, denominator) = fraction_ratio_i128(time.seconds)?;
+    let numerator = u128::try_from(numerator).ok()?;
+    let denominator = u128::try_from(denominator).ok()?;
+    u64::try_from(numerator.checked_mul(u128::from(ticks_per_second))? / denominator).ok()
+}
+
 pub fn fraction_ceil_i64(value: Fraction) -> Option<i64> {
     let (numerator, denominator) = fraction_ratio_i128(value)?;
     i64::try_from((-numerator).div_euclid(denominator).checked_neg()?).ok()

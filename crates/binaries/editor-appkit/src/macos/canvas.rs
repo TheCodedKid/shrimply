@@ -17,6 +17,7 @@ use std::{
 };
 
 mod context_audio;
+mod context_captions;
 mod context_frame;
 mod context_menu;
 mod context_video;

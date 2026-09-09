@@ -2,6 +2,7 @@
 
 mod action;
 mod controls;
+pub mod export_dialog;
 mod frame_graph;
 mod host;
 mod inspector;

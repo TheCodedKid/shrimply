@@ -45,7 +45,16 @@ pub fn export_menu(editor: &Editor) -> Retained<NSMenu> {
     unsafe {
         video.setTarget(Some(editor));
     }
-    item(&menu, "Export captions (YTT)", "", None, mtm);
+    let captions = item(
+        &menu,
+        "Export Captions…",
+        "",
+        Some(sel!(exportCaptions:)),
+        mtm,
+    );
+    unsafe {
+        captions.setTarget(Some(editor));
+    }
     item(&menu, "Export JSON", "", None, mtm);
     menu
 }
